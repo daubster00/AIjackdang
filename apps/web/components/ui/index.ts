@@ -51,3 +51,6 @@ export * from "./Icon";
 
 // 태그 입력 (Story 2.7)
 export * from "./TagInput";
+
+// 별점 입력 (Story 4.7)
+export * from "./RatingInput";
