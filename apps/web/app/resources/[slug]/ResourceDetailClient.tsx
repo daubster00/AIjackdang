@@ -305,11 +305,45 @@ export function ResourceDetailClient({
     [requireAuth, myRating, avgRating, ratingCount, resourceId, toast],
   );
 
-  const handleDelete = () => {
-    // TODO: Story 4.8 — 확인 다이얼로그 + DELETE /api/v1/resources/:id 연결
-    if (!confirm("자료를 삭제하시겠습니까?")) return;
-    console.warn("[4.8 TODO] DELETE /api/v1/resources/" + resourceId);
-  };
+  // ── 삭제 핸들러 (Story 4.8) ─────────────────────────────────────────────────
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = useCallback(async () => {
+    // 확인 다이얼로그 (AC #4)
+    const confirmed = window.confirm(
+      "자료를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/resources/${resourceId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const message =
+          (data as { error?: { message?: string } }).error?.message ??
+          "삭제 중 오류가 발생했습니다.";
+        toast({ tone: "danger", title: message });
+        return;
+      }
+
+      // 삭제 성공: 해당 자료유형 독립 목록 페이지로 이동 (규칙⑧, AC #4)
+      toast({ tone: "success", title: "자료가 삭제되었습니다." });
+
+      // resourceSlug에서 유형 경로를 추론할 수 없으므로 /resources로 이동
+      // (실제로는 ResourceDetailPage에서 pageType을 prop으로 내려받는 것이 이상적이나,
+      //  기존 인터페이스 변경 최소화 원칙에 따라 /resources로 fallback)
+      router.push("/resources");
+    } catch {
+      toast({ tone: "danger", title: "삭제 중 오류가 발생했습니다." });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [resourceId, toast, router]);
 
   // ── 비회원 게이팅 모달 (redirectTo: /resources/{slug}?download=true) ──────────
   // LoginGatingModal의 intendedAction을 사용하면 ?action=download 로 리다이렉트되므로
@@ -449,10 +483,14 @@ export function ResourceDetailClient({
             <Icon name="edit-2-line" />
             수정하기
           </button>
-          {/* TODO: Story 4.8 — 삭제 확인 다이얼로그 + API 연결 */}
-          <button type="button" onClick={handleDelete}>
-            <Icon name="delete-bin-line" />
-            삭제하기
+              <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            aria-disabled={isDeleting}
+          >
+            <Icon name={isDeleting ? "loader-4-line" : "delete-bin-line"} />
+            {isDeleting ? "삭제 중..." : "삭제하기"}
           </button>
         </div>
       )}

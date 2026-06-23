@@ -60,7 +60,7 @@ development_status:
   4-5-file-upload-security-pipeline: done
   4-6-resource-download: done
   4-7-resource-rating: done
-  4-8-resource-edit-delete: ready-for-dev
+  4-8-resource-edit-delete: review
   4-9-mypage-resource-tab-collection-jsonld: ready-for-dev
   epic-4-retrospective: optional
 

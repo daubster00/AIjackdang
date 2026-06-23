@@ -64,6 +64,9 @@ export const allowedExtension = pgEnum("allowed_extension", [
 /** 파일 바이러스 스캔 상태 (worker ClamAV) */
 export const scanStatus = pgEnum("scan_status", ["pending", "clean", "infected", "error"]);
 
+/** 첨부파일 운영 상태 (soft-delete용, AR-7) */
+export const resourceFileStatus = pgEnum("resource_file_status", ["active", "deleted"]);
+
 // ── resources ─────────────────────────────────────────────────────────────────
 
 export const resources = pgTable(
@@ -162,12 +165,16 @@ export const resourceFiles = pgTable(
     // 표시 순서
     displayOrder: integer("display_order").notNull().default(0),
 
+    // 파일 운영 상태 (soft-delete 대용 — AR-7. S3 실제 삭제는 Epic 9 cleanup worker)
+    fileStatus: resourceFileStatus("file_status").notNull().default("active"),
+
     // 타임스탬프
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("resource_files_resource_id_idx").on(t.resourceId),
     index("resource_files_scan_status_idx").on(t.scanStatus),
+    index("resource_files_file_status_idx").on(t.fileStatus),
     uniqueIndex("resource_files_storage_key_uq").on(t.storageKey),
   ],
 );

@@ -103,6 +103,37 @@ interface AttachedFile {
   error: string | null;
 }
 
+/**
+ * 편집 모드용 초기 데이터 (Story 4.8).
+ * 모든 필드 선택적 — 제공된 필드만 폼에 prefill.
+ */
+export interface ResourceWriteFormInitialData {
+  resourceType?: ResourceTypeValue;
+  title?: string;
+  summary?: string;
+  environment?: string[];
+  difficulty?: "beginner" | "intermediate" | "advanced";
+  descriptionJson?: JSONContent;
+  usageJson?: JSONContent;
+  cautionJson?: JSONContent | null;
+  version?: string;
+  tags?: string[];
+}
+
+/**
+ * ResourceWriteForm props.
+ * 기본(신규 등록) 모드: props 없이 호출.
+ * 편집 모드: resourceId + initialData 전달.
+ */
+export interface ResourceWriteFormProps {
+  /** 편집 대상 자료 ID (undefined = 신규 등록 모드) */
+  resourceId?: string;
+  /** 편집 모드용 초기 데이터 */
+  initialData?: ResourceWriteFormInitialData;
+  /** 성공 후 이동할 slug (편집 모드에서 사용) */
+  returnSlug?: string;
+}
+
 // ── 유틸 ──────────────────────────────────────────────────────────────────────
 
 function formatSize(bytes: number): string {
@@ -132,22 +163,35 @@ function typeToPageType(resourceType: string): string {
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
-export function ResourceWriteForm() {
+export function ResourceWriteForm({
+  resourceId,
+  initialData,
+  returnSlug,
+}: ResourceWriteFormProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
+
+  /** 편집 모드 여부 */
+  const isEditMode = !!resourceId;
 
   // ── 스텝 상태 ──────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(1);
 
   // ── Step 1: 유형 ───────────────────────────────────────────────────────────
-  const [resourceType, setResourceType] = useState<ResourceTypeValue>("prompt");
+  const [resourceType, setResourceType] = useState<ResourceTypeValue>(
+    initialData?.resourceType ?? "prompt",
+  );
 
   // ── Step 2: 공통 정보 ──────────────────────────────────────────────────────
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [environments, setEnvironments] = useState<string[]>([]);
-  const [difficulty, setDifficulty] = useState<"beginner" | "intermediate" | "advanced">("beginner");
-  const [descriptionJson, setDescriptionJson] = useState<JSONContent>({ type: "doc", content: [] });
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [summary, setSummary] = useState(initialData?.summary ?? "");
+  const [environments, setEnvironments] = useState<string[]>(initialData?.environment ?? []);
+  const [difficulty, setDifficulty] = useState<"beginner" | "intermediate" | "advanced">(
+    initialData?.difficulty ?? "beginner",
+  );
+  const [descriptionJson, setDescriptionJson] = useState<JSONContent>(
+    initialData?.descriptionJson ?? { type: "doc", content: [] },
+  );
 
   // ── Step 3: 첨부파일 ───────────────────────────────────────────────────────
   const [files, setFiles] = useState<AttachedFile[]>([]);
@@ -157,11 +201,15 @@ export function ResourceWriteForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Step 4: 사용법/주의사항 ────────────────────────────────────────────────
-  const [usageJson, setUsageJson] = useState<JSONContent>({ type: "doc", content: [] });
-  const [cautionJson, setCautionJson] = useState<JSONContent | null>(null);
+  const [usageJson, setUsageJson] = useState<JSONContent>(
+    initialData?.usageJson ?? { type: "doc", content: [] },
+  );
+  const [cautionJson, setCautionJson] = useState<JSONContent | null>(
+    initialData?.cautionJson ?? null,
+  );
 
   // ── Step 5: 태그 ───────────────────────────────────────────────────────────
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(initialData?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
 
   // ── Step 7: 저작권 ────────────────────────────────────────────────────────
@@ -274,6 +322,70 @@ export function ResourceWriteForm() {
   // ── API 제출 ───────────────────────────────────────────────────────────────
 
   async function submitResource(status: "published" | "draft") {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4003";
+
+    if (isEditMode && resourceId) {
+      // ── 편집 모드: PATCH /api/v1/resources/:id ────────────────────────────
+      const resourceBody: Record<string, unknown> = {
+        title: title.trim(),
+        summary: summary.trim(),
+        resourceType,
+        environment: environments,
+        difficulty,
+        descriptionJson,
+        usageJson,
+        cautionJson: cautionJson ?? undefined,
+        tags,
+      };
+      if (status === "published") {
+        resourceBody.copyrightAgreed = true;
+      }
+
+      const res = await fetch(`${apiBase}/api/v1/resources/${resourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ resource: resourceBody }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = (data as { error?: { message?: string } }).error?.message ?? "수정에 실패했습니다.";
+        throw new Error(msg);
+      }
+
+      const data = (await res.json()) as {
+        id: string;
+        slug: string;
+        resourceType: string;
+        status: string;
+      };
+
+      // 새 파일 첨부 (4.5 파이프라인 재호출)
+      if (files.length > 0) {
+        try {
+          const formData = new FormData();
+          files.forEach((f) => formData.append("files", f.file));
+          if (primaryFileIndex !== null) {
+            formData.append("primaryIndex", String(primaryFileIndex));
+          }
+          await fetch(`${apiBase}/api/v1/resources/${data.id}/files`, {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          });
+        } catch {
+          // 파일 업로드 오류는 non-fatal
+        }
+      }
+
+      return {
+        ...data,
+        pageType: typeToPageType(data.resourceType),
+      };
+    }
+
+    // ── 신규 등록 모드: POST /api/v1/resources ────────────────────────────────
     const endpoint = status === "draft" ? "/api/v1/resources/draft" : "/api/v1/resources";
 
     const body: Record<string, unknown> = {
@@ -292,7 +404,6 @@ export function ResourceWriteForm() {
       body.copyrightAgreed = true;
     }
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4003";
     const res = await fetch(`${apiBase}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -341,12 +452,19 @@ export function ResourceWriteForm() {
     setIsSubmitting(true);
     try {
       const data = await submitResource("published");
-      toast({ title: "자료가 등록되었습니다.", tone: "success" });
-      const pageType = data.pageType ?? typeToPageType(data.resourceType);
-      router.push(`/resources/${pageType}/${data.slug}`);
+      if (isEditMode) {
+        toast({ title: "수정되었습니다.", tone: "success" });
+        // 편집 모드: 기존 슬러그나 반환 슬러그로 이동
+        const slug = returnSlug ?? data.slug;
+        router.push(`/resources/${slug}`);
+      } else {
+        toast({ title: "자료가 등록되었습니다.", tone: "success" });
+        const pageType = data.pageType ?? typeToPageType(data.resourceType);
+        router.push(`/resources/${pageType}/${data.slug}`);
+      }
     } catch (err) {
       toast({
-        title: err instanceof Error ? err.message : "등록 중 오류가 발생했습니다.",
+        title: err instanceof Error ? err.message : (isEditMode ? "수정 중 오류가 발생했습니다." : "등록 중 오류가 발생했습니다."),
         tone: "danger",
       });
     } finally {
@@ -890,9 +1008,11 @@ export function ResourceWriteForm() {
       {currentStep === 7 && (
         <section>
           <header className={styles.stepHeader}>
-            <h2 className={styles.stepTitle}>마지막 단계입니다</h2>
+            <h2 className={styles.stepTitle}>{isEditMode ? "수정 완료" : "마지막 단계입니다"}</h2>
             <p className={styles.stepDesc}>
-              저작권 동의 후 등록하거나, 임시저장하고 나중에 완성할 수 있습니다.
+              {isEditMode
+                ? "저작권 동의 후 수정 내용을 저장합니다."
+                : "저작권 동의 후 등록하거나, 임시저장하고 나중에 완성할 수 있습니다."}
             </p>
           </header>
 
@@ -915,24 +1035,26 @@ export function ResourceWriteForm() {
               이전
             </button>
             <div className={styles.rightBtns}>
-              <button
-                type="button"
-                className={styles.saveBtn}
-                onClick={handleSaveDraft}
-                disabled={isSaving || isSubmitting}
-              >
-                {isSaving ? "저장 중…" : "임시저장"}
-              </button>
+              {!isEditMode && (
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  onClick={handleSaveDraft}
+                  disabled={isSaving || isSubmitting}
+                >
+                  {isSaving ? "저장 중…" : "임시저장"}
+                </button>
+              )}
               <button
                 type="button"
                 className={styles.stepNavNext}
                 onClick={handleSubmit}
                 disabled={!copyrightAgreed || isSubmitting || isSaving}
               >
-                {isSubmitting ? "등록 중…" : (
+                {isSubmitting ? (isEditMode ? "수정 중…" : "등록 중…") : (
                   <>
-                    <Icon name="upload-2-line" />
-                    등록하기
+                    <Icon name={isEditMode ? "save-line" : "upload-2-line"} />
+                    {isEditMode ? "저장하기" : "등록하기"}
                   </>
                 )}
               </button>

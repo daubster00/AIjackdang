@@ -26,6 +26,7 @@ import { registerResourceUploadRoutes } from "./upload.route.js"; // Story 4.5
 import { registerResourceWriteRoutes } from "./write.route.js"; // Story 4.4
 import { registerResourceDownloadRoutes } from "./download.route.js"; // Story 4.6
 import { registerResourceRatingRoutes } from "./rating.route.js"; // Story 4.7
+import { registerResourceMutateRoutes } from "./mutate.route.js"; // Story 4.8
 
 export async function resourcesRoutes(app: FastifyInstance): Promise<void> {
   // ── [STORY-REGISTRATIONS] 각 스토리는 이 아래에 `await register...(app);` 한 줄 추가 ──
@@ -35,4 +36,5 @@ export async function resourcesRoutes(app: FastifyInstance): Promise<void> {
   await registerResourceWriteRoutes(app); // Story 4.4
   await registerResourceDownloadRoutes(app); // Story 4.6
   await registerResourceRatingRoutes(app); // Story 4.7
+  await registerResourceMutateRoutes(app); // Story 4.8
 }
