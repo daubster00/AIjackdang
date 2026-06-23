@@ -137,6 +137,8 @@ export type ResourceDetail = z.infer<typeof resourceDetailSchema>;
  */
 export const listResourcesQuerySchema = paginationQuerySchema.extend({
   type: resourceTypeSchema.optional(),
+  // 콤마 구분 다중 유형(우선 적용). 예) "claude-code-skill,mcp" — mcp-skills 페이지가 2종을 함께 노출
+  types: z.string().optional(),
   environment: z.string().optional(),
   difficulty: difficultySchema.optional(),
   sort: z.enum(["latest", "popular", "rating", "downloads", "reviews"]).default("latest"),
