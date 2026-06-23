@@ -76,7 +76,7 @@ vi.mock("@ai-jakdang/database", () => {
 
 // ── 테스트 임포트 (vi.mock 이후) ─────────────────────────────────────────────
 // dynamic import 사용 (호이스팅 회피)
-const { updateResource, deleteResource, getMyResources, MutateServiceError } = await import(
+const { updateResource, deleteResource, MutateServiceError } = await import(
   "./mutate.service.js"
 );
 
