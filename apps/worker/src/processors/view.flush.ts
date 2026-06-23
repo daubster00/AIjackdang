@@ -1,8 +1,15 @@
 /**
- * view.flush processor — Story 2.4
+ * view.flush processor — Story 2.4 + Story 5.3
  *
- * BullMQ 반복 job(매 1분). Redis의 view:post:{id} 키를 스캔하여
- * DB posts.view_count 에 누적 flush 후 키 삭제.
+ * BullMQ 반복 job(매 1분). Redis의 view:{targetType}:{id} 키를 스캔하여
+ * 해당 테이블의 view_count에 누적 flush 후 키 삭제.
+ *
+ * 지원 타겟: post, question, resource (Story 5.3 추가)
+ *
+ * 키 패턴:
+ *   incr key  : view:post:{id} / view:question:{id} / view:resource:{id}
+ *   dedup key : view:post:{id}:{fp} (old, 4 segment) OR view:dedup:{type}:{id}:{fp} (new, 5 segment)
+ *   → dedup 키는 SCAN 패턴에서 제외됨 (segment 수 또는 prefix로 구분)
  *
  * 멱등 처리: Lua 스크립트로 GET+DEL 원자 실행 → 재시도 시 중복 없음.
  * AR-16·AR-17: 직접 UPDATE 허용(worker flush 경로만).
@@ -29,8 +36,7 @@ function getRedis(): Redis {
 
 /**
  * Lua 스크립트: GET + DEL 원자 실행.
- * 값이 없거나 0이면 false 반환 → 업데이트 건너뜀.
- * 반환: value (삭제 성공) or null (없음)
+ * 반환: 값 (삭제 성공) or null (없음)
  */
 const GET_DEL_SCRIPT = `
 local val = redis.call("GET", KEYS[1])
@@ -41,63 +47,94 @@ end
 return false
 `;
 
+type TargetType = "post" | "question" | "resource";
+
 /**
- * view:post:{id} 패턴 키에서 postId를 추출한다.
- * dedup 키(view:post:{id}:{fp})는 건너뜀 — 콜론이 2개인 것만 처리.
+ * `view:{targetType}:{uuid}` 패턴 키에서 targetType과 id를 추출한다.
+ * - 3 segment: incr 키 → 처리 대상
+ * - 4+ segment: dedup 키 (old pattern "view:post:{id}:{fp}") → 건너뜀
+ * - "view:dedup:..." 키도 건너뜀
  */
-function extractPostId(key: string): string | null {
-  // key 형식: "view:post:{uuid}" — 정확히 3 segment
+function extractTarget(key: string): { targetType: TargetType; targetId: string } | null {
+  if (key.startsWith("view:dedup:")) return null;
   const parts = key.split(":");
-  if (parts.length !== 3) return null; // dedup key는 4+ segment
-  return parts[2] ?? null;
+  // 정확히 3 segment만 incr 키 (view:{type}:{uuid})
+  if (parts.length !== 3) return null;
+  const targetType = parts[1] as TargetType;
+  if (!["post", "question", "resource"].includes(targetType)) return null;
+  return { targetType, targetId: parts[2]! };
+}
+
+async function flushTarget(
+  redis: Redis,
+  pattern: string,
+  processed: Map<string, { targetType: TargetType; delta: number }>,
+): Promise<void> {
+  let cursor = "0";
+  do {
+    const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+    cursor = nextCursor;
+
+    for (const key of keys) {
+      const extracted = extractTarget(key);
+      if (!extracted) continue;
+
+      const rawVal = (await redis.eval(GET_DEL_SCRIPT, 1, key)) as string | null;
+      if (!rawVal) continue;
+
+      const delta = parseInt(rawVal, 10);
+      if (!Number.isFinite(delta) || delta <= 0) continue;
+
+      const existing = processed.get(extracted.targetId);
+      processed.set(extracted.targetId, {
+        targetType: extracted.targetType,
+        delta: (existing?.delta ?? 0) + delta,
+      });
+    }
+  } while (cursor !== "0");
 }
 
 export async function viewFlushProcessor(_job: Job): Promise<void> {
   const redis = getRedis();
   const db = getDb();
 
-  let cursor = "0";
-  const processed = new Map<string, number>();
+  const processed = new Map<string, { targetType: TargetType; delta: number }>();
 
-  do {
-    // SCAN view:post:* — dedup 키(4 segment)도 함께 나오므로 extractPostId로 필터
-    const [nextCursor, keys] = await redis.scan(cursor, "MATCH", "view:post:*", "COUNT", 100);
-    cursor = nextCursor;
+  await flushTarget(redis, "view:post:*", processed);
+  await flushTarget(redis, "view:question:*", processed);
+  await flushTarget(redis, "view:resource:*", processed);
 
-    for (const key of keys) {
-      const postId = extractPostId(key);
-      if (!postId) continue; // dedup 키 건너뜀
+  if (processed.size === 0) return;
 
-      // 원자적 GET+DEL
-      const rawVal = await redis.eval(GET_DEL_SCRIPT, 1, key) as string | null;
-      if (!rawVal) continue;
-
-      const delta = parseInt(rawVal, 10);
-      if (!Number.isFinite(delta) || delta <= 0) continue;
-
-      // 같은 postId가 여러 번 나올 수 있으므로 누산
-      processed.set(postId, (processed.get(postId) ?? 0) + delta);
-    }
-  } while (cursor !== "0");
-
-  if (processed.size === 0) {
-    return;
-  }
-
-  // DB flush — 각 postId에 대해 view_count += delta
-  for (const [postId, delta] of processed) {
+  let totalCount = 0;
+  for (const [targetId, { targetType, delta }] of processed) {
     try {
-      await db
-        .update(schema.posts)
-        .set({ viewCount: sql`${schema.posts.viewCount} + ${delta}` })
-        .where(eq(schema.posts.id, postId));
+      if (targetType === "post") {
+        await db
+          .update(schema.posts)
+          .set({ viewCount: sql`${schema.posts.viewCount} + ${delta}` })
+          .where(eq(schema.posts.id, targetId));
+      } else if (targetType === "question") {
+        await db
+          .update(schema.questions)
+          .set({ viewCount: sql`${schema.questions.viewCount} + ${delta}` })
+          .where(eq(schema.questions.id, targetId));
+      } else if (targetType === "resource") {
+        await db
+          .update(schema.resources)
+          .set({ viewCount: sql`${schema.resources.viewCount} + ${delta}` })
+          .where(eq(schema.resources.id, targetId));
+      }
+      totalCount += delta;
     } catch (err) {
-      console.error(`[view.flush] DB 업데이트 실패 postId=${postId}:`, (err as Error).message);
-      // 개별 실패는 로깅만 — 다른 키 처리 계속
+      console.error(
+        `[view.flush] DB 업데이트 실패 ${targetType}=${targetId}:`,
+        (err as Error).message,
+      );
     }
   }
 
   console.info(
-    `[view.flush] flush 완료: ${processed.size}개 게시글, 총 ${[...processed.values()].reduce((a, b) => a + b, 0)}회`,
+    `[view.flush] flush 완료: ${processed.size}개 콘텐츠, 총 ${totalCount}회`,
   );
 }

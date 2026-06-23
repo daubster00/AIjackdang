@@ -106,6 +106,7 @@ export const resources = pgTable(
 
     // 통계 (직접 UPDATE 금지 — worker 경유)
     downloadCount: integer("download_count").notNull().default(0),
+    viewCount: integer("view_count").notNull().default(0),
     avgRating: numeric("avg_rating", { precision: 3, scale: 2 }).notNull().default("0"),
     ratingCount: integer("rating_count").notNull().default(0),
 

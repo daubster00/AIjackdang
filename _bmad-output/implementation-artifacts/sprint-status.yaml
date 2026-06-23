@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 4 W2 merged (4.4/4.6/4.7); 4-9 review
+last_updated: 2026-06-24 # Epic 5 W1: 5.1(스키마·마이그), 5.2(좋아요 API·프론트), 5.3(뷰카운트 확장)
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -65,9 +65,9 @@ development_status:
   epic-4-retrospective: optional
 
   epic-5: in-progress
-  5-1-polymorphic-engagement-schema: ready-for-dev
-  5-2-reaction-optimistic-toggle: ready-for-dev
-  5-3-view-count-redis-buffer: ready-for-dev
+  5-1-polymorphic-engagement-schema: done
+  5-2-reaction-optimistic-toggle: done
+  5-3-view-count-redis-buffer: done
   5-4-comment-crud: ready-for-dev
   5-5-nested-comments: ready-for-dev
   5-6-comment-reaction: ready-for-dev

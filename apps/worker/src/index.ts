@@ -172,9 +172,9 @@ void (async () => {
     await viewFlushQueue.add(
       "view.flush",
       {},
-      { repeat: { every: 60000 }, jobId: "view-flush-repeat" },
+      { repeat: { every: 300000 }, jobId: "view-flush-repeat" },
     );
-    console.log("[worker] view-flush 반복 job 등록 완료 (1분마다)");
+    console.log("[worker] view-flush 반복 job 등록 완료 (5분마다)");
   } catch (err) {
     console.warn("[worker] view-flush 반복 job 등록 실패:", (err as Error).message);
   }

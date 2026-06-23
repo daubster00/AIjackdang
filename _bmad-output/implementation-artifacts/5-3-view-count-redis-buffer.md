@@ -1,6 +1,6 @@
 # Story 5.3: 조회수 집계 — Redis 버퍼 재사용 + worker flush
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

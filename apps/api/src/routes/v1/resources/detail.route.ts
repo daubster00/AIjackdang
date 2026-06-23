@@ -13,6 +13,7 @@ import { z } from "zod";
 import { resourceDetailSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import { userAuth } from "../../../auth/user-auth.js";
 import { getResourceBySlug } from "./detail.service.js";
+import { trackView } from "../../../lib/viewTracker.js";
 
 /**
  * 상세 응답 = resourceDetailSchema + userIsOwner + HTML 변환본.
@@ -67,6 +68,10 @@ export async function registerResourceDetailRoutes(app: FastifyInstance): Promis
           },
         });
       }
+
+      // 조회수 Redis 버퍼링 (fire-and-forget) — Story 5.3
+      const fp = `${request.ip}:${currentUserId ?? "anon"}`;
+      void trackView({ targetType: "resource", targetId: resource.id, fingerprint: fp });
 
       return reply.code(200).send(resource);
     },

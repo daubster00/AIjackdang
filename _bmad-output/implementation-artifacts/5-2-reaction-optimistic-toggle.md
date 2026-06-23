@@ -1,6 +1,6 @@
 # Story 5.2: 좋아요(reaction) — 낙관적 토글 · 자가추천 차단
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
