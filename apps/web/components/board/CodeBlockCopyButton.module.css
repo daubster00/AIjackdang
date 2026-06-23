@@ -1,0 +1,82 @@
+/* CodeBlockCopyButton — Story 2.6 */
+
+/* 본문 컨테이너 */
+.articleContent {
+  /* 본문 내 코드블록 스타일이 상속된 값 위에 추가 */
+}
+
+/* 코드블록 pre — 가로 스크롤 + 복사 버튼 기준점 */
+.articleContent pre {
+  position: relative;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-code-bg, #1e1e2e);
+  padding: var(--space-5) var(--space-5) var(--space-5) var(--space-5);
+  margin-block: var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+  /* 가로 스크롤 시 버튼이 가려지지 않도록 오른쪽 여백 확보 */
+  padding-inline-end: 72px;
+}
+
+/* code 내 텍스트 — 모노스페이스 고정폭 */
+.articleContent pre code {
+  display: block;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  color: var(--color-code-text, #cdd6f4);
+  white-space: pre;
+  background: transparent;
+}
+
+/* 인라인 코드 (pre 없이 단독 code 태그) */
+.articleContent :not(pre) > code {
+  border-radius: var(--radius-sm);
+  background: var(--color-code-inline-bg, rgba(139, 148, 158, 0.15));
+  padding: 2px 6px;
+  font-size: 0.875em;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+/* 복사 버튼 */
+.copyBtn {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-sub);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 120ms ease, background 120ms ease;
+  /* 기본 상태에서는 흐리게 — hover 시 선명하게 */
+  opacity: 0;
+}
+
+.articleContent pre:hover .copyBtn,
+.articleContent pre:focus-within .copyBtn {
+  opacity: 1;
+}
+
+.copyBtn:hover {
+  background: var(--color-primary-soft, rgba(99, 102, 241, 0.12));
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.copyBtn:active {
+  transform: scale(0.96);
+}
+
+/* 터치 디바이스: 항상 버튼 표시 */
+@media (hover: none) {
+  .copyBtn {
+    opacity: 1;
+  }
+}

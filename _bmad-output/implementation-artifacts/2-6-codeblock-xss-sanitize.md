@@ -1,6 +1,6 @@
 # Story 2.6: 코드블록 렌더링 + sanitize-html XSS 차단
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -127,15 +127,26 @@ useEffect(() => {
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- TS2322: null in Record<string,string> map — fixed by extracting `text`/`doc` early-return before map lookup.
 
 ### Completion Notes List
+- `sanitize-html` + `@types/sanitize-html` + `@tiptap/html` were already installed in `apps/api/package.json` — no new installs needed.
+- `buildSanitizeOptions()` derives `allowedTags`/`allowedAttributes` from the passed `AllowedNode[]`; the exported `sanitizeHtml()` wrapper hard-codes `FULL_ALLOWED_NODES` as input — single source proved by unit tests.
+- `tiptap-renderer.ts` uses `@tiptap/html generateHTML` with StarterKit + Image + Highlight + TextStyle + Color extensions, then pipes through `sanitizeHtml()`.
+- Temporary `extractTextFromTiptapJson` + `extractNodeText` helpers removed from `service.ts`.
+- `CodeBlockCopyButton.tsx` is a `'use client'` component wrapping `dangerouslySetInnerHTML`; `useEffect` inserts copy buttons after hydration. Uses `useToast` from existing `ToastProvider`.
+- `CodeBlockCopyButton.module.css` added (co-located) with `pre { position: relative; overflow-x: auto }` and hover-reveal copy button.
+- `CodeBlockCopyButton` exported from `apps/web/components/board/index.ts` barrel.
+- API typecheck: PASS. Web typecheck: PASS. API tests: 55 passed (22 from sanitize.test.ts, 0 failures).
 
 ### File List
 - NEW: `apps/api/src/lib/sanitize.ts`
 - NEW: `apps/api/src/lib/sanitize.test.ts`
 - NEW: `apps/api/src/lib/tiptap-renderer.ts`
 - NEW: `apps/web/components/board/CodeBlockCopyButton.tsx`
+- NEW: `apps/web/components/board/CodeBlockCopyButton.module.css`
 - UPDATE: `apps/api/src/routes/v1/posts/service.ts`
-- UPDATE: `apps/api/package.json`
+- UPDATE: `apps/web/components/board/index.ts`

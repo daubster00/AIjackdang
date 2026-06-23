@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, AttachmentList } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -105,7 +105,7 @@ export default async function AutomationDetailPage({ params }: PageProps) {
           </header>
 
           <div className={styles.articleBody}>
-            <div dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
+            <CodeBlockCopyButton html={post.contentHtml} />
             {post.hasAttachment && <AttachmentList />}
           </div>
 

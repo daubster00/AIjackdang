@@ -10,6 +10,7 @@
 import { getDb, schema } from "@ai-jakdang/database";
 import type { PostCard, PostDetail } from "@ai-jakdang/contracts";
 import type { CreatePostInput } from "@ai-jakdang/contracts";
+import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 import { Redis } from "ioredis";
@@ -389,35 +390,6 @@ export async function getDraft({
 // Story 2.4: 게시글 상세 조회 (GET /api/v1/posts/:slug)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Tiptap JSON → plain text HTML (단락 단위 <p> 태그 감싸기)
- * TODO(Story 2.6): replace with sanitize-html pipeline using tiptap-renderer
- */
-function extractTextFromTiptapJson(json: Record<string, unknown>): string {
-  try {
-    const content = json["content"] as Array<Record<string, unknown>> | undefined;
-    if (!content) return "";
-    const paragraphs: string[] = [];
-    for (const node of content) {
-      const text = extractNodeText(node);
-      if (text.trim()) {
-        paragraphs.push(`<p>${text}</p>`);
-      }
-    }
-    return paragraphs.join("\n");
-  } catch {
-    return "";
-  }
-}
-
-function extractNodeText(node: Record<string, unknown>): string {
-  if (node["type"] === "text") {
-    return String(node["text"] ?? "");
-  }
-  const children = node["content"] as Array<Record<string, unknown>> | undefined;
-  if (!children) return "";
-  return children.map((c) => extractNodeText(c)).join("");
-}
 
 /**
  * Redis INCR 조회수 버퍼링.
@@ -445,7 +417,7 @@ async function incrementViewCount(postId: string, fingerprint: string): Promise<
  *
  * - status !== 'published' 이고 본인이 아니면 null 반환 (→ 404).
  * - 조회 시 Redis INCR 버퍼링 (fire-and-forget) — AR-16·AR-17.
- * - contentHtml: Tiptap JSON에서 임시 추출 (TODO Story 2.6).
+ * - contentHtml: Tiptap JSON → `@tiptap/html` + sanitize-html 화이트리스트 (Story 2.6).
  */
 export async function getPostBySlug(
   slug: string,
@@ -503,9 +475,8 @@ export async function getPostBySlug(
 
   const tags = taggableRows.map((r) => r.tagName);
 
-  // contentHtml — TODO(Story 2.6): replace with sanitize-html pipeline
-  // Temporary: extract plain text from Tiptap JSON nodes
-  const contentHtml = extractTextFromTiptapJson(row.contentJson as Record<string, unknown>);
+  // contentHtml — Tiptap JSON → HTML + sanitize-html 화이트리스트 (Story 2.6)
+  const contentHtml = tiptapJsonToHtml(row.contentJson);
 
   // View count: Redis INCR with dedup (30min TTL per IP/session)
   // Fire-and-forget — don't let Redis failures block the response
