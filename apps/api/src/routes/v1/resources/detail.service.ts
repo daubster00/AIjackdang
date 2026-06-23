@@ -78,10 +78,16 @@ export async function getResourceBySlug({
 
   // ── 운영 상태 검증 ────────────────────────────────────────────────────────────
   if (resource.status === "deleted") return null;
-  // hidden: 현재는 admin 구분 없이 404 처리 (4.8에서 admin 예외 연결)
-  if (resource.status === "hidden") return null;
-  // draft: 비공개 → 404
-  if (resource.status === "draft") return null;
+  // hidden: 소유자에게는 공개 (AC #7, Story 4.8), 타인·비회원은 404
+  if (resource.status === "hidden") {
+    const isOwner = !!userId && !!resource.userId && userId === resource.userId;
+    if (!isOwner) return null;
+  }
+  // draft: 소유자에게만 공개 (수정 페이지에서 prefill 필요)
+  if (resource.status === "draft") {
+    const isOwner = !!userId && !!resource.userId && userId === resource.userId;
+    if (!isOwner) return null;
+  }
 
   // ── 파일 목록 조회 ────────────────────────────────────────────────────────────
   const files = await db

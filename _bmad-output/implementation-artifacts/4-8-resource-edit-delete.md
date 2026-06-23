@@ -1,6 +1,10 @@
+﻿---
+baseline_commit: 4076aa9c94bf512e37ed31436ec9dfd8d08f491f
+---
+
 # Story 4.8: 본인 자료 수정·삭제 + 상태 관리
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -20,11 +24,11 @@ So that 정확성을 유지하고 불필요한 자료를 제거한다(FR-4.8).
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 수정 API 구현 (AC: #2, #3, #6)
-  - [ ] `apps/api/src/routes/v1/resources/resource.route.ts` UPDATE: 수정·삭제 라우트 추가
+- [x] Task 1: 수정 API 구현 (AC: #2, #3, #6)
+  - [x] `apps/api/src/routes/v1/resources/resource.route.ts` UPDATE: 수정·삭제 라우트 추가
     - `PATCH /api/v1/resources/:id`
     - `DELETE /api/v1/resources/:id`
-  - [ ] `apps/api/src/routes/v1/resources/resource.service.ts` UPDATE: 수정·삭제 service 함수
+  - [x] `apps/api/src/routes/v1/resources/resource.service.ts` UPDATE: 수정·삭제 service 함수
     - `updateResource(resourceId: string, userId: string, input: UpdateResourceInput, files?: UploadedFile[])`:
       1. resource 조회(없으면 404)
       2. 소유권 확인: `resource.userId !== userId` → 403 `FORBIDDEN`
@@ -39,15 +43,15 @@ So that 정확성을 유지하고 불필요한 자료를 제거한다(FR-4.8).
       3. `db.update(resources).set({ status: 'deleted', deletedAt: new Date() })`
       4. 삭제 확인 응답 반환
 
-- [ ] Task 2: resource_files 스키마 보완 (AC: #3)
-  - [ ] 4.1 스키마에 `resource_files.status` 컬럼이 없다면 마이그레이션 추가
+- [x] Task 2: resource_files 스키마 보완 (AC: #3)
+  - [x] 4.1 스키마에 `resource_files.status` 컬럼이 없다면 마이그레이션 추가
     - `status` pgEnum: `active|deleted` (또는 기존 `scan_status`와 별개로)
     - 실제 4.1 `resource_files` 정의 확인 필요 — 이미 있으면 스킵
-  - [ ] `drizzle-kit generate` + `migrate`
+  - [x] `drizzle-kit generate` + `migrate`
 
-- [ ] Task 3: 수정 페이지 구현 (AC: #1, #2)
-  - [ ] **기존 코드 완독**: `apps/web/app/resources/[slug]/ResourceDetailClient.tsx`(4.3에서 생성) + 수정 버튼 구조 확인
-  - [ ] 현재 UI 계약(기존 코드 기준):
+- [x] Task 3: 수정 페이지 구현 (AC: #1, #2)
+  - [x] **기존 코드 완독**: `apps/web/app/resources/[slug]/ResourceDetailClient.tsx`(4.3에서 생성) + 수정 버튼 구조 확인
+  - [x] 현재 UI 계약(기존 코드 기준):
     - `detailFooter .ownerActions` 내 [수정][삭제] 버튼 (4.3에서 구현, `userIsOwner` 조건부 노출)
     ```tsx
     // apps/web/app/resources/prompts/[slug]/page.tsx (원본)
@@ -56,38 +60,38 @@ So that 정확성을 유지하고 불필요한 자료를 제거한다(FR-4.8).
       <button type="button"><Icon name="delete-bin-line" />삭제</button>
     </div>
     ```
-  - [ ] `apps/web/app/resources/[id]/edit/page.tsx` 신규 생성 (NEW) — 수정 폼 페이지
+  - [x] `apps/web/app/resources/[id]/edit/page.tsx` 신규 생성 (NEW) — 수정 폼 페이지
     - 서버 컴포넌트: 인증 + 소유권 확인(API 호출), 기존 자료 데이터 사전 로딩
     - 404 if 미소유자
-  - [ ] `apps/web/app/resources/[id]/edit/ResourceEditForm.tsx` 신규 생성 (NEW)
+  - [x] `apps/web/app/resources/[id]/edit/ResourceEditForm.tsx` 신규 생성 (NEW)
     - 4.4의 `ResourceWriteForm` 패턴 재사용, 초기 데이터 채우기
     - 기존 파일 목록 표시 + 삭제/교체 UI
     - [저장하기] → `PATCH /api/v1/resources/${id}`
     - 성공 시 `/resources/{slug}` 이동 + "수정되었습니다." 토스트
-  - [ ] `apps/web/app/resources/[slug]/ResourceDetailClient.tsx` UPDATE:
+  - [x] `apps/web/app/resources/[slug]/ResourceDetailClient.tsx` UPDATE:
     - [수정하기] 클릭 → `router.push('/resources/${id}/edit')`
     - [삭제하기] 클릭 → 확인 다이얼로그 표시
 
-- [ ] Task 4: 삭제 확인 다이얼로그 (AC: #4)
-  - [ ] `apps/web/app/resources/[slug]/ResourceDetailClient.tsx` UPDATE:
+- [x] Task 4: 삭제 확인 다이얼로그 (AC: #4)
+  - [x] `apps/web/app/resources/[slug]/ResourceDetailClient.tsx` UPDATE:
     - [삭제하기] 클릭 → `window.confirm("자료를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")` 또는 커스텀 Modal
     - 승인 → `DELETE /api/v1/resources/${id}` 호출
     - 성공 → `router.push('/resources/{pageType}')` + "자료가 삭제되었습니다." 토스트 (예: 프롬프트 자료면 `router.push('/resources/prompts')`)
     - 오류 → danger 토스트
-  - [ ] 커스텀 Modal 사용 시: 기존 `@/components/ui` Modal 컴포넌트 확인 후 재사용
+  - [x] 커스텀 Modal 사용 시: 기존 `@/components/ui` Modal 컴포넌트 확인 후 재사용
 
-- [ ] Task 5: /mypage 자료 탭 상태 표시 준비 (AC: #5, #7)
-  - [ ] **기존 코드 완독**: `apps/web/app/mypage/page.tsx` 의 `tabs` 구조, `BoardKey.resources` 처리 부분 확인
-  - [ ] 현재 `/mypage` 는 `BoardKey = "resources"` 항목이 있으나 자료 탭 전용 처리는 미구현
-  - [ ] 마이페이지의 자료 탭 UI 구현은 4.9 스토리 담당 — 이 스토리에서는 API만 준비
-  - [ ] API: `GET /api/v1/me/resources?status=draft,published,hidden` — 본인 자료 목록(상태 배지용)
+- [x] Task 5: /mypage 자료 탭 상태 표시 준비 (AC: #5, #7)
+  - [x] **기존 코드 완독**: `apps/web/app/mypage/page.tsx` 의 `tabs` 구조, `BoardKey.resources` 처리 부분 확인
+  - [x] 현재 `/mypage` 는 `BoardKey = "resources"` 항목이 있으나 자료 탭 전용 처리는 미구현
+  - [x] 마이페이지의 자료 탭 UI 구현은 4.9 스토리 담당 — 이 스토리에서는 API만 준비
+  - [x] API: `GET /api/v1/me/resources?status=draft,published,hidden` — 본인 자료 목록(상태 배지용)
     - `apps/api/src/routes/v1/me/` 또는 기존 resources 라우트에 추가
     - 인증 필수, 본인 데이터만 반환
     - `status`, `hiddenReason`(nullable) 포함
-  - [ ] **주의**: `/me/activity` 별도 라우트 생성 금지. 자료 탭은 `/mypage` 기존 탭 구조 확장으로만 처리(규칙①).
+  - [x] **주의**: `/me/activity` 별도 라우트 생성 금지. 자료 탭은 `/mypage` 기존 탭 구조 확장으로만 처리(규칙①).
 
-- [ ] Task 6: 타입체크
-  - [ ] `pnpm typecheck` 통과
+- [x] Task 6: 타입체크
+  - [x] `pnpm typecheck` 통과
 
 ## Dev Notes
 
@@ -173,8 +177,36 @@ apps/api/src/routes/v1/
 
 ### Agent Model Used
 
+claude-sonnet-4-6 (2026-06-24)
+
 ### Debug Log References
+
+- drizzle-kit migrate 첫 실행 시 postgres 비밀번호 오류 → DATABASE_URL env 명시적 주입으로 해결 (포트 5433)
+- mutate.route.ts에서 미사용 userAuth import → 제거로 typecheck 통과
+- edit/page.tsx generateMetadata에서 미사용 slug → _props로 변경
 
 ### Completion Notes List
 
+- **Task 1 (수정·삭제 API)**: `mutate.service.ts` + `mutate.route.ts` 신규 작성. PATCH·DELETE·GET /me/resources 3개 엔드포인트 구현. 소유권 검증 패턴(AR-9) 준수. routes.ts `[STORY-IMPORTS]`/`[STORY-REGISTRATIONS]` 영역에 각 1줄 추가.
+- **Task 2 (스키마 보완)**: `resource_files` 테이블에 `file_status` pgEnum(`active|deleted`) 컬럼 추가. 마이그레이션 `0006_young_hawkeye.sql` 생성 및 로컬 DB(5433) 적용 완료.
+- **Task 3 (수정 페이지)**: `[slug]/edit/page.tsx`(서버 컴포넌트) + `ResourceEditClient.tsx` 신규 생성. 4.4의 `ResourceWriteForm`에 `ResourceWriteFormProps`(resourceId, initialData, returnSlug) 추가하여 편집 모드 재사용. 중복 폼 미작성.
+- **Task 4 (삭제 확인)**: `ResourceDetailClient.tsx`의 `handleDelete`를 window.confirm + DELETE API 실제 연결로 완성. `isDeleting` 상태 추가. 다운로드(4.6)·평점(4.7)·Epic5 슬롯 미수정 확인.
+- **Task 5 (mypage API)**: `GET /api/v1/me/resources` API 제공. `hiddenReason` 필드로 숨김 사유 반환. `detail.service.ts`에서 hidden/draft 자료를 소유자에게 공개(AC #7). `/me/activity` 별도 라우트 미생성.
+- **Task 6 (타입체크)**: `pnpm -r typecheck` 전 워크스페이스 통과. 유닛 테스트 9개(MutateServiceError, updateResource, deleteResource) 신규 추가, 전체 120개 통과.
+
 ### File List
+
+**신규 생성 (NEW)**
+- `apps/api/src/routes/v1/resources/mutate.service.ts`
+- `apps/api/src/routes/v1/resources/mutate.service.test.ts`
+- `apps/api/src/routes/v1/resources/mutate.route.ts`
+- `apps/web/app/resources/[slug]/edit/page.tsx`
+- `apps/web/app/resources/[slug]/edit/ResourceEditClient.tsx`
+- `packages/database/migrations/0006_young_hawkeye.sql`
+
+**수정 (UPDATE)**
+- `apps/api/src/routes/v1/resources/routes.ts` — STORY-IMPORTS + STORY-REGISTRATIONS 각 1줄 추가
+- `apps/api/src/routes/v1/resources/detail.service.ts` — hidden/draft 소유자 접근 허용
+- `apps/web/app/resources/[slug]/ResourceDetailClient.tsx` — handleDelete 실제 API 연결
+- `apps/web/app/resources/new/ResourceWriteForm.tsx` — 편집 모드 props 추가 (initialData, resourceId, returnSlug)
+- `packages/database/src/schema/resources.ts` — resourceFileStatus enum + fileStatus 컬럼
