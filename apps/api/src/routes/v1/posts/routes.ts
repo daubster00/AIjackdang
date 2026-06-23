@@ -25,6 +25,7 @@ import {
   createPostSchema,
   postDetailSchema,
   updatePostSchema,
+  creativeSpecSchema,
 } from "@ai-jakdang/contracts";
 import { paginationQuerySchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
@@ -95,6 +96,8 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
    */
   const createPostBodySchema = createPostSchema.extend({
     status: z.enum(["draft", "published"]).default("published"),
+    /** Story 2.11: AI 창작마당 창작 스펙 (board='ai-creation'에서만 유효, 선택) */
+    creativeSpec: creativeSpecSchema.optional(),
   });
 
   /** 201 응답 스키마 */
@@ -158,7 +161,10 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const result = await createPost({
-        input: body,
+        input: {
+          ...body,
+          creativeSpec: body.creativeSpec,
+        },
         userId: sessionUser.id,
       });
 

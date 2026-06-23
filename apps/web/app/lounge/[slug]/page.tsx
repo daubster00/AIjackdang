@@ -162,8 +162,8 @@ export default async function LoungeDetailPage({ params }: PageProps) {
           </footer>
         </article>
 
-        {/* 창작 스펙 패널 — spec 없으면 CreativeSpecPanel이 null을 반환하므로 안전 */}
-        <CreativeSpecPanel spec={undefined} />
+        {/* Story 2.11: 창작 스펙 패널 — spec 없으면 CreativeSpecPanel이 null을 반환하므로 안전 */}
+        <CreativeSpecPanel spec={post.creativeSpec} />
       </div>
     </main>
   );

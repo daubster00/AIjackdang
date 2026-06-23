@@ -8,12 +8,13 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import type { PostCard, PostDetail } from "@ai-jakdang/contracts";
+import type { PostCard, PostDetail, CreativeSpec } from "@ai-jakdang/contracts";
 import type { CreatePostInput } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 import { Redis } from "ioredis";
+import sanitizeHtml from "sanitize-html";
 
 // ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
 let _redis: Redis | null = null;
@@ -168,7 +169,7 @@ export async function getPosts({
 export type PostStatus = "draft" | "published";
 
 export interface CreatePostParams {
-  input: CreatePostInput & { status?: PostStatus };
+  input: CreatePostInput & { status?: PostStatus; creativeSpec?: CreativeSpec };
   userId: string;
 }
 
@@ -204,6 +205,7 @@ export async function createPost({
     summary: explicitSummary,
     tags = [],
     status = "published",
+    creativeSpec,
   } = input;
 
   // ── slug 생성 ──────────────────────────────────────────────────────────────
@@ -299,6 +301,34 @@ export async function createPost({
           })),
         );
       }
+    }
+
+    // 3) post_creative_spec INSERT (board='ai-creation'이고 creativeSpec이 있을 때만)
+    if (board === "ai-creation" && creativeSpec) {
+      // XSS 새니타이즈: prompt·negPrompt는 사용자 자유 텍스트 → plaintext only
+      const sanitizedPrompt = creativeSpec.prompt
+        ? sanitizeHtml(creativeSpec.prompt, { allowedTags: [], allowedAttributes: {} })
+        : undefined;
+      const sanitizedNegPrompt = creativeSpec.negPrompt
+        ? sanitizeHtml(creativeSpec.negPrompt, { allowedTags: [], allowedAttributes: {} })
+        : undefined;
+
+      // license + commercial → licenseNote 병합 (CreativeSpecFields에서 별도 필드로 관리)
+      // licenseNote는 이미 클라이언트에서 병합해서 전송하거나 직접 전달
+      const licenseNote = creativeSpec.licenseNote ?? undefined;
+
+      await tx.insert(schema.postCreativeSpec).values({
+        postId: post.id,
+        mediaType: creativeSpec.mediaType ?? null,
+        tools: creativeSpec.tools ?? null,
+        prompt: sanitizedPrompt ?? null,
+        negativePrompt: sanitizedNegPrompt ?? null,
+        params: creativeSpec.params ?? null,
+        postprocess: creativeSpec.postProcess ? creativeSpec.postProcess : null,
+        costType: creativeSpec.costType ?? null,
+        timeSpent: creativeSpec.timeSpent ?? null,
+        licenseNote: licenseNote ?? null,
+      });
     }
 
     return {
@@ -649,7 +679,7 @@ export async function getPostBySlug(
 ): Promise<PostDetail | null> {
   const db = getDb();
 
-  // posts + author LEFT JOIN
+  // posts + author + creative spec LEFT JOIN
   const rows = await db
     .select({
       id: schema.posts.id,
@@ -667,9 +697,23 @@ export async function getPostBySlug(
       contentJson: schema.posts.contentJson,
       userId: schema.posts.userId,
       authorNickname: schema.users.nickname,
+      // Story 2.11: 창작 스펙 JOIN 컬럼
+      specMediaType: schema.postCreativeSpec.mediaType,
+      specTools: schema.postCreativeSpec.tools,
+      specPrompt: schema.postCreativeSpec.prompt,
+      specNegativePrompt: schema.postCreativeSpec.negativePrompt,
+      specParams: schema.postCreativeSpec.params,
+      specPostprocess: schema.postCreativeSpec.postprocess,
+      specCostType: schema.postCreativeSpec.costType,
+      specTimeSpent: schema.postCreativeSpec.timeSpent,
+      specLicenseNote: schema.postCreativeSpec.licenseNote,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
+    .leftJoin(
+      schema.postCreativeSpec,
+      eq(schema.postCreativeSpec.postId, schema.posts.id),
+    )
     .where(
       and(
         eq(schema.posts.slug, slug),
@@ -706,6 +750,36 @@ export async function getPostBySlug(
   // Fire-and-forget — don't let Redis failures block the response
   void incrementViewCount(row.id, currentUserId ?? "anon");
 
+  // Story 2.11: 창작 스펙 조립 — spec 레코드 존재 여부는 postId(non-null) 로 판별
+  const hasSpec = row.specPostprocess !== undefined || row.specPrompt !== null || row.specTools !== null || row.specMediaType !== null;
+  // LEFT JOIN이므로 post_creative_spec 레코드가 없으면 모든 spec 컬럼이 null
+  const creativeSpecRow = row.specMediaType !== null ||
+    row.specTools !== null ||
+    row.specPrompt !== null ||
+    row.specNegativePrompt !== null ||
+    row.specParams !== null ||
+    row.specPostprocess !== null ||
+    row.specCostType !== null ||
+    row.specTimeSpent !== null ||
+    row.specLicenseNote !== null;
+
+  const creativeSpec: CreativeSpec | null = creativeSpecRow
+    ? {
+        mediaType: Array.isArray(row.specMediaType) ? (row.specMediaType as string[]) : undefined,
+        tools: Array.isArray(row.specTools) ? (row.specTools as CreativeSpec["tools"]) : undefined,
+        prompt: row.specPrompt ?? undefined,
+        negPrompt: row.specNegativePrompt ?? undefined,
+        params: row.specParams != null ? (row.specParams as Record<string, string>) : undefined,
+        postProcess: typeof row.specPostprocess === "string" ? row.specPostprocess : undefined,
+        costType: row.specCostType ?? undefined,
+        timeSpent: row.specTimeSpent ?? undefined,
+        licenseNote: row.specLicenseNote ?? undefined,
+      }
+    : null;
+
+  // suppress unused variable warning
+  void hasSpec;
+
   return {
     id: row.id,
     slug: row.slug,
@@ -728,6 +802,7 @@ export async function getPostBySlug(
     authorNickname: row.authorNickname ?? null,
     isOwner,
     tags,
+    creativeSpec,
   };
 }
 

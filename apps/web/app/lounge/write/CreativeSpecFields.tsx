@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@/components/ui";
+import type { CreativeSpec } from "@ai-jakdang/contracts";
 import styles from "./CreativeSpecFields.module.css";
 
 /**
@@ -10,7 +11,7 @@ import styles from "./CreativeSpecFields.module.css";
  * PostWriteForm 바로 아래에 별도 섹션으로 렌더한다.
  *
  * 전 항목 선택 입력이므로 스펙 섹션 자체도 접을 수 있다.
- * 제출은 상위 alert 수준(목업)이므로 데이터를 외부로 올리지 않는다.
+ * onSpecChange: 부모 컴포넌트에 spec 데이터를 전달하는 콜백 (Story 2.11 연동).
  */
 
 /** 창작물 유형 옵션 */
@@ -36,7 +37,12 @@ function uid() {
   return ++_uid;
 }
 
-export function CreativeSpecFields() {
+interface CreativeSpecFieldsProps {
+  /** 스펙 데이터가 변경될 때 부모에게 전달. null = 스펙 없음(섹션 닫힘·비어있음). */
+  onSpecChange?: (spec: CreativeSpec | null) => void;
+}
+
+export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
   // 접이식 토글 — 기본은 닫힘(선택 섹션)
   const [open, setOpen] = useState(false);
 
@@ -96,6 +102,56 @@ export function CreativeSpecFields() {
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
     );
   }
+
+  /* ── spec 변경 시 부모에 통보 (Story 2.11) ── */
+  useEffect(() => {
+    if (!onSpecChange) return;
+
+    // 섹션이 닫혀있으면 spec 없음으로 처리
+    if (!open) {
+      onSpecChange(null);
+      return;
+    }
+
+    // 빈 값 필터링
+    const filteredTools = toolRows
+      .filter((r) => r.name.trim())
+      .map((r) => ({
+        name: r.name.trim(),
+        model: r.model.trim() || undefined,
+        role: r.role.trim() || undefined,
+      }));
+
+    const filteredParams: Record<string, string> = {};
+    for (const row of params) {
+      if (row.key.trim()) {
+        filteredParams[row.key.trim()] = row.value.trim();
+      }
+    }
+
+    // license + commercial → licenseNote 병합
+    let licenseNote: string | undefined;
+    if (license.trim() || commercial) {
+      const parts: string[] = [];
+      if (license.trim()) parts.push(license.trim());
+      if (commercial) parts.push(`상업적 사용: ${commercial}`);
+      licenseNote = parts.join(" / ");
+    }
+
+    const spec: CreativeSpec = {
+      mediaType: types.length > 0 ? types : undefined,
+      tools: filteredTools.length > 0 ? filteredTools : undefined,
+      prompt: prompt.trim() || undefined,
+      negPrompt: negPrompt.trim() || undefined,
+      params: Object.keys(filteredParams).length > 0 ? filteredParams : undefined,
+      postProcess: postProcess.trim() || undefined,
+      costType: costType === "유료" ? "paid" : costType === "무료" ? "free" : undefined,
+      timeSpent: duration.trim() || undefined,
+      licenseNote: licenseNote || undefined,
+    };
+
+    onSpecChange(spec);
+  }, [open, types, toolRows, prompt, negPrompt, params, postProcess, costType, duration, license, commercial, onSpecChange]);
 
   return (
     <section className={styles.specSection} aria-label="창작 스펙 섹션">

@@ -1,6 +1,60 @@
 import { z } from "zod";
 import { paginatedResponseSchema } from "./common";
 
+// ── 창작 스펙 (Story 2.11) ────────────────────────────────────────────────────
+
+/**
+ * AI 툴·모델 항목 1개.
+ * name: 필수, model/role: 선택
+ */
+export const aiToolSchema = z.object({
+  name: z.string().min(1).max(100),
+  model: z.string().max(100).optional(),
+  role: z.string().max(200).optional(),
+});
+export type AiTool = z.infer<typeof aiToolSchema>;
+
+/**
+ * 창작 스펙 Zod 스키마 — 전 필드 optional.
+ * DB 컬럼과의 매핑:
+ *   mediaType   → media_type (jsonb 배열)
+ *   tools       → tools (jsonb 배열)
+ *   prompt      → prompt (text) — XSS sanitize 필수
+ *   negPrompt   → negative_prompt (text)
+ *   params      → params (jsonb)
+ *   postProcess → postprocess (jsonb)
+ *   costType    → cost_type enum ("free"|"paid")
+ *   timeSpent   → time_spent (text)
+ *   licenseNote → license_note (text) — license + commercial 병합
+ */
+export const creativeSpecSchema = z.object({
+  mediaType: z.array(z.string()).optional(),
+  tools: z.array(aiToolSchema).optional(),
+  prompt: z.string().max(10000).optional(),
+  negPrompt: z.string().max(5000).optional(),
+  params: z.record(z.string(), z.string()).optional(),
+  postProcess: z.string().max(2000).optional(),
+  costType: z.enum(["free", "paid"]).optional(),
+  timeSpent: z.string().max(100).optional(),
+  licenseNote: z.string().max(500).optional(),
+});
+export type CreativeSpec = z.infer<typeof creativeSpecSchema>;
+
+/**
+ * createPost 에 창작 스펙을 추가한 확장 스키마.
+ * board='ai-creation' 일 때만 creativeSpec 유효, 나머지 board에서는 무시.
+ */
+export const createPostWithSpecSchema = z.object({
+  board: z.string().trim().min(1).max(50),
+  category: z.string().trim().max(50).optional(),
+  title: z.string().trim().min(2).max(300),
+  contentJson: z.record(z.string(), z.unknown()),
+  summary: z.string().trim().max(500).optional(),
+  tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]),
+  creativeSpec: creativeSpecSchema.optional(),
+});
+export type CreatePostWithSpecInput = z.infer<typeof createPostWithSpecSchema>;
+
 // ── 게시글 운영 상태 ──────────────────────────────────────────────────────────
 // AR-7 soft-delete: status + deleted_at 패턴
 
@@ -51,6 +105,8 @@ export const postDetailSchema = postCardSchema.extend({
   seoDescription: z.string().nullable().optional(),
   status: postStatusSchema,
   updatedAt: z.string(), // ISO 8601 UTC
+  /** Story 2.11: AI 창작마당 창작 스펙. board='ai-creation'이고 스펙이 있을 때만 존재. */
+  creativeSpec: creativeSpecSchema.nullable().optional(),
 });
 export type PostDetail = z.infer<typeof postDetailSchema>;
 

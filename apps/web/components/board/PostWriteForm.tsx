@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
+import type { CreativeSpec } from "@ai-jakdang/contracts";
 import { Icon } from "@/components/ui";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
@@ -64,6 +65,12 @@ export type PostWriteFormConfig = {
    * (category 가 있을 때: `/${category}/${board}/${slug}`)
    */
   boardHref?: string;
+  /**
+   * Story 2.11: AI 창작마당 창작 스펙.
+   * CreativeSpecFields에서 수집한 스펙 데이터를 주입하면 POST body에 포함된다.
+   * board='ai-creation' 이외에서는 무시.
+   */
+  creativeSpec?: CreativeSpec | null;
 };
 
 const MAX_FILES = 5;
@@ -133,17 +140,24 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
       setter(true);
 
       try {
+        const postBody: Record<string, unknown> = {
+          board: config.board,
+          title: title.trim(),
+          contentJson: contentJson ?? { type: "doc", content: [] },
+          tags,
+          status,
+        };
+
+        // Story 2.11: AI 창작마당에서만 creativeSpec 포함
+        if (config.board === "ai-creation" && config.creativeSpec) {
+          postBody.creativeSpec = config.creativeSpec;
+        }
+
         const res = await fetch("/api/v1/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            board: config.board,
-            title: title.trim(),
-            contentJson: contentJson ?? { type: "doc", content: [] },
-            tags,
-            status,
-          }),
+          body: JSON.stringify(postBody),
         });
 
         if (res.status === 401) {
@@ -188,7 +202,7 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
         setter(false);
       }
     },
-    [config.board, config.boardHref, contentJson, router, tags, title, toast],
+    [config.board, config.boardHref, config.creativeSpec, contentJson, router, tags, title, toast],
   );
 
   // ── 파일 첨부 (Epic 4 파일 업로드 구현 전 로컬 미리보기만) ─────────────────

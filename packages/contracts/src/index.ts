@@ -5,3 +5,4 @@ export * from "./post";
 export * from "./board";
 export * from "./jobs/email";
 export * from "./editor";
+export * from "./qna";

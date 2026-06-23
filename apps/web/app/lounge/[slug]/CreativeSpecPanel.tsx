@@ -2,37 +2,23 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/ui";
+import type { CreativeSpec } from "@ai-jakdang/contracts";
 import styles from "./CreativeSpecPanel.module.css";
 
 /**
  * 창작 스펙 패널 — 글 상세 우측에 표시되는 AI 창작 스펙 정보.
  * spec 데이터가 없으면 null 반환하여 렌더 자체를 생략한다.
  * 반응형: 데스크톱에서 우측 사이드 패널, 모바일에서 본문 하단 블록.
+ *
+ * Story 2.11: spec은 API 응답 postDetail.creativeSpec에서 전달됨.
+ * CreativeSpec 타입은 @ai-jakdang/contracts에서 import.
  */
 
-/** AI 툴·모델 항목 1개 */
-export interface CreativeToolItem {
-  name: string;
-  model?: string;
-  role?: string;
-}
-
-/** 창작 스펙 데이터 타입 */
-export interface CreativeSpec {
-  types?: string[];
-  tools?: CreativeToolItem[];
-  prompt?: string;
-  negPrompt?: string;
-  params?: Record<string, string>;
-  postProcess?: string;
-  costType?: "유료" | "무료";
-  duration?: string;
-  license?: string;
-  commercial?: "가능" | "불가";
-}
+/** AI 툴·모델 항목 1개 (contracts AiTool 타입과 동일) */
+export type { CreativeSpec };
 
 interface Props {
-  spec: CreativeSpec | undefined;
+  spec: CreativeSpec | null | undefined;
 }
 
 export function CreativeSpecPanel({ spec }: Props) {
@@ -46,11 +32,11 @@ export function CreativeSpecPanel({ spec }: Props) {
         창작 스펙
       </h3>
 
-      {/* 창작물 유형 */}
-      {spec.types && spec.types.length > 0 && (
+      {/* 창작물 유형 (mediaType 배열) */}
+      {spec.mediaType && spec.mediaType.length > 0 && (
         <Section label="창작물 유형">
           <div className={styles.chips}>
-            {spec.types.map((t) => (
+            {spec.mediaType.map((t) => (
               <span key={t} className={styles.chip}>
                 {t}
               </span>
@@ -113,45 +99,34 @@ export function CreativeSpecPanel({ spec }: Props) {
         </Section>
       )}
 
-      {/* 비용 */}
-      {(spec.costType || spec.duration) && (
+      {/* 비용 (costType: "free"|"paid" → 한국어 표기 변환) */}
+      {(spec.costType || spec.timeSpent) && (
         <Section label="비용">
           <div className={styles.metaRow}>
             {spec.costType && (
               <span
                 className={`${styles.costBadge} ${
-                  spec.costType === "유료" ? styles.costPaid : styles.costFree
+                  spec.costType === "paid" ? styles.costPaid : styles.costFree
                 }`}
               >
-                {spec.costType}
+                {spec.costType === "paid" ? "유료" : "무료"}
               </span>
             )}
-            {spec.duration && (
+            {spec.timeSpent && (
               <span className={styles.metaItem}>
                 <Icon name="time-line" aria-hidden="true" />
-                {spec.duration}
+                {spec.timeSpent}
               </span>
             )}
           </div>
         </Section>
       )}
 
-      {/* 라이선스·상업적 사용 */}
-      {(spec.license || spec.commercial) && (
+      {/* 라이선스 (licenseNote: license + commercial 병합 텍스트) */}
+      {spec.licenseNote && (
         <Section label="라이선스">
           <div className={styles.metaCol}>
-            {spec.license && <span className={styles.licenseText}>{spec.license}</span>}
-            {spec.commercial && (
-              <span
-                className={`${styles.commercialBadge} ${
-                  spec.commercial === "가능"
-                    ? styles.commercialOk
-                    : styles.commercialNo
-                }`}
-              >
-                상업적 사용 {spec.commercial}
-              </span>
-            )}
+            <span className={styles.licenseText}>{spec.licenseNote}</span>
           </div>
         </Section>
       )}

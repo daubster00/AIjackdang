@@ -1,6 +1,6 @@
 # Story 2.11: AI 창작마당 창작물 스펙 — 선택 입력 + 상세 우측 패널
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -143,20 +143,36 @@ so that 다른 사람이 내 창작물을 어떻게 만들었는지 이해하고
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- Round-trip test: GET /api/v1/posts/story-211-test-creative returned creativeSpec with all 9 fields
+- Migration 0003_supreme_snowbird.sql generated and applied successfully
+- All 4 typechecks pass (contracts, database, api, web)
+- qna.ts pre-existing circular reference fixed (outside Story 2.11 scope but surfaced by linter)
 
 ### Completion Notes List
+1. `post_creative_spec` table created with 12 columns — `media_type` stored as jsonb array (not enum) to support UI multi-select; `postprocess` stored as jsonb (string value wrapped in JSON)
+2. `creativeSpecSchema` + `aiToolSchema` + `createPostWithSpecSchema` added to contracts/post.ts; `postDetailSchema` extended with optional `creativeSpec` field
+3. API `createPost` now inserts `post_creative_spec` in transaction when `board='ai-creation'` and spec provided; XSS sanitize applied to prompt/negPrompt
+4. API `getPostBySlug` LEFT JOINs `post_creative_spec` and returns mapped `creativeSpec` object
+5. `CreativeSpecFields` upgraded with `onSpecChange` prop + `useEffect` that lifts spec state; `license`+`commercial` merged into `licenseNote`; costType mapped from "유료"/"무료" to "paid"/"free"
+6. New `LoungeWriteClient.tsx` client component bridges `CreativeSpecFields` state → `PostWriteForm` config.creativeSpec
+7. `CreativeSpecPanel` updated to use `CreativeSpec` from contracts (mediaType, timeSpent, licenseNote field renames); costType "paid"/"free" → "유료"/"무료" display
+8. Detail page `lounge/[slug]/page.tsx` now passes `post.creativeSpec` to `CreativeSpecPanel`
+9. Task 6 (JSON-LD boostl) deferred — `apps/web/lib/seo/jsonld.ts` not touched (optional per story)
 
 ### File List
 - NEW: `packages/database/src/schema/post-creative-spec.ts`
 - UPDATE: `packages/database/src/schema/index.ts`
+- UPDATE: `packages/database/src/schema/qna.ts` (pre-existing circular ref fix, linter-forced)
 - UPDATE: `packages/contracts/src/post.ts`
-- UPDATE: `packages/contracts/src/index.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/routes.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/service.ts`
 - UPDATE: `apps/web/app/lounge/write/CreativeSpecFields.tsx`
 - UPDATE: `apps/web/app/lounge/write/page.tsx`
+- NEW: `apps/web/app/lounge/write/LoungeWriteClient.tsx`
 - UPDATE: `apps/web/app/lounge/[slug]/CreativeSpecPanel.tsx`
 - UPDATE: `apps/web/app/lounge/[slug]/page.tsx`
-- AUTO-GENERATED: `packages/database/drizzle/migrations/*.sql`
+- UPDATE: `apps/web/components/board/PostWriteForm.tsx`
+- AUTO-GENERATED: `packages/database/migrations/0003_supreme_snowbird.sql`

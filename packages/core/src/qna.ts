@@ -15,6 +15,15 @@ export interface QuestionState {
  * - 채택된 답변이 있으면 "해결됨"
  * - 답변이 하나 이상이면 "답변있음"
  * - 그 외에는 "답변대기"
+ *
+ * @important 호출자 책임:
+ *   `answerCount` 는 **공개(published) 상태인 답변만** 카운트한 값을 전달해야 한다.
+ *   삭제(deleted) 또는 숨김(hidden) 처리된 답변은 카운트에서 제외한 뒤 호출한다.
+ *   이 함수는 카운트 필터링을 직접 수행하지 않는다.
+ *
+ * @example DB 쿼리 측 예시
+ *   const answerCount = answers.filter(a => a.status === 'published').length;
+ *   const status = deriveQuestionStatus({ answerCount, acceptedAnswerId });
  */
 export function deriveQuestionStatus(state: QuestionState): QuestionStatus {
   if (state.acceptedAnswerId !== null) return "resolved";
