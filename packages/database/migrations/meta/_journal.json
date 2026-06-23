@@ -50,6 +50,13 @@
       "when": 1782231896437,
       "tag": "0006_young_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782253656190,
+      "tag": "0007_little_nemesis",
+      "breakpoints": true
     }
   ]
 }
