@@ -32,7 +32,7 @@ development_status:
   2-4-post-detail-ssr-viewcount: ready-for-dev
   2-5-tiptap-editor-preset: done
   2-6-codeblock-xss-sanitize: ready-for-dev
-  2-7-post-write-form-api: ready-for-dev
+  2-7-post-write-form-api: done
   2-8-post-edit-delete: ready-for-dev
   2-9-notice-board-ssr: ready-for-dev
   2-10-routing-epic-validation: ready-for-dev
