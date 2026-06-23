@@ -1,5 +1,6 @@
 import { Worker } from "bullmq";
 import { createConnection, QUEUE_NAMES } from "./connection";
+import { renderResetPasswordEmail } from "./templates/reset-password.js";
 
 /**
  * 워커 엔트리.
@@ -67,8 +68,21 @@ function startWorkers(): Worker[] {
           console.info("[email-worker]   인증 URL  :", variables["verificationUrl"]);
         }
 
+        // ── [1.6] 비밀번호 재설정 이메일 처리 ────────────────────────────────
+        if (templateId === "reset-password") {
+          const resetUrl = variables["resetUrl"] ?? "";
+          console.info("[email-worker]   재설정 URL:", resetUrl);
+          // dev: HTML 렌더링 결과도 로깅 (실 SMTP 연동 전 개발 확인용)
+          const html = renderResetPasswordEmail({
+            resetUrl,
+            email: variables["email"] ?? to,
+          });
+          console.info("[email-worker]   HTML 미리보기 (앞 200자):", html.slice(0, 200));
+        }
+        // ── [1.6] END ─────────────────────────────────────────────────────────
+
         Object.entries(variables).forEach(([key, value]) => {
-          if (key !== "verificationUrl") {
+          if (key !== "verificationUrl" && key !== "resetUrl") {
             console.info(`[email-worker]   ${key}: ${value}`);
           }
         });

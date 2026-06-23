@@ -3,7 +3,7 @@ import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 export const metadata: Metadata = {
   title: "비밀번호 찾기",
-  description: "이메일과 휴대전화 번호로 본인 확인 후 임시 비밀번호 발송을 요청합니다.",
+  description: "이메일로 비밀번호 재설정 링크를 받아 새 비밀번호를 설정합니다.",
 };
 
 export default function ForgotPasswordPage() {

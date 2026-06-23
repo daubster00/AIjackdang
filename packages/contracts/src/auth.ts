@@ -104,3 +104,21 @@ export const changePasswordSchema = z.object({
     .max(128, "새 비밀번호는 128자 이하여야 합니다"),
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+// ── 비밀번호 재설정 (Story 1.6) ────────────────────────────────────────────────
+
+/** POST /auth/forgot-password 요청 규격. */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("올바른 이메일 형식이 아닙니다"),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/** POST /auth/reset-password 요청 규격. */
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "재설정 토큰이 없습니다"),
+  newPassword: z
+    .string()
+    .min(8, "새 비밀번호는 8자 이상이어야 합니다")
+    .max(128, "새 비밀번호는 128자 이하여야 합니다"),
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
