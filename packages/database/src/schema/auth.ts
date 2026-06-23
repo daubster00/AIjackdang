@@ -35,6 +35,9 @@ export const users = pgTable(
     // 인증 핵심 필드 (Better Auth 필수)
     email: text("email").notNull().unique(),
     emailVerified: boolean("email_verified").notNull().default(false),
+    /** Better Auth 코어 필드. 이메일 가입 시 이메일, 소셜 가입 시 provider 프로필명으로 채워진다.
+     *  사용자 표시 이름은 nickname 을 쓰며, name 은 Better Auth 내부 정합을 위해 보존한다. */
+    name: text("name"),
 
     // 프로필 필드
     nickname: text("nickname").notNull().unique(),

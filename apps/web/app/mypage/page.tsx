@@ -113,7 +113,7 @@ const stats = [
 
 /** 기본 아바타 URL (defaultAvatarIndex 기반) */
 function getDefaultAvatarUrl(index: number): string {
-  return `/images/avatars/${index}.webp`;
+  return `/images/avatars/${index}.svg`;
 }
 
 /** createdAt ISO 문자열을 "YYYY.MM.DD" 형식으로 포맷 */

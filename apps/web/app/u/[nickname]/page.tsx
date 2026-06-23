@@ -14,7 +14,7 @@ import styles from "./profile.module.css";
 
 /** 기본 아바타 URL. defaultAvatarIndex 기반 공용 헬퍼. */
 function getDefaultAvatarUrl(index: number): string {
-  return `/images/avatars/${index}.webp`;
+  return `/images/avatars/${index}.svg`;
 }
 
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
