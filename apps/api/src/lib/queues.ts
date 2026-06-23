@@ -57,3 +57,26 @@ export function getFileScanQueue(): Queue<ResourceScanJobPayload> {
   }
   return _fileScanQueue;
 }
+
+/** stats 큐 이름 (Story 5.2, AR-16) — worker QUEUE_NAMES.stats와 동일해야 함 */
+export const STATS_QUEUE_NAME = "stats-aggregation" as const;
+
+let _statsQueue: Queue | null = null;
+
+/**
+ * 통계 집계 큐 인스턴스를 반환한다(지연 초기화 싱글톤).
+ * reaction.created 등 활동 이벤트를 발행한다. Epic 6 포인트 처리가 소비.
+ */
+export function getStatsQueue(): Queue {
+  if (!_statsQueue) {
+    _statsQueue = new Queue(STATS_QUEUE_NAME, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 2,
+        removeOnComplete: { count: 500 },
+        removeOnFail: { count: 200 },
+      },
+    });
+  }
+  return _statsQueue;
+}

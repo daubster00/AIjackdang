@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
 import { useGating } from "@/hooks/useGating";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/Toast/Toast";
 import { ReportModal } from "./ReportModal";
 import styles from "../vibe-coding.module.css";
 
@@ -17,18 +19,44 @@ const SHARE_OPTIONS = [
 type Props = {
   likes: number;
   bookmarks: number;
+  postId: string;
+  targetType: "post" | "question" | "answer" | "resource" | "comment";
+  authorId: string | null;
+  initialLiked?: boolean;
 };
 
-export function ReactionBar({ likes, bookmarks }: Props) {
+export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, initialLiked = false }: Props) {
   const { requireAuth } = useGating();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [reportOpen, setReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(initialLiked);
+  const [reactionId, setReactionId] = useState<string | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
   const [likeCount, setLikeCount] = useState(likes);
   const [bookmarkCount, setBookmarkCount] = useState(bookmarks);
   const shareRef = useRef<HTMLDivElement>(null);
+
+  const isSelf = user !== null && authorId !== null && user.id === authorId;
+
+  // 마운트 시 현재 좋아요 상태 조회
+  useEffect(() => {
+    if (!user || isSelf) return;
+    void fetch(
+      `/api/v1/reactions/me?targetType=${targetType}&targetId=${postId}`,
+      { credentials: "include" },
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { liked: boolean; reactionId: string | null } | null) => {
+        if (data) {
+          setLiked(data.liked);
+          setReactionId(data.reactionId);
+        }
+      })
+      .catch(() => null);
+  }, [user, postId, targetType, isSelf]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -40,10 +68,51 @@ export function ReactionBar({ likes, bookmarks }: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [shareOpen]);
 
-  function toggleLike() {
+  async function toggleLike() {
     if (!requireAuth("like")) return;
-    setLiked((prev) => !prev);
-    setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
+    if (isSelf) return;
+
+    // 낙관적 업데이트
+    const prevLiked = liked;
+    const prevCount = likeCount;
+    const prevReactionId = reactionId;
+
+    if (liked) {
+      setLiked(false);
+      setLikeCount((prev) => prev - 1);
+      setReactionId(null);
+    } else {
+      setLiked(true);
+      setLikeCount((prev) => prev + 1);
+    }
+
+    try {
+      if (prevLiked && prevReactionId) {
+        // 좋아요 취소
+        const res = await fetch(`/api/v1/reactions/${prevReactionId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("delete failed");
+      } else {
+        // 좋아요 추가
+        const res = await fetch("/api/v1/reactions", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetType, targetId: postId, reactionType: "like" }),
+        });
+        if (!res.ok) throw new Error("post failed");
+        const data = (await res.json()) as { id: string };
+        setReactionId(data.id);
+      }
+    } catch {
+      // 롤백
+      setLiked(prevLiked);
+      setLikeCount(prevCount);
+      setReactionId(prevReactionId);
+      toast({ tone: "danger", title: "좋아요 처리 중 오류가 발생했습니다." });
+    }
   }
 
   function toggleBookmark() {
@@ -80,8 +149,10 @@ export function ReactionBar({ likes, bookmarks }: Props) {
         <button
           type="button"
           className={liked ? styles.reactionBarBtnActive : undefined}
-          onClick={toggleLike}
+          onClick={() => void toggleLike()}
           aria-pressed={liked}
+          aria-label={isSelf ? "내 글은 좋아요할 수 없습니다" : `좋아요 ${likeCount}개`}
+          disabled={isSelf}
         >
           <Icon name={liked ? "heart-3-fill" : "heart-3-line"} />
           좋아요 {likeCount}

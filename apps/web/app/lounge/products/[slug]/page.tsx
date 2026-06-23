@@ -167,7 +167,7 @@ export default async function LoungeProductDetailPage({
             <AttachmentList />
           </div>
 
-          <ReactionBar likes={post.likes} bookmarks={post.bookmarks} />
+          <ReactionBar likes={post.likes} bookmarks={post.bookmarks} postId={slug} targetType="post" authorId={null} />
 
           <section className={styles.commentSection} aria-labelledby="comment-title">
             <div className={styles.commentHeader}>

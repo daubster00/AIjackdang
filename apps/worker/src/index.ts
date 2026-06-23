@@ -139,7 +139,24 @@ function startWorkers(): Worker[] {
   );
   // ── [4.5] resource-scan worker END ────────────────────────────────────────
 
-  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker];
+  // ── [5.2] stats worker 스텁 ────────────────────────────────────────────────
+  // reaction.created 등 활동 이벤트를 수신한다. 실처리(포인트 적립)는 Epic 6.
+  const statsConnection = createConnection();
+  const statsWorker = new Worker(
+    QUEUE_NAMES.stats,
+    async (job) => {
+      console.info(`[stats-worker] job 수신: ${job.name}`, job.data);
+    },
+    { connection: statsConnection },
+  );
+
+  statsWorker.on("ready", () => console.log("[worker] stats 워커 준비 완료"));
+  statsWorker.on("failed", (job, error) =>
+    console.error(`[stats-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [5.2] stats worker END ────────────────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker];
 }
 
 const workers = startWorkers();

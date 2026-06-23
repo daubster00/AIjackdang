@@ -199,7 +199,7 @@ export default async function LoungeTalkDetailPage({
           </div>
 
           {/* 좋아요·북마크·공유·신고 반응 바 */}
-          <ReactionBar likes={post.likes} bookmarks={post.bookmarks} />
+          <ReactionBar likes={post.likes} bookmarks={post.bookmarks} postId={slug} targetType="post" authorId={null} />
 
           {/* 댓글 섹션 */}
           <section className={styles.commentSection} aria-labelledby="comment-title">

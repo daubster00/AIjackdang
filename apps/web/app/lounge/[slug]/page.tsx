@@ -14,6 +14,7 @@ import {
 } from "@/lib/seo";
 import { ShareButton } from "./ShareButton";
 import { CreativeSpecPanel } from "./CreativeSpecPanel";
+import { ReactionBar } from "./ReactionBar";
 import styles from "../lounge.module.css";
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -115,31 +116,13 @@ export default async function LoungeDetailPage({ params }: PageProps) {
             {post.hasAttachment && <AttachmentList />}
           </div>
 
-          {/* Participation slots — Epic 5에서 활성화 */}
-          <div
-            data-slot="reactions"
-            aria-label="좋아요·북마크 (Epic 5에서 활성화)"
-            aria-disabled="true"
-            style={{ opacity: 0.6, border: "1px dashed var(--color-border)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", margin: "var(--space-4) 0" }}
-          >
-            <span style={{ color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)" }}>좋아요·북마크 기능은 곧 활성화됩니다 (Epic 5)</span>
-          </div>
-          <div
-            data-slot="comments"
-            aria-label="댓글 (Epic 5에서 활성화)"
-            aria-disabled="true"
-            style={{ opacity: 0.6, border: "1px dashed var(--color-border)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", margin: "var(--space-4) 0" }}
-          >
-            <span style={{ color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)" }}>댓글 기능은 곧 활성화됩니다 (Epic 5)</span>
-          </div>
-          <div
-            data-slot="report"
-            aria-label="신고 (Epic 5에서 활성화)"
-            aria-disabled="true"
-            style={{ opacity: 0.6, border: "1px dashed var(--color-border)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", margin: "var(--space-4) 0" }}
-          >
-            <span style={{ color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)" }}>신고 기능은 곧 활성화됩니다 (Epic 5)</span>
-          </div>
+          <ReactionBar
+            likes={post.likeCount}
+            bookmarks={0}
+            postId={post.id}
+            targetType="post"
+            authorId={post.authorId}
+          />
 
           <footer className={styles.detailFooter}>
             <Link href="/lounge" className={styles.listButton}>
