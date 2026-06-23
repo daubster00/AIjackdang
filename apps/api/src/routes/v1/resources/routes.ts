@@ -20,9 +20,11 @@ import type { FastifyInstance } from "fastify";
  */
 
 // ── [STORY-IMPORTS] 각 스토리는 이 영역에 import 한 줄 추가 ──
-import { registerResourceListRoutes } from "./list.route.js";
+import { registerResourceListRoutes } from "./list.route.js"; // Story 4.2
+import { registerResourceUploadRoutes } from "./upload.route.js"; // Story 4.5
 
 export async function resourcesRoutes(app: FastifyInstance): Promise<void> {
   // ── [STORY-REGISTRATIONS] 각 스토리는 이 아래에 `await register...(app);` 한 줄 추가 ──
-  await registerResourceListRoutes(app);
+  await registerResourceListRoutes(app); // Story 4.2
+  await registerResourceUploadRoutes(app); // Story 4.5
 }
