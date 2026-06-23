@@ -10,6 +10,23 @@ const nextConfig: NextConfig = {
     "@ai-jakdang/utilities",
     "@ai-jakdang/auth",
   ],
+
+  /**
+   * API 프록시 rewrite (Dev Notes §쿠키·세션 전략).
+   *
+   * /api/v1/auth/* → API 서버(4003)로 프록시.
+   * 브라우저 입장에서 Same-Origin 요청이므로 httpOnly 쿠키가 정상 설정된다.
+   * (First-party 쿠키 보장)
+   */
+  async rewrites() {
+    const apiUrl = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${apiUrl}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

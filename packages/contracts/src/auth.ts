@@ -52,6 +52,30 @@ export const publicUserSchema = z.object({
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;
 
+// ── 세션 응답 (AC #1, #2, #8) ─────────────────────────────────────────────────
+/**
+ * GET /api/v1/auth/session 응답 스키마.
+ * Better Auth session 응답의 user 필드에서 추출한 공개 정보.
+ * UserSession (packages/auth) 타입과 정합을 맞춘다.
+ */
+export const sessionSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    nickname: z.string(),
+    status: z.enum(["active", "suspended", "withdrawn"]),
+    emailVerified: z.boolean(),
+    defaultAvatarIndex: z.number().int().nonnegative(),
+    avatarUrl: z.string().nullable(),
+    createdAt: z.string(),
+  }),
+  session: z.object({
+    id: z.string(),
+    expiresAt: z.string(),
+  }),
+});
+export type SessionResponse = z.infer<typeof sessionSchema>;
+
 // ── 프로필 수정 (AC #4 updateProfileSchema) ────────────────────────────────────
 /** 프로필 수정 요청 규격. 모든 필드 선택적. */
 export const updateProfileSchema = z.object({

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, Dropdown, DropdownDivider, DropdownItem, Icon, RankBadge } from "@/components/ui";
-import { useMockAuth } from "@/hooks/useMockAuth";
-import type { MockUser } from "@/lib/mockAuth";
+import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import type { RankTier } from "@/lib/ranks";
 import styles from "./SiteHeader.module.css";
 
 const navItems: {
@@ -66,11 +67,14 @@ const navItems: {
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useMockAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     setOpen(false);
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -159,7 +163,8 @@ export function SiteHeader() {
                 <Avatar name={user.nickname} size="sm" />
                 <div className={styles.mobileUserText}>
                   <span className={styles.mobileUserName}>{user.nickname}</span>
-                  <RankBadge rank={user.rank} size={16} showLabel />
+                  {/* rank는 별도 API에서 제공될 예정. 현재는 기본값 표시 */}
+                  <RankBadge rank={"member" as RankTier} size={16} showLabel />
                 </div>
               </div>
               <div className={styles.mobileUserActions}>
@@ -213,8 +218,11 @@ function IconAction({
   );
 }
 
-/** 로그인 상태일 때 헤더 우측에 표시되는 프로필 메뉴(아바타 + 닉네임 + 등급 + 드롭다운). */
-function UserMenu({ user, onLogout }: { user: MockUser; onLogout: () => void }) {
+/**
+ * 로그인 상태일 때 헤더 우측에 표시되는 프로필 메뉴(아바타 + 닉네임 + 등급 + 드롭다운).
+ * rank는 게이미피케이션 API 구현 후 연동 예정. 현재는 "member"로 임시 표시.
+ */
+function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   return (
     <Dropdown
       align="end"
@@ -230,7 +238,7 @@ function UserMenu({ user, onLogout }: { user: MockUser; onLogout: () => void }) 
         <Avatar name={user.nickname} size="md" />
         <div className={styles.userSummaryText}>
           <span className={styles.userSummaryName}>{user.nickname}</span>
-          <RankBadge rank={user.rank} size={18} showLabel />
+          <RankBadge rank={"member" as RankTier} size={18} showLabel />
         </div>
       </div>
       <DropdownDivider />

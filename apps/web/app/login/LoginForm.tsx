@@ -1,24 +1,106 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button, Checkbox, Icon, Input } from "@/components/ui";
-import { useMockAuth } from "@/hooks/useMockAuth";
-import { createMockUserFromEmail } from "@/lib/mockAuth";
+import { Button, Checkbox, Icon, Input, Spinner } from "@/components/ui";
+import { signIn } from "@/lib/auth-api";
 import styles from "./login.module.css";
 
+/**
+ * 로그인 폼 (AC #1, #2, #3, #4).
+ *
+ * UI 계약 불변:
+ * - 이메일·비밀번호 Input 필드 구성 유지
+ * - 소셜 로그인 버튼 3개(카카오·네이버·Google) 구성 유지
+ * - "로그인 유지" Checkbox 유지
+ * - "비밀번호 찾기" Link / "아직 계정이 없나요?" 링크 유지
+ *
+ * 변경:
+ * - useMockAuth·createMockUserFromEmail 제거 → 실제 API 호출
+ * - 에러 처리: 401(인라인) / 미인증(인라인+재발송 안내) / suspended(인라인) / 429(토스트 대신 인라인)
+ * - 로그인 성공: router.push(redirectTo ?? '/')
+ */
 export function LoginForm() {
   const router = useRouter();
-  const { login } = useMockAuth();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") ?? "/";
 
-  // 데모(목업): 입력한 이메일로 가짜 로그인 처리 후 홈으로 이동한다.
-  // 홈으로 돌아가면 상단 헤더가 로그인된 화면(아바타·등급·프로필 메뉴)으로 바뀐다.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showResend, setShowResend] = useState(false);
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const email = String(new FormData(event.currentTarget).get("email") ?? "");
-    login(createMockUserFromEmail(email));
-    router.push("/");
+    if (loading) return;
+
+    // 에러 초기화
+    setFormError(null);
+    setEmailError(null);
+    setPasswordError(null);
+    setShowResend(false);
+
+    const email = String(new FormData(event.currentTarget).get("email") ?? "").trim();
+    const password = String(new FormData(event.currentTarget).get("password") ?? "");
+
+    if (!email) {
+      setEmailError("이메일을 입력해주세요.");
+      emailRef.current?.focus();
+      return;
+    }
+    if (!password) {
+      setPasswordError("비밀번호를 입력해주세요.");
+      passwordRef.current?.focus();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await signIn(email, password);
+
+      if (result.ok) {
+        // 로그인 성공 → redirectTo 로 이동 (AC #2)
+        router.push(redirectTo);
+        router.refresh(); // 서버 컴포넌트 세션 재조회
+        return;
+      }
+
+      // 에러 처리 (AC #3)
+      switch (result.code) {
+        case "INVALID_CREDENTIALS":
+          // 비밀번호 필드 아래 인라인 표시 (UX-DR-U11)
+          setPasswordError("이메일 또는 비밀번호가 올바르지 않습니다.");
+          passwordRef.current?.focus();
+          break;
+
+        case "EMAIL_NOT_VERIFIED":
+          // 이메일 필드 아래 재발송 안내 인라인 표시
+          setEmailError("이메일 인증이 완료되지 않았습니다.");
+          setShowResend(true);
+          emailRef.current?.focus();
+          break;
+
+        case "ACCOUNT_SUSPENDED":
+          // 계정 정지 안내 (폼 하단 인라인)
+          setFormError(result.message);
+          break;
+
+        case "RATE_LIMIT_EXCEEDED":
+          // 429: 인라인 표시 (토스트 없이)
+          setFormError(result.message);
+          break;
+
+        default:
+          setFormError(result.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -29,8 +111,9 @@ export function LoginForm() {
         <p>가입한 이메일로 AI작당을 계속 이용하세요.</p>
       </div>
 
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <Input
+          ref={emailRef}
           label="이메일"
           type="email"
           name="email"
@@ -38,8 +121,17 @@ export function LoginForm() {
           autoComplete="email"
           required
           leftIcon={<Icon name="mail-line" />}
+          error={emailError ?? undefined}
         />
+        {showResend && (
+          <p className={styles.resendNotice}>
+            인증 메일을 받지 못하셨나요?{" "}
+            <Link href="/auth/resend-verification">인증 메일 재발송</Link>
+          </p>
+        )}
+
         <Input
+          ref={passwordRef}
           label="비밀번호"
           type="password"
           name="password"
@@ -47,15 +139,29 @@ export function LoginForm() {
           autoComplete="current-password"
           required
           leftIcon={<Icon name="lock-line" />}
+          error={passwordError ?? undefined}
         />
+
+        {formError && (
+          <p className={styles.formError} role="alert">
+            <Icon name="error-warning-line" />
+            {formError}
+          </p>
+        )}
 
         <div className={styles.formOptions}>
           <Checkbox name="remember">로그인 유지</Checkbox>
           <Link href="/forgot-password">비밀번호 찾기</Link>
         </div>
 
-        <Button type="submit" size="lg" fullWidth rightIcon={<Icon name="arrow-right-line" />}>
-          로그인
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          disabled={loading}
+          rightIcon={loading ? <Spinner size="sm" /> : <Icon name="arrow-right-line" />}
+        >
+          {loading ? "로그인 중..." : "로그인"}
         </Button>
       </form>
 

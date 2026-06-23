@@ -41,16 +41,34 @@ export const userAuth = betterAuth({
   /** 인증 API 기본 경로 */
   basePath: "/api/v1/auth",
 
+  /** 고급 설정 */
+  advanced: {
+    /**
+     * 세션 쿠키 prefix: aj_session (ADR-0002)
+     * 기본값 "better-auth" → "aj_session"으로 변경.
+     * 쿠키명: aj_session.session_token (httpOnly, SameSite=Lax)
+     */
+    cookiePrefix: "aj_session",
+
+    /**
+     * DB ID 생성기: sessions.id/accounts.id 등이 UUID 타입이므로 "uuid" 설정.
+     * Better Auth 기본은 알파벳+숫자 랜덤 문자열 — PostgreSQL UUID 컬럼과 충돌.
+     * "uuid"로 설정하면 crypto.randomUUID()를 사용한다.
+     */
+    database: {
+      generateId: "uuid" as const,
+    },
+  },
+
   /** Better Auth URL (소셜 콜백 등에 사용) */
   baseURL: env.BETTER_AUTH_URL ?? env.WEB_PUBLIC_URL,
 
   /** AUTH_SECRET — 세션 서명·암호화 */
   secret: env.AUTH_SECRET,
 
-  /** 세션 쿠키 이름 prefix: aj_session */
-  cookiePrefix: "aj_session",
-
-  /** Drizzle 어댑터 연결 */
+  /**
+   * Drizzle 어댑터 연결
+   */
   database: drizzleAdapter(getDb(), {
     provider: "pg",
     schema: {
@@ -71,6 +89,38 @@ export const userAuth = betterAuth({
     maxPasswordLength: 128,
     /** Argon2id 커스텀 해셔 (project-context §보안) */
     password: argon2idHasher,
+  },
+
+  /**
+   * 커스텀 user 필드 (ADR-0002).
+   * Better Auth 기본 user 응답에 포함되지 않는 필드를 추가한다.
+   * get-session / sign-in 응답의 user 객체에 이 필드들이 포함된다.
+   */
+  user: {
+    additionalFields: {
+      nickname: {
+        type: "string" as const,
+        required: true,
+        fieldName: "nickname",
+      },
+      status: {
+        type: "string" as const,
+        required: false,
+        defaultValue: "active",
+        fieldName: "status",
+      },
+      defaultAvatarIndex: {
+        type: "number" as const,
+        required: false,
+        defaultValue: 0,
+        fieldName: "defaultAvatarIndex",
+      },
+      avatarUrl: {
+        type: "string" as const,
+        required: false,
+        fieldName: "avatarUrl",
+      },
+    },
   },
 
   /** 소셜 Provider 슬롯 — 환경변수 미설정 시 비활성 */

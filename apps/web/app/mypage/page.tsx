@@ -15,9 +15,8 @@ import {
   RankBadge,
   Tag,
 } from "@/components/ui";
-import { useMockAuth } from "@/hooks/useMockAuth";
+import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import { RANK_LIST, resolveRank } from "@/lib/ranks";
-import type { MockUser } from "@/lib/mockAuth";
 import type { RankTier } from "@/lib/ranks";
 import styles from "./mypage.module.css";
 
@@ -25,12 +24,17 @@ import styles from "./mypage.module.css";
  * 마이페이지 (/mypage).
  * 헤더 프로필 드롭다운의 "마이페이지" 진입점.
  *
- * 인증 백엔드가 붙기 전이라 로그인 상태는 목업(useMockAuth)에서 읽는다.
- * 로그인 사용자가 없을 때도 디자인을 확인할 수 있도록 데모 프로필로 폴백한다.
+ * 실제 세션 API에서 유저 정보를 읽는다(useAuth).
+ * 비로그인 상태에서도 데모 프로필로 디자인 확인 가능.
  */
 
+/** 마이페이지 프로필 뷰 타입 (실제 AuthUser + rank 보조 필드) */
+type ProfileView = Pick<AuthUser, "nickname" | "email"> & {
+  rank: RankTier;
+};
+
 /** 로그인 사용자가 없을 때 화면을 채우는 데모 프로필 */
-const DEMO_USER: MockUser = {
+const DEMO_USER: ProfileView = {
   nickname: "작당탐험가",
   email: "explorer@aijakdang.com",
   rank: "practitioner",
@@ -301,7 +305,7 @@ const accountLinks = [
 ];
 
 export default function MyPage() {
-  const { user, ready, logout } = useMockAuth();
+  const { user, ready, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("posts");
 
   // "내가 쓴 글" 탭 전용 컨트롤: 게시판 필터 / 정렬 / 검색
@@ -310,7 +314,10 @@ export default function MyPage() {
   const [postKeyword, setPostKeyword] = useState("");
 
   // 로그인 사용자가 있으면 사용, 없으면 데모 프로필로 폴백한다.
-  const profile = user ?? DEMO_USER;
+  // rank는 게이미피케이션 API 구현 후 연동 예정. 현재는 "member" 기본값.
+  const profile: ProfileView = user
+    ? { nickname: user.nickname, email: user.email, rank: "member" as RankTier }
+    : DEMO_USER;
   const isDemo = !user;
 
   // 내가 쓴 글에 실제로 존재하는 게시판만 필터 칩으로 노출
@@ -805,7 +812,7 @@ export default function MyPage() {
                 <button
                   type="button"
                   className={`${styles.accountItem} ${styles.accountLogout}`}
-                  onClick={logout}
+                  onClick={() => { void logout(); }}
                 >
                   <Icon name="logout-box-r-line" />
                   <span>로그아웃</span>

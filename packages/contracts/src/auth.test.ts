@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { signUpSchema } from "./auth";
+import { signUpSchema, sessionSchema } from "./auth";
 
 describe("signUpSchema", () => {
   it("올바른 회원가입 입력을 통과시킨다", () => {
@@ -47,6 +47,55 @@ describe("signUpSchema", () => {
       email: "user@example.com",
       password: "password123",
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("sessionSchema (Story 1.4 Task 5.1)", () => {
+  const validSession = {
+    user: {
+      id: "user-1",
+      email: "test@example.com",
+      nickname: "테스터",
+      status: "active",
+      emailVerified: true,
+      defaultAvatarIndex: 0,
+      avatarUrl: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    session: {
+      id: "session-1",
+      expiresAt: "2026-12-31T00:00:00.000Z",
+    },
+  };
+
+  it("유효한 세션 응답을 통과시킨다 (AC #1)", () => {
+    const result = sessionSchema.safeParse(validSession);
+    expect(result.success).toBe(true);
+  });
+
+  it("avatarUrl=null을 허용한다", () => {
+    const result = sessionSchema.safeParse(validSession);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.user.avatarUrl).toBeNull();
+    }
+  });
+
+  it("status가 suspended인 경우를 허용한다", () => {
+    const result = sessionSchema.safeParse({
+      ...validSession,
+      user: { ...validSession.user, status: "suspended" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("user.id 누락 시 실패한다", () => {
+    const invalid = {
+      ...validSession,
+      user: { ...validSession.user, id: undefined },
+    };
+    const result = sessionSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
 });
