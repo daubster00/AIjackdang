@@ -31,7 +31,7 @@ development_status:
   2-3-board-list-ssr: done
   2-4-post-detail-ssr-viewcount: done
   2-5-tiptap-editor-preset: done
-  2-6-codeblock-xss-sanitize: ready-for-dev
+  2-6-codeblock-xss-sanitize: done
   2-7-post-write-form-api: done
   2-8-post-edit-delete: ready-for-dev
   2-9-notice-board-ssr: ready-for-dev
