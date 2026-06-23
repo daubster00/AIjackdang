@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
-import { ProfileForm } from "./ProfileForm";
+import { WithdrawalForm } from "./WithdrawalForm";
 import shell from "../settings.module.css";
 
 export const metadata: Metadata = {
-  title: "프로필 수정",
-  description: "AI작당 프로필을 수정하세요. 닉네임과 한 줄 소개를 변경할 수 있습니다.",
+  title: "계정 관리",
+  description: "AI작당 계정 탈퇴를 진행합니다.",
   robots: { index: false, follow: false },
 };
 
-export default function ProfileSettingsPage() {
+export default function AccountSettingsPage() {
   return (
     <main id="main" className={shell.page}>
       <div className={shell.wrap}>
@@ -19,13 +19,13 @@ export default function ProfileSettingsPage() {
           마이페이지
         </Link>
 
-        <section className={shell.card} aria-labelledby="settings-profile-title">
+        <section className={shell.card} aria-labelledby="settings-account-title">
           <div className={shell.head}>
-            <p className={shell.eyebrow}>Profile</p>
-            <h1 id="settings-profile-title">프로필 수정</h1>
-            <p>다른 사용자에게 보이는 닉네임과 한 줄 소개를 관리합니다.</p>
+            <p className={shell.eyebrow}>Account</p>
+            <h1 id="settings-account-title">계정 관리</h1>
+            <p>계정 탈퇴를 진행합니다. 탈퇴 후에는 계정을 복구할 수 없습니다.</p>
           </div>
-          <ProfileForm />
+          <WithdrawalForm />
         </section>
       </div>
     </main>

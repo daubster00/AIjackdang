@@ -1,0 +1,47 @@
+/* /settings/account 전용 스타일 (Story 1.9) */
+
+.noticeBox {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
+}
+
+.noticeTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-3);
+}
+
+.noticeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.noticeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.confirmSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.confirmDesc {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}

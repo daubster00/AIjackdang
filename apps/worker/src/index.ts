@@ -40,3 +40,33 @@ async function shutdown() {
 
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
+
+// ── [1.9] cleanup worker ──────────────────────────────────────────────────────
+// 탈퇴 회원 콘텐츠 익명화 워커.
+// posts.user_id / comments.user_id 를 null 로 처리한다.
+// posts·comments 테이블이 생성된 이후(Epic 2~) 실제 익명화 로직을 구현한다.
+//
+// job 데이터: { userId: string; jobName: "cleanup.anonymize" }
+
+const cleanupConnection = createConnection();
+const cleanupWorker = new Worker(
+  QUEUE_NAMES.cleanup,
+  async (job) => {
+    if (job.name === "cleanup.anonymize") {
+      const { userId } = job.data as { userId: string };
+      // TODO(Epic 2 이후): posts.user_id = null WHERE user_id = userId
+      // TODO(Epic 2 이후): comments.user_id = null WHERE user_id = userId
+      console.log(`[worker] cleanup.anonymize 수신 userId=${userId} — posts·comments 테이블 생성 후 처리`);
+    } else {
+      console.log(`[worker] cleanup job 수신: ${job.id} name=${job.name} (처리기 미구현)`);
+    }
+  },
+  { connection: cleanupConnection },
+);
+
+cleanupWorker.on("ready", () => console.log("[worker] cleanup 워커 준비 완료"));
+cleanupWorker.on("failed", (job, error) =>
+  console.error(`[worker] cleanup job 실패 ${job?.id}:`, error.message),
+);
+
+workers.push(cleanupWorker);

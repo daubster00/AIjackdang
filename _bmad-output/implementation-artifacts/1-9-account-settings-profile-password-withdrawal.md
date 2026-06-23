@@ -120,9 +120,46 @@ so that 내 정보와 계정 수명을 직접 관리한다.
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+없음 (타입오류 2건 수정: Zod v4 `issues` API 교체, `rawBody` → `request.body` 캐스팅)
 
 ### Completion Notes List
 
+**완료:**
+- PATCH /users/me — 프로필 수정 (닉네임 중복 409, updatedAt 갱신)
+- GET /users/check-nickname — 본인 제외 닉네임 중복 확인
+- POST /users/me/password — Argon2id verify + 새 해시 갱신
+- GET /users/me/accounts — providers 목록 (소셜 전용 판별용)
+- DELETE /users/me — soft-delete + 세션 삭제 + cleanup 큐 발행
+- POST /users/uploads/avatar · /uploads/banner — 멀티파트 이미지 업로드
+- apps/web ProfileForm.tsx — 실제 API 연결, 닉네임 blur 중복 체크, 이미지 업로드, 성공/실패 토스트
+- apps/web SecurityForm.tsx — 실제 API 연결, 소셜 전용 계정 안내, 401 인라인 오류
+- apps/web /settings/account — 신규 page.tsx + WithdrawalForm.tsx (2단계 확인 → DELETE → 세션클리어 → 홈)
+- middleware.ts /settings/* 가드 이미 Story 1.4 에서 구현됨 — 확인 후 그대로 유지
+- 각 settings page.tsx robots noindex 추가
+- cleanup 큐 worker 골격 추가 (apps/worker/src/index.ts 맨 아래 [1.9] 블록)
+
+**편차:**
+1. **스토리지 로컬 폴백**: @fastify/multipart 가 실제 설치되어 있지 않음 → Node.js 내장 Buffer 기반 멀티파트 파서(services/storage/multipart.ts)로 대체. 로컬 파일시스템(apps/api/uploads/)에 저장하고 `/uploads/{subdir}/{filename}` URL 반환. MinIO/S3 연결 시 uploadImage() 함수에서 분기 예정.
+2. **익명화 worker 골격만**: posts·comments 테이블이 미생성 상태 — cleanup.anonymize job 수신 시 TODO 로그만 출력, 실제 UPDATE는 Epic 2 이후 구현.
+3. **링크 label**: updateProfileSchema 의 links 필드가 `{label, url}` 구조 — 프론트에서 url 을 label 로도 사용(더미 label = url). 링크 전용 label 입력 UI 는 추후 개선 가능.
+
 ### File List
+- apps/api/src/routes/v1/users.ts (UPDATED)
+- apps/api/src/services/storage/index.ts (NEW)
+- apps/api/src/services/storage/multipart.ts (NEW)
+- apps/api/src/queues/cleanup.queue.ts (NEW)
+- apps/api/src/routes/v1/users.test.ts (NEW)
+- apps/web/app/settings/profile/ProfileForm.tsx (UPDATED)
+- apps/web/app/settings/profile/page.tsx (UPDATED — noindex 추가)
+- apps/web/app/settings/security/SecurityForm.tsx (UPDATED)
+- apps/web/app/settings/security/page.tsx (UPDATED — noindex 추가)
+- apps/web/app/settings/account/page.tsx (NEW)
+- apps/web/app/settings/account/WithdrawalForm.tsx (NEW)
+- apps/web/app/settings/account/account.module.css (NEW)
+- apps/web/lib/users-api.ts (NEW)
+- apps/worker/src/connection.ts (UPDATED — cleanup 큐 이름 추가)
+- apps/worker/src/index.ts (UPDATED — cleanup worker 블록 추가)
+- packages/contracts/src/user.ts (UPDATED — imageUploadResponseSchema 추가)

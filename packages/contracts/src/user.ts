@@ -10,6 +10,13 @@ import { z } from "zod";
  * - rank: 등급 키. 포인트 시스템(Epic 6) 전까지 기본 'rookie'(새내기).
  * - followersCount / followingCount: 팔로우 기능(Epic 5 Story 5.12) 전까지 0.
  */
+// ── 이미지 업로드 응답 (Story 1.9) ───────────────────────────────────────────────
+/** POST /api/v1/users/uploads/avatar · /uploads/banner 성공 응답 */
+export const imageUploadResponseSchema = z.object({
+  url: z.string(),
+});
+export type ImageUploadResponse = z.infer<typeof imageUploadResponseSchema>;
+
 export const publicProfileSchema = z.object({
   id: z.string().uuid(),
   nickname: z.string(),
