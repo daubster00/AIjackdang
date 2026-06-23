@@ -7,4 +7,6 @@
   --shadow-dropdown: 0 14px 34px rgba(23, 24, 39, 0.14);
   --shadow-card-hover: 0 8px 24px rgba(23, 24, 39, 0.08);
   --shadow-segment-active: 0 1px 4px rgba(23, 24, 39, 0.08);
+  /* 에디터/인터랙티브 요소 포커스 링 (--focus-ring 의 별칭 — Story 2.5+) */
+  --shadow-focus-ring: 0 0 0 4px rgba(48, 48, 192, 0.14);
 }

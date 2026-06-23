@@ -1,0 +1,332 @@
+/* ===========================================================================
+ * Tiptap 에디터 — CSS Module (Story 2.5)
+ * 모든 시각 값은 디자인 토큰 var(--...) 참조. 픽셀·색상 하드코딩 금지.
+ * =========================================================================== */
+
+/* ─── 에디터 전체 컨테이너 ─────────────────────────────────────────────────── */
+.editorContainer {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── 툴바 ───────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* 툴바 버튼 공통 */
+.toolbarBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.toolbarBtn:hover {
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
+}
+
+.toolbarBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.toolbarBtnActive {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.toolbarBtnActive:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+/* 툴바 구분선 */
+.toolbarDivider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+/* 색상 스워치 버튼 (툴바 내 색상 팔레트) */
+.colorSwatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.colorSwatch:hover {
+  transform: scale(1.15);
+}
+
+.colorSwatch:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+/* 색상 팔레트 팝오버 */
+.colorPalette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 50;
+  min-width: 120px;
+}
+
+.colorPickerWrap {
+  position: relative;
+}
+
+/* 이미지 삽입 인라인 모달 */
+.imageModal {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 60;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 280px;
+}
+
+.imageModal label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.imageModalInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.imageModalInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.imageModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.imageModalCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.imageModalCancelBtn:hover {
+  background: var(--color-neutral-soft);
+}
+
+.imageModalCancelBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.imageModalInsertBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.imageModalInsertBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+.imageModalInsertBtn:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.imageModalInsertBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+/* ─── 에디터 본문 영역 ────────────────────────────────────────────────────── */
+.editorContent {
+  padding: var(--space-4);
+  min-height: 320px;
+  cursor: text;
+  flex: 1;
+  /* ProseMirror 기본 outline 제거 — 컨테이너 포커스 링으로 대체 */
+}
+
+/* ProseMirror 편집 영역 직접 스타일링 */
+.editorContent :global(.ProseMirror) {
+  outline: none;
+  min-height: 300px;
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.editorContent :global(.ProseMirror):focus-visible {
+  outline: none;
+}
+
+/* 컨테이너 포커스 링 (ProseMirror 가 포커스되면 컨테이너에 링 표시) */
+.editorContainer:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus-ring);
+}
+
+/* 빈 에디터 placeholder */
+.editorContent :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  color: var(--color-placeholder);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ─── 인라인 서식 ─────────────────────────────────────────────────────────── */
+.editorContent :global(.ProseMirror h2) {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.editorContent :global(.ProseMirror h3) {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.editorContent :global(.ProseMirror p) {
+  margin: 0 0 var(--space-3);
+}
+
+.editorContent :global(.ProseMirror ul),
+.editorContent :global(.ProseMirror ol) {
+  padding-left: var(--space-6);
+  margin: 0 0 var(--space-3);
+}
+
+.editorContent :global(.ProseMirror li) {
+  margin-bottom: var(--space-1);
+}
+
+.editorContent :global(.ProseMirror blockquote) {
+  border-left: 3px solid var(--color-border-strong);
+  padding-left: var(--space-4);
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-sub);
+  font-style: italic;
+}
+
+/* 코드 블록 — --color-neutral-soft 를 배경으로 사용(surface-raised 대체) */
+.editorContent :global(.ProseMirror pre) {
+  background: var(--color-neutral-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin: 0 0 var(--space-3);
+  overflow-x: auto;
+}
+
+.editorContent :global(.ProseMirror pre code) {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  background: none;
+  padding: 0;
+  color: var(--color-text);
+}
+
+/* 인라인 코드 */
+.editorContent :global(.ProseMirror code) {
+  background: var(--color-neutral-soft);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+/* 링크 */
+.editorContent :global(.ProseMirror a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.editorContent :global(.ProseMirror a:hover) {
+  color: var(--color-primary-hover);
+}
+
+/* 이미지 */
+.editorContent :global(.ProseMirror img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}

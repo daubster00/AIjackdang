@@ -1,6 +1,6 @@
 # Story 2.5: Tiptap 에디터 full preset + packages/contracts/editor.ts
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -135,10 +135,25 @@ function insertImageWithAlt(editor: Editor) {
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- Tiptap 패키지 버전: v3.27.1 (story spec은 v2.x 언급 — 실제 설치는 v3)
+- Tiptap v3에서 StarterKit에 Link 포함됨 (별도 import 불필요)
+- `@tiptap/extension-color`는 v3에서 `@tiptap/extension-text-style`에서 re-export됨
+- `--shadow-focus-ring` 토큰이 기존에 없었음 → `apps/web/styles/tokens/shadows.css`에 추가
+- `--color-surface-raised` 토큰 없음 → `--color-neutral-soft` 대체 사용
 
 ### Completion Notes List
+- Tiptap v3 API 적용 (story spec v2.x 기준이나 실설치는 v3). `useEditor` 시그니처·`immediatelyRender` 옵션 반영.
+- `--shadow-focus-ring` 토큰을 shadows.css에 신규 추가 (= `--focus-ring`과 동일값, Story 2.5+ 에디터 전용 별칭).
+- `--color-surface-raised`가 없어 코드블록 배경은 `--color-neutral-soft`로 대체.
+- `PostWriteForm.tsx`: contentEditable 기반 수작업 에디터 전체 제거 → `<Editor preset="full" />` 교체. 태그·파일첨부·폼 구조는 완전 유지.
+- `LightEditor.tsx`는 현재 scope 밖 (Task 7에서 "연동 여부 확인"만 요구) — contentEditable 기반으로 남겨둠. 교체는 Story 별도 지시 시 진행.
+- 이미지 삽입은 URL + alt 인라인 모달 방식 구현 (alt 비어있으면 [삽입] 버튼 disabled).
+- 툴바에 표·자유 글자크기·자유 색상 버튼 없음 (spec 준수).
+- `pnpm --filter @ai-jakdang/contracts typecheck` 통과 (출력 없음 = 성공).
+- `pnpm --filter @ai-jakdang/web typecheck` 통과 (출력 없음 = 성공).
 
 ### File List
 - NEW: `packages/contracts/src/editor.ts`
@@ -146,6 +161,6 @@ function insertImageWithAlt(editor: Editor) {
 - NEW: `apps/web/features/editor/EditorToolbar.tsx`
 - NEW: `apps/web/features/editor/Editor.module.css`
 - NEW: `apps/web/features/editor/index.ts`
-- UPDATE: `packages/contracts/src/index.ts`
-- UPDATE: `apps/web/components/board/PostWriteForm.tsx`
-- UPDATE: `apps/web/package.json` (Tiptap 의존성 추가)
+- UPDATE: `packages/contracts/src/index.ts` (editor re-export 추가)
+- UPDATE: `apps/web/components/board/PostWriteForm.tsx` (contentEditable → Tiptap Editor 교체)
+- UPDATE: `apps/web/styles/tokens/shadows.css` (--shadow-focus-ring 토큰 추가)
