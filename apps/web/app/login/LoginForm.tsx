@@ -7,6 +7,19 @@ import { Button, Checkbox, Icon, Input, Spinner } from "@/components/ui";
 import { signIn } from "@/lib/auth-api";
 import styles from "./login.module.css";
 
+/** 카카오 로그인 활성 여부 (NEXT_PUBLIC_KAKAO_ENABLED=true 시 활성) */
+const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
+
+/**
+ * Better Auth 소셜 로그인 시작 URL.
+ * /api/v1/auth/sign-in/social/{provider} 로 리다이렉트 → OAuth 플로우 시작.
+ * Next.js rewrite 가 /api/v1/* → API 서버(4003) 로 프록시한다.
+ */
+function getSocialLoginUrl(provider: "google" | "naver" | "kakao", redirectTo: string): string {
+  const callbackURL = encodeURIComponent(`${window.location.origin}${redirectTo}`);
+  return `/api/v1/auth/sign-in/social/${provider}?callbackURL=${callbackURL}`;
+}
+
 /**
  * 로그인 폼 (AC #1, #2, #3, #4).
  *
@@ -170,19 +183,34 @@ export function LoginForm() {
       </div>
 
       <div className={styles.socialGrid}>
-        <button type="button" className={`${styles.socialButton} ${styles.kakaoButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.kakaoButton}`}
+          disabled={!KAKAO_ENABLED}
+          title={!KAKAO_ENABLED ? "카카오 로그인 준비 중" : undefined}
+          style={!KAKAO_ENABLED ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          onClick={KAKAO_ENABLED ? () => { window.location.href = getSocialLoginUrl("kakao", redirectTo); } : undefined}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             <KakaoMark />
           </span>
           카카오로 로그인
         </button>
-        <button type="button" className={`${styles.socialButton} ${styles.naverButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.naverButton}`}
+          onClick={() => { window.location.href = getSocialLoginUrl("naver", redirectTo); }}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             N
           </span>
           네이버로 로그인
         </button>
-        <button type="button" className={`${styles.socialButton} ${styles.googleButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.googleButton}`}
+          onClick={() => { window.location.href = getSocialLoginUrl("google", redirectTo); }}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             <svg className={styles.googleMark} viewBox="0 0 24 24" focusable="false">
               <path
