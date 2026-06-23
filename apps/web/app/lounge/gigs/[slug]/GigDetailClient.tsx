@@ -15,33 +15,11 @@ import { type GigPost, type GigStatus } from "../page";
 import styles from "../gigs.module.css";
 import commentStyles from "../../lounge.module.css";
 import { CommentForm } from "./CommentForm";
-import { CommentItem } from "./CommentItem";
 
 type Props = {
   post: GigPost;
 };
 
-// 상세 페이지 댓글 목업. 의뢰/구직 글에 어울리는 문의·제안 형태.
-const MOCK_COMMENTS = [
-  {
-    author: "영상러버",
-    date: "2026.06.21",
-    text: "샘플 포트폴리오는 어떤 형식으로 보내드리면 될까요? 링크로 공유해도 괜찮은지 궁금합니다.",
-    replies: [
-      {
-        author: "채널운영중",
-        date: "2026.06.21",
-        text: "네, 유튜브/비메오 링크 모두 좋습니다. 쪽지로 채널 주소 보내주시면 확인하겠습니다.",
-      },
-    ],
-  },
-  {
-    author: "프리랜서편집",
-    date: "2026.06.20",
-    text: "월 단위 계약이면 편수 변동이 있을 때 단가 조정도 협의 가능한가요? 관심 있어 문의드립니다.",
-    replies: [],
-  },
-];
 
 export function GigDetailClient({ post }: Props) {
   const { user } = useMockAuth();
@@ -199,16 +177,6 @@ export function GigDetailClient({ post }: Props) {
           {/* 댓글 작성 폼 */}
           <CommentForm />
 
-          {/* 댓글 목록 */}
-          <div className={commentStyles.commentList}>
-            {MOCK_COMMENTS.map((comment) => (
-              <CommentItem key={`${comment.author}-${comment.date}`} comment={comment} />
-            ))}
-          </div>
-          <button type="button" className={commentStyles.commentLoadMore}>
-            <Icon name="arrow-down-s-line" />
-            댓글 더보기
-          </button>
         </section>
 
         {/* ── 상세 푸터 ── */}

@@ -15,6 +15,8 @@ import {
 import { ShareButton } from "./ShareButton";
 import { CreativeSpecPanel } from "./CreativeSpecPanel";
 import { ReactionBar } from "./ReactionBar";
+import { CommentForm } from "./CommentForm";
+import { CommentItem, type ApiComment } from "./CommentItem";
 import styles from "../lounge.module.css";
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -51,6 +53,14 @@ export default async function LoungeDetailPage({ params }: PageProps) {
   if (!res.ok) notFound();
 
   const post = (await res.json()) as PostDetail;
+
+  const commentsRes = await fetch(
+    `${API_URL}/api/v1/comments?targetType=post&targetId=${post.id}&pageSize=50`,
+    { headers: { cookie }, cache: "no-store" },
+  );
+  const commentsData = commentsRes.ok
+    ? ((await commentsRes.json()) as { items: ApiComment[] })
+    : { items: [] };
 
   const boardMeta = BOARDS[post.board];
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
@@ -123,6 +133,18 @@ export default async function LoungeDetailPage({ params }: PageProps) {
             targetType="post"
             authorId={post.authorId}
           />
+
+          <section className={styles.commentSection} aria-labelledby="comment-title">
+            <h3 id="comment-title" className={styles.commentTitle}>
+              댓글 {commentsData.items.length}
+            </h3>
+            <CommentForm targetType="post" targetId={post.id} />
+            <ul className={styles.commentList}>
+              {commentsData.items.map((comment) => (
+                <CommentItem key={comment.id} comment={comment} />
+              ))}
+            </ul>
+          </section>
 
           <footer className={styles.detailFooter}>
             <Link href="/lounge" className={styles.listButton}>

@@ -23,4 +23,5 @@ export const QUEUE_NAMES = {
   stats: "stats-aggregation",
   cleanup: "cleanup",
   viewFlush: "view-flush",
+  notifications: "notifications",
 } as const;

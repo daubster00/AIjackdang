@@ -11,6 +11,7 @@ import { tagsRoutes } from "./tags/routes.js";
 import { resourcesRoutes } from "./resources/routes.js";
 import { registerMeResourcesRoutes } from "./me/resources.route.js";
 import { reactionsRoutes } from "./reactions.js";
+import { commentsRoutes } from "./comments.js";
 
 /**
  * /api/v1 라우트.
@@ -55,4 +56,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 반응(좋아요) 라우트 (Story 5.2) ──────────────────────────────────────────
   await reactionsRoutes(app);
+
+  // ── 댓글 라우트 (Story 5.4 CRUD + 5.5 대댓글) ────────────────────────────────
+  await commentsRoutes(app);
 }

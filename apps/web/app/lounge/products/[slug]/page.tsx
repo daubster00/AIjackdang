@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { AuthorName, Icon, Tag } from "@/components/ui";
 import { BoardHero, AttachmentList } from "@/components/board";
 import styles from "../../lounge.module.css";
-import { CommentItem } from "./CommentItem";
 import { CommentForm } from "./CommentForm";
 import { ReactionBar } from "./ReactionBar";
 
@@ -75,42 +74,6 @@ const posts = {
   },
 } as const;
 
-const comments = [
-  {
-    author: "주말개발자",
-    date: "2026.06.18",
-    text: "혼자 쓰려고 만든 도구를 이렇게 공개해주셔서 감사해요. 사용 흐름 정리한 부분이 특히 도움이 됐습니다.",
-    replies: [
-      {
-        author: "기록하는사람",
-        date: "2026.06.18",
-        text: "맞아요, 작게 시작해서 매일 쓰는 제품으로 다듬는 과정이 인상적이었어요.",
-      },
-      {
-        author: "공부하는AI",
-        date: "2026.06.18",
-        text: "저도 비슷하게 학습 도구를 만들고 있는데, 입력 방식 고민이 제일 컸거든요. 참고 많이 됐습니다.",
-      },
-      {
-        author: "주말개발자",
-        date: "2026.06.19",
-        text: "다들 같은 데서 고생하시는군요. 다음 글에 시행착오 더 풀어볼게요!",
-      },
-    ],
-  },
-  {
-    author: "확장만드는사람",
-    date: "2026.06.18",
-    text: "직접 배포까지 해보신 경험이 귀하네요. 권한 설정 관련해서 따로 글 한 번 부탁드려요!",
-    replies: [],
-  },
-  {
-    author: "리뷰메이트",
-    date: "2026.06.17",
-    text: "완성해서 매일 쓰고 있다는 말이 가장 멋집니다. 응원할게요.",
-    replies: [],
-  },
-];
 
 type PostSlug = keyof typeof posts;
 
@@ -175,16 +138,6 @@ export default async function LoungeProductDetailPage({
             </div>
 
             <CommentForm />
-
-            <div className={styles.commentList}>
-              {comments.map((comment) => (
-                <CommentItem key={`${comment.author}-${comment.date}`} comment={comment} />
-              ))}
-            </div>
-            <button type="button" className={styles.commentLoadMore}>
-              <Icon name="arrow-down-s-line" />
-              댓글 더보기
-            </button>
           </section>
 
           <footer className={styles.detailFooter}>

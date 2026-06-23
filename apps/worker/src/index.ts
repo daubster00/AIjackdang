@@ -156,7 +156,24 @@ function startWorkers(): Worker[] {
   );
   // ── [5.2] stats worker END ────────────────────────────────────────────────
 
-  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker];
+  // ── [5.4] notifications worker 스텁 ───────────────────────────────────────
+  // comment.created 등 알림 이벤트를 수신한다. 실전송(SSE·푸시)은 Epic 7.
+  const notificationsConnection = createConnection();
+  const notificationsWorker = new Worker(
+    QUEUE_NAMES.notifications,
+    async (job) => {
+      console.info(`[notifications-worker] job 수신: ${job.name}`, job.data);
+    },
+    { connection: notificationsConnection },
+  );
+
+  notificationsWorker.on("ready", () => console.log("[worker] notifications 워커 준비 완료"));
+  notificationsWorker.on("failed", (job, error) =>
+    console.error(`[notifications-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [5.4] notifications worker END ───────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker];
 }
 
 const workers = startWorkers();

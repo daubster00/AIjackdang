@@ -152,7 +152,7 @@ export async function reactionsRoutes(app: FastifyInstance): Promise<void> {
       const { targetType, targetId, reactionType } = request.body as {
         targetType: "post" | "question" | "answer" | "resource" | "comment";
         targetId: string;
-        reactionType: "like";
+        reactionType: "like" | "dislike";
       };
       const db = getDb();
 

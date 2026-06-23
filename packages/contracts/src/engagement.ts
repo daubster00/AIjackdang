@@ -63,7 +63,7 @@ export const reactionSchema = z.object({
   userId: z.string().uuid(),
   targetType: reactionTargetTypeSchema,
   targetId: z.string().uuid(),
-  reactionType: z.enum(["like"]),
+  reactionType: z.enum(["like", "dislike"]),
   createdAt: z.string().datetime(),
 });
 export type Reaction = z.infer<typeof reactionSchema>;
@@ -71,7 +71,7 @@ export type Reaction = z.infer<typeof reactionSchema>;
 export const createReactionInputSchema = z.object({
   targetType: reactionTargetTypeSchema,
   targetId: z.string().uuid(),
-  reactionType: z.enum(["like"]).default("like"),
+  reactionType: z.enum(["like", "dislike"]).default("like"),
 });
 export type CreateReactionInput = z.infer<typeof createReactionInputSchema>;
 

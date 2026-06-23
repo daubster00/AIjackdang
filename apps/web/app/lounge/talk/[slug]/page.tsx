@@ -5,7 +5,6 @@ import { AuthorName, Icon, Tag } from "@/components/ui";
 import { BoardHero, AttachmentList } from "@/components/board";
 // lounge 공통 스타일(상세 레이아웃·댓글·리액션바 등)은 lounge.module.css에서 공유한다.
 import styles from "../../lounge.module.css";
-import { CommentItem } from "./CommentItem";
 import { CommentForm } from "./CommentForm";
 import { ReactionBar } from "./ReactionBar";
 
@@ -109,38 +108,6 @@ const posts = {
   },
 } as const;
 
-/** mock 댓글 데이터 (수다방 톤) */
-const comments = [
-  {
-    author: "구경꾼",
-    date: "2026.06.20",
-    text: "오 진짜요? 어떤 모델이 맞췄는지 제일 궁금했는데 본문에 다 있었네요. 재미있는 실험이에요.",
-    replies: [
-      {
-        author: "축구덕후",
-        date: "2026.06.20",
-        text: "ㅋㅋ 저도 반신반의하면서 했는데 맞추니까 신기하더라고요.",
-      },
-      {
-        author: "AI매니아",
-        date: "2026.06.21",
-        text: "저도 이런 식으로 여러 모델 비교해보는 거 좋아해요. 다음에 또 공유해주세요!",
-      },
-    ],
-  },
-  {
-    author: "수다쟁이",
-    date: "2026.06.20",
-    text: "근거 설명까지 비교해주셔서 좋았어요. 단순 결과만 보는 것보다 훨씬 흥미롭네요.",
-    replies: [],
-  },
-  {
-    author: "AI궁금증",
-    date: "2026.06.19",
-    text: "저도 스포츠 예측 시켜봐야겠다 생각하고 있었어요. 좋은 아이디어 감사합니다.",
-    replies: [],
-  },
-];
 
 type PostSlug = keyof typeof posts;
 
@@ -208,16 +175,6 @@ export default async function LoungeTalkDetailPage({
             </div>
 
             <CommentForm />
-
-            <div className={styles.commentList}>
-              {comments.map((comment) => (
-                <CommentItem key={`${comment.author}-${comment.date}`} comment={comment} />
-              ))}
-            </div>
-            <button type="button" className={styles.commentLoadMore}>
-              <Icon name="arrow-down-s-line" />
-              댓글 더보기
-            </button>
           </section>
 
           {/* 하단 네비게이션: 목록으로 / 수정·삭제 */}

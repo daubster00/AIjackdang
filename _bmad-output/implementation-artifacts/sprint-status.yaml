@@ -68,9 +68,9 @@ development_status:
   5-1-polymorphic-engagement-schema: done
   5-2-reaction-optimistic-toggle: done
   5-3-view-count-redis-buffer: done
-  5-4-comment-crud: ready-for-dev
-  5-5-nested-comments: ready-for-dev
-  5-6-comment-reaction: ready-for-dev
+  5-4-comment-crud: done
+  5-5-nested-comments: done
+  5-6-comment-reaction: done
   5-7-bookmark: ready-for-dev
   5-8-report-submit: ready-for-dev
   5-9-share-button: ready-for-dev

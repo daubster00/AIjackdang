@@ -40,7 +40,7 @@ export const reactionTargetType = pgEnum("reaction_target_type", [
   "comment",
 ]);
 
-export const reactionType = pgEnum("reaction_type", ["like"]);
+export const reactionType = pgEnum("reaction_type", ["like", "dislike"]);
 
 export const bookmarkTargetType = pgEnum("bookmark_target_type", [
   "post",

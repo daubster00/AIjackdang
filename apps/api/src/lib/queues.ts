@@ -80,3 +80,26 @@ export function getStatsQueue(): Queue {
   }
   return _statsQueue;
 }
+
+/** notifications 큐 이름 (Story 5.4) — worker QUEUE_NAMES.notifications와 동일해야 함 */
+export const NOTIFICATIONS_QUEUE_NAME = "notifications" as const;
+
+let _notificationsQueue: Queue | null = null;
+
+/**
+ * 알림 큐 인스턴스를 반환한다(지연 초기화 싱글톤).
+ * comment.created 등 이벤트를 발행한다. Epic 7 SSE·푸시 전송이 소비.
+ */
+export function getNotificationsQueue(): Queue {
+  if (!_notificationsQueue) {
+    _notificationsQueue = new Queue(NOTIFICATIONS_QUEUE_NAME, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 2,
+        removeOnComplete: { count: 500 },
+        removeOnFail: { count: 200 },
+      },
+    });
+  }
+  return _notificationsQueue;
+}
