@@ -137,9 +137,20 @@ export const userAuth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url, token }) => {
+      // Better Auth 기본 callbackURL(/) → 인증 완료 안내 페이지(/signup/verified)로 변경.
+      // 토큰 검증 후 사용자가 이 페이지로 리다이렉트되어 "인증 완료" 안내를 본다.
+      let verificationUrl = url;
+      try {
+        const parsed = new URL(url);
+        parsed.searchParams.set("callbackURL", "/signup/verified");
+        verificationUrl = parsed.toString();
+      } catch {
+        // url 파싱 실패 시 원본 사용
+      }
+
       console.info("[auth] 이메일 인증 요청:", { to: user.email, token: token.slice(0, 8) + "..." });
       console.info("[auth] ── 인증 링크 (개발 환경 출력) ──────────────");
-      console.info("[auth]   URL:", url);
+      console.info("[auth]   URL:", verificationUrl);
       console.info("[auth] ───────────────────────────────────────────");
 
       // email 큐에 발행 (dev: Redis 없으면 console 폴백)
@@ -148,7 +159,7 @@ export const userAuth = betterAuth({
         subject: "[AI작당] 이메일 인증을 완료해 주세요",
         templateId: "email-verification",
         variables: {
-          verificationUrl: url,
+          verificationUrl,
           userEmail: user.email,
         },
       });
