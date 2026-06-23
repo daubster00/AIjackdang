@@ -23,8 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * MCP·Skills 페이지의 유형 탭.
- * DB enum에는 'claude-code-skill'과 'mcp' 두 가지가 있으나,
- * 이 페이지는 'mcp' 고정 필터 (사용자 제약 조건 기준).
+ * DB enum의 'claude-code-skill'·'mcp' 두 유형을 함께 노출한다(types 파라미터).
  */
 const typeMetaMap: TypeMeta = {
   label: "MCP·Skill",
@@ -63,7 +62,8 @@ const cardStyles: ResourceCardStyles = {
 /** API 호출 — 서버 컴포넌트에서 직접 호출 */
 async function fetchResources(query: ListResourcesQuery) {
   const params = new URLSearchParams();
-  params.set("type", "mcp");
+  if (query.types) params.set("types", query.types);
+  else if (query.type) params.set("type", query.type);
   if (query.sort) params.set("sort", query.sort);
   if (query.difficulty) params.set("difficulty", query.difficulty);
   if (query.q) params.set("q", query.q);
@@ -96,7 +96,7 @@ export default async function McpSkillsPage({
   const sp = await searchParams;
 
   const query: ListResourcesQuery = {
-    type: "mcp",
+    types: "claude-code-skill,mcp",
     sort: (sp.sort as ListResourcesQuery["sort"]) ?? "latest",
     difficulty: (sp.difficulty as ListResourcesQuery["difficulty"]) ?? undefined,
     environment: typeof sp.environment === "string" ? sp.environment : undefined,

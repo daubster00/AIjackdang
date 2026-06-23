@@ -10,7 +10,7 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import type { ResourceCard, ListResourcesQuery } from "@ai-jakdang/contracts";
+import type { ResourceCard, ListResourcesQuery, ResourceType } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
 
 export interface ListResourcesResult {
@@ -33,7 +33,7 @@ export interface ListResourcesResult {
  * - commentCount: Epic 5 이전 0 고정
  */
 export async function listResources(query: ListResourcesQuery): Promise<ListResourcesResult> {
-  const { type, environment, difficulty, sort = "latest", page = 1, pageSize = 20 } = query;
+  const { type, types, environment, difficulty, sort = "latest", page = 1, pageSize = 20 } = query;
 
   const db = getDb();
   const offset = (page - 1) * pageSize;
@@ -44,8 +44,14 @@ export async function listResources(query: ListResourcesQuery): Promise<ListReso
     isNull(schema.resources.deletedAt),
   ];
 
-  if (type) {
-    conditions.push(eq(schema.resources.resourceType, type));
+  // 다중 유형(types) 우선, 없으면 단일 type. (mcp-skills 페이지가 claude-code-skill+mcp 동시 노출)
+  const typeList: ResourceType[] = types
+    ? (types.split(",").filter(Boolean) as ResourceType[])
+    : type
+      ? [type]
+      : [];
+  if (typeList.length > 0) {
+    conditions.push(inArray(schema.resources.resourceType, typeList));
   }
 
   if (difficulty) {
