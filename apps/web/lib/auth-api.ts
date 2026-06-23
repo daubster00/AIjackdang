@@ -14,6 +14,112 @@ import type { SessionResponse } from "@ai-jakdang/contracts";
 /** 인증 API 기본 경로 (Next.js rewrite를 통해 API 서버로 프록시됨) */
 const AUTH_BASE = "/api/v1/auth";
 
+// ── 회원가입 ──────────────────────────────────────────────────────────────────
+
+/** 회원가입 성공 응답 */
+export interface SignUpSuccess {
+  ok: true;
+  message: string;
+}
+
+/** 회원가입 실패 응답 */
+export interface SignUpError {
+  ok: false;
+  code:
+    | "EMAIL_DUPLICATE"       // 이메일 중복 (409)
+    | "DISPOSABLE_EMAIL"      // 일회용 이메일 차단 (422)
+    | "RATE_LIMIT_EXCEEDED"   // Rate limit (429)
+    | "VALIDATION_ERROR"      // 입력값 오류
+    | "NETWORK_ERROR"         // 네트워크 오류
+    | "UNKNOWN";              // 기타 오류
+  message: string;
+  field?: string;             // 인라인 오류 귀속 필드 (email, password 등)
+}
+
+export type SignUpResult = SignUpSuccess | SignUpError;
+
+/**
+ * 이메일·비밀번호로 회원가입 (Story 1.3, AC #2).
+ * POST /api/v1/auth/sign-up 엔드포인트를 호출한다.
+ * 성공 시 인증 메일이 발송되고 "인증 메일을 보냈어요" 메시지를 반환한다.
+ */
+export async function signUp(
+  email: string,
+  password: string,
+  termsAgreed: true,
+): Promise<SignUpResult> {
+  try {
+    const res = await fetch(`${AUTH_BASE}/sign-up`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, termsAgreed }),
+      credentials: "include",
+    });
+
+    if (res.status === 201) {
+      const data = (await res.json()) as { message: string };
+      return { ok: true, message: data.message };
+    }
+
+    if (res.status === 429) {
+      return {
+        ok: false,
+        code: "RATE_LIMIT_EXCEEDED",
+        message: "가입 시도 횟수를 초과했습니다. 1시간 후 다시 시도해 주세요.",
+      };
+    }
+
+    // 에러 응답 파싱
+    let body: { error?: { code?: string; message?: string }; message?: string } = {};
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      // ignore
+    }
+
+    const errorCode = body.error?.code ?? "";
+    const errorMessage = body.error?.message ?? body.message ?? "";
+
+    if (res.status === 409 || errorCode === "EMAIL_DUPLICATE") {
+      return {
+        ok: false,
+        code: "EMAIL_DUPLICATE",
+        message: errorMessage || "이미 사용 중인 이메일입니다.",
+        field: "email",
+      };
+    }
+
+    if (res.status === 422 && errorCode === "DISPOSABLE_EMAIL") {
+      return {
+        ok: false,
+        code: "DISPOSABLE_EMAIL",
+        message: errorMessage || "일회용 이메일 서비스는 사용할 수 없습니다.",
+        field: "email",
+      };
+    }
+
+    if (res.status === 400 || res.status === 422) {
+      return {
+        ok: false,
+        code: "VALIDATION_ERROR",
+        message: errorMessage || "입력값을 확인해 주세요.",
+      };
+    }
+
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      message: "가입 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  } catch {
+    return {
+      ok: false,
+      code: "NETWORK_ERROR",
+      message: "네트워크 오류가 발생했습니다. 인터넷 연결을 확인해 주세요.",
+    };
+  }
+}
+
 // ── 타입 ───────────────────────────────────────────────────────────────────────
 
 /** 로그인 성공 응답 */

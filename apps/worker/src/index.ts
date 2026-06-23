@@ -25,7 +25,71 @@ function startWorkers(): Worker[] {
     console.error(`[worker] job 실패 ${job?.id}:`, error.message),
   );
 
-  return [imageWorker];
+  // ── [1.3] email worker ──────────────────────────────────────────────────────
+  //
+  // email 큐(QUEUE_NAMES.email = "email") 에서 job을 처리한다.
+  // 현재 구현: dev에서 수신자·제목·인증링크를 console에 출력 (실 SMTP 발송은 TODO).
+  // 실 발송 연동 시 이 핸들러 안에 nodemailer / Resend SDK 호출을 추가한다.
+  //
+  // job 명칭: "email.send" (EMAIL_JOB_NAMES.send — contracts/jobs/email.ts)
+  // payload 형식: EmailSendPayload { to, subject, templateId, variables }
+  const emailConnection = createConnection();
+  const emailWorker = new Worker(
+    QUEUE_NAMES.email,
+    async (job) => {
+      const { to, subject, templateId, variables } = job.data as {
+        to: string;
+        subject: string;
+        templateId: string;
+        variables: Record<string, string>;
+      };
+
+      console.info("[email-worker] 이메일 job 처리 시작:", {
+        jobId: job.id,
+        jobName: job.name,
+        to,
+        subject,
+        templateId,
+      });
+
+      if (job.name === "email.send") {
+        // TODO(실 SMTP 연동): nodemailer / Resend 로 실제 발송
+        // const transporter = nodemailer.createTransport({ ... });
+        // await transporter.sendMail({ from: "noreply@ai-jakdang.com", to, subject, html });
+
+        // dev 골격: console 출력으로 이메일 내용 확인
+        console.info("[email-worker] ── 이메일 발송 (console 출력) ──────────");
+        console.info("[email-worker]   TO       :", to);
+        console.info("[email-worker]   SUBJECT  :", subject);
+        console.info("[email-worker]   TEMPLATE :", templateId);
+
+        if (templateId === "email-verification") {
+          console.info("[email-worker]   인증 URL  :", variables["verificationUrl"]);
+        }
+
+        Object.entries(variables).forEach(([key, value]) => {
+          if (key !== "verificationUrl") {
+            console.info(`[email-worker]   ${key}: ${value}`);
+          }
+        });
+        console.info("[email-worker] ────────────────────────────────────────");
+      } else {
+        console.warn("[email-worker] 알 수 없는 job 이름:", job.name);
+      }
+    },
+    { connection: emailConnection },
+  );
+
+  emailWorker.on("ready", () => console.log("[worker] email 워커 준비 완료"));
+  emailWorker.on("completed", (job) =>
+    console.info(`[email-worker] job 완료: ${job.id}`),
+  );
+  emailWorker.on("failed", (job, error) =>
+    console.error(`[email-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [1.3] email worker END ─────────────────────────────────────────────────
+
+  return [imageWorker, emailWorker];
 }
 
 const workers = startWorkers();
