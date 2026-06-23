@@ -107,6 +107,7 @@ const accountLinks = [
   { href: "/settings/profile", icon: "user-settings-line", label: "프로필 수정" },
   { href: "/settings/notifications", icon: "notification-3-line", label: "알림 설정" },
   { href: "/settings/security", icon: "lock-line", label: "비밀번호 변경" },
+  { href: "/settings/blocks", icon: "user-forbid-line", label: "차단 목록" },
 ];
 
 /** 상단 요약 통계 (작성 글 / 받은 좋아요 / 채택된 답변 / 북마크) — Epic 2~5 구현 후 집계 */
@@ -220,19 +221,53 @@ export default function MyPage() {
     return { info, next, pct, remaining, points };
   }, [profile]);
 
-  // 팔로잉/팔로워: Epic 5에서 활성화
-  const followingCount = 0; // Epic 5에서 활성화
-  const followersCount = 0; // Epic 5에서 활성화
+  // 팔로잉/팔로워/북마크: 실API 조회
+  const [followingList, setFollowingList] = useState<{ id: string; nickname: string; avatarUrl: string | null }[]>([]);
+  const [followerList, setFollowerList] = useState<{ id: string; nickname: string; avatarUrl: string | null }[]>([]);
+  const [bookmarkList, setBookmarkList] = useState<{ id: string; title: string; href: string; savedAt: string }[]>([]);
 
-  // 패널 카운트 (resources 탭은 MyResourceList 내부에서 자체 집계하므로 0 표시)
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === "following") {
+      void fetch(`/api/v1/users/${encodeURIComponent(user.nickname)}/following?pageSize=50`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null }[] } | null) => {
+          if (data) setFollowingList(data.items);
+        })
+        .catch(() => null);
+    } else if (activeTab === "followers") {
+      void fetch(`/api/v1/users/${encodeURIComponent(user.nickname)}/followers?pageSize=50`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null }[] } | null) => {
+          if (data) setFollowerList(data.items);
+        })
+        .catch(() => null);
+    } else if (activeTab === "bookmarks") {
+      void fetch("/api/v1/users/me/bookmarks?pageSize=50", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { items: { id: string; title: string; href: string; savedAt: string }[] } | null) => {
+          if (data) setBookmarkList(data.items);
+        })
+        .catch(() => null);
+    }
+  }, [user, activeTab]);
+
+  const followingCount = followingList.length;
+  const followersCount = followerList.length;
+
+  // 패널 카운트
   const panelCount =
     activeTab === "posts"
       ? filteredPosts.length
-      : activeTab === "following" || activeTab === "followers"
-        ? 0 // Epic 5에서 활성화
-        : activeTab === "resources"
-          ? 0 // MyResourceList 내부에서 집계
-          : 0; // Epic 2~4에서 활성화
+      : activeTab === "following"
+        ? followingCount
+        : activeTab === "followers"
+          ? followersCount
+          : activeTab === "bookmarks"
+            ? bookmarkList.length
+            : activeTab === "resources"
+              ? 0 // MyResourceList 내부에서 집계
+              : 0;
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
 
@@ -382,19 +417,48 @@ export default function MyPage() {
             {activeTab === "resources" ? (
               <MyResourceList />
             ) : activeTab === "following" ? (
-              /* 팔로잉 탭 — Epic 5에서 활성화 */
-              <EmptyState
-                icon="user-follow-line"
-                title="팔로잉하는 멤버가 없습니다"
-                description="관심 있는 멤버의 프로필에서 팔로우해 보세요."
-              />
+              followingList.length === 0 ? (
+                <EmptyState icon="user-follow-line" title="팔로잉하는 멤버가 없습니다" description="관심 있는 멤버의 프로필에서 팔로우해 보세요." />
+              ) : (
+                <ul className={styles.followList}>
+                  {followingList.map((u) => (
+                    <li key={u.id} className={styles.followItem}>
+                      <a href={`/u/${encodeURIComponent(u.nickname)}`} className={styles.followItemLink}>
+                        <Icon name="user-3-line" />
+                        <span>{u.nickname}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : activeTab === "followers" ? (
-              /* 팔로워 탭 — Epic 5에서 활성화 */
-              <EmptyState
-                icon="user-heart-line"
-                title="팔로워가 없습니다"
-                description="활동을 이어가면 팔로워가 생깁니다."
-              />
+              followerList.length === 0 ? (
+                <EmptyState icon="user-heart-line" title="팔로워가 없습니다" description="활동을 이어가면 팔로워가 생깁니다." />
+              ) : (
+                <ul className={styles.followList}>
+                  {followerList.map((u) => (
+                    <li key={u.id} className={styles.followItem}>
+                      <a href={`/u/${encodeURIComponent(u.nickname)}`} className={styles.followItemLink}>
+                        <Icon name="user-3-line" />
+                        <span>{u.nickname}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : activeTab === "bookmarks" ? (
+              bookmarkList.length === 0 ? (
+                <EmptyState icon="bookmark-line" title="저장한 글이 없습니다" description="마음에 드는 글을 북마크해 보세요." />
+              ) : (
+                <ul className={styles.bookmarkList}>
+                  {bookmarkList.map((bm) => (
+                    <li key={bm.id} className={styles.bookmarkItem}>
+                      <a href={bm.href} className={styles.bookmarkLink}>{bm.title}</a>
+                      <span className={styles.bookmarkDate}>{new Date(bm.savedAt).toLocaleDateString("ko-KR")}</span>
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : activeTab === "posts" ? (
               <>
                 {/* 내가 쓴 글 전용 컨트롤: 게시판 필터 + 검색 + 정렬 */}

@@ -23,9 +23,20 @@ type Props = {
   targetType: "post" | "question" | "answer" | "resource" | "comment";
   authorId: string | null;
   initialLiked?: boolean;
+  initialBookmarked?: boolean;
+  bookmarkId?: string | null;
 };
 
-export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, initialLiked = false }: Props) {
+export function ReactionBar({
+  likes,
+  bookmarks,
+  postId,
+  targetType,
+  authorId,
+  initialLiked = false,
+  initialBookmarked = false,
+  bookmarkId: initialBookmarkId = null,
+}: Props) {
   const { requireAuth } = useGating();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -34,35 +45,38 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(initialLiked);
   const [reactionId, setReactionId] = useState<string | null>(null);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(initialBookmarkId);
   const [likeCount, setLikeCount] = useState(likes);
   const [bookmarkCount, setBookmarkCount] = useState(bookmarks);
   const shareRef = useRef<HTMLDivElement>(null);
 
   const isSelf = user !== null && authorId !== null && user.id === authorId;
 
-  // 마운트 시 현재 좋아요 상태 조회
+  // 마운트 시 좋아요·북마크 상태 조회
   useEffect(() => {
-    if (!user || isSelf) return;
-    void fetch(
-      `/api/v1/reactions/me?targetType=${targetType}&targetId=${postId}`,
-      { credentials: "include" },
-    )
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { liked: boolean; reactionId: string | null } | null) => {
-        if (data) {
-          setLiked(data.liked);
-          setReactionId(data.reactionId);
-        }
-      })
-      .catch(() => null);
+    if (!user) return;
+    if (!isSelf) {
+      void fetch(`/api/v1/reactions/me?targetType=${targetType}&targetId=${postId}`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { liked: boolean; reactionId: string | null } | null) => {
+          if (data) { setLiked(data.liked); setReactionId(data.reactionId); }
+        })
+        .catch(() => null);
+    }
+    if (targetType === "post" || targetType === "question" || targetType === "resource") {
+      void fetch(`/api/v1/users/me/bookmarks/status?targetType=${targetType}&targetId=${postId}`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { bookmarked: boolean; bookmarkId: string | null } | null) => {
+          if (data) { setBookmarked(data.bookmarked); setBookmarkId(data.bookmarkId); }
+        })
+        .catch(() => null);
+    }
   }, [user, postId, targetType, isSelf]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
-        setShareOpen(false);
-      }
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) setShareOpen(false);
     }
     if (shareOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -71,75 +85,82 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
   async function toggleLike() {
     if (!requireAuth("like")) return;
     if (isSelf) return;
-
-    // 낙관적 업데이트
     const prevLiked = liked;
     const prevCount = likeCount;
     const prevReactionId = reactionId;
-
-    if (liked) {
-      setLiked(false);
-      setLikeCount((prev) => prev - 1);
-      setReactionId(null);
-    } else {
-      setLiked(true);
-      setLikeCount((prev) => prev + 1);
-    }
-
+    if (liked) { setLiked(false); setLikeCount((p) => p - 1); setReactionId(null); }
+    else { setLiked(true); setLikeCount((p) => p + 1); }
     try {
       if (prevLiked && prevReactionId) {
-        // 좋아요 취소
-        const res = await fetch(`/api/v1/reactions/${prevReactionId}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("delete failed");
+        const res = await fetch(`/api/v1/reactions/${prevReactionId}`, { method: "DELETE", credentials: "include" });
+        if (!res.ok) throw new Error();
       } else {
-        // 좋아요 추가
-        const res = await fetch("/api/v1/reactions", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetType, targetId: postId, reactionType: "like" }),
-        });
-        if (!res.ok) throw new Error("post failed");
+        const res = await fetch("/api/v1/reactions", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetType, targetId: postId, reactionType: "like" }) });
+        if (!res.ok) throw new Error();
         const data = (await res.json()) as { id: string };
         setReactionId(data.id);
       }
     } catch {
-      // 롤백
-      setLiked(prevLiked);
-      setLikeCount(prevCount);
-      setReactionId(prevReactionId);
+      setLiked(prevLiked); setLikeCount(prevCount); setReactionId(prevReactionId);
       toast({ tone: "danger", title: "좋아요 처리 중 오류가 발생했습니다." });
     }
   }
 
-  function toggleBookmark() {
+  async function toggleBookmark() {
     if (!requireAuth("bookmark")) return;
-    setBookmarked((prev) => !prev);
-    setBookmarkCount((prev) => (bookmarked ? prev - 1 : prev + 1));
+    const prevBookmarked = bookmarked;
+    const prevCount = bookmarkCount;
+    const prevBookmarkId = bookmarkId;
+    if (bookmarked && bookmarkId) {
+      setBookmarked(false); setBookmarkCount((p) => p - 1); setBookmarkId(null);
+      try {
+        const res = await fetch(`/api/v1/bookmarks/${bookmarkId}`, { method: "DELETE", credentials: "include" });
+        if (!res.ok) throw new Error();
+      } catch {
+        setBookmarked(prevBookmarked); setBookmarkCount(prevCount); setBookmarkId(prevBookmarkId);
+        toast({ tone: "danger", title: "북마크 해제에 실패했습니다." });
+      }
+    } else {
+      setBookmarked(true); setBookmarkCount((p) => p + 1);
+      try {
+        const bmTargetType = (targetType === "post" || targetType === "question" || targetType === "resource") ? targetType : "post";
+        const res = await fetch("/api/v1/bookmarks", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetType: bmTargetType, targetId: postId }) });
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { id: string };
+        setBookmarkId(data.id);
+      } catch {
+        setBookmarked(prevBookmarked); setBookmarkCount(prevCount); setBookmarkId(prevBookmarkId);
+        toast({ tone: "danger", title: "북마크에 실패했습니다." });
+      }
+    }
   }
 
-  function handleShare(id: string) {
+  async function handleShare(id: string) {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (id === "copy") {
-      navigator.clipboard.writeText(url).then(() => {
+      // 모바일 navigator.share 우선
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try { await navigator.share({ url, title: document.title }); setShareOpen(false); return; } catch { /* 취소 시 fallback */ }
+      }
+      try {
+        await navigator.clipboard.writeText(url);
         setCopied(true);
+        toast({ tone: "success", title: "링크를 복사했어요." });
         setTimeout(() => { setCopied(false); setShareOpen(false); }, 1500);
-      });
+      } catch {
+        // clipboard 미지원 — 드롭다운에 URL 표시로 fallback
+        setCopied(false);
+      }
       return;
     }
     const encodedUrl = encodeURIComponent(url);
     const shareUrls: Record<string, string> = {
-      kakao:    `https://sharer.kakao.com/talk/friends/picker/link?url=${encodedUrl}`,
-      band:     `https://band.us/plugin/share?body=${encodedUrl}`,
+      kakao: `https://sharer.kakao.com/talk/friends/picker/link?url=${encodedUrl}`,
+      band: `https://band.us/plugin/share?body=${encodedUrl}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      twitter:  `https://twitter.com/intent/tweet?url=${encodedUrl}`,
+      twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}`,
     };
-    if (shareUrls[id]) {
-      window.open(shareUrls[id], "_blank", "noopener,noreferrer,width=600,height=500");
-    }
+    if (shareUrls[id]) window.open(shareUrls[id], "_blank", "noopener,noreferrer,width=600,height=500");
     setShareOpen(false);
   }
 
@@ -160,8 +181,9 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
         <button
           type="button"
           className={bookmarked ? styles.reactionBarBtnActive : undefined}
-          onClick={toggleBookmark}
+          onClick={() => void toggleBookmark()}
           aria-pressed={bookmarked}
+          aria-label="북마크"
         >
           <Icon name={bookmarked ? "bookmark-fill" : "bookmark-line"} />
           북마크 {bookmarkCount}
@@ -172,6 +194,7 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
             type="button"
             onClick={() => setShareOpen((prev) => !prev)}
             aria-expanded={shareOpen}
+            aria-label="공유"
           >
             <Icon name="share-forward-line" />
             공유
@@ -184,7 +207,7 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
                   type="button"
                   className={styles.shareDropdownItem}
                   role="menuitem"
-                  onClick={() => handleShare(opt.id)}
+                  onClick={() => void handleShare(opt.id)}
                 >
                   <span
                     className={styles.shareDropdownIcon}
@@ -214,7 +237,12 @@ export function ReactionBar({ likes, bookmarks, postId, targetType, authorId, in
           신고
         </button>
       </div>
-      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType={targetType}
+        targetId={postId}
+      />
     </>
   );
 }

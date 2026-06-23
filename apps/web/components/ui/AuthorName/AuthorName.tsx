@@ -48,6 +48,7 @@ export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, clas
   const [menuOpen, setMenuOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
   const [following, setFollowing] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -136,6 +137,33 @@ export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, clas
             >
               <Icon name={following ? "user-follow-line" : "user-add-line"} />
               {following ? "팔로잉" : "팔로우"}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              disabled={blocking}
+              onClick={() => {
+                if (!window.confirm(`${name} 님을 차단하시겠습니까?`)) return;
+                setBlocking(true);
+                void fetch("/api/v1/blocks", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ blockedNickname: name }),
+                })
+                  .then((res) => {
+                    if (res.ok || res.status === 409) {
+                      window.location.reload();
+                    }
+                  })
+                  .catch(() => null)
+                  .finally(() => setBlocking(false));
+                setMenuOpen(false);
+              }}
+            >
+              <Icon name="user-forbid-line" />
+              {blocking ? "처리 중..." : "차단하기"}
             </button>
             <Link
               href={SAMPLE_PROFILE_HREF}

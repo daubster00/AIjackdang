@@ -318,7 +318,7 @@ export default async function QuestionDetailPage({
             <AttachmentList />
           </div>
 
-          <QuestionActions />
+          <QuestionActions questionId={slug} />
         </article>
 
         {/* ── 답변 영역 ── */}

@@ -29,7 +29,7 @@ import {
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { uploadImage, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../services/storage/index.js";
@@ -140,6 +140,17 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
+      const [followersResult, followingResult] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.follows)
+          .where(eq(schema.follows.followingId, user.id)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.follows)
+          .where(eq(schema.follows.followerId, user.id)),
+      ]);
+
       return reply.code(200).send({
         id: user.id,
         nickname: user.nickname,
@@ -151,8 +162,8 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         rank: DEFAULT_RANK,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt ? user.updatedAt.toISOString() : null,
-        followersCount: 0,
-        followingCount: 0,
+        followersCount: followersResult[0]?.count ?? 0,
+        followingCount: followingResult[0]?.count ?? 0,
       });
     },
   );

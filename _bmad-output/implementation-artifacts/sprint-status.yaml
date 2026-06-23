@@ -71,12 +71,12 @@ development_status:
   5-4-comment-crud: done
   5-5-nested-comments: done
   5-6-comment-reaction: done
-  5-7-bookmark: ready-for-dev
-  5-8-report-submit: ready-for-dev
-  5-9-share-button: ready-for-dev
-  5-10-related-posts: ready-for-dev
-  5-11-member-block: ready-for-dev
-  5-12-member-follow: ready-for-dev
+  5-7-bookmark: done
+  5-8-report-submit: done
+  5-9-share-button: done
+  5-10-related-posts: done
+  5-11-member-block: done
+  5-12-member-follow: done
   epic-5-retrospective: optional
 
   epic-6: in-progress

@@ -273,7 +273,7 @@ export function AnswerItem({ answer, canAccept, hasAccepted }: Props) {
           )}
       </div>
 
-      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="answer" targetId={answer.id} />
     </article>
   );
 }

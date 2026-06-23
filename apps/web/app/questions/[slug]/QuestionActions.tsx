@@ -14,7 +14,7 @@ const SHARE_OPTIONS = [
   { id: "copy",     label: "링크 복사",  iconName: "links-line",      bg: "var(--color-bg)", fg: "var(--color-text)", border: true },
 ] as const;
 
-export function QuestionActions() {
+export function QuestionActions({ questionId }: { questionId: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -96,7 +96,7 @@ export function QuestionActions() {
           신고
         </button>
       </div>
-      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="question" targetId={questionId} />
     </>
   );
 }

@@ -386,7 +386,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
         </>
       )}
 
-      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="comment" targetId={comment.id} />
     </article>
   );
 }
@@ -653,7 +653,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
         </div>
       )}
 
-      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="comment" targetId={reply.id} />
     </li>
   );
 }

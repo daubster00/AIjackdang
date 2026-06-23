@@ -1,4 +1,5 @@
 export * from "./AttachmentList";
+export * from "./RelatedPosts";
 export * from "./BoardHero";
 export * from "./BoardSidebar";
 export * from "./CodeBlockCopyButton";

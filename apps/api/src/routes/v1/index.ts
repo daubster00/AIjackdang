@@ -12,6 +12,11 @@ import { resourcesRoutes } from "./resources/routes.js";
 import { registerMeResourcesRoutes } from "./me/resources.route.js";
 import { reactionsRoutes } from "./reactions.js";
 import { commentsRoutes } from "./comments.js";
+import { bookmarksRoutes } from "./bookmarks.js";
+import { reportsRoutes } from "./reports.js";
+import { relatedRoutes } from "./related.js";
+import { blocksRoutes } from "./blocks.js";
+import { followsRoutes } from "./follows.js";
 
 /**
  * /api/v1 라우트.
@@ -59,4 +64,19 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 댓글 라우트 (Story 5.4 CRUD + 5.5 대댓글) ────────────────────────────────
   await commentsRoutes(app);
+
+  // ── 북마크 라우트 (Story 5.7) ─────────────────────────────────────────────
+  await bookmarksRoutes(app);
+
+  // ── 신고 라우트 (Story 5.8) ───────────────────────────────────────────────
+  await reportsRoutes(app);
+
+  // ── 관련글 라우트 (Story 5.10) ────────────────────────────────────────────
+  await relatedRoutes(app);
+
+  // ── 차단 라우트 (Story 5.11) ──────────────────────────────────────────────
+  await blocksRoutes(app);
+
+  // ── 팔로우 라우트 (Story 5.12) ────────────────────────────────────────────
+  await followsRoutes(app);
 }

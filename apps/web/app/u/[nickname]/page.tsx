@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { Avatar, EmptyState, Icon, RankBadge } from "@/components/ui";
 import type { PublicProfile } from "@ai-jakdang/contracts";
 import type { RankTier } from "@/lib/ranks";
@@ -83,12 +84,19 @@ export default async function UserProfilePage({
   const decoded = decodeURIComponent(nickname);
   const profile = await fetchPublicProfile(decoded);
 
-  // 존재하지 않는 닉네임 또는 탈퇴 회원(API가 404로 응답) → Next.js 404
-  // AC#5: 탈퇴 회원 별도 안내("탈퇴한 회원이에요")는 API가 프라이버시상 구분 정보를
-  // 반환하지 않으므로(없음/탈퇴 모두 404) 구현 불가 — Completion Notes 편차 기재.
-  if (!profile) {
-    notFound();
-  }
+  if (!profile) notFound();
+
+  const cookieStore = cookies();
+  const cookie = cookieStore.toString();
+
+  // 로그인 유저의 팔로우 여부 + 차단 여부 조회 (SSR)
+  const followStatusRes = await fetch(
+    `${API_BASE}/api/v1/users/${encodeURIComponent(decoded)}/follow-status`,
+    { headers: { cookie }, cache: "no-store" },
+  );
+  const followStatus = followStatusRes.ok
+    ? ((await followStatusRes.json()) as { isFollowing: boolean; isBlocked: boolean; followersCount: number; followingCount: number })
+    : null;
 
   const avatarUrl =
     resolveAvatarUrl(profile);
@@ -161,13 +169,13 @@ export default async function UserProfilePage({
             </p>
           </div>
 
-          {/* 팔로워/팔로잉 카운트 + 팔로우 버튼 (클라이언트 컴포넌트) */}
-          {/* TODO: Epic 5 Story 5.12 — 팔로우/팔로워 실데이터 연결 */}
           <ProfileInteraction
             profileId={profile.id}
             targetNickname={profile.nickname}
-            followers={profile.followersCount}
-            following={profile.followingCount}
+            followers={followStatus?.followersCount ?? profile.followersCount}
+            following={followStatus?.followingCount ?? profile.followingCount}
+            initialFollowing={followStatus?.isFollowing ?? false}
+            isBlocked={followStatus?.isBlocked ?? false}
           />
         </div>
       </div>
