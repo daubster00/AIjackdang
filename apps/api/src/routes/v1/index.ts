@@ -1,18 +1,25 @@
 import { signUpSchema, publicUserSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
+import { env } from "@ai-jakdang/config";
+import { registerDevLoginRoute } from "../../auth/dev-login.js";
 
 /**
  * /api/v1 라우트.
  *
- * 이번 기반 단계에서는 실제 회원/게시판 기능을 구현하지 않는다.
- * 공유 Zod 스키마(@ai-jakdang/contracts)를 API 검증에 그대로 재사용하는 패턴만 보여준다.
- * 실제 인증/DB 연동은 인증·게시판 구현 단계에서 추가한다.
+ * Better Auth 인스턴스 핸들러는 별도 마운트(app.ts에서 처리).
+ * 여기서는 직접 구현 라우트 + 개발 유틸 라우트를 등록한다.
  */
 export async function v1Routes(app: FastifyInstance) {
   const typed = app.withTypeProvider<ZodTypeProvider>();
 
-  // 회원가입(예시 스켈레톤): 입력은 공유 스키마로 검증하고, 아직 DB 에 저장하지 않는다.
+  // ── 개발 전용: dev-login (production 미노출) ───────────────────────────────
+  if (env.NODE_ENV !== "production" && env.AUTH_DEV_BYPASS) {
+    await registerDevLoginRoute(app);
+  }
+
+  // ── 회원가입 스켈레톤 ─────────────────────────────────────────────────────
+  // 실제 Better Auth 핸들러 연결은 인증 구현 단계(Story 1.3)에서 진행.
   typed.post(
     "/auth/sign-up",
     {
@@ -34,7 +41,7 @@ export async function v1Routes(app: FastifyInstance) {
     },
   );
 
-  // 현재 로그인 사용자(예시): 응답 규격만 공유 스키마로 고정한다.
+  // ── 현재 로그인 사용자 스켈레톤 ───────────────────────────────────────────
   typed.get(
     "/auth/me",
     {

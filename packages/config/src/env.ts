@@ -59,6 +59,7 @@ const envSchema = z
     AUTH_SECRET: z.string().min(1, "필수"),
 
     // 인증 (선택/개발)
+    BETTER_AUTH_URL: z.string().url().optional(),
     ADMIN_AUTH_SECRET: z.string().optional(),
     AUTH_DEV_BYPASS: boolish,
 
