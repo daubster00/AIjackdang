@@ -1,6 +1,6 @@
 # Story 1.3: 이메일 회원가입 + 이메일 인증
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -115,8 +115,37 @@ so that AI작당의 회원이 되어 행동(작성·다운로드·반응)을 할
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
+
+없음 (타입 오류 2건 인라인 수정 완료)
 
 ### Completion Notes List
 
+- 이메일 가입 API: Better Auth `signUpEmail` 내부 호출 방식 채택. `user.additionalFields`에 `nickname: required:true`가 있어 placeholder 닉네임을 body에 포함시키고, `databaseHooks.user.create.before`에서 최종 유니크 닉네임으로 교체함.
+- 이메일 발송: 실 SMTP 미구현 — `emailVerification.sendVerificationEmail` 훅에서 BullMQ email 큐 발행 + Redis 없으면 console 폴백 출력. worker에서도 동일하게 console 출력.
+- 아바타 placeholder: `apps/web/public/images/avatars/0.webp`~`9.webp` 10종. 실제 WebP 이미지가 아닌 SVG 내용으로 채워진 placeholder (나중에 실제 WebP로 교체 필요).
+- `sign-up.service.ts`: Better Auth가 user 생성을 담당하므로 현재 직접 사용하지 않는 서비스 레이어도 준비 완료 (향후 직접 DB 접근 필요 시 사용 가능).
+- `verify-email.ts` 보조 라우트: Better Auth가 `/api/v1/auth/verify-email`을 자체 처리함. 보조 엔드포인트 `/auth/verify-email-status`만 추가.
+- SignupForm: 휴대전화·이름·성별·생년월일·주소 선택 필드 제거. 이메일+비밀번호+약관 구조 유지. 소셜 tablist·3개 소셜 버튼·AgreementPanel 구조 보존. 성공 시 인라인 화면 전환("인증 메일을 보냈어요").
+
 ### File List
+
+- `packages/core/src/nickname.ts` (신규)
+- `packages/core/src/avatar.ts` (신규)
+- `packages/core/src/disposable-emails.ts` (신규)
+- `packages/core/src/index.ts` (수정 — nickname·avatar·disposable-emails export 추가)
+- `packages/core/src/nickname.test.ts` (신규 — 10개 테스트 통과)
+- `packages/contracts/src/jobs/email.ts` (신규)
+- `packages/contracts/src/index.ts` (수정 — jobs/email export 추가)
+- `apps/api/src/auth/user-auth.ts` (수정 — databaseHooks·emailVerification 훅 추가)
+- `apps/api/src/queues/email.queue.ts` (신규)
+- `apps/api/src/routes/v1/index.ts` (수정 — 스켈레톤 제거, registerSignUpRoute·registerVerifyEmailRoute 호출. usersRoutes 보존)
+- `apps/api/src/routes/v1/auth/sign-up.ts` (신규)
+- `apps/api/src/routes/v1/auth/verify-email.ts` (신규)
+- `apps/api/src/services/auth/sign-up.service.ts` (신규)
+- `apps/web/app/signup/SignupForm.tsx` (수정 — mock→실 API, 불필요 필드 제거, 에러 처리)
+- `apps/web/app/signup/verified/page.tsx` (신규)
+- `apps/web/lib/auth-api.ts` (수정 — signUp 헬퍼 추가)
+- `apps/web/public/images/avatars/0.webp`~`9.webp` (신규 — SVG placeholder 10종)

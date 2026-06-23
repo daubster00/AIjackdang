@@ -2,17 +2,52 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Checkbox, Icon, Input, Select } from "@/components/ui";
+import { Button, Checkbox, Icon, Input } from "@/components/ui";
+import { useToast } from "@/components/ui/Toast/Toast";
+import { signUp } from "@/lib/auth-api";
 import styles from "./signup.module.css";
-
-const genderOptions = [
-  { value: "female", label: "여성" },
-  { value: "male", label: "남성" },
-  { value: "none", label: "선택 안 함" },
-];
 
 export function SignupForm() {
   const [method, setMethod] = useState<"social" | "email">("social");
+  const [emailSent, setEmailSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
+
+  // 인증 메일 발송 완료 화면
+  if (emailSent) {
+    return (
+      <main id="main" className={styles.page}>
+        <section className={styles.authSection} aria-labelledby="signup-title">
+          <div className={styles.formPanel}>
+            <div className={styles.formHead}>
+              <p className={styles.eyebrow}>Join</p>
+              <h1 id="signup-title">인증 메일을 보냈어요</h1>
+              <p>
+                <strong>{sentEmail}</strong> 로 인증 링크를 보냈습니다.
+                메일함을 확인하고 링크를 클릭해 가입을 완료해 주세요.
+              </p>
+            </div>
+            <p className={styles.loginText}>
+              메일을 받지 못했나요?{" "}
+              <button
+                type="button"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textDecoration: "underline", font: "inherit" }}
+                onClick={() => {
+                  setEmailSent(false);
+                  setSentEmail("");
+                  setMethod("email");
+                }}
+              >
+                다시 시도
+              </button>
+            </p>
+            <p className={styles.loginText}>
+              이미 계정이 있나요? <Link href="/login">로그인</Link>
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main id="main" className={styles.page}>
@@ -47,7 +82,16 @@ export function SignupForm() {
             </button>
           </div>
 
-          {method === "social" ? <SocialSignup /> : <EmailSignup />}
+          {method === "social" ? (
+            <SocialSignup />
+          ) : (
+            <EmailSignup
+              onSuccess={(email) => {
+                setEmailSent(true);
+                setSentEmail(email);
+              }}
+            />
+          )}
 
           <p className={styles.loginText}>
             이미 계정이 있나요? <Link href="/login">로그인</Link>
@@ -86,9 +130,106 @@ function SocialSignup() {
   );
 }
 
-function EmailSignup() {
+interface EmailSignupProps {
+  onSuccess: (email: string) => void;
+}
+
+function EmailSignup({ onSuccess }: EmailSignupProps) {
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [agreements, setAgreements] = useState({
+    terms: false,
+    privacy: false,
+    marketing: false,
+  });
+
+  const canSubmit = agreements.terms && agreements.privacy && !submitting;
+
+  // 이메일 blur 검증
+  function validateEmail(value: string): string {
+    if (!value) return "이메일을 입력해 주세요.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "올바른 이메일 형식이 아닙니다.";
+    return "";
+  }
+
+  // 비밀번호 blur 검증
+  function validatePassword(value: string): string {
+    if (!value) return "비밀번호를 입력해 주세요.";
+    if (value.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
+    if (value.length > 128) return "비밀번호는 128자 이하여야 합니다.";
+    return "";
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    // submit 시 전체 검증
+    const eErr = validateEmail(email);
+    const pErr = validatePassword(password);
+    setEmailError(eErr);
+    setPasswordError(pErr);
+    if (eErr || pErr) return;
+
+    if (!agreements.terms || !agreements.privacy) {
+      toast({
+        tone: "danger",
+        title: "약관에 동의해 주세요",
+        description: "이용약관과 개인정보보호방침 동의가 필요합니다.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await signUp(email.trim().toLowerCase(), password, true);
+
+      if (result.ok) {
+        onSuccess(email.trim().toLowerCase());
+        return;
+      }
+
+      // 실패 처리
+      if (result.code === "EMAIL_DUPLICATE" || result.code === "DISPOSABLE_EMAIL") {
+        setEmailError(result.message);
+        return;
+      }
+
+      if (result.code === "RATE_LIMIT_EXCEEDED") {
+        toast({
+          tone: "danger",
+          title: "잠시 후 다시 시도해 주세요",
+          description: result.message,
+        });
+        return;
+      }
+
+      // 기타 오류
+      toast({
+        tone: "danger",
+        title: "가입에 실패했어요",
+        description: result.message,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const agreeAll = agreements.terms && agreements.privacy && agreements.marketing;
+
+  function updateAll(checked: boolean) {
+    setAgreements({ terms: checked, privacy: checked, marketing: checked });
+  }
+
+  function updateAgreement(key: keyof typeof agreements, checked: boolean) {
+    setAgreements((current) => ({ ...current, [key]: checked }));
+  }
+
   return (
-    <form className={styles.form} role="tabpanel">
+    <form className={styles.form} role="tabpanel" onSubmit={(e) => void handleSubmit(e)}>
       <div className={styles.fieldGroup}>
         <Input
           label="이메일"
@@ -98,6 +239,13 @@ function EmailSignup() {
           autoComplete="email"
           required
           leftIcon={<Icon name="mail-line" />}
+          value={email}
+          error={emailError}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (emailError) setEmailError("");
+          }}
+          onBlur={(e) => setEmailError(validateEmail(e.target.value))}
         />
         <Input
           label="비밀번호"
@@ -107,35 +255,65 @@ function EmailSignup() {
           autoComplete="new-password"
           required
           leftIcon={<Icon name="lock-line" />}
-        />
-        <Input
-          label="휴대전화 번호"
-          type="tel"
-          name="phone"
-          placeholder="010-0000-0000"
-          autoComplete="tel"
-          required
-          leftIcon={<Icon name="smartphone-line" />}
+          value={password}
+          error={passwordError}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (passwordError) setPasswordError("");
+          }}
+          onBlur={(e) => setPasswordError(validatePassword(e.target.value))}
         />
       </div>
 
-      <div className={styles.optionalBlock}>
-        <div className={styles.optionalHead}>
-          <strong>선택 정보</strong>
-          <span>입력하지 않아도 가입할 수 있습니다.</span>
-        </div>
-        <div className={styles.optionalGrid}>
-          <Input label="이름" name="name" placeholder="홍길동" autoComplete="name" />
-          <Select label="성별" name="gender" placeholder="선택" options={genderOptions} />
-          <Input label="출생년월일" type="date" name="birthdate" autoComplete="bday" />
-          <Input label="주소" name="address" placeholder="기본 주소" autoComplete="street-address" />
+      {/* 약관 동의 패널 (AgreementPanel 구조 보존) */}
+      <div className={styles.agreementPanel}>
+        <Checkbox name="agreeAll" checked={agreeAll} onChange={(event) => updateAll(event.target.checked)}>
+          전체 동의
+        </Checkbox>
+        <div className={styles.agreementList}>
+          <div className={styles.agreementItem}>
+            <Checkbox
+              name="terms"
+              required
+              checked={agreements.terms}
+              onChange={(event) => updateAgreement("terms", event.target.checked)}
+            >
+              이용약관 동의
+            </Checkbox>
+            <Link href="/terms">보기</Link>
+          </div>
+          <div className={styles.agreementItem}>
+            <Checkbox
+              name="privacy"
+              required
+              checked={agreements.privacy}
+              onChange={(event) => updateAgreement("privacy", event.target.checked)}
+            >
+              개인정보보호방침 동의
+            </Checkbox>
+            <Link href="/privacy">보기</Link>
+          </div>
+          <div className={styles.agreementItem}>
+            <Checkbox
+              name="marketing"
+              checked={agreements.marketing}
+              onChange={(event) => updateAgreement("marketing", event.target.checked)}
+            >
+              마케팅 정보 수신 동의
+            </Checkbox>
+            <span>선택</span>
+          </div>
         </div>
       </div>
 
-      <AgreementPanel />
-
-      <Button type="submit" size="lg" fullWidth rightIcon={<Icon name="arrow-right-line" />}>
-        이메일로 가입
+      <Button
+        type="submit"
+        size="lg"
+        fullWidth
+        rightIcon={<Icon name="arrow-right-line" />}
+        disabled={!canSubmit}
+      >
+        {submitting ? "가입 중..." : "이메일로 가입"}
       </Button>
     </form>
   );
