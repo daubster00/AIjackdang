@@ -235,6 +235,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@ai-jakdang/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@ai-jakdang/core':
         specifier: workspace:*
         version: link:../../packages/core

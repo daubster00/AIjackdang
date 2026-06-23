@@ -4,6 +4,7 @@ import { renderResetPasswordEmail } from "./templates/reset-password.js";
 import { renderEmailVerification } from "./templates/email-verification.js";
 import { sendMail, isSmtpConfigured } from "./mailer.js";
 import { viewFlushProcessor } from "./processors/view.flush.js";
+import { processResourceScan } from "./processors/resource-scan.processor.js"; // Story 4.5
 
 /**
  * 워커 엔트리.
@@ -120,7 +121,25 @@ function startWorkers(): Worker[] {
   );
   // ── [2.4] view-flush worker END ───────────────────────────────────────────
 
-  return [imageWorker, emailWorker, viewFlushWorker];
+  // ── [4.5] resource-scan worker ─────────────────────────────────────────────
+  // ClamAV 바이러스 스캔: S3 다운로드 → clamd TCP INSTREAM → clean/infected 판정
+  const resourceScanConnection = createConnection();
+  const resourceScanWorker = new Worker(
+    "file-scan", // AR-16: 큐명 'file-scan'
+    processResourceScan,
+    { connection: resourceScanConnection, concurrency: 5 },
+  );
+
+  resourceScanWorker.on("ready", () => console.log("[worker] resource-scan 워커 준비 완료"));
+  resourceScanWorker.on("completed", (job) =>
+    console.info(`[resource-scan-worker] job 완료: ${job.id}`),
+  );
+  resourceScanWorker.on("failed", (job, error) =>
+    console.error(`[resource-scan-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [4.5] resource-scan worker END ────────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker];
 }
 
 const workers = startWorkers();

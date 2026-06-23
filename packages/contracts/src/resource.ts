@@ -144,6 +144,22 @@ export const listResourcesQuerySchema = paginationQuerySchema.extend({
 });
 export type ListResourcesQuery = z.infer<typeof listResourcesQuerySchema>;
 
+// ── BullMQ Job 페이로드 ───────────────────────────────────────────────────────
+
+/**
+ * `file-scan` 큐의 `resource.scan` job 페이로드 타입 — Story 4.5
+ *
+ * BullMQ Queue 발행(API) / Worker 소비 양쪽에서 이 타입으로 검증한다.
+ * AR-16: 큐명 `'file-scan'`, job명 `'resource.scan'`
+ */
+export const resourceScanJobPayloadSchema = z.object({
+  /** 스캔 대상 resource_files.id 목록 */
+  resourceFileIds: z.array(z.string().uuid()),
+  /** 소속 자료 ID */
+  resourceId: z.string().uuid(),
+});
+export type ResourceScanJobPayload = z.infer<typeof resourceScanJobPayloadSchema>;
+
 // ── 평점 스키마 ───────────────────────────────────────────────────────────────
 
 /** 평점 등록/수정 요청 규격. score: 1~5 정수 */

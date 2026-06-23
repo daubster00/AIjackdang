@@ -57,7 +57,7 @@ development_status:
   4-2-resource-list-page: ready-for-dev
   4-3-resource-detail-page: ready-for-dev
   4-4-resource-write-form: ready-for-dev
-  4-5-file-upload-security-pipeline: ready-for-dev
+  4-5-file-upload-security-pipeline: review
   4-6-resource-download: ready-for-dev
   4-7-resource-rating: ready-for-dev
   4-8-resource-edit-delete: ready-for-dev
