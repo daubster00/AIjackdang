@@ -178,6 +178,34 @@ export const downloadResponseSchema = z.object({
 });
 export type DownloadResponse = z.infer<typeof downloadResponseSchema>;
 
+// ── 마이페이지 자료 탭 스키마 ─────────────────────────────────────────────────
+
+/**
+ * 마이페이지 자료 탭 카드 스키마 — Story 4.9
+ *
+ * 본인 등록 자료 목록(draft/published/hidden 포함, deleted 제외).
+ * hiddenReason: 운영자가 status=hidden 처리 시 설정하는 사유 (nullable).
+ */
+export const myResourceCardSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  title: z.string(),
+  resourceType: resourceTypeSchema,
+  status: resourceStatusSchema,
+  /** 운영자 숨김 처리 사유 (status=hidden 시에만 값, 나머지는 null) */
+  hiddenReason: z.string().nullable(),
+  downloadCount: z.number().int().nonnegative(),
+  avgRating: z.number(),
+  ratingCount: z.number().int().nonnegative(),
+  createdAt: z.string(), // ISO 8601 UTC
+  updatedAt: z.string(), // ISO 8601 UTC
+});
+export type MyResourceCard = z.infer<typeof myResourceCardSchema>;
+
+/** 마이페이지 자료 목록 쿼리 파라미터 */
+export const listMyResourcesQuerySchema = paginationQuerySchema;
+export type ListMyResourcesQuery = z.infer<typeof listMyResourcesQuerySchema>;
+
 // ── 평점 스키마 ───────────────────────────────────────────────────────────────
 
 /** 평점 등록/수정 요청 규격. score: 1~5 정수 */

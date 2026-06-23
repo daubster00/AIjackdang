@@ -10,8 +10,14 @@ import styles from "./mcp-skills.module.css";
 
 export const revalidate = 60; // 목록은 1분 캐시 (AR-17)
 
-/** generateMetadata — 고유 title·description·canonical (FR-11.1) */
-export async function generateMetadata(): Promise<Metadata> {
+/** generateMetadata — 고유 title·description·canonical (FR-11.1, AC #5) */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[]>>;
+}): Promise<Metadata> {
+  // 필터 쿼리 포함 URL의 canonical도 고정 페이지 URL로 강제 설정 (중복 색인 방지)
+  void searchParams;
   return {
     title: "MCP Skill 자료 — AI작당",
     description: "Claude Code Skill과 MCP 서버 설정 자료를 받아서 바로 적용하는 다운로드형 자료실",
@@ -19,6 +25,21 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: "https://aijakdang.com/resources/mcp-skills",
     },
   };
+}
+
+/** CollectionPage JSON-LD용 상위 10개 자료 조회 — claude-code-skill+mcp 두 유형 합산 */
+async function fetchTopResourcesForJsonLd(types: string) {
+  const apiUrl = `${process.env.API_INTERNAL_URL ?? "http://localhost:4003"}/api/v1/resources?types=${types}&sort=downloads&pageSize=10&page=1`;
+  try {
+    const res = await fetch(apiUrl, { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items: Array<{ id: string; slug: string; title: string }>;
+    };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -95,6 +116,21 @@ export default async function McpSkillsPage({
 }) {
   const sp = await searchParams;
 
+  // CollectionPage JSON-LD: claude-code-skill+mcp 상위 10개 (AC #1)
+  const topItems = await fetchTopResourcesForJsonLd("claude-code-skill,mcp");
+  const collectionJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "MCP Skill 자료 — AI작당",
+    description: "Claude Code Skill과 MCP 서버 설정 자료를 받아서 바로 적용하는 다운로드형 자료실",
+    url: "https://aijakdang.com/resources/mcp-skills",
+    hasPart: topItems.map((item) => ({
+      "@type": "SoftwareSourceCode",
+      name: item.title,
+      url: `https://aijakdang.com/resources/mcp-skills/${item.slug}`,
+    })),
+  };
+
   const query: ListResourcesQuery = {
     types: "claude-code-skill,mcp",
     sort: (sp.sort as ListResourcesQuery["sort"]) ?? "latest",
@@ -118,6 +154,12 @@ export default async function McpSkillsPage({
   };
 
   return (
+    <>
+      {/* CollectionPage JSON-LD (FR-11.5, AC #1) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+      />
     <main id="main" className={styles.page}>
       <BoardHero menu="resources" currentSub="MCP·Skills" />
 
@@ -190,5 +232,6 @@ export default async function McpSkillsPage({
         </div>
       </div>
     </main>
+    </>
   );
 }

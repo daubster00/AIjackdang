@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 4 W2 merged (4.4/4.6/4.7)
+last_updated: 2026-06-24 # Epic 4 W2 merged (4.4/4.6/4.7); 4-9 review
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -61,7 +61,7 @@ development_status:
   4-6-resource-download: done
   4-7-resource-rating: done
   4-8-resource-edit-delete: ready-for-dev
-  4-9-mypage-resource-tab-collection-jsonld: ready-for-dev
+  4-9-mypage-resource-tab-collection-jsonld: review
   epic-4-retrospective: optional
 
   epic-5: in-progress
