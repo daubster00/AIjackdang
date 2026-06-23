@@ -28,7 +28,7 @@ development_status:
   epic-2: in-progress
   2-1-post-schema-board-seed: done
   2-2-seo-helpers-sitemap: done
-  2-3-board-list-ssr: ready-for-dev
+  2-3-board-list-ssr: done
   2-4-post-detail-ssr-viewcount: ready-for-dev
   2-5-tiptap-editor-preset: done
   2-6-codeblock-xss-sanitize: ready-for-dev
