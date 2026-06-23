@@ -149,9 +149,26 @@ so that 작성자의 신뢰도를 가늠하고 더 탐색한다.
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+없음 (typecheck·lint·test 모두 1회 통과)
 
 ### Completion Notes List
+- `MOCK_PROFILES` 및 `MockProfile` 인터페이스 전체 제거, 실API(`GET /api/v1/users/profile/:nickname`) fetch로 교체.
+- `generateStaticParams` → 빈 배열 유지 (완전 동적 렌더).
+- `generateMetadata` → 실 API 데이터로 title·description·canonical·OG·robots 설정.
+- `ProfilePage` JSON-LD → 실데이터(`profile.createdAt`, `profile.updatedAt`, `profile.nickname`, `profile.bio`, `avatarUrl`) 연결.
+- 아바타: `profile.avatarUrl` 있으면 사용, null이면 `getDefaultAvatarUrl(profile.defaultAvatarIndex)`.
+- 배너: `profile.bannerUrl` 필드 사용 (mock의 `bannerSrc` → `bannerUrl`로 교체).
+- 팔로워/팔로잉 카운트: API 응답 `followersCount`·`followingCount` (Epic 5 전까지 0) 연결.
+- 작성 글 목록: 빈 EmptyState("아직 공개된 작성물이 없어요") — Epic 3~4에서 집계 채워짐.
+- `ProfileInteraction.tsx`: `useMockAuth` → `useAuth` 교체. `FollowButton` 컴포넌트 대신 인라인 버튼 + `requireAuth('follow')` 게이팅 적용.
+- 자신 여부: `user.nickname` 비교(mock) → `user.id === profileId` 비교(실 세션 ID 기준)로 교체. `profileId` prop 추가.
+- `// TODO: Epic 5 Story 5.12 — 팔로우/팔로워 실데이터 연결` 주석 추가.
+- worktree가 main 브랜치보다 1 커밋 뒤였으므로 `git rebase main`으로 `publicProfileSchema`·users 라우트 커밋(`ce050d6`) 선 포함 후 구현.
+- **편차(AC#5)**: 탈퇴 회원 별도 안내("탈퇴한 회원이에요") + noindex 요구사항은 구현 불가. API가 프라이버시 정책상 없음/탈퇴를 구분하지 않고 모두 404로 응답하므로, 탈퇴 회원 여부를 클라이언트에서 알 수 없다. 탈퇴 회원 접근 시 일반 404(`notFound()`)로 처리. metadata에서는 404 시 `robots:{index:false,follow:false}` 적용됨.
 
 ### File List
+- `apps/web/app/u/[nickname]/page.tsx` — mock 제거, 실API 연결, JSON-LD 실데이터, generateMetadata 실데이터, EmptyState
+- `apps/web/app/u/[nickname]/ProfileInteraction.tsx` — useMockAuth→useAuth, FollowButton→인라인 버튼+requireAuth, profileId prop 추가
