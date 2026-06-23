@@ -34,7 +34,7 @@ development_status:
   2-6-codeblock-xss-sanitize: done
   2-7-post-write-form-api: done
   2-8-post-edit-delete: done
-  2-9-notice-board-ssr: ready-for-dev
+  2-9-notice-board-ssr: done
   2-10-routing-epic-validation: ready-for-dev
   2-11-creative-spec-panel: ready-for-dev
   2-12-recruit-gigs-board: ready-for-dev
