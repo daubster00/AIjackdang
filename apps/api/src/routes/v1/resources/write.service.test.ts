@@ -9,7 +9,7 @@
  * vitest 호이스팅 규칙 준수: vi.mock 팩터리 내 최상위 변수 참조 금지.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // slugify, generateUniqueSlug 모킹
 vi.mock("@ai-jakdang/utilities", () => ({
