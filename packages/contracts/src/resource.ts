@@ -162,6 +162,22 @@ export const resourceScanJobPayloadSchema = z.object({
 });
 export type ResourceScanJobPayload = z.infer<typeof resourceScanJobPayloadSchema>;
 
+// ── 다운로드 응답 스키마 ─────────────────────────────────────────────────────
+
+/**
+ * 다운로드 presigned URL 응답 스키마 — Story 4.6
+ *
+ * url: S3 presigned URL (60초 만료)
+ * expiresAt: 만료 시각 (ISO 8601 UTC)
+ * fileName: 다운로드 시 사용할 파일명
+ */
+export const downloadResponseSchema = z.object({
+  url: z.string().url(),
+  expiresAt: z.string(), // ISO 8601 UTC
+  fileName: z.string(),
+});
+export type DownloadResponse = z.infer<typeof downloadResponseSchema>;
+
 // ── 평점 스키마 ───────────────────────────────────────────────────────────────
 
 /** 평점 등록/수정 요청 규격. score: 1~5 정수 */

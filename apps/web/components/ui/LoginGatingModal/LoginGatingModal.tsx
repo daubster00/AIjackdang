@@ -29,14 +29,21 @@ export interface LoginGatingModalProps {
   onClose: () => void;
   /** 시도한 행동 힌트. redirectTo 쿼리에 포함됨. */
   intendedAction?: string;
+  /**
+   * 로그인/가입 후 이동할 경로를 직접 지정할 때 사용.
+   * 지정하면 intendedAction 무시. 예: "/resources/slug?download=true" (Story 4.6)
+   */
+  redirectOverride?: string;
 }
 
-export function LoginGatingModal({ open, onClose, intendedAction }: LoginGatingModalProps) {
+export function LoginGatingModal({ open, onClose, intendedAction, redirectOverride }: LoginGatingModalProps) {
   const pathname = usePathname();
 
-  const returnTo = intendedAction
-    ? `${pathname}?action=${encodeURIComponent(intendedAction)}`
-    : pathname;
+  const returnTo = redirectOverride
+    ? redirectOverride
+    : intendedAction
+      ? `${pathname}?action=${encodeURIComponent(intendedAction)}`
+      : pathname;
 
   const loginHref = `/login?redirectTo=${encodeURIComponent(returnTo)}`;
   const signupHref = `/signup?redirectTo=${encodeURIComponent(returnTo)}`;

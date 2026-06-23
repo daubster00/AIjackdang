@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Story 4.2 review
+last_updated: 2026-06-24 # Story 4.6 review
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -58,7 +58,7 @@ development_status:
   4-3-resource-detail-page: done
   4-4-resource-write-form: review
   4-5-file-upload-security-pipeline: done
-  4-6-resource-download: ready-for-dev
+  4-6-resource-download: review
   4-7-resource-rating: ready-for-dev
   4-8-resource-edit-delete: ready-for-dev
   4-9-mypage-resource-tab-collection-jsonld: ready-for-dev
