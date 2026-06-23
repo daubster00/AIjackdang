@@ -162,8 +162,8 @@ export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardP
             <Icon name="download-2-line" />
             {item.downloadCount.toLocaleString()}
           </span>
-          {/* 다운로드 버튼: Story 4.6에서 실제 로직 연결. 현재는 상세페이지로 링크 */}
-          <Link href={`${pagePath}/${item.slug}`} className={styles.downloadBtn}>
+          {/* 다운로드 버튼: 상세 페이지로 이동 + ?download=true → 자동 다운로드 시작 (Story 4.6) */}
+          <Link href={`${pagePath}/${item.slug}?download=true`} className={styles.downloadBtn}>
             <Icon name="download-cloud-2-line" />
             다운로드
           </Link>

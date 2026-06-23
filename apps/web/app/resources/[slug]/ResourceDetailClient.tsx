@@ -1,21 +1,28 @@
 "use client";
 
 /**
- * 실전자료 상세 클라이언트 컴포넌트 — Story 4.3
+ * 실전자료 상세 클라이언트 컴포넌트 — Story 4.3 (Story 4.6 UPDATE)
  *
  * 담당:
  * - 다운로드 버튼 상태: scan_status 기반 (pending=비활성, infected=숨김, clean=활성)
+ * - 비회원 [다운로드] 클릭 → 로그인 유도 모달 (redirectTo에 ?download=true 포함)
+ * - 회원 [다운로드] → POST /api/v1/resources/{id}/download → presigned URL → 자동 다운로드
+ * - useEffect: ?download=true 또는 ?action=download → 마운트 시 자동 다운로드
  * - 모바일 하단 고정 다운로드 바
  * - 작성자 [수정하기] / [삭제하기] 버튼
  * - Epic 5 슬롯: 좋아요/신고/북마크, 후기 댓글
  * - Story 4.7 슬롯: 평점 입력
  *
- * IMPORTANT: 이 파일은 Story 4.6(다운로드), 4.7(평점)이 UPDATE한다.
+ * IMPORTANT: 이 파일은 Story 4.7(평점)이 UPDATE한다.
  * 슬롯 주석을 보존하라.
  */
 
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui";
+import { LoginGatingModal } from "@/components/ui/LoginGatingModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/Toast/Toast";
 import styles from "./resource-detail.module.css";
 
 export type ScanStatus = "pending" | "clean" | "infected" | "error";
@@ -69,14 +76,29 @@ function RatingStars({ rating, className }: { rating: number; className?: string
   );
 }
 
-/** 다운로드 버튼 — scan_status 기반 상태 처리 */
+/**
+ * presigned URL로 파일 다운로드를 트리거한다.
+ * a 태그를 동적으로 생성해 클릭 후 즉시 제거한다.
+ */
+function triggerDownload(presignedUrl: string, fileName: string) {
+  const a = document.createElement("a");
+  a.href = presignedUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/** 다운로드 버튼 — scan_status 기반 상태 처리 (Story 4.6) */
 function DownloadButton({
   file,
-  resourceId: _resourceId, // TODO: Story 4.6 — 실제 다운로드 핸들러에서 사용
+  onDownload,
+  isDownloading,
   className,
 }: {
   file: ResourceFile;
-  resourceId: string;
+  onDownload: () => void;
+  isDownloading: boolean;
   className?: string;
 }) {
   if (file.scanStatus === "infected") {
@@ -97,16 +119,17 @@ function DownloadButton({
     );
   }
 
-  // clean — Story 4.6에서 실제 다운로드 연결
+  // clean — 다운로드 핸들러 연결
   return (
     <button
       type="button"
       className={className}
-      // TODO: Story 4.6 — onClick에 다운로드 핸들러 연결
+      onClick={onDownload}
+      disabled={isDownloading}
       aria-label={`${file.originalName} 다운로드`}
     >
-      <Icon name="download-cloud-2-line" />
-      다운로드
+      <Icon name={isDownloading ? "loader-4-line" : "download-cloud-2-line"} />
+      {isDownloading ? "다운로드 중..." : "다운로드"}
     </button>
   );
 }
@@ -121,6 +144,74 @@ export function ResourceDetailClient({
   userIsOwner,
 }: ResourceDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [gatingModalOpen, setGatingModalOpen] = useState(false);
+  const autoDownloadTriggeredRef = useRef(false);
+
+  // ── 대표 파일 다운로드 핸들러 ─────────────────────────────────────────────────
+  const handleDownload = useCallback(async () => {
+    // 비회원: 로그인 유도 모달 (redirectTo에 ?download=true 포함)
+    if (!user) {
+      setGatingModalOpen(true);
+      return;
+    }
+
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    try {
+      const res = await fetch(`/api/v1/resources/${resourceId}/download`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const code = data?.error?.code;
+        if (code === "RESOURCE_SCAN_PENDING") {
+          toast({ tone: "info", title: "파일 보안 검사가 진행 중입니다. 잠시 후 다시 시도해주세요." });
+        } else if (code === "RESOURCE_INFECTED") {
+          toast({ tone: "danger", title: "보안 검사에서 문제가 발견된 파일입니다." });
+        } else if (code === "RESOURCE_SCAN_ERROR") {
+          toast({ tone: "danger", title: "파일 보안 검사 오류가 발생했습니다. 관리자에게 문의해주세요." });
+        } else if (res.status === 401) {
+          setGatingModalOpen(true);
+        } else {
+          toast({ tone: "danger", title: "다운로드 중 오류가 발생했습니다." });
+        }
+        return;
+      }
+
+      const { url, fileName } = await res.json();
+      triggerDownload(url, fileName);
+      toast({ tone: "success", title: "다운로드가 시작됩니다." });
+    } catch {
+      toast({ tone: "danger", title: "다운로드 중 오류가 발생했습니다." });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [user, resourceId, isDownloading, toast]);
+
+  // ── 자동 다운로드: ?download=true 또는 ?action=download 쿼리 파라미터 감지 ─────
+  useEffect(() => {
+    const shouldAutoDownload =
+      searchParams.get("download") === "true" ||
+      searchParams.get("action") === "download";
+
+    if (
+      shouldAutoDownload &&
+      user &&
+      primaryFile?.scanStatus === "clean" &&
+      !autoDownloadTriggeredRef.current
+    ) {
+      autoDownloadTriggeredRef.current = true;
+      handleDownload();
+    }
+  }, [searchParams, user, primaryFile, handleDownload]);
 
   const handleDelete = () => {
     // TODO: Story 4.8 — 확인 다이얼로그 + DELETE /api/v1/resources/:id 연결
@@ -128,8 +219,20 @@ export function ResourceDetailClient({
     console.warn("[4.8 TODO] DELETE /api/v1/resources/" + resourceId);
   };
 
+  // ── 비회원 게이팅 모달 (redirectTo: /resources/{slug}?download=true) ──────────
+  // LoginGatingModal의 intendedAction을 사용하면 ?action=download 로 리다이렉트되므로
+  // useEffect에서 ?action=download도 자동 다운로드로 처리한다.
+  const gatingRedirectPath = `/resources/${resourceSlug}?download=true`;
+
   return (
     <>
+      {/* 비회원 게이팅 모달 — redirectTo에 ?download=true 포함 */}
+      <LoginGatingModal
+        open={gatingModalOpen}
+        onClose={() => setGatingModalOpen(false)}
+        redirectOverride={gatingRedirectPath}
+      />
+
       {/* ── ② 다운로드 영역 ──────────────────────────────────────────────── */}
       {primaryFile && (
         <section className={styles.downloadPanel} aria-label="파일 다운로드">
@@ -153,10 +256,11 @@ export function ResourceDetailClient({
             </div>
           </div>
 
-          {/* [다운로드] 슬롯 — Story 4.6에서 실제 다운로드 핸들러 연결 */}
+          {/* [다운로드] 슬롯 — Story 4.6 실제 다운로드 핸들러 연결 완료 */}
           <DownloadButton
             file={primaryFile}
-            resourceId={resourceId}
+            onDownload={handleDownload}
+            isDownloading={isDownloading}
             className={styles.downloadAction}
           />
         </section>
@@ -259,17 +363,18 @@ export function ResourceDetailClient({
         </div>
       )}
 
-      {/* ── 모바일 다운로드 고정 바 (AC #3) ────────────────────────────────── */}
+      {/* ── 모바일 다운로드 고정 바 ────────────────────────────────────────── */}
       {primaryFile && (
         <div className={styles.downloadBarMobile} aria-label="다운로드 고정 바" role="complementary">
           <div className={styles.downloadBarMobileFile}>
             <strong>{primaryFile.originalName}</strong>
             <span>.{primaryFile.allowedExtension} · {formatFileSize(primaryFile.fileSize)}</span>
           </div>
-          {/* [다운로드] 슬롯 — Story 4.6에서 실제 다운로드 핸들러 연결 */}
+          {/* [다운로드] 슬롯 — Story 4.6 실제 다운로드 핸들러 연결 완료 */}
           <DownloadButton
             file={primaryFile}
-            resourceId={resourceId}
+            onDownload={handleDownload}
+            isDownloading={isDownloading}
             className={styles.downloadBarMobileBtn}
           />
         </div>
@@ -277,3 +382,4 @@ export function ResourceDetailClient({
     </>
   );
 }
+
