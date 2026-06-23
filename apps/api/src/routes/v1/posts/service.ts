@@ -1,5 +1,5 @@
 /**
- * 게시글 목록 서비스 — Story 2.3
+ * 게시글 서비스 — Story 2.3 (목록) + Story 2.7 (작성·임시저장)
  *
  * DB 접근은 이 파일(service 레이어)에서만. route handler 에서 직접 쿼리 금지.
  * N+1 방지: 작성자 닉네임은 LEFT JOIN users, 태그는 별도 inArray 배치 쿼리.
@@ -9,7 +9,9 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { PostCard } from "@ai-jakdang/contracts";
+import type { CreatePostInput } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
+import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 
 export type SortOption = "latest" | "popular" | "most-comments";
 
@@ -141,5 +143,232 @@ export async function getPosts({
   return {
     items,
     meta: { page, pageSize, totalItems, totalPages },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.7: 게시글 작성 (POST /api/v1/posts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PostStatus = "draft" | "published";
+
+export interface CreatePostParams {
+  input: CreatePostInput & { status?: PostStatus };
+  userId: string;
+}
+
+export interface CreatePostResult {
+  id: string;
+  slug: string;
+  board: string;
+  category: string | null;
+  status: PostStatus;
+}
+
+/**
+ * 게시글을 작성하거나 임시저장한다.
+ *
+ * - `db.transaction()` 으로 posts INSERT + tags upsert + taggable INSERT 원자 처리.
+ * - slug: `slugify(title)` → DB uniqueness 체크 → 중복 시 `-{nanoid6}` suffix.
+ * - summary: `generateSummary(contentJson)` 자동 생성 (명시적 summary 가 없을 때).
+ * - status='draft' 일 때 tags 도 함께 저장한다 (재편집 시 복원 대비).
+ *
+ * @returns 생성된 post 의 `{ id, slug, board, category, status }`
+ */
+export async function createPost({
+  input,
+  userId,
+}: CreatePostParams): Promise<CreatePostResult> {
+  const db = getDb();
+
+  const {
+    board,
+    category = null,
+    title,
+    contentJson,
+    summary: explicitSummary,
+    tags = [],
+    status = "published",
+  } = input;
+
+  // ── slug 생성 ──────────────────────────────────────────────────────────────
+  const baseSlug = slugify(title) || slugify(board) || "post";
+
+  const slug = await generateUniqueSlug(baseSlug, async (candidate: string) => {
+    const rows = await db
+      .select({ id: schema.posts.id })
+      .from(schema.posts)
+      .where(eq(schema.posts.slug, candidate))
+      .limit(1);
+    return rows.length > 0;
+  });
+
+  // ── summary 자동 생성 ──────────────────────────────────────────────────────
+  const summary =
+    explicitSummary?.trim() ||
+    generateSummary(contentJson) ||
+    null;
+
+  // ── 트랜잭션: posts INSERT + tags upsert + taggable INSERT ─────────────────
+  return await db.transaction(async (tx) => {
+    // 1) posts INSERT
+    const [post] = await tx
+      .insert(schema.posts)
+      .values({
+        userId,
+        board,
+        category: category ?? undefined,
+        title,
+        slug,
+        contentJson,
+        summary: summary ?? undefined,
+        status,
+      })
+      .returning({
+        id: schema.posts.id,
+        slug: schema.posts.slug,
+        board: schema.posts.board,
+        category: schema.posts.category,
+        status: schema.posts.status,
+      });
+
+    if (!post) {
+      throw new Error("게시글 INSERT 실패");
+    }
+
+    // 2) tags upsert + taggable INSERT (태그가 있을 때만)
+    if (tags.length > 0) {
+      const tagIds: string[] = [];
+
+      for (const tagName of tags) {
+        const tagSlug = slugify(tagName) || tagName.toLowerCase();
+
+        // 기존 태그 조회
+        const existing = await tx
+          .select({ id: schema.tags.id })
+          .from(schema.tags)
+          .where(eq(schema.tags.slug, tagSlug))
+          .limit(1);
+
+        if (existing.length > 0 && existing[0]) {
+          tagIds.push(existing[0].id);
+        } else {
+          // 새 태그 INSERT
+          const [created] = await tx
+            .insert(schema.tags)
+            .values({ name: tagName, slug: tagSlug })
+            .onConflictDoNothing()
+            .returning({ id: schema.tags.id });
+
+          if (created) {
+            tagIds.push(created.id);
+          } else {
+            // onConflictDoNothing 로 인해 반환이 없을 경우 재조회
+            const retry = await tx
+              .select({ id: schema.tags.id })
+              .from(schema.tags)
+              .where(eq(schema.tags.slug, tagSlug))
+              .limit(1);
+            if (retry[0]) tagIds.push(retry[0].id);
+          }
+        }
+      }
+
+      // taggable INSERT 배치
+      if (tagIds.length > 0) {
+        await tx.insert(schema.taggable).values(
+          tagIds.map((tagId) => ({
+            targetType: "post" as const,
+            targetId: post.id,
+            tagId,
+          })),
+        );
+      }
+    }
+
+    return {
+      id: post.id,
+      slug: post.slug,
+      board: post.board,
+      category: post.category ?? null,
+      status: post.status as PostStatus,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.7: 임시저장 draft 단건 조회 (GET /api/v1/posts/drafts/:id)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface GetDraftParams {
+  postId: string;
+  userId: string;
+}
+
+/**
+ * 본인의 임시저장 게시글 단건을 반환한다.
+ * 다른 사용자의 draft 또는 존재하지 않는 id 는 null 반환 (404 처리는 route 레이어).
+ */
+export async function getDraft({
+  postId,
+  userId,
+}: GetDraftParams): Promise<{
+  id: string;
+  title: string;
+  contentJson: Record<string, unknown>;
+  summary: string | null;
+  tags: string[];
+  board: string;
+  category: string | null;
+  status: string;
+} | null> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      id: schema.posts.id,
+      title: schema.posts.title,
+      contentJson: schema.posts.contentJson,
+      summary: schema.posts.summary,
+      board: schema.posts.board,
+      category: schema.posts.category,
+      status: schema.posts.status,
+    })
+    .from(schema.posts)
+    .where(
+      and(
+        eq(schema.posts.id, postId),
+        eq(schema.posts.userId, userId),
+        eq(schema.posts.status, "draft"),
+        isNull(schema.posts.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) return null;
+
+  const post = rows[0];
+
+  // 태그 조회
+  const taggableRows = await db
+    .select({ tagName: schema.tags.name })
+    .from(schema.taggable)
+    .innerJoin(schema.tags, eq(schema.taggable.tagId, schema.tags.id))
+    .where(
+      and(
+        eq(schema.taggable.targetType, "post"),
+        eq(schema.taggable.targetId, postId),
+      ),
+    );
+
+  return {
+    id: post.id,
+    title: post.title,
+    contentJson: post.contentJson as Record<string, unknown>,
+    summary: post.summary ?? null,
+    board: post.board,
+    category: post.category ?? null,
+    status: post.status,
+    tags: taggableRows.map((r) => r.tagName),
   };
 }

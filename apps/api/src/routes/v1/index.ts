@@ -7,6 +7,7 @@ import { registerVerifyEmailRoute } from "./auth/verify-email.js";
 import { registerForgotPasswordRoute } from "./auth/forgot-password.js";
 import { registerResetPasswordRoute } from "./auth/reset-password.js";
 import { postsRoutes } from "./posts/routes.js";
+import { tagsRoutes } from "./tags/routes.js";
 
 /**
  * /api/v1 라우트.
@@ -37,6 +38,9 @@ export async function v1Routes(app: FastifyInstance) {
   // ── 사용자 라우트 (Story 1.8 /users/me · 1.10 /users/profile/:nickname) ──────
   await usersRoutes(app);
 
-  // ── 게시글 라우트 (Story 2.3 GET /posts) ──────────────────────────────────────
+  // ── 게시글 라우트 (Story 2.3 GET /posts · Story 2.7 POST /posts) ───────────────
   await postsRoutes(app);
+
+  // ── 태그 라우트 (Story 2.7 GET /tags?q=) ────────────────────────────────────────
+  await tagsRoutes(app);
 }

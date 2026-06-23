@@ -48,3 +48,6 @@ export * from "./Section";
 
 // 아이콘
 export * from "./Icon";
+
+// 태그 입력 (Story 2.7)
+export * from "./TagInput";

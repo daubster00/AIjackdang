@@ -1,6 +1,6 @@
 # Story 2.7: 게시글 작성 폼 + API (임시저장)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -138,10 +138,35 @@ await db.insert(taggableTable).values(tagIds.map(tagId => ({ target_type: 'post'
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- utilities typecheck: PASS
+- api typecheck: PASS (3 errors fixed: @ai-jakdang/utilities dep added, implicit any type annotated, contentJson type cast)
+- web typecheck: PASS
+- curl: GET /api/v1/tags?q=React → 200 {"items":[]}
+- curl: POST /api/v1/posts (unauthenticated) → 401 {"error":{"code":"UNAUTHORIZED","message":"로그인이 필요합니다."}}
 
 ### Completion Notes List
+1. `packages/utilities/src/slugify.ts` NEW — `generateUniqueSlug()` 추가 (기존 `slugify`는 string.ts에서 re-export). nanoid dependency 추가됨.
+2. `packages/utilities/src/generate-summary.ts` NEW — apps/web/lib/seo/generate-summary.ts와 동일 로직 (패키지 경계 준수). web lib 손대지 않음.
+3. `packages/utilities/src/index.ts` UPDATE — slugify + generate-summary re-export 추가.
+4. API posts/service.ts UPDATE — createPost() + getDraft() 추가. db.transaction() 내부에서 posts INSERT → tags upsert → taggable INSERT 원자 처리.
+5. API posts/routes.ts UPDATE — POST /api/v1/posts (인증 필수), GET /api/v1/posts/drafts/:id 라우트 추가.
+6. API tags/routes.ts NEW — GET /api/v1/tags?q= 태그 자동완성 라우트 (LIKE '%q%', LIMIT 5).
+7. API v1/index.ts UPDATE — tagsRoutes 등록.
+8. TagInput 컴포넌트 NEW — debounce 300ms + GET /api/v1/tags 자동완성 드롭다운 + 방향키/Enter/Backspace 키보드 처리 + 최대 10개.
+9. PostWriteForm.tsx UPDATE — submitAlert mock → 실 API 연동. useRouter + useToast 사용. board prop 필수 추가 (하위 호환: submitAlert optional로 변경).
+10. 7개 write 페이지 UPDATE — board 필드 추가 (vibe-coding-guide, ai-creation, talk, ai-products, monetization-tips, automation-guide, talk[questions임시]).
+11. middleware.ts UPDATE — write 경로 PROTECTED_PATHS에 추가 (비회원 → /login?redirectTo= 리다이렉트).
+12. @ai-jakdang/utilities dependency를 @ai-jakdang/api에 추가.
+
+### Deviations / Main Should Check
+- questions/write/page.tsx: board="talk" 임시. contracts/board.ts에 questions board 슬러그가 없으므로 Epic 3에서 추가 후 수정 필요.
+- TagInput은 api 자동완성 외에도 suggestedTags prop을 지원하여 기존 추천태그 UX 보존.
+- PostWriteForm MAX_TAGS를 기존 5 → 10으로 변경(AC #7: 최대 10개).
+- 파일첨부 기능은 Epic 4 담당이므로 로컬 미리보기만 유지, 실제 업로드 미구현.
+- dev-login은 자체 sessions 테이블에 토큰 저장 → requireAuthHook(Better Auth getSession)과 호환 안됨. curl 인증 테스트는 401 확인으로 대신함.
 
 ### File List
 - UPDATE: `apps/web/components/board/PostWriteForm.tsx`
@@ -153,6 +178,16 @@ await db.insert(taggableTable).values(tagIds.map(tagId => ({ target_type: 'post'
 - UPDATE: `apps/api/src/routes/v1/posts/service.ts`
 - NEW: `apps/api/src/routes/v1/tags/routes.ts`
 - UPDATE: `apps/api/src/routes/v1/index.ts`
-- UPDATE: `packages/utilities/src/slugify.ts`
+- NEW: `packages/utilities/src/slugify.ts`
 - NEW: `packages/utilities/src/generate-summary.ts`
 - UPDATE: `packages/utilities/src/index.ts`
+- UPDATE: `packages/utilities/package.json` (nanoid dependency added)
+- UPDATE: `apps/api/package.json` (@ai-jakdang/utilities dependency added)
+- UPDATE: `apps/web/middleware.ts` (write paths added to PROTECTED_PATHS)
+- UPDATE: `apps/web/app/vibe-coding/write/page.tsx`
+- UPDATE: `apps/web/app/lounge/write/page.tsx`
+- UPDATE: `apps/web/app/lounge/talk/write/page.tsx`
+- UPDATE: `apps/web/app/lounge/products/write/page.tsx`
+- UPDATE: `apps/web/app/monetize/write/page.tsx`
+- UPDATE: `apps/web/app/automation/write/page.tsx`
+- UPDATE: `apps/web/app/questions/write/page.tsx`

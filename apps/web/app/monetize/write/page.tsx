@@ -22,7 +22,8 @@ const config: PostWriteFormConfig = {
   dropzoneText: "파일을 끌어다 놓거나 클릭해서 선택하세요",
   cancelHref: "/monetize",
   submitLabel: "등록하기",
-  submitAlert: "등록 기능은 아직 개발 중입니다.",
+  board: "monetization-tips",
+  boardHref: "/monetize",
 };
 
 export default function MonetizeWritePage() {

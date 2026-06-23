@@ -40,7 +40,10 @@ const config: PostWriteFormConfig = {
   cancelHref: "/questions",
   submitLabel: "질문 등록",
   submitIcon: "question-answer-line",
-  submitAlert: "질문 등록 기능은 아직 개발 중입니다.",
+  // TODO(Epic 3): questions board 슬러그가 contracts/board.ts 에 추가되면 "questions" 로 변경.
+  // 현재 board.ts 에 questions 가 없으므로 임시로 talk 으로 대응.
+  board: "talk",
+  boardHref: "/questions",
 };
 
 export default function QuestionWritePage() {

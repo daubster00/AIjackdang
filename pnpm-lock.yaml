@@ -110,6 +110,9 @@ importers:
       '@ai-jakdang/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-jakdang/utilities':
+        specifier: workspace:*
+        version: link:../../packages/utilities
       '@aws-sdk/client-s3':
         specifier: ^3.1075.0
         version: 3.1075.0
@@ -295,7 +298,11 @@ importers:
         specifier: ^0.30.0
         version: 0.30.6
 
-  packages/utilities: {}
+  packages/utilities:
+    dependencies:
+      nanoid:
+        specifier: ^5.1.15
+        version: 5.1.15
 
 packages:
 
@@ -3181,6 +3188,11 @@ packages:
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  nanoid@5.1.15:
+    resolution: {integrity: sha512-kBg3RpGtIe+RpTbyXwoI6pk5yD7KUiI3sygUqgeBMRst42KmhB4RZC7eiO9Wa1HIpaCCtpE2DJ6OI4Wi5ebwFw==}
+    engines: {node: ^18 || >=20}
     hasBin: true
 
   nanostores@1.3.0:
@@ -6590,6 +6602,8 @@ snapshots:
       msgpackr-extract: 3.0.4
 
   nanoid@3.3.12: {}
+
+  nanoid@5.1.15: {}
 
   nanostores@1.3.0: {}
 

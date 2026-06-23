@@ -1,16 +1,25 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import { Icon } from "@/components/ui";
+import { TagInput } from "@/components/ui/TagInput";
+import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
 import styles from "./PostWriteForm.module.css";
 
 /**
- * 게시판 글쓰기 폼 (공용).
+ * 게시판 글쓰기 폼 (공용) — Story 2.7에서 실 API 연동.
+ *
  * 바이브코딩/묻고답하기 등 모든 게시판이 이 컴포넌트 하나를 공유한다.
  * 에디터·태그·파일첨부 등 기능을 한 곳에서 고치면 모든 게시판에 반영된다.
  * 게시판마다 다른 문구/링크/추천태그 등은 config prop으로만 주입한다.
+ *
+ * 하위 호환 유지:
+ * - `PostWriteFormConfig` 인터페이스 모든 기존 필드 보존.
+ * - `submitAlert` 는 deprecated 되었으나 타입에 남겨 기존 페이지가 에러 없이 빌드되도록 함.
+ * - `board` 필드: 실제 API 호출에 필요. 기존 config 에 없던 경우 필수로 추가됨.
  */
 export type PostWriteFormConfig = {
   /** 상단 헤더(배지+제목+설명). 없으면 헤더를 그리지 않는다. */
@@ -39,13 +48,25 @@ export type PostWriteFormConfig = {
   submitLabel: string;
   /** 제출 버튼 좌측 아이콘(선택) */
   submitIcon?: string;
-  /** 제출 시 안내 alert 문구 (등록 기능 미구현 단계) */
-  submitAlert: string;
+  /**
+   * @deprecated Story 2.7에서 실 API 연동으로 대체됨.
+   * 하위 호환을 위해 필드는 유지되나 더 이상 alert 로 사용하지 않는다.
+   */
+  submitAlert?: string;
+  /**
+   * 게시판 슬러그 (예: "vibe-coding", "lounge").
+   * POST /api/v1/posts 에 필수. 작성 페이지가 주입한다.
+   */
+  board: string;
+  /**
+   * 등록 성공 후 리다이렉트할 기본 경로 prefix.
+   * 기본: `/${board}` → 실제 slug 가 붙으면 `/${board}/${slug}` 로 이동.
+   * (category 가 있을 때: `/${category}/${board}/${slug}`)
+   */
+  boardHref?: string;
 };
 
-const MAX_TAGS = 5;
 const MAX_FILES = 5;
-
 
 interface AttachedFile {
   name: string;
@@ -53,43 +74,124 @@ interface AttachedFile {
   isImage: boolean;
 }
 
+/** 인라인 검증 오류 */
+interface FormErrors {
+  title?: string;
+  body?: string;
+}
+
 export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
+  const router = useRouter();
+  const { toast } = useToast();
+
   const titleInputId = config.titleInputId ?? "post-title";
 
   const [title, setTitle] = useState("");
+  const [titleTouched, setTitleTouched] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
   const [files, setFiles] = useState<AttachedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  // Tiptap JSON 본문 (FULL preset)
   const [contentJson, setContentJson] = useState<JSONContent | undefined>(undefined);
+  const [contentTouched, setContentTouched] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddTag = useCallback(() => {
-    const tag = tagInput.trim().replace(/^#/, "");
-    if (tag && !tags.includes(tag) && tags.length < MAX_TAGS) {
-      setTags((prev) => [...prev, tag]);
-      setTagInput("");
-    }
-  }, [tagInput, tags]);
+  // ── 검증 ───────────────────────────────────────────────────────────────────
+  const validateTitle = (val: string): string | undefined =>
+    val.trim().length < 2 ? "제목을 2자 이상 입력해 주세요." : undefined;
 
-  const handleTagKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" || e.key === ",") {
-        e.preventDefault();
-        handleAddTag();
-      } else if (e.key === "Backspace" && tagInput === "" && tags.length > 0) {
-        setTags((prev) => prev.slice(0, -1));
+  const validateBody = (val: JSONContent | undefined): string | undefined => {
+    if (!val) return "본문을 입력해 주세요.";
+    const hasText = val.content?.some((node) => {
+      if (node.type === "paragraph" && node.content?.length) return true;
+      if (node.content?.length) return true;
+      return false;
+    });
+    return hasText ? undefined : "본문을 입력해 주세요.";
+  };
+
+  // ── API 호출 ───────────────────────────────────────────────────────────────
+  const submitPost = useCallback(
+    async (status: "published" | "draft") => {
+      const isDraft = status === "draft";
+
+      // draft 일 때는 제목만 최소 검증
+      const titleErr = validateTitle(title);
+      const bodyErr = isDraft ? undefined : validateBody(contentJson);
+
+      if (titleErr || bodyErr) {
+        setErrors({ title: titleErr, body: bodyErr });
+        setTitleTouched(true);
+        if (!isDraft) setContentTouched(true);
+        return;
+      }
+
+      const setter = isDraft ? setIsSavingDraft : setIsSubmitting;
+      setter(true);
+
+      try {
+        const res = await fetch("/api/v1/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            board: config.board,
+            title: title.trim(),
+            contentJson: contentJson ?? { type: "doc", content: [] },
+            tags,
+            status,
+          }),
+        });
+
+        if (res.status === 401) {
+          toast({ tone: "danger", title: "로그인이 필요합니다." });
+          router.push(`/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
+          return;
+        }
+
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          toast({
+            tone: "danger",
+            title: isDraft ? "임시저장 실패" : "등록 실패",
+            description: data?.error?.message ?? "잠시 후 다시 시도해 주세요.",
+          });
+          return;
+        }
+
+        const data = (await res.json()) as {
+          id: string;
+          slug: string;
+          board: string;
+          category: string | null;
+        };
+
+        if (isDraft) {
+          toast({ tone: "success", title: "임시저장되었습니다." });
+        } else {
+          // 등록 성공 → 상세 페이지로 이동
+          const base = config.boardHref ?? `/${data.board}`;
+          router.push(`${base}/${data.slug}`);
+        }
+      } catch {
+        toast({
+          tone: "danger",
+          title: "네트워크 오류",
+          description: "잠시 후 다시 시도해 주세요.",
+        });
+      } finally {
+        setter(false);
       }
     },
-    [handleAddTag, tagInput, tags.length],
+    [config.board, config.boardHref, contentJson, router, tags, title, toast],
   );
 
-  const handleRemoveTag = useCallback((index: number) => {
-    setTags((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
+  // ── 파일 첨부 (Epic 4 파일 업로드 구현 전 로컬 미리보기만) ─────────────────
   const handleFileSelect = useCallback(
     (fileList: FileList | null) => {
       if (!fileList) return;
@@ -119,15 +221,22 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
     [handleFileSelect],
   );
 
+  // ── 폼 submit ──────────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      void submitPost("published");
+    },
+    [submitPost],
+  );
+
+  const handleDraftSave = useCallback(() => {
+    void submitPost("draft");
+  }, [submitPost]);
+
   return (
     <div className={styles.writeLayout}>
-      <form
-        className={styles.writeCard}
-        onSubmit={(e) => {
-          e.preventDefault();
-          alert(config.submitAlert);
-        }}
-      >
+      <form className={styles.writeCard} onSubmit={handleSubmit}>
         {/* 게시판 헤더 (배지 + 제목 + 설명) — config.header 있을 때만 */}
         {config.header && (
           <header className={styles.cardHead}>
@@ -167,14 +276,27 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
           </div>
           <input
             id={titleInputId}
-            className={styles.titleInput}
+            className={`${styles.titleInput} ${titleTouched && errors.title ? styles.inputError : ""}`}
             type="text"
             placeholder={config.titlePlaceholder}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (titleTouched) {
+                setErrors((prev) => ({ ...prev, title: validateTitle(e.target.value) }));
+              }
+            }}
+            onBlur={() => {
+              setTitleTouched(true);
+              setErrors((prev) => ({ ...prev, title: validateTitle(title) }));
+            }}
             maxLength={100}
-            required
           />
+          {titleTouched && errors.title && (
+            <p className={styles.errorMsg} role="alert">
+              {errors.title}
+            </p>
+          )}
         </div>
 
         {/* 본문 에디터 — Tiptap full preset (Story 2.5) */}
@@ -185,69 +307,33 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
           <Editor
             preset="full"
             value={contentJson}
-            onChange={setContentJson}
+            onChange={(val) => {
+              setContentJson(val);
+              if (contentTouched) {
+                setErrors((prev) => ({ ...prev, body: validateBody(val) }));
+              }
+            }}
             placeholder={config.bodyPlaceholder}
           />
+          {contentTouched && errors.body && (
+            <p className={styles.errorMsg} role="alert">
+              {errors.body}
+            </p>
+          )}
         </div>
 
-        {/* 태그 */}
+        {/* 태그 — TagInput 컴포넌트 (API 자동완성 + 자유 입력) */}
         <div className={styles.fieldGroup}>
           <label className={styles.fieldLabel}>
             태그{" "}
-            <span className={styles.fieldHint}>
-              (최대 {MAX_TAGS}개 · Enter 또는 쉼표로 추가)
-            </span>
+            <span className={styles.fieldHint}>(최대 10개 · Enter 또는 쉼표로 추가)</span>
           </label>
-          <div className={styles.tagField}>
-            <div className={styles.tagInputRow}>
-              {tags.map((tag, i) => (
-                <span key={i} className={styles.tagChip}>
-                  #{tag}
-                  <button
-                    type="button"
-                    className={styles.tagRemoveBtn}
-                    aria-label={`${tag} 태그 제거`}
-                    onClick={() => handleRemoveTag(i)}
-                  >
-                    <Icon name="close-line" />
-                  </button>
-                </span>
-              ))}
-              {tags.length < MAX_TAGS && (
-                <input
-                  className={styles.tagInput}
-                  type="text"
-                  placeholder={tags.length === 0 ? config.tagPlaceholder : "태그 추가"}
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  onBlur={handleAddTag}
-                  aria-label="태그 입력"
-                />
-              )}
-            </div>
-          </div>
-          <div className={styles.suggestedTags}>
-            <span className={styles.suggestedLabel}>추천 태그:</span>
-            {config.suggestedTags
-              .filter((t) => !tags.includes(t))
-              .slice(0, 10)
-              .map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={styles.suggestedTag}
-                  disabled={tags.length >= MAX_TAGS}
-                  onClick={() => {
-                    if (tags.length < MAX_TAGS) {
-                      setTags((prev) => [...prev, tag]);
-                    }
-                  }}
-                >
-                  #{tag}
-                </button>
-              ))}
-          </div>
+          <TagInput
+            value={tags}
+            onChange={setTags}
+            placeholder={config.tagPlaceholder}
+            suggestedTags={config.suggestedTags}
+          />
         </div>
 
         {/* 파일 첨부 */}
@@ -320,19 +406,24 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
             <button
               type="button"
               className={styles.draftBtn}
-              onClick={() => alert("임시저장되었습니다.")}
+              onClick={handleDraftSave}
+              disabled={isSavingDraft || isSubmitting}
             >
               <Icon name="save-line" />
-              임시저장
+              {isSavingDraft ? "저장 중…" : "임시저장"}
             </button>
           </div>
           <div className={styles.formActionsRight}>
             <a href={config.cancelHref} className={styles.cancelBtn}>
               취소
             </a>
-            <button type="submit" className={styles.submitBtn}>
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isSubmitting || isSavingDraft}
+            >
               {config.submitIcon && <Icon name={config.submitIcon} />}
-              {config.submitLabel}
+              {isSubmitting ? "등록 중…" : config.submitLabel}
             </button>
           </div>
         </div>

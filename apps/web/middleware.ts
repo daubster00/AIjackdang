@@ -22,6 +22,18 @@ const PROTECTED_PATHS = [
   "/settings",
   "/messages",
   "/notifications",
+  // Story 2.7: 글쓰기 페이지 — 비회원 접근 시 로그인 유도 (AC #1)
+  "/vibe-coding/write",
+  "/lounge/write",
+  "/lounge/talk/write",
+  "/lounge/products/write",
+  "/monetize/write",
+  "/automation/write",
+  "/questions/write",
+  "/resources/templates/write",
+  "/resources/rules/write",
+  "/resources/prompts/write",
+  "/resources/mcp-skills/write",
 ];
 
 /** 로그인 상태에서 접근 불가한 경로 (이미 로그인된 경우 홈으로) */

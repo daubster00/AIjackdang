@@ -17,6 +17,7 @@
     "@ai-jakdang/contracts": "workspace:*",
     "@ai-jakdang/core": "workspace:*",
     "@ai-jakdang/database": "workspace:*",
+    "@ai-jakdang/utilities": "workspace:*",
     "@aws-sdk/client-s3": "^3.1075.0",
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^13.0.1",

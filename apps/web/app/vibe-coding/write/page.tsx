@@ -22,7 +22,8 @@ const config: PostWriteFormConfig = {
   dropzoneText: "파일을 끌어다 놓거나 클릭해서 선택하세요",
   cancelHref: "/vibe-coding",
   submitLabel: "등록하기",
-  submitAlert: "등록 기능은 아직 개발 중입니다.",
+  board: "vibe-coding-guide",
+  boardHref: "/vibe-coding",
 };
 
 export default function VibeCodingWritePage() {

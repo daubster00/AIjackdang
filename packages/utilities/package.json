@@ -11,5 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint ."
+  },
+  "dependencies": {
+    "nanoid": "^5.1.15"
   }
 }
