@@ -228,7 +228,7 @@ Button=실행 / Badge=상태·유형 표시(비클릭) / Tag=키워드+태그페
 - **Card** — `{components.card}`. radius `{rounded.lg}`, padding `{spacing.5}`(compact `{spacing.4}`), 테두리 `{colors.border}`, 면 `{colors.surface}`. 변형: content/resource/question/summary, interactive/compact/highlight, is-selected(테두리·배경 강화)/is-disabled. **카드 중첩 금지**, 목록은 그림자 미사용.
 - **게시글 리스트 아이템** — 카드보다 밀도 높게. **상태 배지(답변대기/해결됨/공지/추천/인기)는 항상 제목 위 별도 줄**(같은 라인 금지). 이미지·링크·파일은 Remix Icon 줄로. 메타는 sub 색. 댓글·다운로드 등 행동 판단 수치는 우측/하단 고정.
 - **Modal** — `{components.modal}`. sm 420 / md 560 / lg 720, radius `{rounded.xl}`, 그림자 `{shadow.dropdown}`. 데스크톱 중앙, 모바일 하단 시트(modal--sheet). 닫기 버튼 우상단.
-- **Toast** — `{components.toast}`. success/warning/danger/info, 우측 하단(모바일 하단 중앙).
+- **Toast** — `{components.toast}`. success/warning/danger/info, **화면 중앙(모든 화면 공통, 우측 하단 금지)**.
 - **Pagination / Empty / Skeleton / Tooltip / Accordion / Breadcrumb / Dropdown·Popover / 파일 업로드 / 검색 자동완성** — 토큰·상태 규칙은 `.working/design-system-extraction.md` 및 원본 HTML 갤러리 기준.
 
 **아이콘** — Remix Icon으로 통일(`Icon` 래퍼). 문자 기호를 아이콘 대신 쓰지 않고, 같은 기능엔 같은 아이콘, icon-only 버튼엔 `aria-label` 필수.

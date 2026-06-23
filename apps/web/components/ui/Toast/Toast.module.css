@@ -2,8 +2,10 @@
 .stack {
   position: fixed;
   z-index: var(--z-toast);
-  right: 24px;
-  bottom: 24px;
+  /* 모든 알림(토스트)은 화면 중앙에 표시한다. (우측 하단 금지) */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: grid;
   gap: 10px;
   width: min(420px, calc(100vw - 32px));
@@ -83,8 +85,7 @@
 
 @media (max-width: 767px) {
   .stack {
-    right: 50%;
-    transform: translateX(50%);
-    bottom: 16px;
+    /* 모바일에서도 화면 중앙 유지 */
+    width: min(420px, calc(100vw - 32px));
   }
 }

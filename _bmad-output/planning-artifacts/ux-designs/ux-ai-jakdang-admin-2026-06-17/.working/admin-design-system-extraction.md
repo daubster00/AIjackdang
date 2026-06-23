@@ -227,7 +227,7 @@ HTML `:root`에 정의된 정확한 토큰 값.
 ### 7.9 모달 / 드로어 / 토스트
 - **모달:** width `min(540px, 100vw-32px)`, radius 16px, shadow-modal, 중앙, 열림 시 translate/opacity 트랜지션(160ms). 헤더 min-height 62px(타이틀 17px/720) / 본문 18px / 푸터 우측 버튼
 - **드로어:** 우측 고정, width `min(460px, 100vw-24px)`, 좌측 그림자, translateX 슬라이드(180ms). 헤더(64px)/본문(스크롤)/detail-list(라벨 12px gray-400 + 값 gray-800)
-- **토스트:** 우하단(`right/bottom 18px`), min-width 300/max 420px, radius 10px, shadow-popover, toastIn 180ms; success 아이콘 초록 / error 빨강
+- **토스트:** **화면 중앙(우측 하단 금지)**, min-width 300/max 420px, radius 10px, shadow-popover, toastIn 180ms; success 아이콘 초록 / error 빨강
 
 ### 7.10 기타 폼·표시 컴포넌트
 - **스위치(`.switch`):** 42×24px 트랙, off gray-300 / on primary-600, 노브 18px 흰원 translateX(18px)
