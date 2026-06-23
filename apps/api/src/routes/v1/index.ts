@@ -4,6 +4,8 @@ import { registerDevLoginRoute } from "../../auth/dev-login.js";
 import { usersRoutes } from "./users.js";
 import { registerSignUpRoute } from "./auth/sign-up.js";
 import { registerVerifyEmailRoute } from "./auth/verify-email.js";
+import { registerForgotPasswordRoute } from "./auth/forgot-password.js";
+import { registerResetPasswordRoute } from "./auth/reset-password.js";
 
 /**
  * /api/v1 라우트.
@@ -24,6 +26,12 @@ export async function v1Routes(app: FastifyInstance) {
   // ── 이메일 인증 보조 라우트 (Story 1.3) ──────────────────────────────────
   // Better Auth가 /verify-email 을 처리하지만 추가 보조 엔드포인트 등록
   await registerVerifyEmailRoute(app);
+
+  // ── 비밀번호 재설정 (Story 1.6) ──────────────────────────────────────────
+  // 커스텀 라우트: POST /auth/forgot-password · POST /auth/reset-password
+  // user-auth.ts(Better Auth) 를 수정하지 않고 완전히 독립 구현한다.
+  await registerForgotPasswordRoute(app);
+  await registerResetPasswordRoute(app);
 
   // ── 사용자 라우트 (Story 1.8 /users/me · 1.10 /users/profile/:nickname) ──────
   await usersRoutes(app);

@@ -83,8 +83,33 @@ so that 계정 접근을 다시 확보한다.
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
+
+없음 — 모든 게이트 클린 패스.
 
 ### Completion Notes List
 
+- **ForgotPasswordForm.tsx UI 단순화**: 3단계(identity→verify→complete, 휴대전화/인증번호) → 2단계(email→sent, 이메일 전용)로 수정. FR-1.4 + ADR-0002 §휴대폰 본인인증 비도입 근거. 레이아웃·backLink·h1·상태 배지 보존.
+- **커스텀 forgot-password / reset-password 라우트**: user-auth.ts 무수정. POST /auth/forgot-password: 항상 동일 200(계정 노출 금지), 계정 존재 시 verifications 토큰(1시간) + email 큐 발행. POST /auth/reset-password: 토큰 검증 → Argon2id 재해시 → sessions 전부 삭제 → verifications 토큰 삭제 → 200.
+- **rate limit**: app.ts 에 추가하지 않고 forgot-password.ts 라우트 config.rateLimit(IP당 5회/시간)에 직접 적용. app.ts `global:false` 설정으로 라우트별 rate-limit 이 이미 활성화되어 있어 패턴 일관성 유지.
+- **reset-password UI**: page.tsx에서 token 파라미터 없으면 /forgot-password 리다이렉트(서버 컴포넌트 redirect). ResetPasswordForm: 3단계(form→success→error), 8자 blur 검증, 불일치 인라인, 400→재발송 링크.
+- **이메일 템플릿**: apps/worker/src/templates/reset-password.ts 신규. email worker [1.3] 블록 안에 templateId='reset-password' 분기 추가(블록 구조 보존). dev에서 resetUrl console 출력.
+- **단위 테스트**: DB 필요 없는 순수 로직(스키마 검증, 만료 판정, identifier 형식) 18개 테스트 추가. 통합 테스트는 describe.todo로 명시 skip.
+- **편차**: 없음. 스토리 지시사항 전부 이행.
+
 ### File List
+
+- `packages/contracts/src/auth.ts` — forgotPasswordSchema·resetPasswordSchema·타입 append
+- `apps/api/src/routes/v1/auth/forgot-password.ts` — 신규
+- `apps/api/src/routes/v1/auth/reset-password.ts` — 신규
+- `apps/api/src/routes/v1/auth/reset-password.test.ts` — 신규 (단위 테스트 18개)
+- `apps/api/src/routes/v1/index.ts` — registerForgotPasswordRoute·registerResetPasswordRoute 등록 추가
+- `apps/web/app/forgot-password/ForgotPasswordForm.tsx` — 3단계→2단계 단순화
+- `apps/web/app/forgot-password/page.tsx` — metadata description 수정
+- `apps/web/app/reset-password/page.tsx` — 신규 (서버 컴포넌트, token 파라미터 가드)
+- `apps/web/app/reset-password/ResetPasswordForm.tsx` — 신규 (클라이언트 폼)
+- `apps/web/app/reset-password/reset-password.module.css` — 신규 (레이아웃 스타일)
+- `apps/worker/src/templates/reset-password.ts` — 신규 (이메일 HTML 템플릿)
+- `apps/worker/src/index.ts` — import + [1.3] email worker 블록 내 reset-password 분기 추가
