@@ -1,6 +1,10 @@
+---
+baseline_commit: 54fdea38b42da1991dd7adaebd281feeb531bc8c
+---
+
 # Story 4.1: `resource`·`resource_file`·`rating` 스키마 + API 계약
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,42 +25,42 @@ So that 이후 4.2~4.9가 스키마 충돌 없이 동일 계약 위에서 구현
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: DB 스키마 작성 (AC: #1, #2, #3, #4, #5)
-  - [ ] `packages/database/src/schema/resources.ts` 신규 생성 (NEW)
-  - [ ] `pgEnum` 정의: `resourceType`, `difficulty`, `resourceStatus`, `allowedExtension`, `scanStatus`
-  - [ ] `resources` 테이블 정의 (컬럼 명세 §AC-2 전부)
-  - [ ] `resource_files` 테이블 정의 (컬럼 명세 §AC-3 전부)
-  - [ ] `ratings` 테이블 정의 + UNIQUE constraint (§AC-4)
-  - [ ] `is_primary` 설계 주석 추가: "is_primary=true는 resource당 1개만 허용. DB partial unique index: `CREATE UNIQUE INDEX ON resource_files (resource_id) WHERE is_primary = true;` — drizzle sql.raw로 추가하거나 application service 레이어에서 upsert 전 보장."
-  - [ ] Row 타입 export: `ResourceRow`, `NewResourceRow`, `ResourceFileRow`, `NewResourceFileRow`, `RatingRow`, `NewRatingRow`
-  - [ ] `packages/database/src/schema/index.ts` UPDATE: `export * from "./resources";` 추가
+- [x] Task 1: DB 스키마 작성 (AC: #1, #2, #3, #4, #5)
+  - [x] `packages/database/src/schema/resources.ts` 신규 생성 (NEW)
+  - [x] `pgEnum` 정의: `resourceType`, `difficulty`, `resourceStatus`, `allowedExtension`, `scanStatus`
+  - [x] `resources` 테이블 정의 (컬럼 명세 §AC-2 전부)
+  - [x] `resource_files` 테이블 정의 (컬럼 명세 §AC-3 전부)
+  - [x] `ratings` 테이블 정의 + UNIQUE constraint (§AC-4)
+  - [x] `is_primary` 설계 주석 추가: "is_primary=true는 resource당 1개만 허용. DB partial unique index: `CREATE UNIQUE INDEX ON resource_files (resource_id) WHERE is_primary = true;` — drizzle sql.raw로 추가하거나 application service 레이어에서 upsert 전 보장."
+  - [x] Row 타입 export: `ResourceRow`, `NewResourceRow`, `ResourceFileRow`, `NewResourceFileRow`, `RatingRow`, `NewRatingRow`
+  - [x] `packages/database/src/schema/index.ts` UPDATE: `export * from "./resources";` 추가
 
-- [ ] Task 2: Drizzle 마이그레이션 생성·실행 (AC: #1)
-  - [ ] `pnpm --filter @ai-jakdang/database db:generate` 실행
-  - [ ] 생성된 마이그레이션 파일 검토(enum·unique·FK 정확성 확인)
-  - [ ] `pnpm --filter @ai-jakdang/database db:migrate` 실행 (로컬 Docker PG)
-  - [ ] ⚠️ 마이그레이션 파일은 머지 전 커밋 금지(AR-2 규칙) — 단독 소유권 확인
+- [x] Task 2: Drizzle 마이그레이션 생성·실행 (AC: #1)
+  - [x] `pnpm --filter @ai-jakdang/database db:generate` 실행
+  - [x] 생성된 마이그레이션 파일 검토(enum·unique·FK 정확성 확인)
+  - [x] `pnpm --filter @ai-jakdang/database db:migrate` 실행 (로컬 Docker PG)
+  - [x] ⚠️ 마이그레이션 파일은 머지 전 커밋 금지(AR-2 규칙) — 단독 소유권 확인
 
-- [ ] Task 3: contracts/resource.ts 작성 (AC: #6, #7)
-  - [ ] `packages/contracts/src/resource.ts` 신규 생성 (NEW)
-  - [ ] `resourceTypeSchema` = `z.enum(["prompt","claude-code-skill","mcp","rules-config","template-checklist"])`
-  - [ ] `difficultySchema` = `z.enum(["beginner","intermediate","advanced"])`
-  - [ ] `scanStatusSchema` = `z.enum(["pending","clean","infected","error"])`
-  - [ ] `createResourceSchema`: `title`(min 2, max 150), `summary`(min 1, max 300), `resourceType`, `environment`(string array), `difficulty`, `descriptionJson`(Tiptap JSON object), `usageJson`(Tiptap JSON), `cautionJson`(optional), `version`(optional), `referenceLinks`(array of {label, url} optional), `copyrightAgreed`(boolean, must be true), `tags`(string[] max 10 default [])
-  - [ ] `updateResourceSchema` = `createResourceSchema.partial()`
-  - [ ] `resourceCardSchema`: `id`, `slug`, `title`, `summary`, `resourceType`, `environment`, `difficulty`, `authorId`, `authorNickname`, `authorAvatarIndex`, `avgRating`(number), `ratingCount`, `downloadCount`, `commentCount`(number, `// TODO: Epic 5 활성화 전 항상 0 반환`), `tagNames`(string[]), `updatedAt`, `status`
-  - [ ] `resourceDetailSchema`: `resourceCardSchema`에 추가로 `descriptionJson`, `usageJson`, `cautionJson`, `version`, `referenceLinks`, `files`(array of resourceFileSchema), `createdAt`
-  - [ ] `resourceFileSchema`: `id`, `originalName`, `storageKey`, `fileSize`, `mimeType`, `allowedExtension`, `isPrimary`, `scanStatus`, `displayOrder`
-  - [ ] `listResourcesQuerySchema`: `paginationQuerySchema` 확장 + `type`(resourceTypeSchema optional), `environment`(string optional), `difficulty`(difficultySchema optional), `sort`(enum `latest|popular|rating|downloads|reviews` default `latest`), `q`(string optional)
-  - [ ] `ratingSchema`: `score`(z.number().int().min(1).max(5))`
-  - [ ] `ratingResponseSchema`: `id`, `resourceId`, `userId`, `score`, `createdAt`, `updatedAt`
-  - [ ] 추론 타입 export: `CreateResourceInput`, `UpdateResourceInput`, `ResourceCard`, `ResourceDetail`, `ResourceFile`, `ListResourcesQuery`, `RatingInput`, `RatingResponse`
+- [x] Task 3: contracts/resource.ts 작성 (AC: #6, #7)
+  - [x] `packages/contracts/src/resource.ts` 신규 생성 (NEW)
+  - [x] `resourceTypeSchema` = `z.enum(["prompt","claude-code-skill","mcp","rules-config","template-checklist"])`
+  - [x] `difficultySchema` = `z.enum(["beginner","intermediate","advanced"])`
+  - [x] `scanStatusSchema` = `z.enum(["pending","clean","infected","error"])`
+  - [x] `createResourceSchema`: `title`(min 2, max 150), `summary`(min 1, max 300), `resourceType`, `environment`(string array), `difficulty`, `descriptionJson`(Tiptap JSON object), `usageJson`(Tiptap JSON), `cautionJson`(optional), `version`(optional), `referenceLinks`(array of {label, url} optional), `copyrightAgreed`(boolean, must be true), `tags`(string[] max 10 default [])
+  - [x] `updateResourceSchema` = `createResourceSchema.partial()`
+  - [x] `resourceCardSchema`: `id`, `slug`, `title`, `summary`, `resourceType`, `environment`, `difficulty`, `authorId`, `authorNickname`, `authorAvatarIndex`, `avgRating`(number), `ratingCount`, `downloadCount`, `commentCount`(number, `// TODO: Epic 5 활성화 전 항상 0 반환`), `tagNames`(string[]), `updatedAt`, `status`
+  - [x] `resourceDetailSchema`: `resourceCardSchema`에 추가로 `descriptionJson`, `usageJson`, `cautionJson`, `version`, `referenceLinks`, `files`(array of resourceFileSchema), `createdAt`
+  - [x] `resourceFileSchema`: `id`, `originalName`, `storageKey`, `fileSize`, `mimeType`, `allowedExtension`, `isPrimary`, `scanStatus`, `displayOrder`
+  - [x] `listResourcesQuerySchema`: `paginationQuerySchema` 확장 + `type`(resourceTypeSchema optional), `environment`(string optional), `difficulty`(difficultySchema optional), `sort`(enum `latest|popular|rating|downloads|reviews` default `latest`), `q`(string optional)
+  - [x] `ratingSchema`: `score`(z.number().int().min(1).max(5))`
+  - [x] `ratingResponseSchema`: `id`, `resourceId`, `userId`, `score`, `createdAt`, `updatedAt`
+  - [x] 추론 타입 export: `CreateResourceInput`, `UpdateResourceInput`, `ResourceCard`, `ResourceDetail`, `ResourceFile`, `ListResourcesQuery`, `RatingInput`, `RatingResponse`
 
-- [ ] Task 4: contracts index re-export (AC: #8)
-  - [ ] `packages/contracts/src/index.ts` UPDATE: `export * from "./resource";` 추가
+- [x] Task 4: contracts index re-export (AC: #8)
+  - [x] `packages/contracts/src/index.ts` UPDATE: `export * from "./resource";` 추가
 
-- [ ] Task 5: 타입체크 검증
-  - [ ] `pnpm typecheck` 전 워크스페이스 통과 확인
+- [x] Task 5: 타입체크 검증
+  - [x] `pnpm typecheck` 전 워크스페이스 통과 확인
 
 ## Dev Notes
 
@@ -117,9 +121,30 @@ So that 이후 4.2~4.9가 스키마 충돌 없이 동일 계약 위에서 구현
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `sql` import 위치 오류: drizzle-orm/pg-core에 `sql`이 없음 → `drizzle-orm` (core)에서 별도 import로 수정
+- 테스트 파일 unused import (`resourceCardSchema`, `resourceDetailSchema`, `resourceFileSchema`, `ratingResponseSchema`) → TypeScript strict noUnusedLocals 위반 → 해당 import 제거
 
 ### Completion Notes List
+- Task 1: `packages/database/src/schema/resources.ts` 신규 생성. 5개 pgEnum + resources/resource_files/ratings 테이블. is_primary 설계 주석 및 Row 타입 전부 export.
+- Task 2: `0005_late_shiva.sql` 마이그레이션 생성·검토·로컬 PG(5433) 적용 완료. resources/resource_files/ratings 테이블 생성 psql 확인.
+- Task 3: `packages/contracts/src/resource.ts` 신규 생성. story 명세 Zod 스키마 전부 + resourceStatusSchema(도메인 독립) + resourceFileSchema. commentCount에 TODO 주석 포함.
+- Task 4: `packages/contracts/src/index.ts` re-export 추가.
+- Task 5: `pnpm -r typecheck` 전 패키지 통과. `resource.test.ts` 35/35 통과. auth.test.ts 3개 실패는 사전 존재 문제(Story 4.1 이전부터 존재).
+- lint: contracts·database 패키지 클린.
 
 ### File List
+- packages/database/src/schema/resources.ts (NEW)
+- packages/database/src/schema/index.ts (UPDATE)
+- packages/database/migrations/0005_late_shiva.sql (NEW — drizzle-kit auto-generated)
+- packages/database/migrations/meta/_journal.json (UPDATE — drizzle-kit auto-updated)
+- packages/database/migrations/meta/0005_snapshot.json (NEW — drizzle-kit auto-generated)
+- packages/contracts/src/resource.ts (NEW)
+- packages/contracts/src/resource.test.ts (NEW)
+- packages/contracts/src/index.ts (UPDATE)
+- _bmad-output/implementation-artifacts/4-1-resource-schema-api-contracts.md (UPDATE — story tracking)
+
+## Change Log
+- 2026-06-24: Story 4.1 구현 완료. resources·resource_files·ratings DB 스키마 + 마이그레이션 + Zod 계약 스키마 전부 작성.
