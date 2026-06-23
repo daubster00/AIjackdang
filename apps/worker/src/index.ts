@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import { createConnection, QUEUE_NAMES } from "./connection";
 import { renderResetPasswordEmail } from "./templates/reset-password.js";
+import { renderEmailVerification } from "./templates/email-verification.js";
+import { sendMail, isSmtpConfigured } from "./mailer.js";
 
 /**
  * 워커 엔트리.
@@ -54,39 +56,35 @@ function startWorkers(): Worker[] {
       });
 
       if (job.name === "email.send") {
-        // TODO(실 SMTP 연동): nodemailer / Resend 로 실제 발송
-        // const transporter = nodemailer.createTransport({ ... });
-        // await transporter.sendMail({ from: "noreply@ai-jakdang.com", to, subject, html });
-
-        // dev 골격: console 출력으로 이메일 내용 확인
-        console.info("[email-worker] ── 이메일 발송 (console 출력) ──────────");
-        console.info("[email-worker]   TO       :", to);
-        console.info("[email-worker]   SUBJECT  :", subject);
-        console.info("[email-worker]   TEMPLATE :", templateId);
-
+        // templateId 별로 HTML 본문 렌더링
+        let html: string | null = null;
         if (templateId === "email-verification") {
-          console.info("[email-worker]   인증 URL  :", variables["verificationUrl"]);
-        }
-
-        // ── [1.6] 비밀번호 재설정 이메일 처리 ────────────────────────────────
-        if (templateId === "reset-password") {
-          const resetUrl = variables["resetUrl"] ?? "";
-          console.info("[email-worker]   재설정 URL:", resetUrl);
-          // dev: HTML 렌더링 결과도 로깅 (실 SMTP 연동 전 개발 확인용)
-          const html = renderResetPasswordEmail({
-            resetUrl,
+          html = renderEmailVerification({
+            verificationUrl: variables["verificationUrl"] ?? "",
+            userEmail: variables["userEmail"] ?? to,
+          });
+        } else if (templateId === "reset-password") {
+          html = renderResetPasswordEmail({
+            resetUrl: variables["resetUrl"] ?? "",
             email: variables["email"] ?? to,
           });
-          console.info("[email-worker]   HTML 미리보기 (앞 200자):", html.slice(0, 200));
         }
-        // ── [1.6] END ─────────────────────────────────────────────────────────
 
-        Object.entries(variables).forEach(([key, value]) => {
-          if (key !== "verificationUrl" && key !== "resetUrl") {
-            console.info(`[email-worker]   ${key}: ${value}`);
-          }
-        });
-        console.info("[email-worker] ────────────────────────────────────────");
+        if (html && isSmtpConfigured()) {
+          // 실제 SMTP 발송 (Gmail 등)
+          await sendMail({ to, subject, html });
+          console.info(`[email-worker] 발송 완료 → ${to} (${templateId})`);
+        } else {
+          // SMTP 미설정 폴백: 콘솔에 링크 출력(개발 확인용)
+          console.info("[email-worker] ── SMTP 미설정 — 콘솔 폴백 ──────────");
+          console.info("[email-worker]   TO       :", to);
+          console.info("[email-worker]   SUBJECT  :", subject);
+          console.info("[email-worker]   TEMPLATE :", templateId);
+          const link = variables["verificationUrl"] ?? variables["resetUrl"];
+          if (link) console.info("[email-worker]   LINK     :", link);
+          if (!html) console.warn("[email-worker]   (알 수 없는 templateId — 본문 없음)");
+          console.info("[email-worker] ────────────────────────────────────────");
+        }
       } else {
         console.warn("[email-worker] 알 수 없는 job 이름:", job.name);
       }

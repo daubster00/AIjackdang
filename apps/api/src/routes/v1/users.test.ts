@@ -9,59 +9,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { parseMultipartFile } from "../../services/storage/multipart.js";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../services/storage/index.js";
 
-// ── 멀티파트 파서 단위 테스트 ──────────────────────────────────────────────────
-
-describe("parseMultipartFile", () => {
-  it("올바른 멀티파트 바디에서 파일을 추출한다", () => {
-    const boundary = "----WebKitFormBoundaryTest1234";
-    const filename = "avatar.png";
-    const mimetype = "image/png";
-    const fileContent = Buffer.from("fake-png-data");
-
-    // 멀티파트 바디 구성
-    const body = Buffer.concat([
-      Buffer.from(`--${boundary}\r\n`),
-      Buffer.from(`Content-Disposition: form-data; name="file"; filename="${filename}"\r\n`),
-      Buffer.from(`Content-Type: ${mimetype}\r\n`),
-      Buffer.from("\r\n"),
-      fileContent,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]);
-
-    const contentType = `multipart/form-data; boundary=${boundary}`;
-    const result = parseMultipartFile(body, contentType);
-
-    expect(result).not.toBeNull();
-    expect(result?.filename).toBe(filename);
-    expect(result?.mimetype).toBe(mimetype);
-    expect(result?.data).toEqual(fileContent);
-  });
-
-  it("boundary 가 없으면 null 을 반환한다", () => {
-    const body = Buffer.from("random data");
-    const result = parseMultipartFile(body, "multipart/form-data");
-    expect(result).toBeNull();
-  });
-
-  it("파일 필드가 없으면 null 을 반환한다", () => {
-    const boundary = "----WebKitFormBoundaryTest5678";
-    // 파일 없이 텍스트 필드만 있는 멀티파트
-    const body = Buffer.concat([
-      Buffer.from(`--${boundary}\r\n`),
-      Buffer.from(`Content-Disposition: form-data; name="text"\r\n`),
-      Buffer.from("\r\n"),
-      Buffer.from("hello"),
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]);
-
-    const contentType = `multipart/form-data; boundary=${boundary}`;
-    const result = parseMultipartFile(body, contentType);
-    expect(result).toBeNull();
-  });
-});
+// 멀티파트 파싱은 @fastify/multipart(request.file())로 처리하므로 커스텀 파서 단위테스트는 제거됨.
 
 // ── 이미지 타입·크기 제한 단위 테스트 ──────────────────────────────────────────
 

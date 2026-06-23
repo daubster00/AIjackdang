@@ -75,6 +75,17 @@ const envSchema = z
     S3_FORCE_PATH_STYLE: boolish,
     S3_BUCKET_PUBLIC: z.string().optional(),
     S3_BUCKET_PRIVATE: z.string().optional(),
+    /** 공개 버킷 객체의 외부 접근 베이스 URL. 미설정 시 `${S3_ENDPOINT}/${S3_BUCKET_PUBLIC}` 로 구성.
+     *  운영(R2/CDN)에서는 커스텀 도메인을 넣는다. */
+    S3_PUBLIC_BASE_URL: z.string().optional(),
+
+    // SMTP (이메일 발송 — worker)
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: portish.default(587),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    /** 보내는 사람 주소. 미설정 시 SMTP_USER 를 사용. */
+    SMTP_FROM: z.string().optional(),
 
     // 소셜 OAuth (개발용 앱 credential — 선택)
     GOOGLE_CLIENT_ID: z.string().optional(),

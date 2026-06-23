@@ -40,3 +40,6 @@ Thumbs.db
 
 # git worktrees (서브에이전트 격리 작업폴더 — 추적 금지)
 .claude/worktrees/
+
+# 브라우저 체크 스크린샷(로컬 산출물)
+scripts/shots/

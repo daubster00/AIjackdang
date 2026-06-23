@@ -2,6 +2,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
+import multipart from "@fastify/multipart";
 import { env } from "@ai-jakdang/config";
 import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from "fastify";
 import {
@@ -46,6 +47,12 @@ export function buildApp(): FastifyInstance {
     global: false,
     max: 100,
     timeWindow: "1 hour",
+  });
+
+  // 멀티파트(파일 업로드) — 아바타/배너. 최대 5MB. @fastify/multipart.
+  // request.file() 로 단일 파일을 읽는다(Story 1.9 이미지 업로드).
+  app.register(multipart, {
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   });
 
   // Better Auth 핸들러 마운트 (AC #1, #5, #6)

@@ -33,7 +33,6 @@ import { eq, and, ne } from "drizzle-orm";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { uploadImage, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../services/storage/index.js";
-import { parseMultipartFile } from "../../services/storage/multipart.js";
 import { enqueueAnonymize } from "../../queues/cleanup.queue.js";
 
 /** 등급 키: 포인트 시스템(Epic 6) 전까지 신규/기존 모두 'rookie'(새내기). */
@@ -503,63 +502,53 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
     subdir: "avatars" | "banners",
     userField: "avatarUrl" | "bannerUrl",
   ) {
-    const contentType = request.headers["content-type"] ?? "";
+    // @fastify/multipart 로 단일 파일을 읽는다.
+    const reqWithFile = request as typeof request & {
+      isMultipart?: () => boolean;
+      file?: () => Promise<
+        | {
+            filename: string;
+            mimetype: string;
+            file: { truncated: boolean };
+            toBuffer: () => Promise<Buffer>;
+          }
+        | undefined
+      >;
+    };
 
-    if (!contentType.includes("multipart/form-data")) {
+    if (!reqWithFile.isMultipart?.()) {
       return reply.code(400).send({
         error: { code: "INVALID_CONTENT_TYPE", message: "multipart/form-data 형식으로 전송해주세요." },
       });
     }
 
-    // 원시 body 읽기 — multipart/form-data 는 Fastify 기본 파서가 처리하지 않으므로 raw stream 에서 읽는다.
-    // Fastify 의 body 파서가 이미 stream 을 소비한 경우 body 가 Buffer 일 수 있다.
-    let bodyBuf: Buffer;
-
-    const parsedBody = request.body as Buffer | Record<string, unknown> | null | undefined;
-    if (parsedBody instanceof Buffer && parsedBody.length > 0) {
-      bodyBuf = parsedBody;
-    } else {
-      // 스트림에서 직접 읽기
-      const chunks: Buffer[] = [];
-      await new Promise<void>((resolve, reject) => {
-        request.raw.on("data", (chunk: Buffer) => chunks.push(chunk));
-        request.raw.on("end", resolve);
-        request.raw.on("error", reject);
-      });
-      bodyBuf = Buffer.concat(chunks);
-    }
-
-    // 크기 제한
-    if (bodyBuf.length > MAX_UPLOAD_BYTES + 10 * 1024) {
-      return reply.code(400).send({
-        error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
-      });
-    }
-
-    // 멀티파트 파싱
-    const file = parseMultipartFile(bodyBuf, contentType);
-    if (!file) {
+    const part = await reqWithFile.file?.();
+    if (!part) {
       return reply.code(400).send({
         error: { code: "NO_FILE", message: "업로드할 파일이 없습니다." },
       });
     }
 
-    // 파일 크기 검증
-    if (file.data.length > MAX_UPLOAD_BYTES) {
-      return reply.code(400).send({
-        error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
-      });
-    }
-
     // MIME 타입 검증
-    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+    if (!ALLOWED_IMAGE_TYPES.has(part.mimetype)) {
       return reply.code(400).send({
         error: { code: "INVALID_FILE_TYPE", message: "jpg·png·webp·gif 형식만 허용됩니다." },
       });
     }
 
-    // 업로드 (로컬 폴백)
-    const result = uploadImage(file, subdir);
+    const buffer = await part.toBuffer();
+    // 크기 초과(@fastify/multipart limits.fileSize 초과 시 truncated=true)
+    if (part.file.truncated || buffer.length > MAX_UPLOAD_BYTES) {
+      return reply.code(400).send({
+        error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
+      });
+    }
+
+    // 업로드 (S3/MinIO, 미설정 시 로컬 폴백)
+    const result = await uploadImage(
+      { filename: part.filename, mimetype: part.mimetype, data: buffer },
+      subdir,
+    );
 
     // users 테이블 갱신
     const db = getDb();
