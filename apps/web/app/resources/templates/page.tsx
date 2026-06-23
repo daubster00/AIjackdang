@@ -10,8 +10,14 @@ import styles from "./templates.module.css";
 
 export const revalidate = 60; // 목록은 1분 캐시 (AR-17)
 
-/** generateMetadata — 고유 title·description·canonical (FR-11.1) */
-export async function generateMetadata(): Promise<Metadata> {
+/** generateMetadata — 고유 title·description·canonical (FR-11.1, AC #5) */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[]>>;
+}): Promise<Metadata> {
+  // 필터 쿼리 포함 URL의 canonical도 고정 페이지 URL로 강제 설정 (중복 색인 방지)
+  void searchParams;
   return {
     title: "템플릿·체크리스트 자료 — AI작당",
     description: "바로 채워 쓰는 문서 템플릿과 체크리스트를 평점과 후기로 검증해 공유하는 다운로드형 자료실",
@@ -19,6 +25,21 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: "https://aijakdang.com/resources/templates",
     },
   };
+}
+
+/** CollectionPage JSON-LD용 상위 10개 자료 조회 */
+async function fetchTopResourcesForJsonLd(type: string) {
+  const apiUrl = `${process.env.API_INTERNAL_URL ?? "http://localhost:4003"}/api/v1/resources?type=${type}&sort=downloads&pageSize=10&page=1`;
+  try {
+    const res = await fetch(apiUrl, { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items: Array<{ id: string; slug: string; title: string }>;
+    };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /** 템플릿·체크리스트 유형 메타 */
@@ -91,6 +112,21 @@ export default async function TemplatesPage({
 }) {
   const sp = await searchParams;
 
+  // CollectionPage JSON-LD: template-checklist 상위 10개 (AC #1)
+  const topItems = await fetchTopResourcesForJsonLd("template-checklist");
+  const collectionJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "템플릿·체크리스트 자료 — AI작당",
+    description: "바로 채워 쓰는 문서 템플릿과 체크리스트를 평점과 후기로 검증해 공유하는 다운로드형 자료실",
+    url: "https://aijakdang.com/resources/templates",
+    hasPart: topItems.map((item) => ({
+      "@type": "CreativeWork",
+      name: item.title,
+      url: `https://aijakdang.com/resources/templates/${item.slug}`,
+    })),
+  };
+
   const query: ListResourcesQuery = {
     type: "template-checklist",
     sort: (sp.sort as ListResourcesQuery["sort"]) ?? "latest",
@@ -114,6 +150,12 @@ export default async function TemplatesPage({
   };
 
   return (
+    <>
+      {/* CollectionPage JSON-LD (FR-11.5, AC #1) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+      />
     <main id="main" className={styles.page}>
       <BoardHero menu="resources" currentSub="템플릿·체크리스트" />
 
@@ -186,5 +228,6 @@ export default async function TemplatesPage({
         </div>
       </div>
     </main>
+    </>
   );
 }

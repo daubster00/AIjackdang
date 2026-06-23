@@ -10,9 +10,14 @@ import styles from "./prompts.module.css";
 
 export const revalidate = 60; // 목록은 1분 캐시 (AR-17)
 
-/** generateMetadata — 고유 title·description·canonical (FR-11.1) */
-export async function generateMetadata(): Promise<Metadata> {
-  // canonical은 필터 URL이 아닌 고정 페이지 URL (중복 색인 방지)
+/** generateMetadata — 고유 title·description·canonical (FR-11.1, AC #5) */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[]>>;
+}): Promise<Metadata> {
+  // 필터 쿼리 포함 URL의 canonical도 고정 페이지 URL로 강제 설정 (중복 색인 방지)
+  void searchParams; // searchParams를 받아도 canonical은 변하지 않음
   return {
     title: "프롬프트 자료 — AI작당",
     description: "바로 복사해서 쓰는 재사용 가능한 프롬프트를 평점과 후기로 검증해 공유하는 다운로드형 자료실",
@@ -20,6 +25,21 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: "https://aijakdang.com/resources/prompts",
     },
   };
+}
+
+/** CollectionPage JSON-LD용 상위 10개 자료 조회 (SSR, downloads 정렬) */
+async function fetchTopResourcesForJsonLd(type: string) {
+  const apiUrl = `${process.env.API_INTERNAL_URL ?? "http://localhost:4003"}/api/v1/resources?type=${type}&sort=downloads&pageSize=10&page=1`;
+  try {
+    const res = await fetch(apiUrl, { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items: Array<{ id: string; slug: string; title: string }>;
+    };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /** 프롬프트 자료 유형 메타 */
@@ -92,6 +112,21 @@ export default async function PromptsPage({
 }) {
   const sp = await searchParams;
 
+  // CollectionPage JSON-LD: 상위 10개 자료로 hasPart 구성 (AC #1)
+  const topItems = await fetchTopResourcesForJsonLd("prompt");
+  const collectionJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "프롬프트 자료 — AI작당",
+    description: "바로 복사해서 쓰는 재사용 가능한 프롬프트를 평점과 후기로 검증해 공유하는 다운로드형 자료실",
+    url: "https://aijakdang.com/resources/prompts",
+    hasPart: topItems.map((item) => ({
+      "@type": "SoftwareSourceCode",
+      name: item.title,
+      url: `https://aijakdang.com/resources/prompts/${item.slug}`,
+    })),
+  };
+
   const query: ListResourcesQuery = {
     type: "prompt",
     sort: (sp.sort as ListResourcesQuery["sort"]) ?? "latest",
@@ -115,6 +150,12 @@ export default async function PromptsPage({
   };
 
   return (
+    <>
+      {/* CollectionPage JSON-LD (FR-11.5, AC #1) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+      />
     <main id="main" className={styles.page}>
       <BoardHero menu="resources" currentSub="프롬프트" />
 
@@ -187,5 +228,6 @@ export default async function PromptsPage({
         </div>
       </div>
     </main>
+    </>
   );
 }

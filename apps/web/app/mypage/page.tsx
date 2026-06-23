@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import { RANK_LIST, resolveRank } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
+import { MyResourceList } from "./MyResourceList";
 import styles from "./mypage.module.css";
 
 /**
@@ -41,7 +42,7 @@ type ProfileView = {
   createdAt: string;
 };
 
-type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers";
+type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers" | "resources";
 
 const tabs: { key: TabKey; label: string; icon: string }[] = [
   { key: "posts", label: "내가 쓴 글", icon: "article-line" },
@@ -51,6 +52,8 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
   // 팔로잉/팔로워 탭 (단일 /mypage 내 탭으로 확장 — 별도 라우트 없음)
   { key: "following", label: "팔로잉", icon: "user-follow-line" },
   { key: "followers", label: "팔로워", icon: "user-heart-line" },
+  // 내 자료 탭 (Story 4.9 — 별도 라우트 없음, /mypage 탭 확장)
+  { key: "resources", label: "내 자료", icon: "file-download-line" },
 ];
 
 /* ── "내가 쓴 글" 탭 전용 데이터 모델 ──
@@ -221,13 +224,15 @@ export default function MyPage() {
   const followingCount = 0; // Epic 5에서 활성화
   const followersCount = 0; // Epic 5에서 활성화
 
-  // 패널 카운트
+  // 패널 카운트 (resources 탭은 MyResourceList 내부에서 자체 집계하므로 0 표시)
   const panelCount =
     activeTab === "posts"
       ? filteredPosts.length
       : activeTab === "following" || activeTab === "followers"
         ? 0 // Epic 5에서 활성화
-        : 0; // Epic 2~4에서 활성화
+        : activeTab === "resources"
+          ? 0 // MyResourceList 내부에서 집계
+          : 0; // Epic 2~4에서 활성화
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
 
@@ -373,8 +378,11 @@ export default function MyPage() {
               <span className={styles.panelCount}>총 {panelCount}개</span>
             </div>
 
-            {/* 팔로잉 탭 — Epic 5에서 활성화 */}
-            {activeTab === "following" ? (
+            {/* 내 자료 탭 — Story 4.9 */}
+            {activeTab === "resources" ? (
+              <MyResourceList />
+            ) : activeTab === "following" ? (
+              /* 팔로잉 탭 — Epic 5에서 활성화 */
               <EmptyState
                 icon="user-follow-line"
                 title="팔로잉하는 멤버가 없습니다"

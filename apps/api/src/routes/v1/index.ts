@@ -9,6 +9,7 @@ import { registerResetPasswordRoute } from "./auth/reset-password.js";
 import { postsRoutes } from "./posts/routes.js";
 import { tagsRoutes } from "./tags/routes.js";
 import { resourcesRoutes } from "./resources/routes.js";
+import { registerMeResourcesRoutes } from "./me/resources.route.js";
 
 /**
  * /api/v1 라우트.
@@ -47,4 +48,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 실전자료 라우트 (Epic 4: 목록/상세/등록/업로드/다운로드/평점/수정삭제) ──────
   await resourcesRoutes(app);
+
+  // ── 마이페이지 내 자료 라우트 (Story 4.9 GET /me/resources) ──────────────────
+  await registerMeResourcesRoutes(app);
 }
