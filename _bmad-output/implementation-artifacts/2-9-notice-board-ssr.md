@@ -1,6 +1,6 @@
 # Story 2.9: 독립 공지 게시판 (운영자 작성 전용 + SSR/SEO)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -117,17 +117,29 @@ Drizzle 표현: `orderBy(desc(posts.isPinned), desc(posts.createdAt))`
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- contracts/api/web typecheck: all 3 pass zero errors (2026-06-23)
 
 ### Completion Notes List
+- All 7 ACs implemented.
+- Notice operator-only create gate: reads `aj_admin_session` cookie from raw `request.headers.cookie`. Epic 9 will replace with full admin Better Auth session verify once `admin_sessions` table exists; current approach correctly returns 403 for any non-admin POST to `board=notice`.
+- `PATCH /posts/:id/pin` toggles `isPinned` boolean; admin session gate same cookie approach.
+- `postCardSchema` now includes `isPinned: z.boolean()` — the existing `getPosts` service had a wrong hack (`hasAttachment: schema.posts.isPinned`); fixed to select `isPinned` properly.
+- `sitemap.ts` was already correct — notice posts route to `/notice/${slug}` since the file was written by Story 2.2. No change required.
+- Header.tsx was `SiteHeader.tsx` (not `Header.tsx`). Added 공지사항 as last `navItems` entry with `children: []`.
+- Footer.tsx was `SiteFooter.tsx`. Added `/notice` link in the bottom bar before 이용약관.
+- No concurrent-actor collisions observed in any shared file at time of edit.
 
 ### File List
 - NEW: `apps/web/app/notice/page.tsx`
+- NEW: `apps/web/app/notice/notice-list.module.css`
 - NEW: `apps/web/app/notice/[slug]/page.tsx`
-- UPDATE: `apps/web/components/site/Header.tsx`
-- UPDATE: `apps/web/components/site/Footer.tsx`
-- UPDATE: `apps/api/src/routes/v1/posts/routes.ts`
-- UPDATE: `apps/api/src/routes/v1/posts/service.ts`
-- UPDATE: `apps/web/app/sitemap.ts`
-- UPDATE: `packages/contracts/src/post.ts`
+- NEW: `apps/web/app/notice/[slug]/notice-detail.module.css`
+- UPDATE: `apps/web/components/site/SiteHeader.tsx` (공지사항 navItem 추가)
+- UPDATE: `apps/web/components/site/SiteFooter.tsx` (공지사항 bottom 링크 추가)
+- UPDATE: `apps/api/src/routes/v1/posts/routes.ts` (notice 403 게이트 + PATCH /:id/pin 추가)
+- UPDATE: `apps/api/src/routes/v1/posts/service.ts` (isPinned 정렬 + PostCard isPinned + pinPost 함수)
+- NO CHANGE: `apps/web/app/sitemap.ts` (이미 notice 처리 존재)
+- UPDATE: `packages/contracts/src/post.ts` (postCardSchema에 isPinned 추가)

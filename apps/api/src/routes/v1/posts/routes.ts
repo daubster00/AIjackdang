@@ -31,7 +31,7 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
+import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
 
 /** 세션 user 타입 헬퍼 */
@@ -112,13 +112,14 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       preHandler: [requireAuthHook],
       schema: {
         description:
-          "게시글 작성 또는 임시저장. 인증 필수. status='draft' → 임시저장, 기본='published'.",
+          "게시글 작성 또는 임시저장. 인증 필수. status='draft' → 임시저장, 기본='published'. notice 게시판은 관리자 세션(aj_admin_session 쿠키) 필수.",
         tags: ["posts"],
         body: createPostBodySchema,
         response: {
           201: createPostResponseSchema,
           400: errorResponseSchema,
           401: errorResponseSchema,
+          403: errorResponseSchema,
         },
       },
     },
@@ -140,6 +141,20 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
             message: "존재하지 않는 게시판입니다.",
           },
         });
+      }
+
+      // notice 게시판 = 관리자 전용 (FR-15.1, Story 2.9)
+      if (body.board === "notice") {
+        const cookieHeader = request.headers.cookie ?? "";
+        const hasAdminSession = cookieHeader.includes("aj_admin_session=");
+        if (!hasAdminSession) {
+          return reply.code(403).send({
+            error: {
+              code: "FORBIDDEN",
+              message: "공지 작성은 운영자만 가능합니다.",
+            },
+          });
+        }
       }
 
       const result = await createPost({
@@ -306,6 +321,48 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
             error: { code: "FORBIDDEN", message: "삭제 권한이 없습니다." },
           });
         }
+        if (err instanceof PostNotFoundError) {
+          return reply.code(404).send({
+            error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },
+          });
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ── PATCH /posts/:id/pin — 공지 핀 고정 토글 (관리자 전용, Story 2.9) ────────
+  const pinPostParamsSchema = z.object({ id: z.string().uuid() });
+  const pinPostResponseSchema = z.object({ id: z.string().uuid(), isPinned: z.boolean() });
+
+  typed.patch(
+    "/posts/:id/pin",
+    {
+      schema: {
+        description: "공지 핀 고정 토글. 관리자 세션(aj_admin_session 쿠키) 필수.",
+        tags: ["posts"],
+        params: pinPostParamsSchema,
+        response: {
+          200: pinPostResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const cookieHeader = request.headers.cookie ?? "";
+      const hasAdminSession = cookieHeader.includes("aj_admin_session=");
+      if (!hasAdminSession) {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "공지 핀 설정은 운영자만 가능합니다." },
+        });
+      }
+
+      const { id } = request.params;
+      try {
+        const result = await pinPost({ postId: id });
+        return reply.code(200).send(result);
+      } catch (err) {
         if (err instanceof PostNotFoundError) {
           return reply.code(404).send({
             error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },

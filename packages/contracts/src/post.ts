@@ -13,6 +13,7 @@ export type PostStatus = z.infer<typeof postStatusSchema>;
 /**
  * 게시글 목록 카드 스키마.
  * 목록 API 응답에 사용되는 요약 정보 — 본문(contentJson/contentHtml) 제외.
+ * isPinned: 공지 게시판에서 상단 고정 여부 (Story 2.9).
  */
 export const postCardSchema = z.object({
   id: z.string().uuid(),
@@ -27,6 +28,7 @@ export const postCardSchema = z.object({
   commentCount: z.number().int().nonnegative(),
   likeCount: z.number().int().nonnegative(),
   hasAttachment: z.boolean(),
+  isPinned: z.boolean(),
   tags: z.array(z.string()),
 });
 export type PostCard = z.infer<typeof postCardSchema>;

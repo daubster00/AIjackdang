@@ -64,7 +64,8 @@ export async function getPosts({
 
   // ── 정렬 컬럼 결정 ────────────────────────────────────────────────────────────
   // most-comments: comment_count 컬럼 없음(Epic 5 이전) → created_at DESC 폴백
-  const orderBy =
+  // Story 2.9: notice 게시판은 is_pinned DESC 우선 정렬 (핀된 글 최상단)
+  const secondaryOrder =
     sort === "popular"
       ? desc(schema.posts.viewCount)
       : desc(schema.posts.createdAt);
@@ -94,14 +95,14 @@ export async function getPosts({
       summary: schema.posts.summary,
       board: schema.posts.board,
       viewCount: schema.posts.viewCount,
-      hasAttachment: schema.posts.isPinned, // isPinned 컬럼 임시 활용; hasAttachment 컬럼은 Epic 4에서 추가 예정 → false 고정
+      isPinned: schema.posts.isPinned,
       createdAt: schema.posts.createdAt,
       authorNickname: schema.users.nickname,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
     .where(whereCondition)
-    .orderBy(orderBy)
+    .orderBy(desc(schema.posts.isPinned), secondaryOrder)
     .limit(pageSize)
     .offset(offset);
 
@@ -150,6 +151,7 @@ export async function getPosts({
     commentCount: 0, // Epic 5 이전 고정
     likeCount: 0, // Epic 5 이전 고정
     hasAttachment: false, // Epic 4 이전 고정 (첨부파일 테이블 미존재)
+    isPinned: row.isPinned, // Story 2.9: 공지 핀 고정 여부
     tags: tagMap.get(row.id) ?? [],
   }));
 
@@ -727,4 +729,41 @@ export async function getPostBySlug(
     isOwner,
     tags,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.9: 공지 핀 고정 토글 (PATCH /api/v1/posts/:id/pin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PinPostResult {
+  id: string;
+  isPinned: boolean;
+}
+
+/**
+ * 게시글 isPinned 값을 토글한다.
+ * 관리자 전용 — route 레이어에서 권한 검증 후 호출.
+ */
+export async function pinPost({ postId }: { postId: string }): Promise<PinPostResult> {
+  const db = getDb();
+
+  const rows = await db
+    .select({ id: schema.posts.id, isPinned: schema.posts.isPinned })
+    .from(schema.posts)
+    .where(and(eq(schema.posts.id, postId), isNull(schema.posts.deletedAt)))
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) {
+    throw new PostNotFoundError();
+  }
+
+  const current = rows[0];
+  const newIsPinned = !current.isPinned;
+
+  await db
+    .update(schema.posts)
+    .set({ isPinned: newIsPinned })
+    .where(eq(schema.posts.id, postId));
+
+  return { id: current.id, isPinned: newIsPinned };
 }

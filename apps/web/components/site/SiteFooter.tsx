@@ -44,6 +44,7 @@ export function SiteFooter() {
       <div className={styles.bottom}>
         <span>© 2026 AI작당. All rights reserved.</span>
         <div>
+          <a href="/notice">공지사항</a>
           <a href="#">이용약관</a>
           <a href="#">개인정보처리방침</a>
         </div>

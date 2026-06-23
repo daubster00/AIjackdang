@@ -64,6 +64,11 @@ const navItems: {
       { label: "작당 의뢰소", href: "/lounge/gigs" },
     ],
   },
+  {
+    href: "/notice",
+    label: "공지사항",
+    children: [],
+  },
 ];
 
 export function SiteHeader() {
