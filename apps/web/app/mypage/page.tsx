@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Avatar,
@@ -10,12 +10,11 @@ import {
   DropdownDivider,
   DropdownItem,
   EmptyState,
-  FollowButton,
   Icon,
   RankBadge,
   Tag,
 } from "@/components/ui";
-import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { RANK_LIST, resolveRank } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
 import styles from "./mypage.module.css";
@@ -24,38 +23,20 @@ import styles from "./mypage.module.css";
  * 마이페이지 (/mypage).
  * 헤더 프로필 드롭다운의 "마이페이지" 진입점.
  *
- * 실제 세션 API에서 유저 정보를 읽는다(useAuth).
- * 비로그인 상태에서도 데모 프로필로 디자인 확인 가능.
+ * 실제 세션(useAuth)에서 유저 정보를 읽는다.
+ * bio는 세션에 없으므로 GET /api/v1/users/me 로 보강한다.
  */
 
-/** 마이페이지 프로필 뷰 타입 (실제 AuthUser + rank 보조 필드) */
-type ProfileView = Pick<AuthUser, "nickname" | "email"> & {
+/** 마이페이지 프로필 뷰 타입 (실제 AuthUser + rank·bio 보조 필드) */
+type ProfileView = {
+  nickname: string;
+  email: string;
   rank: RankTier;
+  avatarUrl: string | null;
+  defaultAvatarIndex: number;
+  /** 가입일 ISO 문자열 */
+  createdAt: string;
 };
-
-/** 로그인 사용자가 없을 때 화면을 채우는 데모 프로필 */
-const DEMO_USER: ProfileView = {
-  nickname: "작당탐험가",
-  email: "explorer@aijakdang.com",
-  rank: "practitioner",
-};
-
-/** 데모용 프로필 부가 정보 (실제로는 사용자 프로필 API에서 받아온다) */
-const profileExtra = {
-  joinDate: "2026.03.12",
-  bio: "n8n·Claude Code로 사이드 프로젝트 만드는 중. 자동화 외주도 조금씩 받고 있어요.",
-  /** 현재 누적 활동 점수 / 다음 등급까지 필요한 점수 (등급 진행도 계산용) */
-  points: 1240,
-  nextThreshold: 2000,
-};
-
-/** 상단 요약 통계 (작성 글 / 받은 좋아요 / 채택된 답변 / 북마크) */
-const stats = [
-  { icon: "article-line", label: "작성한 글", value: "48" },
-  { icon: "heart-3-line", label: "받은 좋아요", value: "312" },
-  { icon: "checkbox-circle-line", label: "채택된 답변", value: "17" },
-  { icon: "bookmark-line", label: "북마크", value: "26" },
-] as const;
 
 type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers";
 
@@ -64,7 +45,7 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
   { key: "comments", label: "내 댓글", icon: "chat-1-line" },
   { key: "bookmarks", label: "북마크", icon: "bookmark-line" },
   { key: "likes", label: "좋아요한 글", icon: "heart-3-line" },
-  // 팔로잉/팔로워 탭 추가 (별도 라우트 없이 단일 /mypage 내 탭으로 확장)
+  // 팔로잉/팔로워 탭 (단일 /mypage 내 탭으로 확장 — 별도 라우트 없음)
   { key: "following", label: "팔로잉", icon: "user-follow-line" },
   { key: "followers", label: "팔로워", icon: "user-heart-line" },
 ];
@@ -115,194 +96,38 @@ type MyPost = {
   draft?: boolean;
 };
 
-/** 내가 쓴 글 목록 (목업) */
-const myPosts: MyPost[] = [
-  {
-    id: "mp1",
-    board: "questions",
-    slug: "claude-code-php-misunderstanding",
-    title: "Claude Code가 기존 PHP 구조를 계속 잘못 이해합니다",
-    excerpt: "레거시 PHP 프로젝트를 수정하려는데 파일 구조를 매번 다르게 해석해서 엉뚱한 곳을 고칩니다.",
-    tags: ["ClaudeCode", "PHP"],
-    createdAt: 20260618,
-    dateLabel: "2026.06.18",
-    likes: 4,
-    comments: 0,
-    views: 82,
-  },
-  {
-    id: "mp2",
-    board: "vibe",
-    slug: "prompt-structure-tips",
-    title: "프롬프트를 어떻게 짜야 답변 품질이 올라가나요?",
-    excerpt: "같은 질문을 해도 답변 품질 편차가 큽니다. 코딩 작업을 시킬 때 일반적인 원칙이 있을까요?",
-    tags: ["프롬프트", "팁"],
-    createdAt: 20260616,
-    dateLabel: "2026.06.16",
-    likes: 19,
-    comments: 4,
-    views: 263,
-  },
-  {
-    id: "mp3",
-    board: "monetize",
-    slug: "automation-outsourcing-quote",
-    title: "AI 자동화 외주 견적은 얼마가 적당할까요?",
-    excerpt: "소규모 사업장 대상으로 n8n + GPT 자동화 외주를 시작하려는데 첫 견적 기준을 어떻게 잡을지 모르겠습니다.",
-    tags: ["수익화", "외주"],
-    createdAt: 20260614,
-    dateLabel: "2026.06.14",
-    likes: 37,
-    comments: 5,
-    views: 318,
-  },
-  {
-    id: "mp4",
-    board: "automation",
-    slug: "n8n-slack-digest",
-    title: "n8n으로 매일 아침 Slack 업무 다이제스트 만들기",
-    excerpt: "여러 채널의 전날 메시지를 모아 GPT로 요약하고, 출근 시간에 맞춰 한 번에 던져주는 워크플로우입니다.",
-    tags: ["n8n", "Slack", "자동화"],
-    createdAt: 20260612,
-    dateLabel: "2026.06.12",
-    likes: 96,
-    comments: 23,
-    views: 1204,
-  },
-  {
-    id: "mp5",
-    board: "resources",
-    slug: "mcp-skill-checklist",
-    title: "MCP 서버 붙이기 전 점검 체크리스트",
-    excerpt: "권한 범위, 토큰 만료, 레이트리밋, 로깅까지 — MCP를 실제 워크플로우에 붙이기 전에 확인하는 항목.",
-    tags: ["MCP", "체크리스트"],
-    createdAt: 20260610,
-    dateLabel: "2026.06.10",
-    likes: 27,
-    comments: 5,
-    views: 318,
-  },
-  {
-    id: "mp6",
-    board: "vibe",
-    slug: "prompt-debugging-routine",
-    title: "프롬프트 디버깅 루틴 (작성 중)",
-    excerpt: "답변이 어긋날 때 원인을 좁혀가는 단계를 정리하는 중입니다.",
-    tags: ["프롬프트", "디버깅"],
-    createdAt: 20260609,
-    dateLabel: "2026.06.09",
-    likes: 0,
-    comments: 0,
-    views: 0,
-    draft: true,
-  },
-];
-
-/** 활동 목록 한 줄 (댓글/북마크/좋아요 탭에서 같은 형태로 표시) */
-type ActivityItem = {
-  href: string;
-  board: string;
-  title: string;
-  excerpt?: string;
-  date: string;
-  likes: number;
-  comments: number;
-  views?: number;
-  /** 좋아요/북마크 등 다른 사람 글일 때 작성자 표시용 */
-  author?: string;
-};
-
-const activityData: Record<Exclude<TabKey, "posts" | "following" | "followers">, ActivityItem[]> = {
-  comments: [
-    {
-      href: "/questions/n8n-gmail-auto-classify",
-      board: "묻고답하기",
-      title: "n8n으로 Gmail 문의를 자동 분류할 수 있을까요?",
-      excerpt: "“IMAP 노드 + Function 노드 조합이면 라벨링까지 충분히 됩니다. AI 노드는 분기 판단에만 쓰세요.”",
-      date: "2026.06.15",
-      likes: 8,
-      comments: 0,
-    },
-    {
-      href: "/vibe-coding/which-ai-tool-for-beginner",
-      board: "바이브 코딩",
-      title: "비개발자인데 어떤 AI 코딩 툴부터 써야 할까요?",
-      excerpt: "“처음엔 Cursor가 가장 부담 없어요. 익숙해지면 Claude Code로 넘어가는 흐름을 추천합니다.”",
-      date: "2026.06.13",
-      likes: 12,
-      comments: 1,
-    },
-  ],
-  bookmarks: [
-    {
-      href: "/resources/mcp-skills",
-      board: "실전자료",
-      title: "Claude Code MCP·Skills 모음 (계속 업데이트)",
-      author: "리뷰메이트",
-      date: "2026.06.11",
-      likes: 142,
-      comments: 23,
-    },
-    {
-      href: "/questions/service-direction-review",
-      board: "작당 라운지",
-      title: "제가 만든 서비스 방향, 이대로 괜찮을까요?",
-      author: "사이드프로젝트",
-      date: "2026.06.12",
-      likes: 6,
-      comments: 0,
-    },
-  ],
-  likes: [
-    {
-      href: "/questions/n8n-gmail-auto-classify",
-      board: "묻고답하기",
-      title: "n8n으로 Gmail 문의를 자동 분류할 수 있을까요?",
-      author: "자동화카페",
-      date: "2026.06.15",
-      likes: 21,
-      comments: 3,
-    },
-    {
-      href: "/vibe-coding/prompt-structure-tips",
-      board: "바이브 코딩",
-      title: "프롬프트를 어떻게 짜야 답변 품질이 올라가나요?",
-      author: "작당탐험가",
-      date: "2026.06.16",
-      likes: 19,
-      comments: 4,
-    },
-  ],
-};
-
-/** 팔로잉/팔로워 사용자 한 행의 데이터 형태 */
-type FollowUser = {
-  nickname: string;
-  rank: RankTier;
-  bio?: string;
-};
-
-/** 팔로잉 목록 목업 (내가 팔로우하는 사람들) */
-const followingData: FollowUser[] = [
-  { nickname: "자동화카페", rank: "expert", bio: "소규모 사장님들의 업무 자동화를 돕습니다." },
-  { nickname: "리뷰메이트", rank: "master", bio: "AI 도구 리뷰와 실전 Tips." },
-  { nickname: "주말개발자", rank: "member", bio: "주말마다 바이브 코딩 중." },
-];
-
-/** 팔로워 목록 목업 (나를 팔로우하는 사람들) */
-const followersData: FollowUser[] = [
-  { nickname: "자동화카페", rank: "expert", bio: "소규모 사장님들의 업무 자동화를 돕습니다." },
-  { nickname: "밤샘작곡가", rank: "rookie", bio: "AI로 로파이 앨범 만드는 중." },
-  { nickname: "기록하는사람", rank: "member", bio: "매일 일기를 요약하는 봇 운영 중." },
-  { nickname: "그림덕후", rank: "practitioner", bio: "AI 웹툰 그리는 주말 취미인." },
-];
-
 /** 계정 관리 사이드바 메뉴 */
 const accountLinks = [
   { href: "/settings/profile", icon: "user-settings-line", label: "프로필 수정" },
   { href: "/settings/notifications", icon: "notification-3-line", label: "알림 설정" },
   { href: "/settings/security", icon: "lock-line", label: "비밀번호 변경" },
 ];
+
+/** 상단 요약 통계 (작성 글 / 받은 좋아요 / 채택된 답변 / 북마크) — Epic 2~5 구현 후 집계 */
+const stats = [
+  { icon: "article-line", label: "작성한 글", value: "0" },
+  { icon: "heart-3-line", label: "받은 좋아요", value: "0" },
+  { icon: "checkbox-circle-line", label: "채택된 답변", value: "0" },
+  { icon: "bookmark-line", label: "북마크", value: "0" },
+] as const;
+
+/** 기본 아바타 URL (defaultAvatarIndex 기반) */
+function getDefaultAvatarUrl(index: number): string {
+  return `/images/avatars/${index}.webp`;
+}
+
+/** createdAt ISO 문자열을 "YYYY.MM.DD" 형식으로 포맷 */
+function formatJoinDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}.${m}.${day}`;
+  } catch {
+    return "";
+  }
+}
 
 export default function MyPage() {
   const { user, ready, logout } = useAuth();
@@ -313,12 +138,39 @@ export default function MyPage() {
   const [postSort, setPostSort] = useState<PostSortKey>("latest");
   const [postKeyword, setPostKeyword] = useState("");
 
-  // 로그인 사용자가 있으면 사용, 없으면 데모 프로필로 폴백한다.
-  // rank는 게이미피케이션 API 구현 후 연동 예정. 현재는 "member" 기본값.
-  const profile: ProfileView = user
-    ? { nickname: user.nickname, email: user.email, rank: "member" as RankTier }
-    : DEMO_USER;
-  const isDemo = !user;
+  // bio: 세션에 없으므로 /api/v1/users/me 에서 별도 조회 (Epic 2~5 이전까지 null)
+  const [bio, setBio] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/v1/users/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { bio?: string | null } | null) => {
+        if (data?.bio) setBio(data.bio);
+      })
+      .catch(() => { /* bio 로드 실패 시 무시 */ });
+  }, [user]);
+
+  // 로그인 사용자 프로필 뷰 구성 (세션 기반)
+  // rank: 게이미피케이션 API 구현 전까지 기본값 "rookie" (새내기)
+  const profile = useMemo<ProfileView | null>(
+    () =>
+      user
+        ? {
+            nickname: user.nickname,
+            email: user.email,
+            rank: "rookie" as RankTier,
+            avatarUrl: user.avatarUrl,
+            defaultAvatarIndex: user.defaultAvatarIndex,
+            createdAt: user.createdAt,
+          }
+        : null,
+    [user],
+  );
+
+  // 내가 쓴 글: Epic 2에서 실제 API 연동 전까지 빈 배열
+  // useMemo로 안정적인 배열 참조 유지
+  const myPosts = useMemo<MyPost[]>(() => [], []); // Epic 2에서 활성화
 
   // 내가 쓴 글에 실제로 존재하는 게시판만 필터 칩으로 노출
   const postBoardFilters = useMemo(() => {
@@ -326,7 +178,7 @@ export default function MyPage() {
     return (["all", ...Object.keys(BOARDS)] as ("all" | BoardKey)[]).filter(
       (key) => key === "all" || present.has(key as BoardKey),
     );
-  }, []);
+  }, [myPosts]);
 
   // 필터 + 검색 + 정렬을 적용한 내가 쓴 글 목록
   const filteredPosts = useMemo(() => {
@@ -341,41 +193,46 @@ export default function MyPage() {
         if (postSort === "comments") return b.comments - a.comments;
         return b.createdAt - a.createdAt;
       });
-  }, [postBoard, postSort, postKeyword]);
+  }, [myPosts, postBoard, postSort, postKeyword]);
 
   // 등급 진행도: 현재 등급 정보 + 다음 등급 + 진행률(%) 계산
+  // points: 게이미피케이션 API 구현 전까지 0
   const rankProgress = useMemo(() => {
+    if (!profile) return null;
     const info = resolveRank(profile.rank);
     if (!info) return null;
     const next = RANK_LIST.find((r) => r.order === info.order + 1);
-    const pct = Math.min(
-      100,
-      Math.round((profileExtra.points / profileExtra.nextThreshold) * 100),
-    );
-    const remaining = Math.max(0, profileExtra.nextThreshold - profileExtra.points);
-    return { info, next, pct, remaining };
-  }, [profile.rank]);
+    const points = 0; // Epic 6 포인트 시스템 구현 전
+    const pct = 0; // 포인트 없음
+    const remaining = next ? next.order * 1000 : 0; // 플레이스홀더
+    return { info, next, pct, remaining, points };
+  }, [profile]);
 
-  // 댓글/북마크/좋아요 탭의 활동 목록 (내가 쓴 글은 filteredPosts 사용)
-  const items =
-    activeTab === "posts" || activeTab === "following" || activeTab === "followers"
-      ? []
-      : activityData[activeTab];
-  const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
+  // 팔로잉/팔로워: Epic 5에서 활성화
+  const followingCount = 0; // Epic 5에서 활성화
+  const followersCount = 0; // Epic 5에서 활성화
 
-  // 패널 카운트: 팔로잉/팔로워 탭은 각 목록 길이로 계산
+  // 패널 카운트
   const panelCount =
     activeTab === "posts"
       ? filteredPosts.length
-      : activeTab === "following"
-        ? followingData.length
-        : activeTab === "followers"
-          ? followersData.length
-          : items.length;
+      : activeTab === "following" || activeTab === "followers"
+        ? 0 // Epic 5에서 활성화
+        : 0; // Epic 2~4에서 활성화
 
-  // 하이드레이션 불일치 방지: 마운트 전에는 사용자 의존 텍스트를 데모 기준으로 그린다.
-  // (useMockAuth 가 ready 가 되면 실제 사용자로 자연스럽게 교체됨)
+  const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
+
+  // 하이드레이션 불일치 방지: ready 전까지 렌더 보류
   void ready;
+
+  if (!profile) {
+    // 미들웨어가 비로그인 차단하므로 보통 이 분기는 실행 안 됨
+    // 세션 조회 중이거나 엣지 케이스 대비 빈 UI
+    return <main id="main" className={styles.page} />;
+  }
+
+  const avatarSrc = profile.avatarUrl ?? getDefaultAvatarUrl(profile.defaultAvatarIndex);
+  const joinDate = formatJoinDate(profile.createdAt);
 
   return (
     <main id="main" className={styles.page}>
@@ -383,7 +240,7 @@ export default function MyPage() {
       <section className={styles.profileBand} aria-label="내 프로필">
         <div className={styles.profileBandInner}>
           <div className={styles.identity}>
-            <Avatar name={profile.nickname} size="lg" className={styles.avatar} />
+            <Avatar name={profile.nickname} src={avatarSrc} size="lg" className={styles.avatar} />
             <div className={styles.identityText}>
               <div className={styles.nameRow}>
                 <h1 className={styles.name}>{profile.nickname}</h1>
@@ -394,30 +251,34 @@ export default function MyPage() {
                   <Icon name="mail-line" />
                   {profile.email}
                 </span>
+                {joinDate && (
+                  <>
+                    <span className={styles.metaDivider} aria-hidden="true">
+                      ·
+                    </span>
+                    <span className={styles.metaItem}>
+                      <Icon name="calendar-line" />
+                      {joinDate} 가입
+                    </span>
+                  </>
+                )}
                 <span className={styles.metaDivider} aria-hidden="true">
                   ·
                 </span>
-                <span className={styles.metaItem}>
-                  <Icon name="calendar-line" />
-                  {profileExtra.joinDate} 가입
-                </span>
-                <span className={styles.metaDivider} aria-hidden="true">
-                  ·
-                </span>
-                {/* 팔로잉/팔로워 카운트 헤더 요약 */}
+                {/* 팔로잉/팔로워 카운트 헤더 요약 — Epic 5에서 활성화 */}
                 <span className={styles.metaItem}>
                   <Icon name="user-follow-line" />
-                  팔로잉 {followingData.length}
+                  팔로잉 {followingCount}
                 </span>
                 <span className={styles.metaDivider} aria-hidden="true">
                   ·
                 </span>
                 <span className={styles.metaItem}>
                   <Icon name="user-heart-line" />
-                  팔로워 {followersData.length}
+                  팔로워 {followersCount}
                 </span>
               </div>
-              <p className={styles.bio}>{profileExtra.bio}</p>
+              {bio && <p className={styles.bio}>{bio}</p>}
             </div>
           </div>
 
@@ -436,14 +297,7 @@ export default function MyPage() {
 
       <div className={styles.layout}>
         <div className={styles.mainCol}>
-          {isDemo && (
-            <p className={styles.demoNotice} role="status">
-              <Icon name="information-line" />
-              로그인하지 않아 <strong>데모 프로필</strong>로 표시 중입니다. 실제 정보는 로그인 후 표시됩니다.
-            </p>
-          )}
-
-          {/* ── 요약 통계 ── */}
+          {/* ── 요약 통계 — Epic 2~5 구현 후 집계 ── */}
           <section className={styles.statGrid} aria-label="활동 요약">
             {stats.map((stat) => (
               <div key={stat.label} className={styles.statCard}>
@@ -487,71 +341,20 @@ export default function MyPage() {
               <span className={styles.panelCount}>총 {panelCount}개</span>
             </div>
 
-            {/* 팔로잉 탭 */}
+            {/* 팔로잉 탭 — Epic 5에서 활성화 */}
             {activeTab === "following" ? (
-              followingData.length === 0 ? (
-                <EmptyState
-                  icon="user-follow-line"
-                  title="팔로잉하는 멤버가 없습니다"
-                  description="관심 있는 멤버의 프로필에서 팔로우해 보세요."
-                />
-              ) : (
-                <ul className={styles.followList}>
-                  {followingData.map((fu) => (
-                    <li key={fu.nickname} className={styles.followItem}>
-                      <Avatar name={fu.nickname} size="md" className={styles.followAvatar} />
-                      <div className={styles.followInfo}>
-                        <div className={styles.followNameRow}>
-                          <Link href={`/u/${encodeURIComponent(fu.nickname)}`} className={styles.followName}>
-                            {fu.nickname}
-                          </Link>
-                          <RankBadge rank={fu.rank} size={18} showLabel />
-                        </div>
-                        {fu.bio && <p className={styles.followBio}>{fu.bio}</p>}
-                      </div>
-                      {/* FollowButton: 팔로잉 목록이므로 initialFollowing=true */}
-                      <FollowButton
-                        targetNickname={fu.nickname}
-                        initialFollowing={true}
-                        className={styles.followBtn}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )
+              <EmptyState
+                icon="user-follow-line"
+                title="팔로잉하는 멤버가 없습니다"
+                description="관심 있는 멤버의 프로필에서 팔로우해 보세요."
+              />
             ) : activeTab === "followers" ? (
-              /* 팔로워 탭 */
-              followersData.length === 0 ? (
-                <EmptyState
-                  icon="user-heart-line"
-                  title="팔로워가 없습니다"
-                  description="활동을 이어가면 팔로워가 생깁니다."
-                />
-              ) : (
-                <ul className={styles.followList}>
-                  {followersData.map((fu) => (
-                    <li key={fu.nickname} className={styles.followItem}>
-                      <Avatar name={fu.nickname} size="md" className={styles.followAvatar} />
-                      <div className={styles.followInfo}>
-                        <div className={styles.followNameRow}>
-                          <Link href={`/u/${encodeURIComponent(fu.nickname)}`} className={styles.followName}>
-                            {fu.nickname}
-                          </Link>
-                          <RankBadge rank={fu.rank} size={18} showLabel />
-                        </div>
-                        {fu.bio && <p className={styles.followBio}>{fu.bio}</p>}
-                      </div>
-                      {/* 팔로워 탭: 내가 맞팔하고 있는지 initialFollowing 으로 반영
-                          목업상 팔로워 중 자동화카페만 맞팔 상태로 가정 */}
-                      <FollowButton
-                        targetNickname={fu.nickname}
-                        initialFollowing={fu.nickname === "자동화카페"}
-                        className={styles.followBtn}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )
+              /* 팔로워 탭 — Epic 5에서 활성화 */
+              <EmptyState
+                icon="user-heart-line"
+                title="팔로워가 없습니다"
+                description="활동을 이어가면 팔로워가 생깁니다."
+              />
             ) : activeTab === "posts" ? (
               <>
                 {/* 내가 쓴 글 전용 컨트롤: 게시판 필터 + 검색 + 정렬 */}
@@ -700,52 +503,13 @@ export default function MyPage() {
                   </ul>
                 )}
               </>
-            ) : items.length === 0 ? (
-              <div className={styles.empty}>
-                <Icon name="inbox-line" />
-                <p>아직 항목이 없습니다.</p>
-              </div>
             ) : (
-              <ul className={styles.activityList}>
-                {items.map((item) => (
-                  <li key={`${item.href}-${item.title}`} className={styles.activityItem}>
-                    <div className={styles.activityTop}>
-                      <Badge tone="neutral" variant="soft" className={styles.boardBadge}>
-                        {item.board}
-                      </Badge>
-                      {item.author && (
-                        <span className={styles.activityAuthor}>by {item.author}</span>
-                      )}
-                    </div>
-
-                    <Link href={item.href} className={styles.activityTitle}>
-                      {item.title}
-                    </Link>
-
-                    {item.excerpt && <p className={styles.activityExcerpt}>{item.excerpt}</p>}
-
-                    <div className={styles.activityFooter}>
-                      <span className={styles.activityDate}>{item.date}</span>
-                      <div className={styles.activityStats} aria-label="반응 정보">
-                        <span>
-                          <Icon name="heart-3-line" />
-                          {item.likes}
-                        </span>
-                        <span>
-                          <Icon name="chat-1-line" />
-                          {item.comments}
-                        </span>
-                        {typeof item.views === "number" && (
-                          <span>
-                            <Icon name="eye-line" />
-                            {item.views}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              /* 댓글/북마크/좋아요 탭 — Epic 2~4에서 활성화 */
+              <EmptyState
+                icon="inbox-line"
+                title={`아직 ${activeTabLabel}이 없습니다`}
+                description="활동을 시작하면 여기에 표시됩니다."
+              />
             )}
           </section>
         </div>
@@ -763,7 +527,7 @@ export default function MyPage() {
                 <RankBadge rank={profile.rank} size={56} />
                 <div className={styles.rankShowcaseText}>
                   <strong>{rankProgress.info.label}</strong>
-                  <span>{profileExtra.points.toLocaleString()} P</span>
+                  <span>{rankProgress.points.toLocaleString()} P</span>
                 </div>
               </div>
 
