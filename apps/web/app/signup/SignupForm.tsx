@@ -18,11 +18,13 @@ const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
  */
 async function startSocialSignup(provider: "google" | "naver" | "kakao"): Promise<void> {
   const callbackURL = `${window.location.origin}/`;
+  // 실패/취소 시 Better Auth 기본 에러 페이지 대신 회원가입 페이지(로그아웃 상태)로.
+  const errorCallbackURL = `${window.location.origin}/signup?error=social`;
   const res = await fetch("/api/v1/auth/sign-in/social", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ provider, callbackURL }),
+    body: JSON.stringify({ provider, callbackURL, errorCallbackURL }),
   });
   if (res.ok) {
     const data = (await res.json()) as { url?: string };

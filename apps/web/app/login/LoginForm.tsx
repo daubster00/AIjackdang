@@ -22,11 +22,14 @@ async function startSocialLogin(
   redirectTo: string,
 ): Promise<void> {
   const callbackURL = `${window.location.origin}${redirectTo}`;
+  // 실패/취소 시 Better Auth 기본 에러 페이지(/api/v1/auth/error) 대신
+  // 우리 로그인 페이지(로그아웃 상태)로 돌려보낸다.
+  const errorCallbackURL = `${window.location.origin}/login?error=social`;
   const res = await fetch("/api/v1/auth/sign-in/social", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ provider, callbackURL }),
+    body: JSON.stringify({ provider, callbackURL, errorCallbackURL }),
   });
   if (res.ok) {
     const data = (await res.json()) as { url?: string };
