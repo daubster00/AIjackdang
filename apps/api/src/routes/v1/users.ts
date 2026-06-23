@@ -104,6 +104,8 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         avatarUrl: user.avatarUrl,
         image: user.image,
         bio: user.bio,
+        bannerUrl: user.bannerUrl,
+        links: (user.links as { label: string; url: string }[] | null) ?? null,
         createdAt: user.createdAt.toISOString(),
       });
     },
@@ -254,6 +256,8 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         avatarUrl: updatedUser.avatarUrl,
         image: updatedUser.image,
         bio: updatedUser.bio,
+        bannerUrl: updatedUser.bannerUrl,
+        links: (updatedUser.links as { label: string; url: string }[] | null) ?? null,
         createdAt: updatedUser.createdAt.toISOString(),
       });
     },

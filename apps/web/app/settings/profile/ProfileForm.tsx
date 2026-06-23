@@ -63,14 +63,21 @@ export function ProfileForm() {
     setNickname(user.nickname);
     fetch("/api/v1/users/me", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { bio?: string | null; links?: { url: string }[] | null } | null) => {
-        if (data?.bio) setBio(data.bio);
-        if (Array.isArray(data?.links) && data.links.length > 0) {
-          setLinks(data.links.map((l) => ({ id: newLinkId(), url: l.url })));
-        }
-      })
+      .then(
+        (data: {
+          bio?: string | null;
+          bannerUrl?: string | null;
+          links?: { url: string }[] | null;
+        } | null) => {
+          if (data?.bio) setBio(data.bio);
+          if (data?.bannerUrl) setBannerPreview(data.bannerUrl);
+          if (Array.isArray(data?.links) && data.links.length > 0) {
+            setLinks(data.links.map((l) => ({ id: newLinkId(), url: l.url })));
+          }
+        },
+      )
       .catch(() => {
-        /* bio·links 로드 실패 시 무시 */
+        /* bio·banner·links 로드 실패 시 무시 */
       });
   }, [user]);
 
