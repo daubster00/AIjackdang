@@ -26,7 +26,7 @@ development_status:
   epic-1-retrospective: optional
 
   epic-2: in-progress
-  2-1-post-schema-board-seed: ready-for-dev
+  2-1-post-schema-board-seed: done
   2-2-seo-helpers-sitemap: ready-for-dev
   2-3-board-list-ssr: ready-for-dev
   2-4-post-detail-ssr-viewcount: ready-for-dev

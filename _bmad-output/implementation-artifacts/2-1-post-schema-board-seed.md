@@ -1,6 +1,10 @@
 # Story 2.1: post 스키마 + board 도메인 데이터 시드
 
-Status: ready-for-dev
+---
+baseline_commit: 31df0c3e9dbaa063afb6ffe3285f0154a5171310
+---
+
+Status: review
 
 ## Story
 
@@ -19,43 +23,43 @@ so that 이후 모든 게시판·공지 스토리가 동일 DB 기반 위에서 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: posts 스키마 생성 (AC: #1)
-  - [ ] `packages/database/src/schema/posts.ts` NEW 파일 작성
-  - [ ] `pgEnum("post_status", ["draft","published","hidden","deleted"])` 정의
-  - [ ] `posts` pgTable 정의 — 컬럼 명세 AC#1 참조. `user_id`는 `uuid("user_id").references(() => users.id, { onDelete: "set null" })` (nullable)
-  - [ ] `is_pinned boolean DEFAULT false`, `seo_title` text nullable, `seo_description` text nullable 포함 (architecture.md 2026-06-22 보강분)
-  - [ ] `export type PostRow = typeof posts.$inferSelect`, `export type NewPostRow = typeof posts.$inferInsert`
-  - [ ] `packages/database/src/schema/index.ts`에 posts, postStatus enum re-export
+- [x] Task 1: posts 스키마 생성 (AC: #1)
+  - [x] `packages/database/src/schema/posts.ts` NEW 파일 작성
+  - [x] `pgEnum("post_status", ["draft","published","hidden","deleted"])` 정의
+  - [x] `posts` pgTable 정의 — 컬럼 명세 AC#1 참조. `user_id`는 `uuid("user_id").references(() => users.id, { onDelete: "set null" })` (nullable)
+  - [x] `is_pinned boolean DEFAULT false`, `seo_title` text nullable, `seo_description` text nullable 포함 (architecture.md 2026-06-22 보강분)
+  - [x] `export type PostRow = typeof posts.$inferSelect`, `export type NewPostRow = typeof posts.$inferInsert`
+  - [x] `packages/database/src/schema/index.ts`에 posts, postStatus enum re-export
 
-- [ ] Task 2: tags + taggable 스키마 생성 (AC: #2)
-  - [ ] `packages/database/src/schema/tags.ts` NEW 파일 작성
-  - [ ] `tags` 테이블: `id` uuid PK, `name` varchar(100) UNIQUE NOT NULL, `slug` varchar(100) UNIQUE NOT NULL, `created_at` timestamptz
-  - [ ] `taggable` 테이블: 복합 PK(`target_type`, `target_id`, `tag_id`), `tag_id` FK → tags.id ON DELETE CASCADE
-  - [ ] schema/index.ts에 재노출
+- [x] Task 2: tags + taggable 스키마 생성 (AC: #2)
+  - [x] `packages/database/src/schema/tags.ts` NEW 파일 작성
+  - [x] `tags` 테이블: `id` uuid PK, `name` varchar(100) UNIQUE NOT NULL, `slug` varchar(100) UNIQUE NOT NULL, `created_at` timestamptz
+  - [x] `taggable` 테이블: 복합 PK(`target_type`, `target_id`, `tag_id`), `tag_id` FK → tags.id ON DELETE CASCADE
+  - [x] schema/index.ts에 재노출
 
-- [ ] Task 3: 마이그레이션 실행 (AC: #5)
-  - [ ] `cd packages/database && pnpm drizzle-kit generate`
-  - [ ] 생성된 `.sql` 파일 상단에 경고 주석 추가
-  - [ ] `pnpm drizzle-kit migrate` 실행 (docker-compose.dev.yml DB 기동 전제)
-  - [ ] DB에서 `\d posts`, `\d tags`, `\d taggable` 확인
+- [x] Task 3: 마이그레이션 실행 (AC: #5)
+  - [x] `cd packages/database && pnpm drizzle-kit generate`
+  - [x] 생성된 `.sql` 파일 상단에 경고 주석 추가
+  - [x] `pnpm drizzle-kit migrate` 실행 (docker-compose.dev.yml DB 기동 전제)
+  - [x] DB에서 `\d posts`, `\d tags`, `\d taggable` 확인
 
-- [ ] Task 4: contracts/post.ts 전면 재작성 (AC: #3)
-  - [ ] 기존 `packages/contracts/src/post.ts` UPDATE: 현재 파일은 `postCategorySchema`(enum 4개)·`createPostSchema`·`updatePostSchema`·`postStatusSchema`만 있음
-  - [ ] `postCardSchema` 추가: `{ id, slug, title, summary, board, authorNickname, authorGrade?, createdAt, viewCount, commentCount, likeCount, hasAttachment, tags[] }`
-  - [ ] `postDetailSchema` 추가: postCard + `{ contentHtml, contentJson, authorId, isOwner, isPinned, seoTitle?, seoDescription? }`
-  - [ ] `createPostSchema` 갱신: `board` varchar 50, `title` max 300, `contentJson` Tiptap JSON, `summary?` optional, `tags[]` max 10
-  - [ ] `paginatedPostsSchema` = `paginatedResponseSchema(postCardSchema)`
-  - [ ] `packages/contracts/src/index.ts` UPDATE: 새 export 추가
+- [x] Task 4: contracts/post.ts 전면 재작성 (AC: #3)
+  - [x] 기존 `packages/contracts/src/post.ts` UPDATE: 현재 파일은 `postCategorySchema`(enum 4개)·`createPostSchema`·`updatePostSchema`·`postStatusSchema`만 있음
+  - [x] `postCardSchema` 추가: `{ id, slug, title, summary, board, authorNickname, authorGrade?, createdAt, viewCount, commentCount, likeCount, hasAttachment, tags[] }`
+  - [x] `postDetailSchema` 추가: postCard + `{ contentHtml, contentJson, authorId, isOwner, isPinned, seoTitle?, seoDescription? }`
+  - [x] `createPostSchema` 갱신: `board` varchar 50, `title` max 300, `contentJson` Tiptap JSON, `summary?` optional, `tags[]` max 10
+  - [x] `paginatedPostsSchema` = `paginatedResponseSchema(postCardSchema)`
+  - [x] `packages/contracts/src/index.ts` UPDATE: 새 export 추가
 
-- [ ] Task 5: contracts/board.ts 신규 생성 (AC: #4)
-  - [ ] `packages/contracts/src/board.ts` NEW
-  - [ ] `BoardMeta` 타입 정의: `{ label: string; description: string; category: string; urlPath: string; isSystemBoard?: boolean; hasCreativeSpec?: boolean; boardKind?: 'recruit' | 'standard' }`
-  - [ ] `BOARDS` 상수 — 12개 board 슬러그 매핑 (위 AC#4 목록)
-  - [ ] `index.ts` re-export
+- [x] Task 5: contracts/board.ts 신규 생성 (AC: #4)
+  - [x] `packages/contracts/src/board.ts` NEW
+  - [x] `BoardMeta` 타입 정의: `{ label: string; description: string; category: string; urlPath: string; isSystemBoard?: boolean; hasCreativeSpec?: boolean; boardKind?: 'recruit' | 'standard' }`
+  - [x] `BOARDS` 상수 — 12개 board 슬러그 매핑 (위 AC#4 목록)
+  - [x] `index.ts` re-export
 
-- [ ] Task 6: typecheck 통과 확인 (AC: #6)
-  - [ ] `pnpm typecheck` 전 워크스페이스 실행
-  - [ ] 오류 0 확인
+- [x] Task 6: typecheck 통과 확인 (AC: #6)
+  - [x] `pnpm typecheck` 전 워크스페이스 실행
+  - [x] 오류 0 확인
 
 ## Dev Notes
 
@@ -107,10 +111,18 @@ so that 이후 모든 게시판·공지 스토리가 동일 DB 기반 위에서 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- 0001 마이그레이션(users.name 추가)이 Drizzle 관리 테이블에 미등록 상태였음. DB에는 이미 컬럼이 존재했으나 drizzle.__drizzle_migrations에 기록이 없어 migrate 시 중복 오류 발생. 0001 해시를 수동으로 drizzle.__drizzle_migrations에 INSERT한 후 정상 실행 완료.
 
 ### Completion Notes List
+- Task 1: `posts` 테이블 생성. `post_status` pgEnum 포함. `user_id` FK(ON DELETE SET NULL, nullable). `seo_title`/`seo_description`은 AC#1 spec이 varchar(200)/varchar(500)이나 Task에는 `text`로 표기되어 있어 Drizzle `text`(무제한)로 구현. DB 실제 컬럼 = text 타입으로 생성됨.
+- Task 2: `tags` + `taggable` 단일 파일 `tags.ts`에 작성. 복합 PK 및 FK(ON DELETE CASCADE) 포함.
+- Task 3: `0002_old_scarlet_witch.sql` 생성 및 경고 주석 추가. DB 마이그레이션 정상 완료. posts/tags/taggable 세 테이블 모두 DB에 존재 확인.
+- Task 4: `postCategorySchema` 제거, `postCardSchema`/`postDetailSchema`/`paginatedPostsSchema` 추가. `createPostSchema` board(max 50)/title(max 300)/summary optional로 갱신. `postStatusSchema` 보존.
+- Task 5: `BOARDS` 12개 슬러그 매핑. `notice`=isSystemBoard:true, `ai-creation`=hasCreativeSpec:true, `gigs`=boardKind:'recruit'. `isValidBoard()` 헬퍼 함수 추가.
+- Task 6: `pnpm typecheck` 전 워크스페이스 오류 0 통과 확인.
 
 ### File List
 - NEW: `packages/database/src/schema/posts.ts`
@@ -119,4 +131,7 @@ so that 이후 모든 게시판·공지 스토리가 동일 DB 기반 위에서 
 - UPDATE: `packages/database/src/schema/index.ts`
 - UPDATE: `packages/contracts/src/post.ts`
 - UPDATE: `packages/contracts/src/index.ts`
-- AUTO-GENERATED: `packages/database/drizzle/migrations/*.sql`
+- AUTO-GENERATED: `packages/database/migrations/0002_old_scarlet_witch.sql`
+
+### Change Log
+- 2026-06-23: Story 2.1 구현 완료 — posts/tags/taggable DB 스키마 생성, board.ts 신규, post.ts 전면 재작성, 마이그레이션 실행 완료, typecheck 통과
