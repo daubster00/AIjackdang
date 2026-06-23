@@ -120,6 +120,43 @@ export async function signUp(
   }
 }
 
+/**
+ * 이메일 가입 가능 여부 확인 (가입 폼 blur 검증).
+ * GET /api/v1/auth/check-email?email= 를 호출한다.
+ * @returns true=사용 가능, false=이미 가입됨, null=확인 실패(네트워크 등)
+ */
+export async function checkEmailAvailable(email: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`${AUTH_BASE}/check-email?email=${encodeURIComponent(email)}`, {
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { available?: boolean };
+    return typeof data.available === "boolean" ? data.available : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 인증 메일 재발송 (Story 1.3 — 가입 완료 화면의 "다시 보내기").
+ * Better Auth POST /api/v1/auth/send-verification-email 을 호출한다.
+ * @returns 발송 성공 여부
+ */
+export async function resendVerificationEmail(email: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${AUTH_BASE}/send-verification-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, callbackURL: "/signup/verified" }),
+      credentials: "include",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ── 타입 ───────────────────────────────────────────────────────────────────────
 
 /** 로그인 성공 응답 */

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Checkbox, Icon, Input } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast/Toast";
-import { signUp } from "@/lib/auth-api";
+import { signUp, checkEmailAvailable, resendVerificationEmail } from "@/lib/auth-api";
 import styles from "./signup.module.css";
 
 /** 카카오 로그인 활성 여부 (NEXT_PUBLIC_KAKAO_ENABLED=true 시 활성) */
@@ -36,9 +36,32 @@ async function startSocialSignup(provider: "google" | "naver" | "kakao"): Promis
 }
 
 export function SignupForm() {
+  const { toast } = useToast();
   const [method, setMethod] = useState<"social" | "email">("social");
   const [emailSent, setEmailSent] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
+  const [resending, setResending] = useState(false);
+
+  // 인증 메일 재발송 — 같은 화면에 머물며 발송 후 안내 토스트를 띄운다.
+  async function handleResend() {
+    if (resending || !sentEmail) return;
+    setResending(true);
+    const ok = await resendVerificationEmail(sentEmail);
+    setResending(false);
+    toast(
+      ok
+        ? {
+            tone: "success",
+            title: "인증 메일을 다시 보냈어요",
+            description: `${sentEmail} 메일함(스팸함 포함)을 확인해 주세요.`,
+          }
+        : {
+            tone: "danger",
+            title: "재발송에 실패했어요",
+            description: "잠시 후 다시 시도해 주세요.",
+          },
+    );
+  }
 
   // 인증 메일 발송 완료 화면
   if (emailSent) {
@@ -54,20 +77,16 @@ export function SignupForm() {
                 메일함을 확인하고 링크를 클릭해 가입을 완료해 주세요.
               </p>
             </div>
-            <p className={styles.loginText}>
-              메일을 받지 못했나요?{" "}
-              <button
-                type="button"
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textDecoration: "underline", font: "inherit" }}
-                onClick={() => {
-                  setEmailSent(false);
-                  setSentEmail("");
-                  setMethod("email");
-                }}
-              >
-                다시 시도
-              </button>
-            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              disabled={resending}
+              onClick={() => void handleResend()}
+            >
+              {resending ? "보내는 중..." : "인증 메일 다시 보내기"}
+            </Button>
             <p className={styles.loginText}>
               이미 계정이 있나요? <Link href="/login">로그인</Link>
             </p>
@@ -207,6 +226,19 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
     return "";
   }
 
+  // 이메일 blur: 형식 검증 후 중복 여부까지 확인해 미리 막는다.
+  async function handleEmailBlur(value: string) {
+    const fmtErr = validateEmail(value);
+    if (fmtErr) {
+      setEmailError(fmtErr);
+      return;
+    }
+    const available = await checkEmailAvailable(value.trim().toLowerCase());
+    if (available === false) {
+      setEmailError("이미 가입된 이메일이에요. 로그인하거나 소셜 로그인을 이용해 주세요.");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -288,7 +320,7 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
             setEmail(e.target.value);
             if (emailError) setEmailError("");
           }}
-          onBlur={(e) => setEmailError(validateEmail(e.target.value))}
+          onBlur={(e) => void handleEmailBlur(e.target.value)}
         />
         <Input
           label="비밀번호"

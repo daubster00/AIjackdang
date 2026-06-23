@@ -17,6 +17,8 @@
 
 import { signUpSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import { isDisposableEmail, generateNicknameWithFallback } from "@ai-jakdang/core";
+import { getDb, schema } from "@ai-jakdang/database";
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -25,6 +27,17 @@ import { userAuth } from "../../../auth/user-auth.js";
 const signUpResponseSchema = z.object({
   message: z.string(),
 });
+
+/** 이메일이 이미 가입돼 있는지 확인한다(소셜 전용 계정 포함). */
+async function isEmailTaken(normalizedEmail: string): Promise<boolean> {
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.email, normalizedEmail))
+    .limit(1);
+  return Boolean(existing);
+}
 
 /**
  * 이메일 가입 라우트를 Fastify 인스턴스에 등록한다.
@@ -69,6 +82,17 @@ export async function registerSignUpRoute(app: FastifyInstance): Promise<void> {
           error: {
             code: "DISPOSABLE_EMAIL",
             message: "일회용 이메일 서비스는 사용할 수 없습니다. 다른 이메일을 사용해 주세요.",
+          },
+        });
+      }
+
+      // 중복 이메일 차단 (AC #6) — 소셜 전용 계정도 포함해 명시적으로 막는다.
+      // (Better Auth signUpEmail 은 소셜 전용 계정에 대해 예외를 던지지 않아 직접 확인한다.)
+      if (await isEmailTaken(normalizedEmail)) {
+        return reply.code(409).send({
+          error: {
+            code: "EMAIL_DUPLICATE",
+            message: "이미 가입된 이메일이에요. 로그인하거나 소셜 로그인을 이용해 주세요.",
           },
         });
       }
@@ -120,6 +144,30 @@ export async function registerSignUpRoute(app: FastifyInstance): Promise<void> {
           },
         });
       }
+    },
+  );
+
+  // ── GET /auth/check-email — 이메일 중복 확인 (가입 폼 blur 검증용) ───────────────
+  typed.get(
+    "/auth/check-email",
+    {
+      config: {
+        rateLimit: { max: 60, timeWindow: "1 minute", keyGenerator: (request) => `check-email:${request.ip}` },
+      },
+      schema: {
+        description: "이메일 가입 가능 여부 확인. available=false 면 이미 가입된 이메일.",
+        tags: ["auth"],
+        querystring: z.object({ email: z.string() }),
+        response: { 200: z.object({ available: z.boolean() }) },
+      },
+    },
+    async (request, reply) => {
+      const normalizedEmail = request.query.email.trim().toLowerCase();
+      // 형식이 명백히 잘못된 경우는 available=true 로 두고 폼의 형식 검증에 맡긴다.
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return reply.code(200).send({ available: true });
+      }
+      return reply.code(200).send({ available: !(await isEmailTaken(normalizedEmail)) });
     },
   );
 }
