@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Checkbox, Icon, Input } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast/Toast";
@@ -37,6 +38,7 @@ async function startSocialSignup(provider: "google" | "naver" | "kakao"): Promis
 
 export function SignupForm() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [method, setMethod] = useState<"social" | "email">("social");
   const [emailSent, setEmailSent] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
@@ -105,6 +107,25 @@ export function SignupForm() {
             <h1 id="signup-title">회원가입</h1>
             <p>가입 방식을 선택하고 AI작당 활동을 시작하세요.</p>
           </div>
+
+          {searchParams.get("error") === "social" && (
+            <div
+              role="alert"
+              style={{
+                margin: "0 0 16px",
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "var(--color-danger-soft)",
+                border: "1px solid rgba(217, 54, 62, 0.22)",
+                color: "var(--color-text)",
+                fontSize: "var(--font-size-sm)",
+                lineHeight: 1.5,
+              }}
+            >
+              이미 <strong>다른 방법(이메일·다른 소셜)으로 가입된 이메일</strong>이에요.
+              기존에 가입한 방법으로 로그인해 주세요.
+            </div>
+          )}
 
           <div className={styles.methodTabs} role="tablist" aria-label="가입 방식 선택">
             <button

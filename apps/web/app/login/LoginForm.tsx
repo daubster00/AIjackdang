@@ -145,6 +145,25 @@ export function LoginForm() {
         <p>가입한 이메일로 AI작당을 계속 이용하세요.</p>
       </div>
 
+      {searchParams.get("error") === "social" && (
+        <div
+          role="alert"
+          style={{
+            margin: "0 0 16px",
+            padding: "12px 14px",
+            borderRadius: 10,
+            background: "var(--color-danger-soft)",
+            border: "1px solid rgba(217, 54, 62, 0.22)",
+            color: "var(--color-text)",
+            fontSize: "var(--font-size-sm)",
+            lineHeight: 1.5,
+          }}
+        >
+          소셜 로그인에 실패했어요. 이미 <strong>다른 방법(이메일·다른 소셜)으로 가입된 이메일</strong>일 수 있어요.
+          기존에 가입한 방법으로 로그인해 주세요.
+        </div>
+      )}
+
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <Input
           ref={emailRef}

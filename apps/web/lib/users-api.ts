@@ -21,6 +21,8 @@ export interface UpdateProfileInput {
   links?: { label: string; url: string }[];
   avatarUrl?: string | null;
   bannerUrl?: string | null;
+  /** 기본 아바타 선택 시 인덱스 (커스텀 업로드 해제는 avatarUrl:null 동반). */
+  defaultAvatarIndex?: number;
 }
 
 export interface UpdateProfileResult {

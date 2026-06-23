@@ -273,14 +273,14 @@ export const userAuth = betterAuth({
   },
 
   /**
-   * 신뢰된 소셜 Provider — 같은 이메일로 계정 연결 (AC #4).
-   * 검증된(verified) 이메일을 가진 provider만 신뢰: 미검증 이메일로 linking 금지.
-   * Better Auth의 trustedProviders는 해당 provider의 이메일이 verified일 때만 자동 연결한다.
+   * 계정 연결 정책 (사용자 결정 — Story 1.5 자동연결 정책 뒤집음).
+   * 자동 계정 연결을 비활성화한다. 같은 이메일이 이미 다른 방법(소셜·이메일)으로
+   * 가입돼 있으면 소셜 가입/로그인을 막고, 기존 방법으로 로그인하도록 안내한다.
+   * (errorCallbackURL → /login·/signup?error=social 에서 안내 표시)
    */
   account: {
     accountLinking: {
-      enabled: true,
-      trustedProviders: ["google", "naver", "kakao"],
+      enabled: false,
     },
   },
 });
