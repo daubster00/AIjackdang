@@ -11,14 +11,26 @@ import styles from "./signup.module.css";
 const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
 
 /**
- * Better Auth 소셜 회원가입/로그인 시작 URL.
- * /api/v1/auth/sign-in/social/{provider} 로 리다이렉트 → OAuth 플로우 시작.
+ * Better Auth 소셜 회원가입/로그인 시작.
+ * POST /api/v1/auth/sign-in/social {provider, callbackURL} → { url } 응답 → 그 URL 로 이동.
  * 신규 유저면 자동 회원가입, 기존 유저면 로그인으로 처리된다.
- * Next.js rewrite 가 /api/v1/* → API 서버(4003) 로 프록시한다.
+ * (GET /sign-in/social/{provider} 는 존재하지 않음 — 404)
  */
-function getSocialSignupUrl(provider: "google" | "naver" | "kakao"): string {
-  const callbackURL = encodeURIComponent(`${window.location.origin}/`);
-  return `/api/v1/auth/sign-in/social/${provider}?callbackURL=${callbackURL}`;
+async function startSocialSignup(provider: "google" | "naver" | "kakao"): Promise<void> {
+  const callbackURL = `${window.location.origin}/`;
+  const res = await fetch("/api/v1/auth/sign-in/social", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ provider, callbackURL }),
+  });
+  if (res.ok) {
+    const data = (await res.json()) as { url?: string };
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+  }
 }
 
 export function SignupForm() {
@@ -126,7 +138,7 @@ function SocialSignup() {
           disabled={!KAKAO_ENABLED}
           title={!KAKAO_ENABLED ? "카카오 로그인 준비 중" : undefined}
           style={!KAKAO_ENABLED ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-          onClick={KAKAO_ENABLED ? () => { window.location.href = getSocialSignupUrl("kakao"); } : undefined}
+          onClick={KAKAO_ENABLED ? () => { void startSocialSignup("kakao"); } : undefined}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <KakaoMark />
@@ -136,7 +148,7 @@ function SocialSignup() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.naverButton}`}
-          onClick={() => { window.location.href = getSocialSignupUrl("naver"); }}
+          onClick={() => { void startSocialSignup("naver"); }}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             N
@@ -146,7 +158,7 @@ function SocialSignup() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.googleButton}`}
-          onClick={() => { window.location.href = getSocialSignupUrl("google"); }}
+          onClick={() => { void startSocialSignup("google"); }}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <GoogleMark />

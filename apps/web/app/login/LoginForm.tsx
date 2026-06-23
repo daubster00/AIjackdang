@@ -11,13 +11,31 @@ import styles from "./login.module.css";
 const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
 
 /**
- * Better Auth 소셜 로그인 시작 URL.
- * /api/v1/auth/sign-in/social/{provider} 로 리다이렉트 → OAuth 플로우 시작.
+ * Better Auth 소셜 로그인 시작.
+ * Better Auth 는 POST /api/v1/auth/sign-in/social 로 {provider, callbackURL} 을 받고
+ * { url } (provider OAuth 동의 URL) 을 돌려준다. 그 URL 로 브라우저를 이동시킨다.
+ * (GET /sign-in/social/{provider} 엔드포인트는 존재하지 않음 — 404)
  * Next.js rewrite 가 /api/v1/* → API 서버(4003) 로 프록시한다.
  */
-function getSocialLoginUrl(provider: "google" | "naver" | "kakao", redirectTo: string): string {
-  const callbackURL = encodeURIComponent(`${window.location.origin}${redirectTo}`);
-  return `/api/v1/auth/sign-in/social/${provider}?callbackURL=${callbackURL}`;
+async function startSocialLogin(
+  provider: "google" | "naver" | "kakao",
+  redirectTo: string,
+): Promise<void> {
+  const callbackURL = `${window.location.origin}${redirectTo}`;
+  const res = await fetch("/api/v1/auth/sign-in/social", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ provider, callbackURL }),
+  });
+  if (res.ok) {
+    const data = (await res.json()) as { url?: string };
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+  }
+  // 소셜 시작 실패(미설정 provider 등): 조용히 무시 — 버튼은 활성 provider 만 노출
 }
 
 /**
@@ -189,7 +207,7 @@ export function LoginForm() {
           disabled={!KAKAO_ENABLED}
           title={!KAKAO_ENABLED ? "카카오 로그인 준비 중" : undefined}
           style={!KAKAO_ENABLED ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-          onClick={KAKAO_ENABLED ? () => { window.location.href = getSocialLoginUrl("kakao", redirectTo); } : undefined}
+          onClick={KAKAO_ENABLED ? () => { void startSocialLogin("kakao", redirectTo); } : undefined}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <KakaoMark />
@@ -199,7 +217,7 @@ export function LoginForm() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.naverButton}`}
-          onClick={() => { window.location.href = getSocialLoginUrl("naver", redirectTo); }}
+          onClick={() => { void startSocialLogin("naver", redirectTo); }}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             N
@@ -209,7 +227,7 @@ export function LoginForm() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.googleButton}`}
-          onClick={() => { window.location.href = getSocialLoginUrl("google", redirectTo); }}
+          onClick={() => { void startSocialLogin("google", redirectTo); }}
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <svg className={styles.googleMark} viewBox="0 0 24 24" focusable="false">
