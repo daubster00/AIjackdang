@@ -1,6 +1,6 @@
 # Story 2.11: AI 창작마당 창작물 스펙 — 선택 입력 + 상세 우측 패널
 
-Status: review
+Status: done
 
 ## Story
 
