@@ -1,0 +1,305 @@
+/* ── 창작 스펙 사이드 패널 ──
+ * 데스크톱: 우측 사이드바 (2열 그리드의 두 번째 칸)
+ * 모바일: 본문 하단에 이어지는 블록 (1열로 전환 시 자동으로 내려옴)
+ * 반응형 분기점은 lounge.module.css의 .detailWithSpec 에서 관리한다.
+ */
+
+.panel {
+  position: sticky;
+  top: 80px; /* 헤더 높이 여유 */
+  display: grid;
+  gap: 0;
+  align-self: start;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(23, 24, 39, 0.05);
+}
+
+/* ── 패널 제목 ── */
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-primary-soft);
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+}
+
+.panelIcon {
+  font-size: 16px;
+  flex: 0 0 auto;
+}
+
+/* ── 개별 섹션 ── */
+.section {
+  display: grid;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5);
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+.sectionLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── 창작물 유형 칩 ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid rgba(48, 48, 192, 0.24);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  padding: 0 var(--space-3);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── AI 툴 목록 ── */
+.toolList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: tool-counter;
+}
+
+.toolItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+  font-size: var(--font-size-sm);
+  counter-increment: tool-counter;
+}
+
+.toolItem::before {
+  content: counter(tool-counter);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  flex: 0 0 auto;
+}
+
+.toolName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.toolMeta {
+  color: var(--color-text-sub);
+  font-size: 12px;
+}
+
+.toolRole {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-sub);
+  font-style: italic;
+}
+
+/* ── 프롬프트 코드블록 ── */
+.promptWrap {
+  position: relative;
+}
+
+.copyBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0 var(--space-2);
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+  z-index: 1;
+}
+
+.copyBtn:hover {
+  background: rgba(48, 48, 192, 0.72);
+  border-color: rgba(48, 48, 192, 0.6);
+  color: #ffffff;
+}
+
+/* 복사 완료 상태 */
+.copyBtnDone {
+  background: rgba(24, 138, 66, 0.72) !important;
+  border-color: rgba(24, 138, 66, 0.6) !important;
+  color: #ffffff !important;
+}
+
+.promptCode {
+  margin: 0;
+  border-radius: var(--radius-md);
+  background: #0f1117;
+  padding: var(--space-4);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.promptCode code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #e2e8f0;
+}
+
+/* ── 파라미터 목록 ── */
+.paramList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.paramRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.paramKey {
+  flex: 0 0 auto;
+  min-width: 90px;
+  color: var(--color-text-sub);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.paramValue {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+/* ── 후처리 일반 텍스트 ── */
+.plainText {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+}
+
+/* ── 비용 행 ── */
+.metaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.metaItem i {
+  font-size: 14px;
+}
+
+.costBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-3);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.costPaid {
+  background: rgba(217, 54, 62, 0.1);
+  color: var(--color-danger);
+}
+
+.costFree {
+  background: rgba(24, 138, 66, 0.1);
+  color: #188a42;
+}
+
+/* ── 라이선스 ── */
+.metaCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.licenseText {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.commercialBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-3);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  width: fit-content;
+}
+
+.commercialOk {
+  background: rgba(24, 138, 66, 0.1);
+  color: #188a42;
+}
+
+.commercialNo {
+  background: rgba(217, 54, 62, 0.1);
+  color: var(--color-danger);
+}
+
+/* ── 모바일: sticky 해제, 패널을 일반 블록으로 ── */
+@media (max-width: 1080px) {
+  .panel {
+    position: static;
+  }
+}

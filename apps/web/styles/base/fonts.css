@@ -1,0 +1,6 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 웹폰트
+ * Pretendard 를 CDN 으로 불러온다(한글 가독성 우선).
+ * Remix Icon 은 remixicon 패키지에서 layout.tsx 가 import 한다.
+ * =========================================================================== */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");

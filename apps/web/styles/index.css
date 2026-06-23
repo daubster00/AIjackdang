@@ -1,0 +1,38 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 전역 디자인 시스템 진입점
+ * 모든 사용자 페이지는 이 한 파일을 통해 공통 디자인 시스템을 불러온다.
+ * (app/layout.tsx 에서 import 한다)
+ *
+ * 주의: 이 디자인 시스템은 사용자 사이트 전용이다.
+ * 관리자 앱(apps/admin)은 이 파일을 절대 import 하지 않는다.
+ * =========================================================================== */
+
+/* 1) 웹폰트 (반드시 최상단) */
+@import "./base/fonts.css";
+
+/* 2) 디자인 토큰 */
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/radius.css";
+@import "./tokens/shadows.css";
+@import "./tokens/breakpoints.css";
+@import "./tokens/transitions.css";
+@import "./tokens/z-index.css";
+
+/* 3) 베이스 */
+@import "./base/reset.css";
+@import "./base/global.css";
+@import "./base/forms.css";
+@import "./base/accessibility.css";
+
+/* 4) 레이아웃 */
+@import "./layout/container.css";
+@import "./layout/grid.css";
+@import "./layout/section.css";
+
+/* 5) 유틸리티 */
+@import "./utilities/display.css";
+@import "./utilities/spacing.css";
+@import "./utilities/text.css";
+@import "./utilities/accessibility.css";

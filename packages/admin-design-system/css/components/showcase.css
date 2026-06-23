@@ -1,0 +1,62 @@
+/* ===========================================================================
+ * 디자인 시스템 문서/확인 페이지 전용 보조 컴포넌트
+ * (색상 토큰 스와치, 타이포그래피 샘플)
+ *
+ * 실제 운영 화면에서는 거의 쓰이지 않지만, 디자인 확인 페이지에 필요해서 포함한다.
+ * =========================================================================== */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.color-token {
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: 9px;
+  background: var(--gray-0);
+}
+
+.color-swatch {
+  height: 54px;
+}
+
+.color-meta {
+  padding: 8px;
+  font-size: 11px;
+}
+
+.color-name {
+  color: var(--gray-800);
+  font-weight: 700;
+}
+
+.color-value {
+  margin-top: 2px;
+  color: var(--gray-400);
+}
+
+.type-sample {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gray-100);
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.type-sample:last-child {
+  border-bottom: 0;
+}
+
+.type-label {
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.type-display { font-size: 28px; font-weight: 760; color: var(--gray-900); }
+.type-h1 { font-size: 24px; font-weight: 740; color: var(--gray-900); }
+.type-h2 { font-size: 20px; font-weight: 720; color: var(--gray-900); }
+.type-h3 { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.type-body { font-size: 14px; }
+.type-caption { font-size: 12px; color: var(--gray-500); }

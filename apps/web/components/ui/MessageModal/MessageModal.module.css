@@ -1,0 +1,38 @@
+.body {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.recipient {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+
+.recipientInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recipientLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+}
+
+.recipientName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

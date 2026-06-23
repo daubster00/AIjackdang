@@ -1,0 +1,37 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 전역 기본 스타일
+ * =========================================================================== */
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-snug);
+  font-weight: var(--font-weight-bold);
+}
+
+a {
+  color: var(--color-primary);
+  transition: color var(--transition-base);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-active);
+}
+
+::placeholder {
+  color: var(--color-placeholder);
+}

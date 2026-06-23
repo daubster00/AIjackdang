@@ -1,0 +1,20 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 접근성 유틸리티
+ * (base/accessibility.css 의 .sr-only 외에, 필요 시 조합해 쓰는 헬퍼)
+ * =========================================================================== */
+
+/* 포커스 시에만 화면에 드러나는 요소 */
+.u-focusable-sr:not(:focus):not(:focus-within) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+}
+
+/* 최소 터치 영역(모바일 44px 확보) */
+.u-tap-target {
+  min-width: 44px;
+  min-height: 44px;
+}

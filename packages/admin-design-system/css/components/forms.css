@@ -1,0 +1,299 @@
+/* ===========================================================================
+ * 폼 컴포넌트: 입력/텍스트영역, 커스텀 셀렉트, 체크박스/라디오, 스위치, 태그 입력
+ * =========================================================================== */
+
+/* ---- 필드 묶음 / 라벨 ---- */
+.field {
+  min-width: 0;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field-help {
+  margin-top: 5px;
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.field-error {
+  margin-top: 5px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* ---- 기본 입력/텍스트영역 ---- */
+.control {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  padding: 0 12px;
+  color: var(--gray-800);
+  outline: none;
+  transition: 140ms ease;
+}
+
+textarea.control {
+  min-height: 104px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+}
+
+.control:hover {
+  border-color: var(--gray-400);
+}
+
+.control:focus {
+  border-color: var(--primary-500);
+  box-shadow: var(--focus-ring);
+}
+
+.control::placeholder {
+  color: var(--gray-400);
+}
+
+.control:disabled {
+  background: var(--gray-100);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.control.error {
+  border-color: var(--danger);
+}
+
+.control.error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* 입력 안 아이콘 */
+.input-icon {
+  position: relative;
+}
+
+.input-icon > i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  pointer-events: none;
+}
+
+.input-icon .control {
+  padding-left: 38px;
+}
+
+/* ---- 커스텀 셀렉트 ---- */
+.custom-select {
+  position: relative;
+}
+
+.select-trigger {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  padding: 0 11px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: 140ms ease;
+}
+
+.select-trigger:hover {
+  border-color: var(--gray-400);
+}
+
+.select-trigger[aria-expanded="true"] {
+  border-color: var(--primary-500);
+  box-shadow: var(--focus-ring);
+}
+
+.select-trigger i {
+  color: var(--gray-400);
+  transition: transform 140ms ease;
+}
+
+.select-trigger[aria-expanded="true"] i {
+  transform: rotate(180deg);
+}
+
+.select-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: none;
+  padding: 6px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-0);
+  box-shadow: var(--shadow-popover);
+}
+
+.select-menu.open {
+  display: block;
+  animation: adminPopIn 120ms ease;
+}
+
+@keyframes adminPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.select-option {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gray-700);
+  cursor: pointer;
+  text-align: left;
+}
+
+.select-option:hover {
+  background: var(--gray-100);
+}
+
+.select-option.selected {
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-weight: 650;
+}
+
+/* ---- 체크박스 / 라디오 ---- */
+.check {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary-600);
+  cursor: pointer;
+}
+
+.choice-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.choice input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary-600);
+}
+
+/* ---- 스위치(토글) ---- */
+.switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  display: inline-flex;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--gray-300);
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+  transition: 150ms ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--primary-600);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(18px);
+}
+
+/* ---- 태그 입력 ---- */
+.tag-input {
+  min-height: 42px;
+  padding: 5px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--primary-50);
+  color: var(--primary-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tag button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tag-input input {
+  min-width: 120px;
+  flex: 1;
+  height: 30px;
+  border: 0;
+  outline: none;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--gray-800);
+}

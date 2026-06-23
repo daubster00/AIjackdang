@@ -1,0 +1,39 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 표시(display) 유틸리티
+ * =========================================================================== */
+.u-hidden {
+  display: none !important;
+}
+.u-block {
+  display: block;
+}
+.u-flex {
+  display: flex;
+}
+.u-inline-flex {
+  display: inline-flex;
+}
+.u-items-center {
+  align-items: center;
+}
+.u-justify-between {
+  justify-content: space-between;
+}
+.u-flex-wrap {
+  flex-wrap: wrap;
+}
+.u-flex-1 {
+  flex: 1;
+}
+
+@media (max-width: 767px) {
+  .u-hidden-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .u-hidden-desktop {
+    display: none !important;
+  }
+}

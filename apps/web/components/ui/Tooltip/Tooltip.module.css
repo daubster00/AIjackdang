@@ -1,0 +1,31 @@
+/* Tooltip — 출처: 디자인 시스템 .tooltip */
+.tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background: var(--color-text);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-base),
+    visibility var(--transition-base);
+  z-index: var(--z-tooltip);
+}
+/* hover 와 focus 둘 다에서 노출(키보드 접근성) */
+.tooltip:hover .bubble,
+.tooltip:focus-within .bubble {
+  opacity: 1;
+  visibility: visible;
+}

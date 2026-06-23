@@ -1,0 +1,132 @@
+/* ===========================================================================
+ * 버튼 / 아이콘 버튼
+ * =========================================================================== */
+.icon-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.icon-button:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+/* 공통 키보드 포커스 표시 */
+.icon-button:focus-visible,
+.btn:focus-visible,
+.control:focus-visible,
+.select-trigger:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 1px;
+}
+
+.btn {
+  height: 40px;
+  padding: 0 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: 140ms ease;
+  white-space: nowrap;
+}
+
+.btn i {
+  font-size: 17px;
+}
+
+/* 크기 변형 */
+.btn-sm {
+  height: 32px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
+.btn-lg {
+  height: 46px;
+  padding: 0 18px;
+}
+
+/* 색상 변형 */
+.btn-primary {
+  background: var(--primary-600);
+  color: white;
+  box-shadow: var(--shadow-primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary-700);
+}
+
+.btn-secondary {
+  background: var(--gray-800);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: var(--gray-900);
+}
+
+.btn-outline {
+  border-color: var(--gray-300);
+  background: var(--gray-0);
+  color: var(--gray-700);
+}
+
+.btn-outline:hover {
+  border-color: var(--gray-400);
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--gray-600);
+}
+
+.btn-ghost:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-text {
+  height: auto;
+  padding: 4px;
+  color: var(--primary-700);
+  background: transparent;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+/* 버튼/배지 나열 영역 */
+.button-showcase,
+.badge-showcase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

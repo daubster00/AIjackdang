@@ -1,0 +1,158 @@
+/* Button — 출처: ai-jakdang-button-components.html */
+.btn {
+  --btn-bg: transparent;
+  --btn-color: var(--color-text);
+  --btn-border: transparent;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 118px;
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius-md);
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-fast);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-strong);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 크기 */
+.lg {
+  height: 44px;
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-md);
+}
+.md {
+  height: 40px;
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-base);
+}
+.sm {
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+}
+
+/* Variant — primary */
+.primary {
+  --btn-bg: var(--color-primary);
+  --btn-color: #fff;
+}
+.primary:hover {
+  --btn-bg: var(--color-primary-hover);
+}
+.primary:active {
+  --btn-bg: var(--color-primary-active);
+}
+.primary:disabled {
+  --btn-bg: var(--color-disabled-bg);
+  --btn-color: var(--color-disabled-text);
+}
+
+/* Variant — secondary */
+.secondary {
+  --btn-bg: #fff;
+  --btn-color: var(--color-primary);
+  --btn-border: var(--color-primary);
+}
+.secondary:hover {
+  --btn-bg: var(--color-primary-soft);
+}
+.secondary:active {
+  --btn-bg: #e2e5ff;
+  --btn-color: var(--color-primary-active);
+  --btn-border: var(--color-primary-active);
+}
+.secondary:disabled {
+  --btn-bg: #fff;
+  --btn-color: var(--color-disabled-text);
+  --btn-border: var(--color-border);
+}
+
+/* Variant — ghost */
+.ghost {
+  --btn-bg: transparent;
+  --btn-color: var(--color-primary);
+}
+.ghost:hover {
+  --btn-bg: var(--color-primary-soft);
+}
+.ghost:active {
+  --btn-bg: #e2e5ff;
+  --btn-color: var(--color-primary-active);
+}
+.ghost:disabled {
+  --btn-bg: transparent;
+  --btn-color: var(--color-disabled-text);
+}
+
+/* Variant — danger */
+.danger {
+  --btn-bg: var(--color-danger);
+  --btn-color: #fff;
+}
+.danger:hover {
+  --btn-bg: var(--color-danger-hover);
+}
+.danger:active {
+  --btn-bg: var(--color-danger-active);
+}
+.danger:disabled {
+  --btn-bg: #fceaea;
+  --btn-color: #d89a9a;
+}
+
+.full {
+  width: 100%;
+}
+
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,35 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 텍스트 유틸리티
+ * =========================================================================== */
+.u-text-sub {
+  color: var(--color-text-sub);
+}
+.u-text-center {
+  text-align: center;
+}
+.u-text-sm {
+  font-size: var(--font-size-sm);
+}
+.u-text-lg {
+  font-size: var(--font-size-lg);
+}
+.u-font-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+.u-font-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+/* 한 줄 / 두 줄 말줄임 */
+.u-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

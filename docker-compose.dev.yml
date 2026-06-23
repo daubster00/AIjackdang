@@ -1,0 +1,63 @@
+# ===========================================================================
+# AI작당 로컬 개발 인프라 (상태 저장 의존성만 도커로 실행)
+# 앱(web/admin/api/worker)은 호스트에서 `pnpm dev:*`로 실행한다.
+# 참고: docs/adr/ADR-0001-local-dev-infrastructure.md
+# 실행:  docker compose -f docker-compose.dev.yml up -d
+# ===========================================================================
+
+services:
+  postgres:
+    build: ./infra/postgres        # PostgreSQL 17 + pg_bigm (한국어 n-gram 전문검색)
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_jakdang
+    ports: ["5433:5432"]   # 호스트 5433 (5432는 다른 스택이 점유 가능 — 충돌 회피)
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_jakdang"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine          # BullMQ 큐 + 캐시 + SSE Pub/Sub 팬아웃
+    ports: ["6380:6379"]           # 호스트 6380 (6379 충돌 회피)
+    volumes: ["redisdata:/data"]
+
+  clamav:
+    image: clamav/clamav:latest    # 업로드 파일 보안 스캔(clamd, NFR-2)
+    ports: ["3310:3310"]
+    volumes: ["clamdb:/var/lib/clamav"]   # 바이러스 DB 캐시(최초 freshclam 시간 단축)
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    image: minio/minio             # 로컬 S3 호환 스토리지(운영은 Cloudflare R2)
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["miniodata:/data"]
+
+  minio-setup:
+    image: minio/mc                # 최초 버킷 부트스트랩(public/private)
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb -p local/ai-jakdang-public;
+      mc anonymous set download local/ai-jakdang-public;
+      mc mb -p local/ai-jakdang-private;
+      exit 0;
+      "
+
+volumes:
+  pgdata:
+  redisdata:
+  clamdb:
+  miniodata:

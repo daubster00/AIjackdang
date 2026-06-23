@@ -1,0 +1,15 @@
+{
+  "name": "@ai-jakdang/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "공통 인증·권한 규칙과 권한 타입 (웹/관리자/API 공유). Better Auth 설정은 인증 구현 단계에서 추가한다.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  }
+}

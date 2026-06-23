@@ -1,0 +1,45 @@
+/* Pagination — 출처: ai-jakdang-layout-components.html (.pagination) */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+.pageBtn {
+  min-width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base),
+    background-color var(--transition-base);
+}
+.pageBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.pageBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+.active:hover {
+  color: #fff;
+}
+.pageBtn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}

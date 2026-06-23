@@ -1,0 +1,33 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 그리드 레이아웃 헬퍼
+ * 컴포넌트(Grid)는 이 규칙 위에서 동작한다.
+ * =========================================================================== */
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.grid--cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid--cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.grid--cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1023px) {
+  .grid--cols-3,
+  .grid--cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .grid--cols-2,
+  .grid--cols-3,
+  .grid--cols-4 {
+    grid-template-columns: 1fr;
+  }
+}

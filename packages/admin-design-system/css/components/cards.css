@@ -1,0 +1,160 @@
+/* ===========================================================================
+ * 카드: 일반 카드, 통계 카드, 운영 확인 리스트
+ * =========================================================================== */
+
+/* ---- 일반 카드 ---- */
+.card {
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  min-height: 58px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.card-title {
+  margin: 0;
+  color: var(--gray-900);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card-subtitle {
+  margin-top: 3px;
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.card-body {
+  padding: 18px;
+}
+
+/* ---- 통계 카드 ---- */
+.stat-card {
+  min-height: 128px;
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 19px;
+}
+
+.stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-label {
+  color: var(--gray-500);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.stat-icon.blue { background: var(--primary-50); color: var(--primary-600); }
+.stat-icon.green { background: var(--success-bg); color: var(--success); }
+.stat-icon.purple { background: var(--purple-bg); color: var(--purple); }
+.stat-icon.orange { background: var(--warning-bg); color: var(--warning); }
+
+.stat-value {
+  margin-top: 10px;
+  color: var(--gray-900);
+  font-size: 27px;
+  line-height: 1.2;
+  font-weight: 770;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-foot {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.trend.up { color: var(--success); }
+.trend.down { color: var(--danger); }
+
+/* ---- 운영 확인 리스트 ---- */
+.operation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.operation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-25);
+  transition: 140ms ease;
+  cursor: pointer;
+}
+
+.operation-item:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+}
+
+.operation-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.operation-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.operation-title {
+  color: var(--gray-800);
+  font-weight: 650;
+}
+
+.operation-desc {
+  margin-top: 2px;
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.operation-count {
+  color: var(--gray-900);
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}

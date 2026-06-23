@@ -1,0 +1,34 @@
+/* Skeleton — 출처: 디자인 시스템 .skeleton */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-soft);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  animation: skeleton-shimmer 1.3s infinite;
+}
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.line {
+  height: 12px;
+}
+.title {
+  width: 68%;
+  height: 18px;
+}
+.short {
+  width: 38%;
+}
+.circle {
+  border-radius: var(--radius-pill);
+}

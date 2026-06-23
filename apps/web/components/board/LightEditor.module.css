@@ -1,0 +1,157 @@
+/* 경량 에디터 (LightEditor) 전용 스타일.
+   풀 에디터(PostWriteForm)와 시각 언어는 맞추되 독립적으로 정의한다. */
+
+.editorWrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.editorWrap:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+/* ─── Toolbar ─── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: #fafbfe;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.btn:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.btnActive {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-1);
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ─── Editor area ─── */
+
+.editorArea {
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  outline: none;
+  overflow-y: auto;
+}
+
+.editorArea:focus,
+.editorArea:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+
+.editorArea:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-sub);
+  pointer-events: none;
+}
+
+.editorArea p {
+  margin: var(--space-2) 0;
+}
+
+.editorArea ul {
+  list-style: disc;
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+}
+
+.editorArea li {
+  margin-bottom: 4px;
+  line-height: var(--line-height-relaxed);
+}
+
+.editorArea pre {
+  margin: var(--space-3) 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: #1b1c2e;
+  overflow-x: auto;
+}
+
+.editorArea pre code {
+  color: #e0e6ff;
+  font-family: "Fira Code", "Cascadia Code", "Menlo", monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.65;
+  white-space: pre;
+}
+
+.editorArea img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: var(--space-2) 0;
+}
+
+.editorArea a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ─── Footer (char count) ─── */
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: #fafbfe;
+}
+
+.charCount {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.charCountWarn {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.hiddenInput {
+  display: none;
+}

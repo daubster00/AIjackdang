@@ -1,0 +1,26 @@
+{
+  "name": "@ai-jakdang/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Drizzle 스키마와 데이터베이스 접근 코드 (API/Worker 전용 — Next.js 에서 직접 import 금지)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/config": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.30.0"
+  }
+}

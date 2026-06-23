@@ -1,0 +1,137 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status: backlog | in-progress | done
+# Story Status: backlog | ready-for-dev | in-progress | review | done
+# Retrospective Status: optional | done
+
+generated: 2026-06-23
+last_updated: 2026-06-23
+project: AI작당 (AI Jakdang)
+project_key: AIJAKDANG
+tracking_system: file-system
+story_location: "_bmad-output/implementation-artifacts"
+
+development_status:
+  epic-1: in-progress
+  1-1-dev-foundation-conventions: done
+  1-2-auth-foundation-schema-packages-auth-better-auth: ready-for-dev
+  1-3-email-signup-verification: ready-for-dev
+  1-4-login-logout-session: ready-for-dev
+  1-5-social-login-account-linking: ready-for-dev
+  1-6-password-reset: ready-for-dev
+  1-7-action-gating-login-modal: ready-for-dev
+  1-8-mypage-activity-hub-shell: ready-for-dev
+  1-9-account-settings-profile-password-withdrawal: ready-for-dev
+  1-10-public-profile-page-json-ld: ready-for-dev
+  epic-1-retrospective: optional
+
+  epic-2: in-progress
+  2-1-post-schema-board-seed: ready-for-dev
+  2-2-seo-helpers-sitemap: ready-for-dev
+  2-3-board-list-ssr: ready-for-dev
+  2-4-post-detail-ssr-viewcount: ready-for-dev
+  2-5-tiptap-editor-preset: ready-for-dev
+  2-6-codeblock-xss-sanitize: ready-for-dev
+  2-7-post-write-form-api: ready-for-dev
+  2-8-post-edit-delete: ready-for-dev
+  2-9-notice-board-ssr: ready-for-dev
+  2-10-routing-epic-validation: ready-for-dev
+  2-11-creative-spec-panel: ready-for-dev
+  2-12-recruit-gigs-board: ready-for-dev
+  epic-2-retrospective: optional
+
+  epic-3: in-progress
+  3-1-qna-schema-derive-status-contracts: ready-for-dev
+  3-2-qna-list-page-ssr-filter: ready-for-dev
+  3-3-question-write-page-tags-draft: ready-for-dev
+  3-4-main-menu-ask-button-auto-tag: ready-for-dev
+  3-5-question-detail-ssr-badge-actions: ready-for-dev
+  3-6-answer-write-edit-delete: ready-for-dev
+  3-7-helpful-answer-toggle: ready-for-dev
+  3-8-question-edit-tags: ready-for-dev
+  3-9-qa-page-json-ld-seo: ready-for-dev
+  epic-3-retrospective: optional
+
+  epic-4: in-progress
+  4-1-resource-schema-api-contracts: ready-for-dev
+  4-2-resource-list-page: ready-for-dev
+  4-3-resource-detail-page: ready-for-dev
+  4-4-resource-write-form: ready-for-dev
+  4-5-file-upload-security-pipeline: ready-for-dev
+  4-6-resource-download: ready-for-dev
+  4-7-resource-rating: ready-for-dev
+  4-8-resource-edit-delete: ready-for-dev
+  4-9-mypage-resource-tab-collection-jsonld: ready-for-dev
+  epic-4-retrospective: optional
+
+  epic-5: in-progress
+  5-1-polymorphic-engagement-schema: ready-for-dev
+  5-2-reaction-optimistic-toggle: ready-for-dev
+  5-3-view-count-redis-buffer: ready-for-dev
+  5-4-comment-crud: ready-for-dev
+  5-5-nested-comments: ready-for-dev
+  5-6-comment-reaction: ready-for-dev
+  5-7-bookmark: ready-for-dev
+  5-8-report-submit: ready-for-dev
+  5-9-share-button: ready-for-dev
+  5-10-related-posts: ready-for-dev
+  5-11-member-block: ready-for-dev
+  5-12-member-follow: ready-for-dev
+  epic-5-retrospective: optional
+
+  epic-6: in-progress
+  6-1-gamification-db-schema-core-functions: ready-for-dev
+  6-2-points-ledger-earn-revoke-hooks: ready-for-dev
+  6-3-grade-system-derive-display-event: ready-for-dev
+  6-4-badge-system-auto-award-view: ready-for-dev
+  6-5-ranking-weekly-monthly-page-widget: ready-for-dev
+  6-6-gamification-ui-integration: ready-for-dev
+  epic-6-retrospective: optional
+
+  epic-7: in-progress
+  7-1-notification-schema-sse-pipeline: ready-for-dev
+  7-2-notification-list-badge-read: ready-for-dev
+  7-3-notification-settings: ready-for-dev
+  7-4-dm-messages: ready-for-dev
+  7-5-inquiry-user-portal: ready-for-dev
+  epic-7-retrospective: optional
+
+  epic-8: in-progress
+  8-1-pg-bigm-search-index-and-api: ready-for-dev
+  8-2-search-results-page: ready-for-dev
+  8-3-tag-api-and-landing-page: ready-for-dev
+  8-4-tag-autocomplete-api-and-component: ready-for-dev
+  8-5-main-home-page-ssr: ready-for-dev
+  8-6-link-og-worker-and-card-render: ready-for-dev
+  8-7-sitemap-robots: ready-for-dev
+  8-8-og-tags-ga4-gsc-noindex: ready-for-dev
+  8-9-public-page-caching: ready-for-dev
+  epic-8-retrospective: optional
+
+  epic-9: in-progress
+  9-1-admin-db-schema-auth-instance-seed: ready-for-dev
+  9-2-admin-login-logout-signup-ux: ready-for-dev
+  9-3-admin-shell-auth-gate-nav: ready-for-dev
+  9-4-admin-account-management: ready-for-dev
+  9-5-dashboard-analytics: ready-for-dev
+  9-6-post-management: ready-for-dev
+  9-7-qna-management: ready-for-dev
+  9-8-resource-management: ready-for-dev
+  9-9-comment-review-management: ready-for-dev
+  9-10-report-queue-processing-cleanup-worker: ready-for-dev
+  9-11-auto-hide-spam-filter: ready-for-dev
+  9-12-member-management-sanctions: ready-for-dev
+  9-13-points-grades-badges-management: ready-for-dev
+  9-14-inquiry-management: ready-for-dev
+  9-15-site-settings: ready-for-dev
+  9-16-ads-management: ready-for-dev
+  9-17-notice-management: ready-for-dev
+  epic-9-retrospective: optional
+
+  epic-10: in-progress
+  10-1-legal-pages-ssr-shell: ready-for-dev
+  10-2-consent-schema: ready-for-dev
+  10-3-signup-consent-flow-and-api: ready-for-dev
+  10-4-terms-version-update: ready-for-dev
+  epic-10-retrospective: optional
+

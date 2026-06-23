@@ -1,0 +1,31 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 섹션 세로 리듬
+ * =========================================================================== */
+.section {
+  padding-block: var(--space-12);
+}
+
+.section--tight {
+  padding-block: var(--space-8);
+}
+
+.section__header {
+  margin-bottom: var(--space-6);
+}
+
+.section__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.section__desc {
+  margin-top: var(--space-2);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-normal);
+}
+
+@media (max-width: 767px) {
+  .section {
+    padding-block: var(--space-8);
+  }
+}

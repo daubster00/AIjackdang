@@ -1,0 +1,25 @@
+{
+  "name": "@ai-jakdang/admin-design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "프레임워크 비종속 관리자 페이지 디자인 시스템 (순수 CSS + 바닐라 JS). 프로젝트별로 테마 토큰(Primary 색상)·로고만 교체해 재사용한다.",
+  "exports": {
+    "./css": "./css/index.css",
+    "./css/*": "./css/*",
+    "./js": "./js/index.js",
+    "./js/*": "./js/*"
+  },
+  "files": [
+    "css",
+    "js",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css",
+    "./js/index.js"
+  ],
+  "scripts": {
+    "lint": "eslint ."
+  }
+}

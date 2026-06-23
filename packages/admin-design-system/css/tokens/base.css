@@ -1,0 +1,51 @@
+/* ===========================================================================
+ * 기반 토큰 (프로젝트 공통 · 보통 교체하지 않음)
+ *
+ * 회색 스케일, 의미색(성공/경고/위험/정보), 레이아웃 치수, 라운드, 그림자.
+ * 브랜드 색은 theme.css 에 분리되어 있다.
+ * =========================================================================== */
+:root {
+  /* 중립(회색) 스케일 */
+  --gray-0: #ffffff;    /* gray-0 (카드/패널 면, 순백) */
+  --gray-25: #fcfcfd;   /* gray-25 (아주 옅은 면) */
+  --gray-50: #f8fafc;   /* gray-50 (페이지 배경) */
+  --gray-100: #f1f5f9;  /* gray-100 (hover 배경/구분선) */
+  --gray-200: #e2e8f0;  /* gray-200 (기본 테두리) */
+  --gray-300: #cbd5e1;  /* gray-300 (입력 테두리) */
+  --gray-400: #94a3b8;  /* gray-400 (placeholder/보조 텍스트) */
+  --gray-500: #64748b;  /* gray-500 (라벨/설명 텍스트) */
+  --gray-600: #475569;  /* gray-600 (본문 보조) */
+  --gray-700: #334155;  /* gray-700 (기본 본문) */
+  --gray-800: #1e293b;  /* gray-800 (강조 본문) */
+  --gray-900: #0f172a;  /* gray-900 (제목/숫자 강조) */
+
+  /* 의미색 (상태 표현) + 각 배경(-bg) */
+  --success: #16a34a;     /* success (성공/공개) */
+  --success-bg: #f0fdf4;  /* success-bg (성공 배경) */
+  --warning: #d97706;     /* warning (경고/숨김) */
+  --warning-bg: #fffbeb;  /* warning-bg (경고 배경) */
+  --danger: #dc2626;      /* danger (위험/삭제/신고) */
+  --danger-bg: #fef2f2;   /* danger-bg (위험 배경) */
+  --info: #0284c7;        /* info (정보) */
+  --info-bg: #f0f9ff;     /* info-bg (정보 배경) */
+  --purple: #7c3aed;      /* purple (보조 분류) */
+  --purple-bg: #f5f3ff;   /* purple-bg (보조 분류 배경) */
+
+  /* 레이아웃 치수 */
+  --sidebar-width: 248px;  /* sidebar-width (사이드바 펼친 너비) */
+  --topbar-height: 64px;   /* topbar-height (상단바 높이) */
+
+  /* 모서리 라운드 */
+  --radius-sm: 6px;   /* radius-sm (배지 등 작은 요소) */
+  --radius-md: 8px;   /* radius-md (버튼/입력) */
+  --radius-lg: 12px;  /* radius-lg (카드) */
+  --radius-xl: 16px;  /* radius-xl (모달/패널) */
+
+  /* 그림자 */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);       /* shadow-card (카드 기본 그림자) */
+  --shadow-popover: 0 12px 32px rgba(15, 23, 42, 0.12);  /* shadow-popover (드롭다운/팝오버/토스트) */
+  --shadow-modal: 0 24px 70px rgba(15, 23, 42, 0.22);    /* shadow-modal (모달) */
+
+  /* 글꼴 */
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; /* font-sans (기본 글꼴) */
+}

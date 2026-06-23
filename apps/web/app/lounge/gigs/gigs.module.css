@@ -1,0 +1,1179 @@
+/* ── 작당 의뢰소 공통 스타일 ── */
+
+/* ========================================================
+   페이지 래퍼
+   ======================================================== */
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page h3,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* ========================================================
+   거래 보증 없음 경고 배너 (폼/상세 공통)
+   ======================================================== */
+.caution {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.cautionIcon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: var(--color-warning);
+  margin-top: 1px;
+}
+
+.cautionText {
+  flex: 1 1 auto;
+}
+
+.cautionText strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ========================================================
+   목록 페이지: 필터 툴바
+   ======================================================== */
+.filterToolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 56px var(--space-6) var(--space-3);
+}
+
+/* 유형·분야·상태 셀렉트 박스 묶음 */
+.filterSelects {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* 개별 셀렉트 필드 폭 */
+.selectField {
+  width: 150px;
+}
+
+/* 분야 셀렉트는 옵션 라벨이 길어 약간 넓게 */
+.selectFieldWide {
+  width: 200px;
+}
+
+/* 검색창 영역 */
+.filterSearch {
+  flex: 1 1 240px;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+/* 필터 버튼 그룹 (글유형 / 분야 / 모집상태) */
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.filterLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+  white-space: nowrap;
+}
+
+/* 개별 필터 pill 버튼 */
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.filterBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 활성화된 필터 버튼 */
+.filterBtnActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.filterBtnActive:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+  opacity: 0.88;
+}
+
+/* 필터 그룹 구분선 */
+.filterDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  flex: 0 0 auto;
+}
+
+/* ========================================================
+   목록 레이아웃
+   ======================================================== */
+.listLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+.mainCol,
+.postList {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.listStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+}
+
+.statDivider {
+  color: var(--color-border-strong);
+  font-weight: var(--font-weight-regular);
+}
+
+.writeButton {
+  flex: 0 0 auto;
+  min-width: 112px;
+}
+
+.writeButton span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: #ffffff;
+}
+
+.writeButton i,
+.writeButton svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: currentColor;
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* ========================================================
+   의뢰 게시글 카드 (목록형 리스트)
+   ======================================================== */
+.gigItem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.gigItem:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 16px 36px rgba(23, 24, 39, 0.08);
+}
+
+/* 마감된 의뢰 카드: 흐리게 + 회색 처리 */
+.gigItemClosed {
+  opacity: 0.55;
+  filter: grayscale(30%);
+}
+
+.gigItemClosed:hover {
+  opacity: 0.7;
+}
+
+/* 카드 왼쪽: 배지 행 + 제목 + 분야 칩 + 푸터 */
+.gigBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* 첫 번째 행: 글유형 배지 + 모집상태 배지 */
+.gigBadgeRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* 제목 */
+.gigTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  text-decoration: none;
+}
+
+.gigTitle:hover {
+  color: var(--color-primary);
+}
+
+/* 분야 칩 행 */
+.fieldChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.fieldChip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0 10px;
+  color: var(--color-text-sub);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.authorName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 통계: 조회수 + 댓글 (오른쪽 정렬) */
+.gigStats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: auto;
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.gigStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 카드 오른쪽: 작성자·날짜(상단) + 예산/단가·기간 + 통계.
+   본문(제목·태그)과는 세로 구분선(border-left)으로 분리한다. */
+.gigMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+  min-width: 168px;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--color-border);
+}
+
+/* 작성자(아바타 + 이름) + 날짜 묶음 */
+.gigMetaAuthor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gigMetaAuthorText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.gigMetaDate {
+  color: var(--color-text-sub);
+  font-size: 13px;
+}
+
+.gigBudget {
+  text-align: right;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+}
+
+.gigBudgetAmount {
+  display: block;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+/* ========================================================
+   페이지네이션 (products 패턴 복사)
+   ======================================================== */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.pagination button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pagination button[aria-current="page"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.pagination i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ========================================================
+   글쓰기 페이지
+   ======================================================== */
+.writePage {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.writeContainer {
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
+  padding: 56px var(--space-6) 96px;
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* ========================================================
+   구조화 폼 (RecruitForm)
+   ======================================================== */
+.formCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.formCardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-7);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.formCardTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.formCardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.formSection {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-7);
+}
+
+/* 개별 필드 그룹 */
+.formField {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.formLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* 필수 표시 별표 */
+.required {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-bold);
+}
+
+/* 선택 표시 */
+.optional {
+  font-size: 12px;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-sub);
+}
+
+/* 인라인 오류 메시지 */
+.fieldError {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 라디오/체크박스 선택지 그룹 */
+.radioGroup,
+.checkboxGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* 커스텀 라디오/체크박스 pill 버튼 */
+.optionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+  /* 숨겨진 input 위에 씌우는 label 역할 */
+  user-select: none;
+}
+
+.optionPill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 선택된 pill */
+.optionPillSelected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 접근성: 숨겨진 radio/checkbox input */
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 외부 연락처 입력 영역 (오픈채팅 / 이메일 링크) */
+.externalContact {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+
+.externalContactLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+}
+
+/* 본문 textarea */
+.bodyTextarea {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.bodyTextarea:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* 제목 input */
+.titleInput {
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-base);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.titleInput:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* 오류 상태의 input / textarea */
+.inputError {
+  border-color: var(--color-danger) !important;
+}
+
+/* 본문 에디터 오류 상태 (LightEditor 래퍼에 적용) */
+.editorError {
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+}
+
+/* ── 파일 첨부 드롭존 ── */
+.attachDropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 120px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  padding: var(--space-5);
+  color: var(--color-text-sub);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.attachDropzone:hover,
+.attachDropzoneActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.attachIcon {
+  font-size: 28px;
+}
+
+.attachText {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.attachHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+}
+
+.attachList {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2) var(--space-3);
+}
+
+.attachItemIcon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: var(--color-text-sub);
+}
+
+.attachName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.attachSize {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.attachRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.attachRemove:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* 폼 액션 버튼 영역 */
+.formActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-7);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+/* ========================================================
+   상세 페이지
+   ======================================================== */
+.detailLayout {
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
+  padding: 64px var(--space-6) 104px;
+}
+
+.postDetail {
+  display: grid;
+  gap: 0;
+}
+
+/* 의뢰 정보 카드 (글 상단 고정, 구조화 메타 정보 표시) */
+.infoCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+}
+
+.infoCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.infoCardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.infoCardTitle h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+}
+
+.infoBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* 의뢰 정보 그리드 (2열) */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  padding: var(--space-5) var(--space-6);
+}
+
+.infoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.infoRow:nth-last-child(-n+2) {
+  border-bottom: 0;
+}
+
+.infoRowLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.infoRowValue {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* 연락 방법 버튼 행 */
+.contactActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+/* 쪽지 보내기 버튼 슬롯 */
+.dmButton {
+  flex: 0 0 auto;
+}
+
+/* ── 쪽지 보내기 모달 ── */
+.dmModalBody {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.dmRecipient {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+
+.dmRecipientInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmRecipientLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+}
+
+.dmRecipientName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.dmModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* 모집상태 토글 버튼 (본인만 노출) */
+.statusToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.statusToggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 상세 헤더 (lounge.module.css 패턴 재사용) */
+.detailHeader {
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+  padding: var(--space-8) var(--space-8) var(--space-7);
+}
+
+.detailHeader::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: var(--space-4);
+  background: var(--color-border);
+}
+
+.detailCategoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.detailHeader h2 {
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-tight);
+}
+
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.articleBody {
+  display: grid;
+  gap: var(--space-6);
+  border-inline: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-7) var(--space-8) var(--space-8);
+}
+
+.articleBody p {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  line-height: 1.9;
+}
+
+/* 상세 푸터 */
+.detailFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-6);
+}
+
+.listButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.listButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.ownerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ownerActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.ownerActions button:first-child {
+  border-color: rgba(48, 48, 192, 0.24);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.ownerActions button:first-child:hover {
+  border-color: var(--color-primary);
+  background: #ffffff;
+}
+
+.ownerActions button:last-child {
+  border-color: rgba(217, 54, 62, 0.24);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.ownerActions button:last-child:hover {
+  border-color: var(--color-danger);
+  background: #ffffff;
+}
+
+/* ========================================================
+   반응형
+   ======================================================== */
+@media (max-width: 768px) {
+  .filterToolbar,
+  .listLayout,
+  .detailLayout,
+  .writeContainer {
+    padding-inline: var(--space-4);
+  }
+
+  .filterToolbar {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-2);
+  }
+
+  .listLayout {
+    padding-top: var(--space-4);
+  }
+
+  .gigItem {
+    grid-template-columns: 1fr;
+  }
+
+  /* 모바일: 세로 1열로 쌓이며 메타 영역 전체 왼쪽 정렬.
+     세로 구분선(border-left) 대신 가로 구분선(border-top)으로 본문과 분리한다. */
+  .gigMeta {
+    align-items: flex-start;
+    min-width: 0;
+    padding-left: 0;
+    padding-top: var(--space-4);
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .gigMetaAuthorText {
+    align-items: flex-start;
+  }
+
+  .gigBudget {
+    text-align: left;
+  }
+
+  .gigStats {
+    margin-top: 0;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .infoRow:nth-last-child(-n+2) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .infoRow:last-child {
+    border-bottom: 0;
+  }
+
+  .detailHeader h2 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .articleBody p {
+    font-size: var(--font-size-base);
+  }
+
+  .detailFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ownerActions {
+    justify-content: flex-end;
+  }
+
+  .formSection {
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .formCardHeader {
+    padding: var(--space-4);
+  }
+
+  .formActions {
+    padding-inline: var(--space-4);
+  }
+}
+
+@media (max-width: 520px) {
+  .filterToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  /* 모바일: 셀렉트·검색창 모두 가로 100% */
+  .filterSelects {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selectField,
+  .selectFieldWide {
+    width: 100%;
+  }
+
+  .filterSearch {
+    max-width: none;
+  }
+
+  .filterGroup {
+    justify-content: flex-start;
+  }
+
+  .radioGroup,
+  .checkboxGroup {
+    gap: var(--space-2);
+  }
+}

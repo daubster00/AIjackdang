@@ -1,0 +1,36 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 타이포그래피 토큰
+ * 한글 가독성 우선. 제목 600~700, 버튼/배지 500~600, 본문 400.
+ * =========================================================================== */
+:root {
+  --font-sans:
+    Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+  --font-mono: "JetBrains Mono", "D2Coding", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* 글자 크기 */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+
+  /* 굵기 */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* 행간 */
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.4;
+  --line-height-normal: 1.55;
+  --line-height-relaxed: 1.65;
+
+  /* 자간 */
+  --letter-spacing-tight: -0.03em;
+}

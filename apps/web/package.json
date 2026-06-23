@@ -1,0 +1,28 @@
+{
+  "name": "@ai-jakdang/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI작당 사용자 사이트 (Next.js). 사용자 전용 디자인 시스템과 UI 컴포넌트를 포함한다.",
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --port 3003",
+    "build": "next build",
+    "start": "next start --port 3003",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/auth": "workspace:*",
+    "@ai-jakdang/contracts": "workspace:*",
+    "@ai-jakdang/core": "workspace:*",
+    "@ai-jakdang/utilities": "workspace:*",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remixicon": "^4.9.0"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  }
+}

@@ -1,0 +1,50 @@
+/* IconButton — 출처: ai-jakdang-layout-components.html (.icon-btn) */
+.iconBtn {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.iconBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.iconBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+.sm {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+/* 테두리 없는 변형(툴바 등) */
+.ghost {
+  border-color: transparent;
+  background: transparent;
+}

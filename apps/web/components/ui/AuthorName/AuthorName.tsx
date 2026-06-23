@@ -1,0 +1,156 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { resolveRank, type RankTier } from "@/lib/ranks";
+import { cn } from "@/lib/cn";
+import { RankBadge } from "../RankBadge";
+import { MessageModal } from "../MessageModal";
+import { Icon } from "../Icon";
+import styles from "./AuthorName.module.css";
+
+// 디자인 단계 공용 샘플 프로필 경로.
+// 실제 서비스에서는 각 유저의 닉네임으로 /u/[nickname] 에 연결되지만,
+// 지금은 디자인 확인용이라 모든 닉네임을 하나의 샘플 프로필로 보낸다.
+const SAMPLE_PROFILE_HREF = `/u/${encodeURIComponent("작당탐험가")}`;
+
+const TIER_ORDER: RankTier[] = ["rookie", "member", "practitioner", "expert", "master"];
+
+/** 닉네임 문자열로부터 등급을 결정적으로 도출 (목업 데이터에 rank 가 없을 때 다양하게 보이도록) */
+function rankFromName(name: string): RankTier {
+  let sum = 0;
+  for (let i = 0; i < name.length; i += 1) sum += name.charCodeAt(i);
+  return TIER_ORDER[sum % TIER_ORDER.length];
+}
+
+export interface AuthorNameProps {
+  /** 표시할 닉네임 */
+  name: string;
+  /** 등급(키 또는 한국어 라벨). 미지정 시 닉네임으로부터 결정적으로 도출 */
+  rank?: RankTier | string;
+  /** 등급 뱃지 한 변 크기(px). 기본 16 */
+  badgeSize?: number;
+  /** 등급명 라벨 텍스트도 함께 표기할지. 기본 false (뱃지 이미지만) */
+  showLabel?: boolean;
+  /** 트리거(닉네임)에 붙일 추가 클래스 */
+  className?: string;
+}
+
+/**
+ * 게시글·댓글 작성자 닉네임 표기 공용 컴포넌트.
+ * - 닉네임을 클릭하면 작은 메뉴(쪽지 보내기 / 팔로우 / 계정 바로가기)가 열린다.
+ *   "쪽지 보내기"는 쪽지 발송 모달을 띄우고, "계정 바로가기"는 공개 프로필로 이동한다(디자인 단계엔 공용 샘플 프로필).
+ * - 닉네임 옆에 항상 등급 뱃지를 함께 표기한다(lib/ranks + RankBadge 사용).
+ * - 메뉴는 카드의 overflow:hidden 에 잘리지 않도록 body 포털에 fixed 로 렌더한다.
+ */
+export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dmOpen, setDmOpen] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  const resolved = rank && resolveRank(rank) ? rank : rankFromName(name);
+
+  function openMenu() {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, left: r.left });
+    setMenuOpen(true);
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t) && !triggerRef.current?.contains(t)) setMenuOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    function onReposition() {
+      setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    // 스크롤/리사이즈 시에는 위치가 어긋나므로 닫는다.
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
+    };
+  }, [menuOpen]);
+
+  return (
+    <span className={cn(styles.root, className)}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={styles.trigger}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuOpen ? menuId : undefined}
+        onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
+        title={`${name} 님`}
+      >
+        <span className={styles.name}>{name}</span>
+        <RankBadge rank={resolved} size={badgeSize} showLabel={showLabel} />
+      </button>
+
+      {menuOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            className={styles.menu}
+            style={{ top: pos.top, left: pos.left }}
+          >
+            <div className={styles.menuHeader}>{name}</div>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => {
+                setMenuOpen(false);
+                setDmOpen(true);
+              }}
+            >
+              <Icon name="mail-send-line" />
+              쪽지 보내기
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => {
+                setFollowing((v) => !v);
+                setMenuOpen(false);
+              }}
+            >
+              <Icon name={following ? "user-follow-line" : "user-add-line"} />
+              {following ? "팔로잉" : "팔로우"}
+            </button>
+            <Link
+              href={SAMPLE_PROFILE_HREF}
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => setMenuOpen(false)}
+            >
+              <Icon name="external-link-line" />
+              계정 바로가기
+            </Link>
+          </div>,
+          document.body,
+        )}
+
+      <MessageModal open={dmOpen} onClose={() => setDmOpen(false)} recipient={name} />
+    </span>
+  );
+}

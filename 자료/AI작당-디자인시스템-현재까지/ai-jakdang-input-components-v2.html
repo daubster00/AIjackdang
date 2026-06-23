@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI작당 입력 컴포넌트 v2</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.9.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+:root{--primary:#3030c0;--primary-hover:#2828aa;--primary-soft:#eef0ff;--bg:#f7f8fc;--surface:#fff;--text:#171827;--sub:#5f6473;--placeholder:#9aa1b1;--border:#e4e7f0;--border-strong:#cfd4e2;--danger:#e52d2d;--danger-soft:#fff0f0;--success:#0f9f87;--success-soft:#e8faf8;--disabled-bg:#f2f4f8;--disabled-text:#aab0c0;--focus:0 0 0 4px rgba(48,48,192,.14);--shadow:0 8px 24px rgba(23,24,39,.08)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea{font:inherit}.page{max-width:1180px;margin:auto;padding:56px 24px 80px}.header{margin-bottom:32px}.header h1{margin:0 0 10px;font-size:36px;letter-spacing:-.03em}.header p{margin:0;color:var(--sub)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:visible}.section{padding:30px;border-bottom:1px solid var(--border)}.section:last-child{border-bottom:0}.section h2{margin:0 0 20px;font-size:20px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.field{display:flex;flex-direction:column;gap:8px}.label{font-size:14px;font-weight:600}.required{color:var(--danger)}.help{margin:0;font-size:13px;line-height:1.45;color:var(--sub)}
+.control{position:relative;display:flex;align-items:center}.input,.textarea,.select-trigger{width:100%;border:1px solid var(--border-strong);border-radius:8px;background:#fff;color:var(--text);transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease}
+.input{height:44px;padding:0 14px;font-size:15px}.textarea{min-height:132px;padding:12px 14px;resize:vertical;font-size:15px}.input::placeholder,.textarea::placeholder{color:var(--placeholder)}.input:hover,.textarea:hover,.select-trigger:hover{border-color:#b9bfd0}.input:focus,.textarea:focus{outline:0;border-color:var(--primary);box-shadow:var(--focus)}.input:disabled{background:var(--disabled-bg);color:var(--disabled-text);cursor:not-allowed}
+.icon-left .input{padding-left:42px}.icon-right .input{padding-right:42px}.control-icon{position:absolute;top:50%;transform:translateY(-50%);font-size:18px;color:var(--sub)}.control-icon.left{left:14px}.control-icon.right{right:14px}
+.search{display:flex;gap:10px}.search .control{flex:1}.btn{height:44px;padding:0 16px;border:0;border-radius:8px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}.btn:hover{background:var(--primary-hover)}.counter{text-align:right;color:var(--sub);font-size:12px}
+.custom-select{position:relative}.select-trigger{height:44px;padding:0 42px 0 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:15px;text-align:left}.select-trigger:focus-visible{outline:0;border-color:var(--primary);box-shadow:var(--focus)}.select-trigger .arrow{position:absolute;right:14px;font-size:18px;color:var(--sub);transition:transform .18s ease}.custom-select.open .arrow{transform:rotate(180deg)}
+.select-menu{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 8px);margin:0;padding:6px;list-style:none;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 34px rgba(23,24,39,.14);opacity:0;visibility:hidden;transform:translateY(-4px);transition:.16s ease}.custom-select.open .select-menu{opacity:1;visibility:visible;transform:translateY(0)}.select-option{min-height:40px;padding:0 10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:14px}.select-option:hover,.select-option.focused{background:var(--primary-soft);color:var(--primary)}.select-option.selected{font-weight:600;color:var(--primary)}.select-option .check{opacity:0}.select-option.selected .check{opacity:1}
+.native-select{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.tag-input{min-height:46px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px}.tag{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:600}.tag button{border:0;background:none;color:inherit;padding:0;cursor:pointer;display:grid;place-items:center}.tag-input input{flex:1;min-width:140px;border:0;outline:0;height:30px}
+@media(max-width:760px){.page{padding:30px 14px 50px}.section{padding:22px 18px}.grid{grid-template-columns:1fr}.search{flex-direction:column}.btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+<header class="header"><h1>AI작당 입력 컴포넌트</h1><p>커스텀 셀렉트와 Remix Icon을 적용한 공통 폼 시스템</p></header>
+<div class="panel">
+<section class="section"><h2>기본 입력</h2><div class="grid">
+<label class="field"><span class="label">제목 <span class="required">*</span></span><input class="input" placeholder="제목을 입력하세요"><span class="help">최대 100자까지 입력할 수 있습니다.</span></label>
+<label class="field"><span class="label">작성자</span><input class="input" value="AI작당 회원" disabled><span class="help">로그인한 회원 정보가 자동으로 표시됩니다.</span></label>
+</div></section>
+
+<section class="section"><h2>아이콘 입력창</h2><div class="grid">
+<label class="field"><span class="label">이메일</span><span class="control icon-left"><i class="ri-mail-line control-icon left"></i><input class="input" type="email" placeholder="name@example.com"></span></label>
+<label class="field"><span class="label">비밀번호</span><span class="control icon-right"><input class="input" id="pw" type="password" value="12345678"><button class="control-icon right" id="togglePw" type="button" aria-label="비밀번호 보기" style="border:0;background:none;cursor:pointer"><i class="ri-eye-line"></i></button></span></label>
+</div></section>
+
+<section class="section"><h2>검색창</h2><div class="search"><span class="control icon-left"><i class="ri-search-line control-icon left"></i><input class="input" type="search" placeholder="Claude Code, MCP, Cursor Rules 검색"></span><button class="btn"><i class="ri-search-line"></i>검색</button></div></section>
+
+<section class="section"><h2>커스텀 셀렉트</h2><div class="grid">
+<div class="field"><span class="label">자료 유형</span>
+<div class="custom-select" data-select>
+<select class="native-select" aria-label="자료 유형"><option value="prompt">프롬프트</option><option value="skill">Claude Code Skill</option><option value="mcp">MCP</option><option value="rules">Rules·설정</option><option value="template">템플릿·체크리스트</option></select>
+<button class="select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="select-value">프롬프트</span><i class="ri-arrow-down-s-line arrow"></i></button>
+<ul class="select-menu" role="listbox">
+<li class="select-option selected" role="option" data-value="prompt" aria-selected="true"><span>프롬프트</span><i class="ri-check-line check"></i></li>
+<li class="select-option" role="option" data-value="skill"><span>Claude Code Skill</span><i class="ri-check-line check"></i></li>
+<li class="select-option" role="option" data-value="mcp"><span>MCP</span><i class="ri-check-line check"></i></li>
+<li class="select-option" role="option" data-value="rules"><span>Rules·설정</span><i class="ri-check-line check"></i></li>
+<li class="select-option" role="option" data-value="template"><span>템플릿·체크리스트</span><i class="ri-check-line check"></i></li>
+</ul></div><span class="help">클릭하거나 방향키와 Enter로 선택할 수 있습니다.</span></div>
+
+<label class="field"><span class="label">태그</span><span class="tag-input"><span class="tag">Claude Code <button type="button"><i class="ri-close-line"></i></button></span><span class="tag">PHP <button type="button"><i class="ri-close-line"></i></button></span><input placeholder="태그 입력"></span><span class="help">Enter를 눌러 태그를 추가합니다.</span></label>
+</div></section>
+
+<section class="section"><h2>여러 줄 입력</h2><label class="field"><span class="label">자료 설명 <span class="required">*</span></span><textarea class="textarea" placeholder="자료의 용도와 사용 방법을 설명해 주세요."></textarea><span class="counter">0 / 1,000</span></label></section>
+</div>
+</main>
+<script>
+document.querySelectorAll('[data-select]').forEach(select=>{
+const native=select.querySelector('.native-select'),trigger=select.querySelector('.select-trigger'),value=select.querySelector('.select-value'),options=[...select.querySelectorAll('.select-option')];let focused=options.findIndex(o=>o.classList.contains('selected'));
+const close=()=>{select.classList.remove('open');trigger.setAttribute('aria-expanded','false');options.forEach(o=>o.classList.remove('focused'))};
+const open=()=>{select.classList.add('open');trigger.setAttribute('aria-expanded','true');focused=options.findIndex(o=>o.classList.contains('selected'));options[focused]?.classList.add('focused')};
+const choose=o=>{options.forEach(x=>{x.classList.remove('selected');x.setAttribute('aria-selected','false')});o.classList.add('selected');o.setAttribute('aria-selected','true');value.textContent=o.querySelector('span').textContent;native.value=o.dataset.value;native.dispatchEvent(new Event('change',{bubbles:true}));close();trigger.focus()};
+trigger.addEventListener('click',()=>select.classList.contains('open')?close():open());options.forEach(o=>o.addEventListener('click',()=>choose(o)));
+trigger.addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp','Enter',' '].includes(e.key)){e.preventDefault();if(!select.classList.contains('open'))return open();options[focused]?.classList.remove('focused');if(e.key==='ArrowDown')focused=(focused+1)%options.length;if(e.key==='ArrowUp')focused=(focused-1+options.length)%options.length;options[focused].classList.add('focused');if(e.key==='Enter'||e.key===' ')choose(options[focused])}if(e.key==='Escape')close()});
+document.addEventListener('click',e=>{if(!select.contains(e.target))close()});
+});
+const pw=document.getElementById('pw'),togglePw=document.getElementById('togglePw');togglePw.addEventListener('click',()=>{const show=pw.type==='password';pw.type=show?'text':'password';togglePw.innerHTML=`<i class="${show?'ri-eye-off-line':'ri-eye-line'}"></i>`;togglePw.setAttribute('aria-label',show?'비밀번호 숨기기':'비밀번호 보기')});
+</script>
+</body>
+</html>

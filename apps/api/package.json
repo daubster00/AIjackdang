@@ -1,0 +1,27 @@
+{
+  "name": "@ai-jakdang/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI작당 Fastify REST API. DB/Worker 만 DB 에 접근하며 Next.js 는 이 API 를 통해서만 데이터에 접근한다.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/config": "workspace:*",
+    "@ai-jakdang/contracts": "workspace:*",
+    "@ai-jakdang/core": "workspace:*",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.1",
+    "@fastify/sensible": "^6.0.2",
+    "fastify": "^5.5.0",
+    "fastify-type-provider-zod": "^6.1.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.0.0"
+  }
+}

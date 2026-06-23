@@ -1,0 +1,110 @@
+/* ══════════════════════════════════════════════════════════
+   설정 화면 공통 레이아웃
+   (프로필 수정 / 알림 설정 / 비밀번호 변경 3화면이 공유)
+   mypage·login 과 톤을 맞춘 중앙 정렬 컨테이너 + 카드형 패널.
+   ══════════════════════════════════════════════════════════ */
+
+.page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 240, 255, 0.92)),
+    var(--color-bg);
+  color: var(--color-text);
+}
+
+/* 중앙 정렬 컨테이너 */
+.wrap {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  padding: clamp(48px, 8vw, 88px) var(--space-6);
+}
+
+/* 마이페이지로 돌아가는 상단 링크 */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--color-primary);
+}
+
+/* 카드형 패널 */
+.card {
+  border: 1px solid rgba(48, 48, 192, 0.16);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.92);
+  padding: clamp(28px, 4vw, 42px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.head {
+  margin-bottom: var(--space-6);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.head h1 {
+  margin: 8px 0 0;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0;
+}
+
+.head p {
+  margin: 10px 0 0;
+  color: var(--color-text-sub);
+  line-height: var(--line-height-normal);
+}
+
+/* 폼: 세로 스택 */
+.form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* 폼 하단 액션 버튼 줄 (저장 / 취소) */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .card {
+    border-radius: var(--radius-lg);
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+
+  /* 취소 버튼은 <Link><Button> 구조라 Link(a)만 100%가 되고 안쪽 button은
+     auto 폭으로 남는다(저장 버튼은 Link 없이 직접 자식이라 정상). Link와
+     그 안의 button까지 100%로 펴서 저장 버튼과 가로폭을 맞춘다. */
+  .actions a {
+    width: 100%;
+  }
+
+  .actions a > button,
+  .actions button {
+    width: 100%;
+  }
+}

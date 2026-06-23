@@ -1,0 +1,223 @@
+.page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 240, 255, 0.92)),
+    var(--color-bg);
+  color: var(--color-text);
+}
+
+.authSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--container-max);
+  min-height: calc(100vh - 86px);
+  margin-inline: auto;
+  padding: 96px var(--space-6);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.formPanel {
+  width: min(100%, 520px);
+  border: 1px solid rgba(48, 48, 192, 0.16);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.92);
+  padding: clamp(28px, 4vw, 42px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.formHead {
+  margin-bottom: var(--space-6);
+}
+
+.formHead h1 {
+  margin: 8px 0 0;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0;
+}
+
+.formHead p:last-child {
+  margin: 10px 0 0;
+  color: var(--color-text-sub);
+  line-height: var(--line-height-normal);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.formOptions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.formOptions a,
+.signupText a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.formOptions a:hover,
+.signupText a:hover {
+  color: var(--color-primary-hover);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.divider::before,
+.divider::after {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+  content: "";
+}
+
+.socialGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.socialButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 46px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--social-bg);
+  color: var(--social-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    box-shadow var(--transition-base),
+    color var(--transition-base);
+}
+
+.socialButton i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.socialLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--social-logo-bg);
+  color: var(--social-logo-color);
+  font-size: 15px;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.kakaoButton {
+  --social-bg: #fee500;
+  --social-color: rgba(0, 0, 0, 0.86);
+  --social-logo-bg: transparent;
+  --social-logo-color: rgba(0, 0, 0, 0.86);
+}
+
+.kakaoButton .socialLogo {
+  font-size: 22px;
+}
+
+.kakaoMark {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.naverButton {
+  --social-bg: #03c75a;
+  --social-color: #ffffff;
+  --social-logo-bg: transparent;
+  --social-logo-color: #ffffff;
+}
+
+.naverButton .socialLogo {
+  font-size: 18px;
+}
+
+.googleButton {
+  --social-bg: #ffffff;
+  --social-color: #202124;
+  --social-logo-bg: transparent;
+  --social-logo-color: currentColor;
+  border-color: var(--color-border);
+}
+
+.googleMark {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.socialButton:hover {
+  filter: brightness(0.98);
+  box-shadow: 0 10px 22px rgba(23, 24, 39, 0.06);
+}
+
+.socialButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.signupText {
+  margin: var(--space-5) 0 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .authSection {
+    min-height: auto;
+    padding-block: 72px;
+  }
+}
+
+@media (max-width: 767px) {
+  .authSection {
+    padding: 56px var(--space-4);
+  }
+
+  .formPanel {
+    border-radius: var(--radius-lg);
+  }
+
+  .formOptions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

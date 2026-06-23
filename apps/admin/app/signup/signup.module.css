@@ -1,0 +1,146 @@
+/* ===========================================================================
+ * 관리자 회원가입 — 레이아웃 전용 스타일 (관리자 전용, 사용자 사이트와 독립)
+ *
+ * 색·라운드·그림자·폼·버튼은 공통 디자인 시스템(@ai-jakdang/admin-design-system)
+ * 토큰(--gray-*, --primary-*, --brand-gradient ...)과 전역 클래스
+ * (.field-label, .input-icon, .control, .field-help, .btn, .btn-primary)를 재사용한다.
+ * 로그인 화면(login.module.css)과 동일한 톤으로 맞춘다.
+ * =========================================================================== */
+
+.wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(37, 99, 235, 0.08), transparent 60%),
+    var(--gray-50);
+}
+
+.card {
+  width: min(440px, 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+
+.body {
+  padding: 32px 32px 28px;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-gradient);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  color: var(--gray-900);
+  font-size: 21px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  margin: 6px 0 0;
+  color: var(--gray-500);
+  font-size: 13px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* 비밀번호 표시/숨김 토글 (입력 우측) */
+.toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--gray-400);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 140ms ease;
+}
+
+.toggle:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+/* 아이콘 입력 + 우측 토글이 함께 있을 때 우측 패딩 확보 */
+.passwordInput .control {
+  padding-right: 42px;
+}
+
+.submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.foot {
+  margin: 18px 0 0;
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 13px;
+}
+
+.footLink {
+  color: var(--primary-700);
+  font-weight: 650;
+}
+
+.footLink:hover {
+  text-decoration: underline;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-25);
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.notice i {
+  font-size: 15px;
+  color: var(--gray-400);
+}
+
+@media (max-width: 479px) {
+  .body {
+    padding: 26px 20px 22px;
+  }
+  .notice {
+    padding: 13px 20px;
+  }
+}

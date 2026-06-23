@@ -1,0 +1,27 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 간격 유틸리티 (토큰 기반, 최소한으로 유지)
+ * =========================================================================== */
+.u-mt-2 {
+  margin-top: var(--space-2);
+}
+.u-mt-4 {
+  margin-top: var(--space-4);
+}
+.u-mt-6 {
+  margin-top: var(--space-6);
+}
+.u-mb-2 {
+  margin-bottom: var(--space-2);
+}
+.u-mb-4 {
+  margin-bottom: var(--space-4);
+}
+.u-mb-6 {
+  margin-bottom: var(--space-6);
+}
+.u-gap-2 {
+  gap: var(--space-2);
+}
+.u-gap-4 {
+  gap: var(--space-4);
+}

@@ -1,0 +1,358 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* ── 페이지 헤더 ── */
+
+.pageHeader {
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(180deg, var(--color-primary-soft) 0%, var(--color-bg) 100%);
+}
+
+.headerInner {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 56px var(--space-6) var(--space-7);
+}
+
+.eyebrow {
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.title i {
+  display: inline-flex;
+  color: var(--color-primary);
+  font-size: 0.85em;
+}
+
+.subtitle {
+  margin-top: var(--space-3);
+  max-width: 560px;
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ── 본문 레이아웃 ── */
+
+.layout {
+  display: grid;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.chip,
+.chipActive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.chipActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.chipCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  padding: 0 6px;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.chipActive .chipCount {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.sortGroup {
+  flex: 0 0 auto;
+  width: fit-content;
+}
+
+/* ── 북마크 목록 ── */
+
+.postList {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.postItem {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.postItem:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 14px 32px rgba(23, 24, 39, 0.08);
+}
+
+.postThumb {
+  position: relative;
+  flex: 0 0 120px;
+  width: 120px;
+  height: 120px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  background: linear-gradient(155deg, #1b1c2e 0%, #11121d 100%);
+  overflow: hidden;
+}
+
+.thumbImage {
+  object-fit: cover;
+}
+
+.postBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.postTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.boardBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  padding: 3px 10px;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.categoryText {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.postHeading {
+  font-weight: var(--font-weight-bold);
+}
+
+.postTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  text-decoration: none;
+}
+
+.postTitle:hover {
+  color: var(--color-primary);
+}
+
+.postExcerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.postFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.postAuthor,
+.postStats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.authorName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.footerDivider {
+  color: var(--color-border);
+}
+
+.postStats {
+  gap: var(--space-4);
+}
+
+.postStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── 북마크 해제 버튼 ── */
+
+.removeBtn {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 20px;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.removeBtn:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.pagination {
+  margin-top: var(--space-2);
+}
+
+/* ── 반응형 ── */
+
+@media (max-width: 768px) {
+  .headerInner,
+  .layout {
+    padding-inline: var(--space-4);
+  }
+
+  .headerInner {
+    padding-top: var(--space-7);
+  }
+
+  .title {
+    font-size: var(--font-size-3xl);
+  }
+
+  .postItem {
+    flex-direction: column;
+  }
+
+  .postThumb {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 160px;
+  }
+
+  .removeBtn {
+    top: var(--space-3);
+    right: var(--space-3);
+  }
+}
+
+@media (max-width: 520px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sortGroup {
+    width: 100%;
+  }
+}

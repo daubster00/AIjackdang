@@ -1,0 +1,19 @@
+{
+  "name": "@ai-jakdang/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "서비스 도메인 비즈니스 규칙과 로직 (웹/관리자/API/앱 공유)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/contracts": "workspace:*",
+    "@ai-jakdang/utilities": "workspace:*"
+  }
+}

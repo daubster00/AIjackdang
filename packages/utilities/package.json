@@ -1,0 +1,15 @@
+{
+  "name": "@ai-jakdang/utilities",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "날짜·문자열·숫자 등 비시각적 범용 유틸리티 (웹/관리자/API/앱 공유)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  }
+}

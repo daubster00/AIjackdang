@@ -1,0 +1,49 @@
+/* Radio — 디자인 토큰 기반 커스텀 라디오 */
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+}
+.wrapper.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.native {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.circle {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  transition: border-color var(--transition-base);
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  transform: scale(0);
+  transition: transform var(--transition-base);
+}
+.native:checked + .circle {
+  border-color: var(--color-primary);
+}
+.native:checked + .circle .dot {
+  transform: scale(1);
+}
+.native:focus-visible + .circle {
+  box-shadow: var(--focus-ring);
+}
+.label {
+  user-select: none;
+}

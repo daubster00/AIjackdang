@@ -1,0 +1,7 @@
+{
+  "extends": "@ai-jakdang/config/tsconfig.node.json",
+  "compilerOptions": {
+    "types": ["node", "pg"]
+  },
+  "include": ["src", "drizzle.config.ts"]
+}

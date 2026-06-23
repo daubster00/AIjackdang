@@ -1,0 +1,416 @@
+/* 공개 프로필 페이지 /u/[nickname] 스타일.
+   디자인 토큰 및 클래스 작명 컨벤션은 mypage.module.css 와 동일하게 맞춘다. */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   배너 영역
+   ══════════════════════════════════════════════════════════ */
+
+.bannerArea {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: var(--color-primary); /* 이미지 없을 때 폴백 */
+}
+
+/* 커스텀 배너 이미지 */
+.bannerImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 배너 이미지가 없을 때 표시할 그라데이션 플레이스홀더
+   (mypage.module.css .profileBand 와 동일한 그라데이션 적용) */
+.bannerPlaceholder {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(24, 199, 184, 0.4) 0%, rgba(24, 199, 184, 0) 52%),
+    linear-gradient(118deg, #20208a 0%, #3030c0 58%, #3a3ad6 100%);
+}
+
+/* ══════════════════════════════════════════════════════════
+   프로필 헤더 (아바타 + 닉네임 + 소개 + 인터랙션)
+   ══════════════════════════════════════════════════════════ */
+
+.headerWrap {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  /* 상단 배너(히어로)와 프로필 헤더 사이에 80px 여백을 둔다 */
+  padding: 80px var(--space-6) 0;
+}
+
+.headerInner {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* 아바타는 배너에 겹치지 않고 헤더 영역 안에서 닉네임 옆에 배치된다 */
+.avatarArea {
+  flex: 0 0 auto;
+}
+
+.avatar {
+  border: 4px solid var(--color-surface);
+  box-shadow: 0 8px 24px rgba(9, 10, 20, 0.18);
+}
+
+.identityArea {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: var(--space-3);
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.name {
+  font-size: clamp(22px, 3.5vw, 30px);
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.1;
+}
+
+/* 어두운 배너 위에서 쓰이는 mypage 버전과 달리, 밝은 배경 위라
+   기본 border + surface 배경 칩으로 표현한다. */
+.rankBadge {
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 3px 10px 3px 5px;
+  color: var(--color-text);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 2px 8px rgba(9, 10, 20, 0.08);
+}
+
+.rankBadge :global(span) {
+  color: var(--color-text);
+}
+
+.bio {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  max-width: 480px;
+}
+
+/* 외부 링크 칩 줄 */
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.linkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 12px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.linkChip i {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.linkChip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.joinDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.joinDate i {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── 인터랙션 영역 (팔로워 카운트 + 팔로우/편집 버튼) ── */
+
+.interactionArea {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+
+.followStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.followStatItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.followCount {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.followLabel {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.followDivider {
+  color: var(--color-border);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  align-self: center;
+}
+
+/* 프로필 편집 버튼 (본인 프로필일 때)
+   mypage.module.css .bandBtnPrimary 와 동일 톤으로 */
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 18px;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.editBtn i {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.editBtn:hover {
+  background: var(--color-primary-soft);
+}
+
+/* FollowButton 은 컴포넌트 자체 스타일을 사용하지만,
+   여기서 추가 오버라이드 없이 className 으로만 연결 */
+.followBtn {
+  /* 특별한 오버라이드 없음: FollowButton.module.css 기본값 그대로 사용 */
+}
+
+/* ══════════════════════════════════════════════════════════
+   본문 콘텐츠 (작성 글 목록)
+   ══════════════════════════════════════════════════════════ */
+
+.contentWrap {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: var(--space-7) var(--space-6) 96px;
+}
+
+/* .page h2 { margin: 0 } 리셋(specificity 0,1,1)을 이기도록 .page 를 함께 지정 */
+.page .sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* "작성 글" 타이틀과 목록 사이 40px 여백 */
+  margin-bottom: 40px;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.sectionTitle i {
+  color: var(--color-primary);
+  font-size: 22px;
+}
+
+.sectionCount {
+  margin-left: var(--space-2);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+/* 게시글 목록 (mypage.module.css .activityList 와 동일 톤) */
+.postList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.postItem {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.postItem:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 14px 32px rgba(23, 24, 39, 0.08);
+}
+
+.postTop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.boardBadge {
+  flex: 0 0 auto;
+}
+
+.postTagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.postTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  text-decoration: none;
+}
+
+.postTitle:hover {
+  color: var(--color-primary);
+}
+
+.postExcerpt {
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.postFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-1);
+}
+
+.postDate {
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.postStats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.postStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.postStats i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   반응형
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .headerWrap {
+    /* 모바일에서도 배너와 헤더 사이 여백 유지(데스크톱 대비 축소) */
+    padding: 48px var(--space-4) 0;
+  }
+
+  .contentWrap {
+    padding: var(--space-5) var(--space-4) 72px;
+  }
+
+  .bannerArea {
+    height: 140px;
+  }
+
+  .headerInner {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .interactionArea {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding-top: 0;
+  }
+}

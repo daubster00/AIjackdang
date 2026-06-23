@@ -1,0 +1,39 @@
+# 의존성
+node_modules/
+.pnpm-store/
+
+# 빌드 산출물
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Turborepo 로컬 캐시
+.turbo/
+
+# 환경 변수
+.env
+.env.*
+!.env.example
+
+# 테스트/커버리지
+coverage/
+.vitest/
+playwright-report/
+test-results/
+
+# 로그
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# 업로드 임시 저장소(로컬 스토리지 사용 시)
+/storage/

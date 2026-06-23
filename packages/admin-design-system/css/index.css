@@ -1,0 +1,38 @@
+/* ===========================================================================
+ * AI작당 관리자 디자인 시스템 — CSS 진입점
+ *
+ * 단 한 줄로 전체 디자인 시스템을 불러온다:
+ *   @import "@ai-jakdang/admin-design-system/css";   (번들러 사용 시)
+ *   <link href=".../css/index.css">                  (순수 HTML)
+ *
+ * 로드 순서: 글꼴 → 토큰(theme→base) → 기본 초기화 → 레이아웃 → 컴포넌트
+ * 다른 프로젝트로 옮길 때는 보통 tokens/theme.css 만 교체하면 된다.
+ * =========================================================================== */
+
+/* 1) 글꼴 */
+@import "./base/fonts.css";
+
+/* 2) 토큰 (theme 가 먼저 — 프로젝트별 교체 지점) */
+@import "./tokens/theme.css";
+@import "./tokens/base.css";
+
+/* 3) 기본 초기화 */
+@import "./base/reset.css";
+
+/* 4) 레이아웃 */
+@import "./layout/app-shell.css";
+@import "./layout/grid.css";
+
+/* 5) 컴포넌트 */
+@import "./components/buttons.css";
+@import "./components/navigation.css";
+@import "./components/cards.css";
+@import "./components/chart.css";
+@import "./components/forms.css";
+@import "./components/data-display.css";
+@import "./components/feedback.css";
+@import "./components/overlay.css";
+@import "./components/showcase.css";
+
+/* 6) 반응형 (마지막에 와서 미디어쿼리가 위 규칙을 덮어쓴다) */
+@import "./layout/responsive.css";

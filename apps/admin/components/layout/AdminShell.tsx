@@ -1,0 +1,236 @@
+import type { ReactNode } from "react";
+import { BOARDS } from "@/lib/boards";
+import { AdminInteractions } from "./AdminInteractions";
+import { NotificationMenu } from "./NotificationMenu";
+import { HelpMenu } from "./HelpMenu";
+import { AdminAccountMenu } from "./AdminAccountMenu";
+
+/**
+ * 관리자 기본 레이아웃 — @ai-jakdang/admin-design-system 의 .app-shell 마크업을 사용한다.
+ * 사이드바(브랜드/메뉴/프로필) + 상단바(검색/알림) + 본문 .page 컨테이너를 제공한다.
+ * 사용자 사이트(apps/web)의 레이아웃/CSS 는 가져오지 않는다(관리자 전용).
+ */
+
+/**
+ * 사이드바 메뉴 한 개. activeKey 와 key 가 같으면 현재 메뉴로 강조된다.
+ * children(하위 메뉴 목록)이 있으면 부모 항목 아래에 들여쓴 서브 링크들이 펼쳐진다.
+ * 하위 항목의 subKey(서브 메뉴 식별 키)는 activeSubKey 와 비교해 활성 강조에 쓰인다.
+ */
+type NavItem = {
+  key: string;
+  href: string;
+  icon: string;
+  label: string;
+  badge?: string;
+  subKey?: string; // 하위 항목일 때 activeSubKey 와 매칭되는 키(예: 게시판 slug)
+  children?: NavItem[]; // 하위 메뉴 목록(있으면 부모 항목이 된다)
+};
+type NavGroup = { label: string; items: NavItem[] };
+
+/**
+ * "게시글 관리" 부모 항목의 하위 메뉴.
+ * "전체"(/posts) + 각 게시판(/posts/{slug})을 BOARDS(전체 게시판 목록) 순회로 생성한다.
+ * subKey 는 게시판 slug(게시판 영문 키)이며 activeSubKey 와 일치하면 active 강조된다.
+ */
+const POSTS_CHILDREN: NavItem[] = [
+  { key: "posts-all", href: "/posts", icon: "ri-list-check", label: "전체", subKey: "" },
+  ...BOARDS.map((b) => ({
+    key: `posts-${b.slug}`,
+    href: `/posts/${b.slug}`,
+    icon: "ri-bookmark-line",
+    label: b.label,
+    subKey: b.slug,
+  })),
+];
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { key: "dashboard", href: "/dashboard", icon: "ri-dashboard-line", label: "대시보드" },
+      { key: "stats", href: "/stats", icon: "ri-line-chart-line", label: "접속 통계" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { key: "posts", href: "/posts", icon: "ri-article-line", label: "게시글 관리", children: POSTS_CHILDREN },
+      { key: "qna", href: "/qna", icon: "ri-question-answer-line", label: "묻고답하기 관리" },
+      { key: "resources", href: "/resources", icon: "ri-folder-download-line", label: "실전자료 관리" },
+      { key: "comments", href: "/comments", icon: "ri-chat-3-line", label: "댓글·후기 관리" },
+    ],
+  },
+  {
+    label: "Operation",
+    items: [
+      { key: "reports", href: "/reports", icon: "ri-alarm-warning-line", label: "신고 관리", badge: "12" },
+      { key: "messages", href: "/messages", icon: "ri-mail-line", label: "쪽지 관리" },
+      { key: "members", href: "/members", icon: "ri-user-settings-line", label: "유저 회원 관리" },
+      {
+        key: "admin-members",
+        href: "/admin-members",
+        icon: "ri-shield-user-line",
+        label: "관리회원 관리",
+        children: [
+          { key: "admin-members-list", href: "/admin-members", icon: "ri-group-line", label: "관리회원", subKey: "" },
+          { key: "admin-members-grades", href: "/admin-members/grades", icon: "ri-award-line", label: "등급 설정", subKey: "grades" },
+          { key: "admin-members-perms", href: "/admin-members/permissions", icon: "ri-key-2-line", label: "권한 설정", subKey: "permissions" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Community",
+    items: [
+      { key: "points", href: "/points", icon: "ri-copper-coin-line", label: "포인트 관리" },
+      { key: "ranks", href: "/ranks", icon: "ri-medal-line", label: "등급·뱃지 관리" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { key: "ads", href: "/ads", icon: "ri-advertisement-line", label: "광고 관리" },
+      { key: "settings", href: "/settings", icon: "ri-settings-3-line", label: "사이트 설정" },
+    ],
+  },
+];
+
+export function AdminShell({
+  breadcrumb,
+  activeKey,
+  activeSubKey,
+  children,
+}: {
+  /** 상단바 경로 표시. 마지막 항목이 현재 위치로 강조된다. */
+  breadcrumb: string[];
+  /** 현재 활성 메뉴 key (NAV_GROUPS 의 item.key) */
+  activeKey: string;
+  /**
+   * 현재 활성 하위 메뉴 키(선택). 게시글 관리 서브메뉴에서 child.subKey 와 일치하면 active 강조.
+   * 예: "/posts/vibe-tip" 페이지면 activeSubKey="vibe-tip", "/posts"(전체)면 activeSubKey=""(빈 문자열).
+   */
+  activeSubKey?: string;
+  children: ReactNode;
+}) {
+  const crumbs = breadcrumb.length ? breadcrumb : ["관리자"];
+
+  return (
+    <div className="app-shell" id="appShell">
+      <aside className="sidebar" id="sidebar" aria-label="관리자 주 메뉴">
+        <div className="sidebar-brand">
+          {/* 프로젝트 로고(심볼 마크). 기존 'AI' 아바타 원형을 대체한다. */}
+          <img className="brand-logo" src="/logo-mark.svg" alt="AI작당" width={34} height={34} />
+          <div className="brand-copy">
+            <strong className="brand-title">AI작당 Admin</strong>
+            <span className="brand-subtitle">운영 관리자</span>
+          </div>
+          <button className="icon-button" data-admin-sidebar-toggle aria-label="사이드바 축소">
+            <i className="ri-contract-left-line" />
+          </button>
+        </div>
+
+        <div className="sidebar-scroll">
+          <nav>
+            {NAV_GROUPS.map((group) => (
+              <div className="nav-group" key={group.label}>
+                <div className="nav-label">{group.label}</div>
+                {group.items.map((item) => {
+                  // parentActive(부모 메뉴가 현재 활성인지) — 활성이면 하위 메뉴를 펼친다(JS 없이 항상 펼침).
+                  const parentActive = item.key === activeKey;
+                  return (
+                    <div key={item.key}>
+                      <a className={`nav-item${parentActive ? " active" : ""}`} href={item.href}>
+                        <i className={item.icon} />
+                        <span>{item.label}</span>
+                        {item.badge ? <span className="nav-badge">{item.badge}</span> : null}
+                        {item.children ? (
+                          <i
+                            className={parentActive ? "ri-arrow-down-s-line" : "ri-arrow-right-s-line"}
+                            style={{ marginLeft: "auto", fontSize: 16 }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </a>
+
+                      {/* 하위 메뉴: 부모가 활성일 때만 펼친다(서버 컴포넌트, 들여쓰기/작은 폰트는 인라인 style). */}
+                      {item.children && parentActive ? (
+                        <div style={{ marginTop: 3, paddingLeft: 16 }}>
+                          {item.children.map((child) => {
+                            // childActive(이 하위 항목이 현재 활성인지) — subKey 와 activeSubKey 가 일치하면 강조.
+                            const childActive = child.subKey === (activeSubKey ?? "");
+                            return (
+                              <a
+                                key={child.key}
+                                className={`nav-item${childActive ? " active" : ""}`}
+                                href={child.href}
+                                style={{ minHeight: 34, fontSize: 13 }}
+                              >
+                                <i className={child.icon} style={{ fontSize: 15 }} />
+                                <span>{child.label}</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        <div className="sidebar-footer">
+          <div className="admin-profile">
+            <div className="avatar">관리</div>
+            <div className="profile-copy">
+              <span className="profile-name">최고관리자</span>
+              <span className="profile-role">Super Admin</span>
+            </div>
+            <button className="icon-button" aria-label="프로필 메뉴">
+              <i className="ri-more-2-fill" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="mobile-backdrop" />
+
+      <header className="topbar">
+        <div className="topbar-left">
+          <button className="icon-button mobile-menu" data-admin-mobile-menu aria-label="메뉴 열기">
+            <i className="ri-menu-line" />
+          </button>
+          <div className="breadcrumb">
+            {crumbs.map((c, i) =>
+              i === crumbs.length - 1 ? (
+                <strong key={i}>{c}</strong>
+              ) : (
+                <span key={i} style={{ display: "contents" }}>
+                  <span>{c}</span>
+                  <i className="ri-arrow-right-s-line" />
+                </span>
+              ),
+            )}
+          </div>
+        </div>
+        <div className="topbar-right">
+          <div className="global-search">
+            <i className="ri-search-line" />
+            <input type="search" placeholder="메뉴, 회원, 게시글 검색" aria-label="전체 검색" />
+            <span className="search-shortcut">Ctrl K</span>
+          </div>
+          <NotificationMenu />
+          <HelpMenu />
+          <AdminAccountMenu />
+        </div>
+      </header>
+
+      <main className="main">
+        <div className="page">{children}</div>
+      </main>
+
+      <AdminInteractions />
+    </div>
+  );
+}

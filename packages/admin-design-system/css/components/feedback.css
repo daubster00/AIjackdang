@@ -1,0 +1,130 @@
+/* ===========================================================================
+ * 피드백: 알림(alert), 빈 상태(empty-state), 토스트(toast)
+ * =========================================================================== */
+
+/* ---- 인라인 알림 ---- */
+.alert {
+  padding: 13px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.alert + .alert {
+  margin-top: 10px;
+}
+
+.alert i {
+  margin-top: 1px;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.alert-info {
+  background: var(--info-bg);
+  border-color: #bae6fd;
+  color: #075985;
+}
+
+.alert-warning {
+  background: var(--warning-bg);
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.alert-danger {
+  background: var(--danger-bg);
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+/* ---- 빈 상태 ---- */
+.empty-state {
+  min-height: 238px;
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--radius-lg);
+  background: var(--gray-25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px;
+}
+
+.empty-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.empty-title {
+  margin-top: 13px;
+  color: var(--gray-900);
+  font-weight: 700;
+}
+
+.empty-desc {
+  max-width: 330px;
+  margin-top: 5px;
+  color: var(--gray-500);
+  font-size: 13px;
+}
+
+/* ---- 토스트 ---- */
+.toast-region {
+  position: fixed;
+  z-index: 150;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 300px;
+  max-width: 420px;
+  padding: 13px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-0);
+  box-shadow: var(--shadow-popover);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: adminToastIn 180ms ease forwards;
+}
+
+.toast.success i { color: var(--success); }
+.toast.error i { color: var(--danger); }
+
+@keyframes adminToastIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toast-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.toast-title {
+  color: var(--gray-900);
+  font-weight: 700;
+}
+
+.toast-desc {
+  margin-top: 2px;
+  color: var(--gray-500);
+  font-size: 12px;
+}

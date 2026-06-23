@@ -1,0 +1,35 @@
+/* ===========================================================================
+ * 탭 / 세그먼트 컨트롤
+ *
+ * .line-tabs > .line-tab[data-tab]   밑줄 탭
+ * .segmented > .segment[data-range]  분할 컨트롤
+ *
+ * 항목 클릭 시 그룹 안에서 active 를 옮기고, 컨테이너에서 커스텀 이벤트를 발생시킨다.
+ *   .line-tabs → 'admin:tab-change'      detail: { value: data-tab }
+ *   .segmented → 'admin:segment-change'  detail: { value: data-range }
+ * =========================================================================== */
+
+function wireGroup(container, itemSelector, dataKey, eventName) {
+  const items = container.querySelectorAll(itemSelector);
+  items.forEach((item) => {
+    item.addEventListener("click", () => {
+      items.forEach((x) => x.classList.remove("active"));
+      item.classList.add("active");
+      container.dispatchEvent(
+        new CustomEvent(eventName, {
+          bubbles: true,
+          detail: { value: item.dataset[dataKey] },
+        })
+      );
+    });
+  });
+}
+
+export function initTabs(root = document) {
+  root.querySelectorAll(".line-tabs").forEach((tabs) => {
+    wireGroup(tabs, ".line-tab", "tab", "admin:tab-change");
+  });
+  root.querySelectorAll(".segmented").forEach((seg) => {
+    wireGroup(seg, ".segment", "range", "admin:segment-change");
+  });
+}

@@ -1,0 +1,307 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page h3,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.guideToolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 56px var(--space-6) var(--space-3);
+}
+
+.sortGroup {
+  flex: 0 0 auto;
+  width: fit-content;
+}
+
+/* 단일 컬럼 리스트 레이아웃 (우측 사이드바 컬럼 없음) */
+.listLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+.mainCol,
+.postList {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.listStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+}
+
+.statDivider {
+  color: var(--color-border-strong);
+  font-weight: var(--font-weight-regular);
+}
+
+.writeButton {
+  flex: 0 0 auto;
+  min-width: 112px;
+}
+
+.writeButton span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: #ffffff;
+}
+
+.writeButton i,
+.writeButton svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: currentColor;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.postItem {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+}
+
+.postThumb {
+  position: relative;
+  flex: 0 0 132px;
+  width: 132px;
+  height: 132px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  background: linear-gradient(155deg, #1b1c2e 0%, #11121d 100%);
+  overflow: hidden;
+}
+
+.thumbImage {
+  object-fit: cover;
+}
+
+.postBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.postTop,
+.postFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.postHeading {
+  font-weight: var(--font-weight-bold);
+}
+
+.postTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  text-decoration: none;
+}
+
+.postTitle:hover {
+  color: var(--color-primary);
+}
+
+.newDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  vertical-align: middle;
+}
+
+.postExcerpt {
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+.postFooter {
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+.postAuthor,
+.postStats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.authorName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.footerDivider {
+  color: var(--color-border);
+}
+
+.postStats {
+  gap: var(--space-4);
+}
+
+.postStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.pagination button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pagination button[aria-current="page"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.pagination i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .guideToolbar,
+  .listLayout {
+    padding-inline: var(--space-4);
+  }
+
+  .guideToolbar {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-2);
+  }
+
+  .listLayout {
+    padding-top: var(--space-4);
+  }
+
+  .postItem {
+    flex-direction: column;
+  }
+
+  .postThumb {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+  }
+
+  .tagRow {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  /* 폰: 검색을 정렬 박스 아래로 내리고 가로 가득 채움 */
+  .guideToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  /* 폰: 정렬 선택박스도 가로 100% */
+  .sortGroup {
+    width: 100%;
+  }
+}

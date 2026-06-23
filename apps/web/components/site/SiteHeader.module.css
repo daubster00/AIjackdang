@@ -1,0 +1,494 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  width: 100%;
+  border-bottom: 1px solid rgba(228, 231, 240, 0.86);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  width: 100%;
+  padding: 14px 40px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.logo {
+  min-width: 54px;
+  object-fit: contain;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 38px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.navItem {
+  position: relative;
+  padding-block: 14px;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: inherit;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navLink i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  transform: rotate(-90deg);
+  transition: transform var(--transition-base);
+}
+
+.navItem:hover .navLink i,
+.navItem:focus-within .navLink i {
+  transform: rotate(0deg);
+}
+
+.navLink:hover,
+.navItem:focus-within .navLink,
+.navItem:hover .navLink {
+  color: var(--color-primary);
+}
+
+.submenu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  z-index: var(--z-dropdown);
+  display: grid;
+  min-width: 190px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-dropdown);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translate(-50%, 8px);
+  transition:
+    opacity var(--transition-base),
+    transform var(--transition-base),
+    visibility var(--transition-base);
+}
+
+.submenu::before {
+  position: absolute;
+  top: -12px;
+  right: 0;
+  left: 0;
+  height: 12px;
+  content: "";
+}
+
+.navItem:hover .submenu,
+.navItem:focus-within .submenu {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.submenu a {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.submenu a:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.authActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.loginLink,
+.signupLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: var(--radius-md);
+  padding: 0 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.loginLink {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.signupLink {
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.loginLink:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.signupLink:hover {
+  background: var(--color-primary-hover);
+  color: #ffffff;
+}
+
+/* 로그인 상태: 알림·쪽지함 아이콘 묶음 */
+.iconActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconAction {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-sub);
+  font-size: 22px;
+  text-decoration: none;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.iconAction:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.iconAction:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.iconAction i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* 미확인 개수 뱃지 */
+.iconBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-danger);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+/* 로그인 상태: 프로필 메뉴 트리거 (아바타 + 닉네임 + 화살표) */
+.userTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px 4px 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.userTrigger:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.userTrigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.userName {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userTrigger i {
+  font-size: 18px;
+  color: var(--color-text-sub);
+  line-height: 1;
+}
+
+/* 드롭다운 상단 프로필 요약 */
+.userSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 10px 10px;
+}
+
+.userSummaryText {
+  display: grid;
+  gap: 4px;
+}
+
+.userSummaryName {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.menuButton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.menuButton i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.mobilePanel {
+  display: none;
+}
+
+@media (max-width: 1120px) {
+  .inner {
+    padding-inline: var(--space-5);
+  }
+
+  .nav,
+  .authActions {
+    display: none;
+  }
+
+  .menuButton {
+    display: inline-flex;
+  }
+
+  .mobilePanel {
+    display: block;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    padding: var(--space-4) var(--space-5) var(--space-5);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .mobileNav {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .mobileGroup {
+    display: grid;
+    gap: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-3);
+  }
+
+  .mobileGroup > a {
+    color: var(--color-text);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    text-decoration: none;
+  }
+
+  .mobileSubmenu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .mobileSubmenu a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    border-radius: var(--radius-pill);
+    background: var(--color-neutral-soft);
+    padding: 0 12px;
+    color: var(--color-text-sub);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .mobileAuth {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .mobileAuth a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .mobileAuth a:first-child {
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .mobileAuth a:last-child {
+    background: var(--color-primary);
+    color: #ffffff;
+  }
+
+  /* 로그인 상태: 모바일 패널 하단 사용자 바 */
+  .mobileUserBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    background: var(--color-neutral-soft);
+  }
+
+  .mobileUser {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .mobileUserText {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .mobileUserName {
+    overflow: hidden;
+    color: var(--color-text);
+    font-weight: var(--font-weight-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileUserActions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .mobileLogout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0 14px;
+    background: var(--color-surface);
+    color: var(--color-danger);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .mobileLogout i {
+    font-size: 18px;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .inner {
+    padding-inline: var(--space-4);
+  }
+
+  .mobilePanel {
+    padding-inline: var(--space-4);
+  }
+}

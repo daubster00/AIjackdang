@@ -1,0 +1,144 @@
+/* /dev/design-system 쇼케이스 전용 레이아웃 스타일 (디자인 시스템 검증용) */
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+.header {
+  margin-bottom: 32px;
+}
+.header h1 {
+  font-size: var(--font-size-4xl);
+  margin-bottom: 8px;
+}
+.header p {
+  color: var(--color-text-sub);
+}
+.block {
+  margin-top: 40px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.block h2 {
+  font-size: var(--font-size-xl);
+  margin-bottom: 6px;
+}
+.block > .desc {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  margin-bottom: 18px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.stateGrid {
+  display: grid;
+  grid-template-columns: 120px repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+.stateGrid .label {
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+}
+
+/* 토큰 스와치 */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.swatch {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+}
+.swatch .chip {
+  height: 56px;
+}
+.swatch .meta {
+  padding: 8px 10px;
+}
+.swatch .name {
+  font-weight: var(--font-weight-semibold);
+}
+.swatch .value {
+  color: var(--color-text-sub);
+}
+
+/* 타이포 / 스페이싱 / radius / shadow 데모 */
+.typeSample {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.spaceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.spaceBar {
+  height: 16px;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-sm);
+}
+.radiusRow,
+.shadowRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.radiusBox {
+  width: 90px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+.shadowBox {
+  width: 140px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+}
+
+.subhead {
+  margin: 18px 0 10px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.toc a {
+  font-size: var(--font-size-sm);
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-sub);
+}
+.toc a:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

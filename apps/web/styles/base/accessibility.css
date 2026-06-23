@@ -1,0 +1,58 @@
+/* ===========================================================================
+ * AI작당 사용자 사이트 — 접근성 기본
+ * 색상만으로 상태를 전달하지 않으며, 키보드 포커스 표시를 제거하지 않는다.
+ * =========================================================================== */
+
+/* 스크린리더 전용 텍스트 */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* 키보드 사용자에게만 포커스 링 노출.
+ * 폼 컨트롤(input/textarea/select)은 제외한다.
+ * - 폼 컨트롤의 포커스 표시는 각 UI 컴포넌트(Input/SearchInput/Textarea 등) 또는
+ *   이를 감싸 :focus-within 으로 링을 그리는 래퍼가 책임진다.
+ * - 전역 링을 폼 컨트롤에 중복으로 입히지 않으므로 "래퍼 + 내부 input" 이중 테두리가 생기지 않는다.
+ * - 컴포넌트/래퍼 없이 쓰는 맨 input 은 브라우저 기본 아웃라인으로 접근성을 유지한다.
+ */
+:focus-visible:not(input):not(textarea):not(select) {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-md);
+}
+
+/* 본문 바로가기 링크 */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-md);
+}
+.skip-link:focus {
+  left: var(--space-4);
+  top: var(--space-4);
+}
+
+/* 모션 최소화 선호 사용자 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

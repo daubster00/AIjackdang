@@ -1,0 +1,4 @@
+{
+  "extends": "@ai-jakdang/config/tsconfig.node.json",
+  "include": ["src"]
+}

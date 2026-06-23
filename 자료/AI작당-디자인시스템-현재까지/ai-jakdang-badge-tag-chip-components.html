@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI작당 배지·태그·칩 컴포넌트</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.9.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+:root{
+  --primary:#3030c0;
+  --primary-dark:#20208a;
+  --primary-soft:#eef0ff;
+  --accent:#18c7b8;
+  --accent-soft:#e8faf8;
+
+  --bg:#f7f8fc;
+  --surface:#ffffff;
+  --text:#171827;
+  --sub:#5f6473;
+  --border:#e4e7f0;
+
+  --success:#148f73;
+  --success-soft:#e9f8f3;
+  --warning:#b7791f;
+  --warning-soft:#fff7e6;
+  --danger:#d9363e;
+  --danger-soft:#fff0f1;
+  --info:#2478d4;
+  --info-soft:#edf5ff;
+  --neutral:#6b7280;
+  --neutral-soft:#f1f3f7;
+
+  --shadow:0 8px 24px rgba(23,24,39,.08);
+  --focus:0 0 0 4px rgba(48,48,192,.14);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+button{font:inherit}
+.page{
+  max-width:1180px;
+  margin:0 auto;
+  padding:56px 24px 80px;
+}
+.header{margin-bottom:32px}
+.header h1{
+  margin:0 0 10px;
+  font-size:36px;
+  font-weight:700;
+  letter-spacing:-.03em;
+}
+.header p{
+  margin:0;
+  color:var(--sub);
+  font-size:16px;
+}
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.section{
+  padding:30px;
+  border-bottom:1px solid var(--border);
+}
+.section:last-child{border-bottom:0}
+.section h2{
+  margin:0 0 10px;
+  font-size:20px;
+  font-weight:700;
+}
+.section-desc{
+  margin:0 0 20px;
+  color:var(--sub);
+  font-size:14px;
+  line-height:1.6;
+}
+.row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+}
+.group{
+  display:grid;
+  grid-template-columns:160px 1fr;
+  gap:20px;
+  align-items:start;
+  margin-top:22px;
+}
+.group:first-of-type{margin-top:0}
+.group-label{
+  font-size:14px;
+  font-weight:600;
+  color:var(--sub);
+  padding-top:5px;
+}
+
+/* Badge */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-height:24px;
+  padding:0 9px;
+  border:1px solid transparent;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:600;
+  line-height:1;
+  white-space:nowrap;
+}
+.badge i{font-size:13px}
+.badge--primary{background:var(--primary-soft);color:var(--primary)}
+.badge--success{background:var(--success-soft);color:var(--success)}
+.badge--warning{background:var(--warning-soft);color:var(--warning)}
+.badge--danger{background:var(--danger-soft);color:var(--danger)}
+.badge--info{background:var(--info-soft);color:var(--info)}
+.badge--neutral{background:var(--neutral-soft);color:var(--neutral)}
+.badge--outline{
+  background:#fff;
+  border-color:var(--border);
+  color:var(--sub);
+}
+.badge--solid-primary{background:var(--primary);color:#fff}
+.badge--solid-success{background:var(--success);color:#fff}
+.badge--solid-danger{background:var(--danger);color:#fff}
+
+/* Tag */
+.tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:30px;
+  padding:0 11px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:#fff;
+  color:var(--sub);
+  font-size:13px;
+  font-weight:500;
+  line-height:1;
+  text-decoration:none;
+  transition:.16s ease;
+}
+.tag:hover{
+  border-color:var(--primary);
+  color:var(--primary);
+  background:var(--primary-soft);
+}
+.tag--filled{
+  border-color:transparent;
+  background:var(--primary-soft);
+  color:var(--primary);
+  font-weight:600;
+}
+.tag__remove{
+  width:18px;
+  height:18px;
+  display:inline-grid;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+}
+.tag__remove:hover{background:rgba(48,48,192,.10)}
+.tag--disabled{
+  opacity:.45;
+  pointer-events:none;
+}
+
+/* Chip */
+.chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:36px;
+  padding:0 14px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:#fff;
+  color:var(--sub);
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+  transition:.16s ease;
+}
+.chip:hover{
+  border-color:#c9cde0;
+  background:#fafbff;
+  color:var(--text);
+}
+.chip:focus-visible{
+  outline:none;
+  box-shadow:var(--focus);
+}
+.chip.is-active{
+  border-color:var(--primary);
+  background:var(--primary);
+  color:#fff;
+  font-weight:600;
+}
+.chip.is-soft-active{
+  border-color:var(--primary);
+  background:var(--primary-soft);
+  color:var(--primary);
+  font-weight:600;
+}
+.chip:disabled{
+  opacity:.42;
+  cursor:not-allowed;
+}
+.chip__count{
+  min-width:20px;
+  height:20px;
+  padding:0 6px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:var(--neutral-soft);
+  color:var(--neutral);
+  font-size:11px;
+  font-weight:700;
+}
+.chip.is-active .chip__count{
+  background:rgba(255,255,255,.18);
+  color:#fff;
+}
+.chip.is-soft-active .chip__count{
+  background:#fff;
+  color:var(--primary);
+}
+
+/* Preview cards */
+.preview-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+}
+.card{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  background:#fff;
+}
+.card-top{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  margin-bottom:14px;
+}
+.card h3{
+  margin:0;
+  font-size:17px;
+  font-weight:700;
+  line-height:1.35;
+}
+.card p{
+  margin:0 0 14px;
+  color:var(--sub);
+  font-size:14px;
+  line-height:1.55;
+}
+.meta{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.filter-wrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.filter-status{
+  margin-top:18px;
+  color:var(--sub);
+  font-size:13px;
+}
+@media(max-width:860px){
+  .preview-grid{grid-template-columns:1fr}
+  .group{grid-template-columns:1fr}
+  .group-label{padding-top:0}
+}
+@media(max-width:560px){
+  .page{padding:30px 14px 50px}
+  .section{padding:22px 18px}
+  .header h1{font-size:30px}
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="header">
+    <h1>AI작당 배지·태그·칩 컴포넌트</h1>
+    <p>상태 표시, 키워드 분류, 선택형 필터를 구분해 사용하는 공통 컴포넌트</p>
+  </header>
+
+  <div class="panel">
+    <section class="section">
+      <h2>상태 배지</h2>
+      <p class="section-desc">배지는 짧은 상태나 유형을 표시합니다. 클릭 기능은 없습니다.</p>
+
+      <div class="group">
+        <div class="group-label">묻고답하기 상태</div>
+        <div class="row">
+          <span class="badge badge--warning"><i class="ri-time-line"></i>답변대기</span>
+          <span class="badge badge--info"><i class="ri-chat-3-line"></i>답변있음</span>
+          <span class="badge badge--success"><i class="ri-checkbox-circle-line"></i>해결됨</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">자료 유형</div>
+        <div class="row">
+          <span class="badge badge--primary">프롬프트</span>
+          <span class="badge badge--info">Claude Code Skill</span>
+          <span class="badge badge--success">MCP</span>
+          <span class="badge badge--warning">Rules·설정</span>
+          <span class="badge badge--neutral">템플릿·체크리스트</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">난이도</div>
+        <div class="row">
+          <span class="badge badge--success">쉬움</span>
+          <span class="badge badge--warning">보통</span>
+          <span class="badge badge--danger">어려움</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">운영 상태</div>
+        <div class="row">
+          <span class="badge badge--solid-success">공개</span>
+          <span class="badge badge--outline">임시저장</span>
+          <span class="badge badge--warning">숨김</span>
+          <span class="badge badge--solid-danger">삭제됨</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">콘텐츠 강조</div>
+        <div class="row">
+          <span class="badge badge--solid-primary"><i class="ri-star-fill"></i>추천</span>
+          <span class="badge badge--danger"><i class="ri-fire-line"></i>인기</span>
+          <span class="badge badge--success"><i class="ri-sparkling-line"></i>신규</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>태그</h2>
+      <p class="section-desc">태그는 글과 자료의 키워드를 표시합니다. 클릭 시 태그 페이지로 이동하거나 등록 화면에서 삭제할 수 있습니다.</p>
+
+      <div class="group">
+        <div class="group-label">기본 태그</div>
+        <div class="row">
+          <a class="tag" href="#"><i class="ri-hashtag"></i>ClaudeCode</a>
+          <a class="tag" href="#"><i class="ri-hashtag"></i>Cursor</a>
+          <a class="tag" href="#"><i class="ri-hashtag"></i>n8n</a>
+          <a class="tag" href="#"><i class="ri-hashtag"></i>PHP</a>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">강조 태그</div>
+        <div class="row">
+          <a class="tag tag--filled" href="#">AI자동화</a>
+          <a class="tag tag--filled" href="#">수익화</a>
+          <a class="tag tag--filled" href="#">MCP</a>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">삭제 가능한 태그</div>
+        <div class="row">
+          <span class="tag tag--filled">Claude Code<button class="tag__remove" type="button" aria-label="Claude Code 태그 삭제"><i class="ri-close-line"></i></button></span>
+          <span class="tag tag--filled">PHP<button class="tag__remove" type="button" aria-label="PHP 태그 삭제"><i class="ri-close-line"></i></button></span>
+          <span class="tag tag--disabled">비활성 태그</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>선택형 칩</h2>
+      <p class="section-desc">칩은 탭보다 가벼운 필터용입니다. 클릭하면 선택 상태가 바뀝니다.</p>
+
+      <div class="filter-wrap" id="filterChips">
+        <button class="chip is-active" type="button" data-value="전체">전체 <span class="chip__count">128</span></button>
+        <button class="chip" type="button" data-value="최신글">최신글 <span class="chip__count">32</span></button>
+        <button class="chip" type="button" data-value="인기글">인기글 <span class="chip__count">18</span></button>
+        <button class="chip" type="button" data-value="댓글 많은 글">댓글 많은 글 <span class="chip__count">24</span></button>
+        <button class="chip" type="button" data-value="해결됨"><i class="ri-checkbox-circle-line"></i>해결됨</button>
+        <button class="chip" type="button" data-value="답변대기"><i class="ri-time-line"></i>답변대기</button>
+        <button class="chip" type="button" disabled>비활성</button>
+      </div>
+      <div class="filter-status">선택된 필터: <strong id="selectedChip">전체</strong></div>
+    </section>
+
+    <section class="section">
+      <h2>실제 카드 적용 예시</h2>
+      <p class="section-desc">카드 안에서는 배지와 태그를 동시에 사용하되, 배지는 1~2개만 강조하고 태그는 하단에 배치합니다.</p>
+
+      <div class="preview-grid">
+        <article class="card">
+          <div class="card-top">
+            <h3>GitHub MCP Server 설정 자료</h3>
+            <span class="badge badge--success">MCP</span>
+          </div>
+          <p>Claude Code에서 GitHub 이슈와 PR을 다룰 수 있도록 구성한 설정 자료입니다.</p>
+          <div class="meta">
+            <a class="tag" href="#">GitHub</a>
+            <a class="tag" href="#">ClaudeCode</a>
+            <span class="badge badge--warning">보통</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <h3>n8n으로 고객 문의 자동 분류하기</h3>
+            <span class="badge badge--danger"><i class="ri-fire-line"></i>인기</span>
+          </div>
+          <p>Gmail로 들어오는 고객 문의를 AI가 자동으로 분류하는 실전 사례입니다.</p>
+          <div class="meta">
+            <a class="tag" href="#">n8n</a>
+            <a class="tag" href="#">자동화</a>
+            <span class="badge badge--success">쉬움</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <h3>Claude Code가 PHP 구조를 잘못 이해합니다</h3>
+            <span class="badge badge--warning"><i class="ri-time-line"></i>답변대기</span>
+          </div>
+          <p>기존 레거시 프로젝트를 분석할 때 컨텍스트를 안정적으로 전달하는 방법을 묻는 질문입니다.</p>
+          <div class="meta">
+            <a class="tag" href="#">ClaudeCode</a>
+            <a class="tag" href="#">PHP</a>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const chipWrap = document.getElementById('filterChips');
+const selectedChip = document.getElementById('selectedChip');
+
+chipWrap.addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip || chip.disabled) return;
+
+  chipWrap.querySelectorAll('.chip').forEach(item => {
+    item.classList.remove('is-active', 'is-soft-active');
+  });
+
+  chip.classList.add('is-active');
+  selectedChip.textContent = chip.dataset.value;
+});
+
+document.querySelectorAll('.tag__remove').forEach(button => {
+  button.addEventListener('click', () => {
+    button.closest('.tag').remove();
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+.page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 240, 255, 0.92)),
+    var(--color-bg);
+  color: var(--color-text);
+}
+
+.authSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--container-max);
+  min-height: calc(100vh - 86px);
+  margin-inline: auto;
+  padding: 96px var(--space-6);
+}
+
+.formPanel {
+  width: min(100%, 620px);
+  border: 1px solid rgba(48, 48, 192, 0.16);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.94);
+  padding: clamp(28px, 4vw, 42px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.formHead {
+  margin-bottom: var(--space-5);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.formHead h1 {
+  margin: 8px 0 0;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0;
+}
+
+.formHead p:last-child {
+  margin: 10px 0 0;
+  color: var(--color-text-sub);
+  line-height: var(--line-height-normal);
+}
+
+.methodTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-neutral-soft);
+  padding: 6px;
+}
+
+.methodTabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 42px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.methodTabs i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.methodTabs .activeTab {
+  background: #ffffff;
+  color: var(--color-primary);
+  box-shadow: 0 8px 20px rgba(23, 24, 39, 0.08);
+}
+
+.socialSection,
+.form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.socialGrid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.socialButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--social-bg);
+  color: var(--social-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    filter var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+}
+
+.socialButton:hover {
+  filter: brightness(0.98);
+  box-shadow: 0 10px 22px rgba(23, 24, 39, 0.06);
+  transform: translateY(-1px);
+}
+
+.socialButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.socialLogo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--social-logo-bg);
+  color: var(--social-logo-color);
+  font-size: 15px;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.socialLogo i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.kakaoButton {
+  --social-bg: #fee500;
+  --social-color: rgba(0, 0, 0, 0.86);
+  --social-logo-bg: transparent;
+  --social-logo-color: rgba(0, 0, 0, 0.86);
+}
+
+.kakaoButton .socialLogo {
+  font-size: 22px;
+}
+
+.kakaoMark {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.naverButton {
+  --social-bg: #03c75a;
+  --social-color: #ffffff;
+  --social-logo-bg: transparent;
+  --social-logo-color: #ffffff;
+}
+
+.naverButton .socialLogo {
+  font-size: 18px;
+}
+
+.googleButton {
+  --social-bg: #ffffff;
+  --social-color: #202124;
+  --social-logo-bg: transparent;
+  --social-logo-color: currentColor;
+  border-color: var(--color-border);
+}
+
+.googleMark {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.optionalBlock {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fbfcff;
+  padding: 18px;
+}
+
+.optionalHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.optionalHead strong {
+  font-size: var(--font-size-base);
+}
+
+.optionalHead span {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.optionalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.agreementPanel {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid rgba(48, 48, 192, 0.16);
+  border-radius: var(--radius-lg);
+  background: rgba(238, 240, 255, 0.52);
+  padding: 18px;
+}
+
+.compactAgreement {
+  margin-top: var(--space-1);
+}
+
+.agreementList {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid rgba(48, 48, 192, 0.12);
+  padding-top: var(--space-3);
+}
+
+.agreementItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.agreementItem > a,
+.agreementItem > span {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.agreementItem a:hover {
+  color: var(--color-primary-hover);
+}
+
+.loginText {
+  margin: var(--space-5) 0 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.loginText a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.loginText a:hover {
+  color: var(--color-primary-hover);
+}
+
+@media (max-width: 767px) {
+  .authSection {
+    min-height: auto;
+    padding: 56px var(--space-4);
+  }
+
+  .formPanel {
+    border-radius: var(--radius-lg);
+  }
+
+  .methodTabs {
+    grid-template-columns: 1fr;
+  }
+
+  .optionalHead {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .optionalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .agreementItem {
+    align-items: flex-start;
+  }
+}

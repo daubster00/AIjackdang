@@ -1,0 +1,63 @@
+/* ===========================================================================
+ * 그리드/배치 유틸 (대시보드·폼·컴포넌트 배열)
+ * =========================================================================== */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* 통계 카드 4열 */
+.stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+/* 대시보드: 좌측 넓은 영역 + 우측 사이드 카드 */
+.dashboard-grid {
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr);
+  margin-bottom: 16px;
+}
+
+/* 컴포넌트 2열 */
+.component-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 세로 스택 */
+.component-stack {
+  display: grid;
+  gap: 14px;
+}
+
+/* 폼 2열 */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* 섹션 묶음 */
+.section {
+  margin-top: 24px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  margin: 0;
+  color: var(--gray-900);
+  font-size: 20px;
+  font-weight: 740;
+  letter-spacing: -0.015em;
+}
+
+.section-description {
+  margin: 5px 0 0;
+  color: var(--gray-500);
+}

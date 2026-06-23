@@ -1,0 +1,47 @@
+/* Textarea — 출처: ai-jakdang-input-components-v2.html */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.label {
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+}
+.required {
+  color: var(--color-danger);
+  margin-left: 2px;
+}
+.textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  resize: vertical;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+.textarea:hover {
+  border-color: #b9bfd0;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+.textarea:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+.counter {
+  text-align: right;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}

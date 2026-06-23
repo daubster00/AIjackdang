@@ -1,0 +1,59 @@
+/* Dropdown — 출처: ai-jakdang-layout-components.html (.dropdown) */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.menu {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-dropdown);
+}
+.menu.alignEnd {
+  left: auto;
+  right: 0;
+}
+.item {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover,
+.item.focused {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.danger {
+  color: var(--color-danger);
+}
+.danger:hover,
+.danger.focused {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--color-border);
+}

@@ -1,0 +1,49 @@
+/* Checkbox — 디자인 토큰 기반 커스텀 체크박스 */
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+}
+.wrapper.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.native {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.box {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: #fff;
+  font-size: 14px;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+.check {
+  opacity: 0;
+}
+.native:checked + .box {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.native:checked + .box .check {
+  opacity: 1;
+}
+.native:focus-visible + .box {
+  box-shadow: var(--focus-ring);
+}
+.label {
+  user-select: none;
+}

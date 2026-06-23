@@ -1,0 +1,123 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { z } from "zod";
+
+/**
+ * env 단일 진입점 (project-context.md §패키지 경계).
+ *
+ * 모든 환경변수 접근은 이 파일이 export 하는 `env` 객체로만 한다.
+ * 분산 `process.env` 접근 금지 — 누락/형식 오류를 부팅 시점에 한 번에 잡는다.
+ *
+ * 로딩: 리포 루트의 `.env`를 Node 22 네이티브 `process.loadEnvFile`로
+ * best-effort 로드한다. 워크스페이스 하위에서 프로세스가 떠도(`apps/api` 등
+ * cwd가 루트가 아니어도) 루트 `.env`를 찾도록 cwd에서 위로 올라가며 탐색한다.
+ * 이미 환경에 주입된 값이 우선이며, `.env`가 없으면 무시한다.
+ */
+
+// --- .env 로드 (루트 탐색) -------------------------------------------------
+/** cwd에서 상위로 올라가며 첫 `.env`(또는 워크스페이스 루트의 `.env`)를 찾는다. */
+function findEnvFile(start: string): string | undefined {
+  let dir = start;
+  for (;;) {
+    const candidate = join(dir, ".env");
+    if (existsSync(candidate)) return candidate;
+    // 워크스페이스 루트(pnpm-workspace.yaml)에 도달하면 더 올라가지 않는다.
+    if (existsSync(join(dir, "pnpm-workspace.yaml"))) return undefined;
+    const parent = dirname(dir);
+    if (parent === dir) return undefined; // 파일시스템 루트 도달
+    dir = parent;
+  }
+}
+
+try {
+  const envPath = findEnvFile(process.cwd());
+  if (envPath) {
+    (process as NodeJS.Process & { loadEnvFile?: (path?: string) => void }).loadEnvFile?.(envPath);
+  }
+} catch {
+  // .env 없음/로드 실패 — 환경에 이미 주입된 값으로 진행.
+}
+
+// --- 헬퍼 -----------------------------------------------------------------
+/** "true"/"1"/"false"/"0" 문자열을 boolean으로 강제(미설정 시 false). */
+const boolish = z
+  .union([z.boolean(), z.string()])
+  .optional()
+  .transform((v) => v === true || v === "true" || v === "1");
+
+const portish = z.coerce.number().int().positive();
+
+// --- 스키마 ---------------------------------------------------------------
+const envSchema = z
+  .object({
+    // 공통
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+
+    // 필수 그룹
+    DATABASE_URL: z.string().min(1, "필수"),
+    REDIS_URL: z.string().min(1, "필수"),
+    AUTH_SECRET: z.string().min(1, "필수"),
+
+    // 인증 (선택/개발)
+    ADMIN_AUTH_SECRET: z.string().optional(),
+    AUTH_DEV_BYPASS: boolish,
+
+    // 파일 보안 스캔 (ClamAV)
+    CLAMD_HOST: z.string().default("localhost"),
+    CLAMD_PORT: portish.default(3310),
+
+    // S3 호환 스토리지 (MinIO/R2)
+    S3_ENDPOINT: z.string().optional(),
+    S3_REGION: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_FORCE_PATH_STYLE: boolish,
+    S3_BUCKET_PUBLIC: z.string().optional(),
+    S3_BUCKET_PRIVATE: z.string().optional(),
+
+    // 소셜 OAuth (개발용 앱 credential — 선택)
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    NAVER_CLIENT_ID: z.string().optional(),
+    NAVER_CLIENT_SECRET: z.string().optional(),
+    KAKAO_REST_API_KEY: z.string().optional(),
+    KAKAO_CLIENT_SECRET: z.string().optional(),
+
+    // 로깅 / 네트워크 (선택)
+    LOG_LEVEL: z.string().default("info"),
+    WEB_PUBLIC_URL: z.string().default("http://localhost:3003"),
+    ADMIN_PUBLIC_URL: z.string().default("http://localhost:3004"),
+    API_PORT: portish.default(4003),
+    API_HOST: z.string().default("0.0.0.0"),
+  })
+  // production 환경에서 dev-bypass가 켜져 있으면 부팅 차단 (ADR-0001 §6 / 보안 주의).
+  .superRefine((val, ctx) => {
+    if (val.NODE_ENV === "production" && val.AUTH_DEV_BYPASS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTH_DEV_BYPASS"],
+        message: "production 환경에서는 AUTH_DEV_BYPASS=true 를 사용할 수 없습니다(개발 전용).",
+      });
+    }
+  });
+
+/** 타입 안전한 env 객체. 추론 타입을 외부에서 쓸 때 사용. */
+export type Env = z.infer<typeof envSchema>;
+
+function loadEnv(): Env {
+  const parsed = envSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join(", ");
+    // 명확한 메시지로 부팅 실패 (AC #3)
+    throw new Error(`환경변수 오류: [${issues}]`);
+  }
+  return parsed.data;
+}
+
+/**
+ * 검증·정규화된 단일 env 객체. import 시점에 한 번 평가된다.
+ * 누락/형식 오류 시 위 loadEnv가 throw -> 프로세스 부팅 실패.
+ */
+export const env: Env = loadEnv();

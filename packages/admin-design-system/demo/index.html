@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>AI작당 Admin 디자인 시스템 — 데모</title>
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" />
+
+  <!-- 디자인 시스템 CSS (분리된 파일 묶음의 단일 진입점) -->
+  <link rel="stylesheet" href="../css/index.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar" aria-label="관리자 주 메뉴">
+      <div class="sidebar-brand">
+        <span class="avatar brand-logo" aria-hidden="true">AI</span>
+        <div class="brand-copy">
+          <strong class="brand-title">AI작당 Admin</strong>
+          <span class="brand-subtitle">Admin Core UI</span>
+        </div>
+        <button class="icon-button" data-admin-sidebar-toggle aria-label="사이드바 축소">
+          <i class="ri-contract-left-line"></i>
+        </button>
+      </div>
+
+      <div class="sidebar-scroll">
+        <nav>
+          <div class="nav-group">
+            <div class="nav-label">Overview</div>
+            <button class="nav-item active"><i class="ri-dashboard-line"></i><span>대시보드</span></button>
+            <button class="nav-item"><i class="ri-line-chart-line"></i><span>접속 통계</span></button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-label">Content</div>
+            <button class="nav-item"><i class="ri-article-line"></i><span>게시글 관리</span></button>
+            <button class="nav-item"><i class="ri-question-answer-line"></i><span>묻고답하기 관리</span></button>
+            <button class="nav-item"><i class="ri-folder-download-line"></i><span>실전자료 관리</span></button>
+            <button class="nav-item"><i class="ri-chat-3-line"></i><span>댓글·후기 관리</span></button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-label">Operation</div>
+            <button class="nav-item"><i class="ri-alarm-warning-line"></i><span>신고 관리</span><span class="nav-badge">12</span></button>
+            <button class="nav-item"><i class="ri-user-settings-line"></i><span>회원 관리</span></button>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="admin-profile">
+          <div class="avatar">관리</div>
+          <div class="profile-copy">
+            <span class="profile-name">최고관리자</span>
+            <span class="profile-role">Super Admin</span>
+          </div>
+          <button class="icon-button" aria-label="프로필 메뉴"><i class="ri-more-2-fill"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="mobile-backdrop"></div>
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-button mobile-menu" data-admin-mobile-menu aria-label="메뉴 열기">
+          <i class="ri-menu-line"></i>
+        </button>
+        <div class="breadcrumb">
+          <span>관리자</span><i class="ri-arrow-right-s-line"></i><strong>대시보드</strong>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="global-search">
+          <i class="ri-search-line"></i>
+          <input id="globalSearchInput" type="search" placeholder="메뉴, 회원, 게시글 검색" aria-label="전체 검색" />
+          <span class="search-shortcut">Ctrl K</span>
+        </div>
+        <button class="icon-button notification-dot" aria-label="알림"><i class="ri-notification-3-line"></i></button>
+        <button class="icon-button" aria-label="도움말"><i class="ri-question-line"></i></button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">관리자 대시보드</h1>
+            <p class="page-description">분리된 CSS·JS 파일만으로 동작하는 관리자 디자인 시스템 데모입니다.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-outline" data-admin-open="drawer"><i class="ri-equalizer-2-line"></i>상세 패널</button>
+            <button class="btn btn-primary" data-admin-open="modal"><i class="ri-add-line"></i>새 게시글</button>
+          </div>
+        </div>
+
+        <section class="grid stats-grid" aria-label="핵심 통계">
+          <article class="stat-card">
+            <div class="stat-head"><span class="stat-label">오늘 방문자</span><span class="stat-icon blue"><i class="ri-user-3-line"></i></span></div>
+            <div class="stat-value">1,284</div>
+            <div class="stat-foot"><span class="trend up"><i class="ri-arrow-up-line"></i>12.4%</span><span>전일 대비</span></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-head"><span class="stat-label">오늘 페이지뷰</span><span class="stat-icon purple"><i class="ri-eye-line"></i></span></div>
+            <div class="stat-value">6,842</div>
+            <div class="stat-foot"><span class="trend up"><i class="ri-arrow-up-line"></i>8.1%</span><span>전일 대비</span></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-head"><span class="stat-label">신규 회원</span><span class="stat-icon green"><i class="ri-user-add-line"></i></span></div>
+            <div class="stat-value">48</div>
+            <div class="stat-foot"><span class="trend up"><i class="ri-arrow-up-line"></i>5.7%</span><span>전일 대비</span></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-head"><span class="stat-label">미처리 신고</span><span class="stat-icon orange"><i class="ri-alarm-warning-line"></i></span></div>
+            <div class="stat-value">12</div>
+            <div class="stat-foot"><span class="trend down"><i class="ri-arrow-up-line"></i>3건</span><span>어제보다 증가</span></div>
+          </article>
+        </section>
+
+        <section class="grid dashboard-grid">
+          <article class="card">
+            <div class="card-header">
+              <div><h2 class="card-title">방문자 추이</h2><div class="card-subtitle">신규 방문자와 재방문자 변화</div></div>
+              <div class="segmented" role="tablist" aria-label="통계 기간">
+                <button class="segment" data-range="7">7일</button>
+                <button class="segment active" data-range="30">30일</button>
+                <button class="segment" data-range="90">90일</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="chart-wrap"><canvas id="trafficChart" aria-label="방문자 추이 선 그래프"></canvas></div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:var(--primary-600)"></span>신규 방문자</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--brand-accent)"></span>재방문자</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <div><h2 class="card-title">운영 확인</h2><div class="card-subtitle">지금 확인이 필요한 항목</div></div>
+              <button class="btn btn-ghost btn-sm">전체 보기</button>
+            </div>
+            <div class="card-body">
+              <div class="operation-list">
+                <div class="operation-item" data-admin-open="drawer">
+                  <span class="operation-icon" style="background:var(--warning-bg);color:var(--warning)"><i class="ri-question-line"></i></span>
+                  <div class="operation-copy"><div class="operation-title">답변대기 질문</div><div class="operation-desc">24시간 이상 답변이 없습니다.</div></div>
+                  <span class="operation-count">18</span>
+                </div>
+                <div class="operation-item" data-admin-open="drawer">
+                  <span class="operation-icon" style="background:var(--danger-bg);color:var(--danger)"><i class="ri-alarm-warning-line"></i></span>
+                  <div class="operation-copy"><div class="operation-title">미처리 신고</div><div class="operation-desc">운영자 확인이 필요합니다.</div></div>
+                  <span class="operation-count">12</span>
+                </div>
+                <div class="operation-item" data-admin-open="drawer">
+                  <span class="operation-icon" style="background:var(--primary-50);color:var(--primary-600)"><i class="ri-folder-download-line"></i></span>
+                  <div class="operation-copy"><div class="operation-title">신규 실전자료</div><div class="operation-desc">오늘 새로 등록된 자료입니다.</div></div>
+                  <span class="operation-count">7</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div><h2 class="section-title">콘텐츠 관리</h2><p class="section-description">탭·필터·테이블·배지·일괄 처리를 함께 적용한 예시입니다.</p></div>
+          </div>
+
+          <article class="card">
+            <div class="line-tabs" role="tablist" aria-label="콘텐츠 유형">
+              <button class="line-tab active" data-tab="all">전체 콘텐츠</button>
+              <button class="line-tab" data-tab="post">게시글</button>
+              <button class="line-tab" data-tab="qna">묻고답하기</button>
+              <button class="line-tab" data-tab="resource">실전자료</button>
+              <button class="line-tab" data-tab="comment">댓글·후기</button>
+            </div>
+
+            <div class="filter-panel">
+              <div class="filter-row">
+                <div class="input-icon">
+                  <i class="ri-search-line"></i>
+                  <input class="control" id="contentSearch" type="search" placeholder="제목 또는 작성자 검색" />
+                </div>
+                <div class="custom-select" data-select="status">
+                  <button class="select-trigger" type="button" aria-expanded="false"><span>상태: 전체</span><i class="ri-arrow-down-s-line"></i></button>
+                  <div class="select-menu">
+                    <button class="select-option selected" data-value="all">상태: 전체<i class="ri-check-line"></i></button>
+                    <button class="select-option" data-value="public">공개</button>
+                    <button class="select-option" data-value="hidden">숨김</button>
+                    <button class="select-option" data-value="reported">신고 있음</button>
+                  </div>
+                </div>
+                <div class="custom-select" data-select="category">
+                  <button class="select-trigger" type="button" aria-expanded="false"><span>게시판: 전체</span><i class="ri-arrow-down-s-line"></i></button>
+                  <div class="select-menu">
+                    <button class="select-option selected" data-value="all">게시판: 전체<i class="ri-check-line"></i></button>
+                    <button class="select-option" data-value="vibe">바이브 코딩</button>
+                    <button class="select-option" data-value="automation">AI 자동화</button>
+                    <button class="select-option" data-value="monetization">AI 수익화</button>
+                  </div>
+                </div>
+                <div class="input-icon">
+                  <i class="ri-calendar-line"></i>
+                  <input class="control" type="text" value="2026.06.01 - 2026.06.17" aria-label="기간" />
+                </div>
+                <div class="filter-actions">
+                  <button class="btn btn-outline" id="resetFilterButton"><i class="ri-refresh-line"></i>초기화</button>
+                  <button class="btn btn-primary" id="applyFilterButton"><i class="ri-search-line"></i>검색</button>
+                </div>
+              </div>
+              <div class="active-filters" id="activeFilters">
+                <span class="filter-chip">공개 콘텐츠<button aria-label="필터 제거"><i class="ri-close-line"></i></button></span>
+                <span class="filter-chip">최근 30일<button aria-label="필터 제거"><i class="ri-close-line"></i></button></span>
+              </div>
+            </div>
+
+            <div class="table-toolbar">
+              <div class="toolbar-left">
+                <span class="selection-info" id="selectionInfo">총 5개의 콘텐츠</span>
+                <button class="btn btn-outline btn-sm" id="bulkHideButton" data-admin-requires-selection disabled>숨김 처리</button>
+              </div>
+              <div class="toolbar-right">
+                <button class="btn btn-outline btn-sm" id="exportButton"><i class="ri-file-excel-2-line"></i>CSV 다운로드</button>
+                <button class="btn btn-primary btn-sm" data-admin-open="modal"><i class="ri-add-line"></i>콘텐츠 등록</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:44px"><input class="check" data-admin-select-all type="checkbox" aria-label="전체 선택" /></th>
+                    <th>콘텐츠</th><th>유형</th><th>작성자</th><th>상태</th><th>조회</th><th>신고</th><th>등록일</th><th style="width:60px">관리</th>
+                  </tr>
+                </thead>
+                <tbody id="contentTableBody">
+                  <tr data-type="post" data-status="public" data-category="vibe">
+                    <td><input class="check row-check" type="checkbox" /></td>
+                    <td><div class="content-title">Claude Code로 기존 PHP 프로젝트 분석하는 방법</div><div class="content-meta">바이브코딩 가이드</div></td>
+                    <td><span class="badge badge-blue">게시글</span></td>
+                    <td><div class="author"><span class="author-avatar">김</span><span>김개발</span></div></td>
+                    <td><span class="badge badge-green">공개</span></td>
+                    <td class="num">1,284</td><td class="num">0</td><td class="num">2026.06.17</td>
+                    <td><div class="row-actions"><button class="icon-button row-action-button" aria-label="행 메뉴"><i class="ri-more-2-fill"></i></button><div class="action-menu"><button class="view-detail"><i class="ri-eye-line"></i>상세보기</button><button><i class="ri-edit-line"></i>수정</button><button class="danger"><i class="ri-delete-bin-line"></i>삭제</button></div></div></td>
+                  </tr>
+                  <tr data-type="qna" data-status="public" data-category="automation">
+                    <td><input class="check row-check" type="checkbox" /></td>
+                    <td><div class="content-title">n8n으로 Gmail 문의 자동 분류가 가능한가요?</div><div class="content-meta">묻고답하기 · 답변 3개</div></td>
+                    <td><span class="badge badge-purple">묻고답하기</span></td>
+                    <td><div class="author"><span class="author-avatar">박</span><span>박자동</span></div></td>
+                    <td><span class="badge badge-cyan">답변있음</span></td>
+                    <td class="num">846</td><td class="num">0</td><td class="num">2026.06.17</td>
+                    <td><div class="row-actions"><button class="icon-button row-action-button" aria-label="행 메뉴"><i class="ri-more-2-fill"></i></button><div class="action-menu"><button class="view-detail"><i class="ri-eye-line"></i>상세보기</button><button><i class="ri-edit-line"></i>수정</button><button class="danger"><i class="ri-delete-bin-line"></i>삭제</button></div></div></td>
+                  </tr>
+                  <tr data-type="resource" data-status="public" data-category="vibe">
+                    <td><input class="check row-check" type="checkbox" /></td>
+                    <td><div class="content-title">PHP Legacy Code Review Skill</div><div class="content-meta">Claude Code Skill · 다운로드 320</div></td>
+                    <td><span class="badge badge-cyan">실전자료</span></td>
+                    <td><div class="author"><span class="author-avatar">이</span><span>이코딩</span></div></td>
+                    <td><span class="badge badge-green">공개</span></td>
+                    <td class="num">734</td><td class="num">1</td><td class="num">2026.06.16</td>
+                    <td><div class="row-actions"><button class="icon-button row-action-button" aria-label="행 메뉴"><i class="ri-more-2-fill"></i></button><div class="action-menu"><button class="view-detail"><i class="ri-eye-line"></i>상세보기</button><button><i class="ri-edit-line"></i>수정</button><button class="danger"><i class="ri-delete-bin-line"></i>삭제</button></div></div></td>
+                  </tr>
+                  <tr data-type="post" data-status="reported" data-category="monetization">
+                    <td><input class="check row-check" type="checkbox" /></td>
+                    <td><div class="content-title">AI 자동화 외주 견적을 잡을 때 꼭 확인할 것</div><div class="content-meta">외주·판매 팁</div></td>
+                    <td><span class="badge badge-blue">게시글</span></td>
+                    <td><div class="author"><span class="author-avatar">최</span><span>최대표</span></div></td>
+                    <td><span class="badge badge-red">신고 있음</span></td>
+                    <td class="num">2,194</td><td class="num">4</td><td class="num">2026.06.15</td>
+                    <td><div class="row-actions"><button class="icon-button row-action-button" aria-label="행 메뉴"><i class="ri-more-2-fill"></i></button><div class="action-menu"><button class="view-detail"><i class="ri-eye-line"></i>상세보기</button><button><i class="ri-edit-line"></i>수정</button><button class="danger"><i class="ri-delete-bin-line"></i>삭제</button></div></div></td>
+                  </tr>
+                  <tr data-type="comment" data-status="public" data-category="automation">
+                    <td><input class="check row-check" type="checkbox" /></td>
+                    <td><div class="content-title">Windows에서는 경로를 이렇게 바꾸면 정상 작동합니다.</div><div class="content-meta">실전자료 후기</div></td>
+                    <td><span class="badge badge-gray">후기</span></td>
+                    <td><div class="author"><span class="author-avatar">한</span><span>한사용</span></div></td>
+                    <td><span class="badge badge-green">공개</span></td>
+                    <td class="num">128</td><td class="num">0</td><td class="num">2026.06.13</td>
+                    <td><div class="row-actions"><button class="icon-button row-action-button" aria-label="행 메뉴"><i class="ri-more-2-fill"></i></button><div class="action-menu"><button class="view-detail"><i class="ri-eye-line"></i>상세보기</button><button><i class="ri-edit-line"></i>수정</button><button class="danger"><i class="ri-delete-bin-line"></i>삭제</button></div></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pagination">
+              <div class="page-info">1–5 / 총 128개</div>
+              <div class="page-buttons">
+                <button class="page-button" aria-label="이전 페이지"><i class="ri-arrow-left-s-line"></i></button>
+                <button class="page-button active">1</button>
+                <button class="page-button">2</button>
+                <button class="page-button">3</button>
+                <button class="page-button" aria-label="다음 페이지"><i class="ri-arrow-right-s-line"></i></button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div><h2 class="section-title">폼·상호작용 컴포넌트</h2><p class="section-description">입력, 커스텀 셀렉트, 체크박스/라디오, 토글, 태그 입력과 버튼/배지/알림입니다.</p></div>
+          </div>
+          <div class="grid component-grid">
+            <article class="card">
+              <div class="card-header"><div><h3 class="card-title">입력 컴포넌트</h3><div class="card-subtitle">기본 높이 40px · Radius 8px</div></div></div>
+              <div class="card-body component-stack">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="field-label" for="demoTitle">게시글 제목</label>
+                    <input class="control" id="demoTitle" type="text" value="AI 자동화 외주 견적 가이드" />
+                    <div class="field-help">최대 100자까지 입력할 수 있습니다.</div>
+                  </div>
+                  <div class="field">
+                    <label class="field-label">게시판</label>
+                    <div class="custom-select" data-select="demo">
+                      <button class="select-trigger" type="button" aria-expanded="false"><span>AI 수익화</span><i class="ri-arrow-down-s-line"></i></button>
+                      <div class="select-menu">
+                        <button class="select-option" data-value="vibe">바이브 코딩</button>
+                        <button class="select-option" data-value="automation">AI 자동화</button>
+                        <button class="select-option selected" data-value="monetization">AI 수익화<i class="ri-check-line"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="demoUrl">외부 링크</label>
+                  <div class="input-icon"><i class="ri-links-line"></i><input class="control error" id="demoUrl" type="url" value="invalid-url" /></div>
+                  <div class="field-error">올바른 URL 형식을 입력해주세요.</div>
+                </div>
+                <div class="field">
+                  <span class="field-label">태그</span>
+                  <div class="tag-input">
+                    <span class="tag">Claude Code<button aria-label="태그 삭제"><i class="ri-close-line"></i></button></span>
+                    <span class="tag">자동화<button aria-label="태그 삭제"><i class="ri-close-line"></i></button></span>
+                    <input type="text" placeholder="태그 입력 후 Enter" />
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <span class="field-label">공개 범위</span>
+                    <div class="choice-row">
+                      <label class="choice"><input type="radio" name="visibility" checked />전체 공개</label>
+                      <label class="choice"><input type="radio" name="visibility" />회원 공개</label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">댓글 허용</span>
+                    <div class="choice-row">
+                      <label class="switch"><input type="checkbox" checked /><span class="switch-track"></span></label>
+                      <span style="color:var(--gray-500)">사용자가 댓글을 작성할 수 있습니다.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-header"><div><h3 class="card-title">버튼·배지·알림</h3><div class="card-subtitle">작업 우선순위와 상태를 색상으로 구분</div></div></div>
+              <div class="card-body component-stack">
+                <div>
+                  <div class="field-label">버튼</div>
+                  <div class="button-showcase">
+                    <button class="btn btn-primary">Primary</button>
+                    <button class="btn btn-secondary">Secondary</button>
+                    <button class="btn btn-outline">Outline</button>
+                    <button class="btn btn-ghost">Ghost</button>
+                    <button class="btn btn-danger">Danger</button>
+                    <button class="btn btn-outline" disabled>Disabled</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">상태 배지</div>
+                  <div class="badge-showcase">
+                    <span class="badge badge-green">공개</span>
+                    <span class="badge badge-orange">숨김</span>
+                    <span class="badge badge-red">삭제됨</span>
+                    <span class="badge badge-gray">임시저장</span>
+                    <span class="badge badge-cyan">답변있음</span>
+                    <span class="badge badge-purple">확인중</span>
+                    <span class="badge badge-blue">처리완료</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">알림 메시지</div>
+                  <div class="alert alert-info"><i class="ri-information-line"></i><div><strong>정보</strong><br />수정한 설정은 저장 즉시 반영됩니다.</div></div>
+                  <div class="alert alert-warning"><i class="ri-alert-line"></i><div><strong>주의</strong><br />신고가 누적된 콘텐츠는 먼저 내용을 확인하세요.</div></div>
+                  <div class="alert alert-danger"><i class="ri-error-warning-line"></i><div><strong>위험</strong><br />삭제된 콘텐츠는 복구할 수 없습니다.</div></div>
+                </div>
+                <div>
+                  <div class="field-label">오버레이 / 토스트</div>
+                  <div class="button-showcase">
+                    <button class="btn btn-outline" data-admin-open="modal"><i class="ri-window-line"></i>모달 열기</button>
+                    <button class="btn btn-outline" data-admin-open="drawer"><i class="ri-layout-right-line"></i>Drawer 열기</button>
+                    <button class="btn btn-outline" id="demoToastButton"><i class="ri-notification-badge-line"></i>Toast 표시</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div><h2 class="section-title">공통 상태 · 타이포그래피</h2></div>
+          </div>
+          <div class="grid component-grid">
+            <article class="card">
+              <div class="card-header"><h3 class="card-title">빈 상태</h3></div>
+              <div class="card-body">
+                <div class="empty-state">
+                  <span class="empty-icon"><i class="ri-inbox-2-line"></i></span>
+                  <div class="empty-title">처리할 신고가 없습니다</div>
+                  <div class="empty-desc">새로운 신고가 접수되면 이 영역에 표시됩니다.</div>
+                  <button class="btn btn-outline btn-sm" style="margin-top:14px">새로고침</button>
+                </div>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-header"><h3 class="card-title">타이포그래피</h3></div>
+              <div class="card-body">
+                <div class="type-sample"><span class="type-label">Display · 28 / 760</span><span class="type-display">핵심 지표 12,840</span></div>
+                <div class="type-sample"><span class="type-label">Heading 1 · 24 / 740</span><span class="type-h1">페이지 제목</span></div>
+                <div class="type-sample"><span class="type-label">Heading 2 · 20 / 720</span><span class="type-h2">섹션 제목</span></div>
+                <div class="type-sample"><span class="type-label">Heading 3 · 16 / 700</span><span class="type-h3">카드 제목</span></div>
+                <div class="type-sample"><span class="type-label">Body · 14 / 400</span><span class="type-body">오래 보아도 피로하지 않은 기본 본문입니다.</span></div>
+                <div class="type-sample"><span class="type-label">Caption · 12 / 400</span><span class="type-caption">보조 설명에 사용하는 크기입니다.</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay"></div>
+
+  <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">새 게시글 등록</div>
+      <button class="icon-button close-overlay" aria-label="모달 닫기"><i class="ri-close-line"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="component-stack">
+        <div class="field"><label class="field-label" for="modalPostTitle">제목</label><input class="control" id="modalPostTitle" type="text" placeholder="게시글 제목을 입력하세요" /></div>
+        <div class="field"><label class="field-label" for="modalPostSummary">요약</label><textarea class="control" id="modalPostSummary" placeholder="관리 목록에 표시할 간단한 설명"></textarea></div>
+        <div class="choice-row">
+          <label class="choice"><input type="checkbox" />공지글</label>
+          <label class="choice"><input type="checkbox" />메인 노출</label>
+          <label class="choice"><input type="checkbox" checked />댓글 허용</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline close-overlay">취소</button>
+      <button class="btn btn-primary" id="saveModalButton">등록하기</button>
+    </div>
+  </section>
+
+  <aside class="drawer" id="drawer" aria-label="상세 정보 패널">
+    <div class="drawer-header">
+      <div><div class="modal-title" id="drawerTitle">콘텐츠 상세 정보</div><div class="card-subtitle">선택한 항목의 상세 정보를 확인합니다.</div></div>
+      <button class="icon-button close-overlay" aria-label="Drawer 닫기"><i class="ri-close-line"></i></button>
+    </div>
+    <div class="drawer-body">
+      <div class="alert alert-info" style="margin-bottom:18px"><i class="ri-information-line"></i><div>Drawer는 테이블 행 상세, 긴 필터, 신고 내용 확인에 사용합니다.</div></div>
+      <div class="detail-list">
+        <div class="detail-row"><div class="detail-label">콘텐츠명</div><div class="detail-value" id="drawerContentTitle">Claude Code로 기존 PHP 프로젝트 분석하는 방법</div></div>
+        <div class="detail-row"><div class="detail-label">상태</div><div class="detail-value"><span class="badge badge-green">공개</span></div></div>
+        <div class="detail-row"><div class="detail-label">작성자</div><div class="detail-value">김개발 · kim@example.com</div></div>
+        <div class="detail-row"><div class="detail-label">성과</div><div class="detail-value">조회 1,284 · 좋아요 42 · 댓글 13</div></div>
+      </div>
+      <div class="button-showcase" style="margin-top:18px">
+        <button class="btn btn-primary">상세 페이지</button>
+        <button class="btn btn-outline">수정</button>
+        <button class="btn btn-danger">숨김</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toast-region" aria-live="polite"></div>
+
+  <!-- 디자인 시스템 JS (ES 모듈) + 데모 전용 스크립트 -->
+  <script type="module">
+    import { initAdminUI, createLineChart } from "../js/index.js";
+
+    const ui = initAdminUI();
+
+    // Ctrl/Cmd + K → 전역 검색 포커스
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        document.getElementById("globalSearchInput")?.focus();
+      }
+    });
+
+    // 토스트/저장 데모
+    document.getElementById("demoToastButton").addEventListener("click", () =>
+      ui.toast("설정이 저장되었습니다.", "변경 사항이 즉시 반영되었습니다.")
+    );
+    document.getElementById("saveModalButton").addEventListener("click", () => {
+      ui.overlay.closeAll();
+      ui.toast("게시글이 등록되었습니다.", "새 콘텐츠가 공개 상태로 저장되었습니다.");
+    });
+
+    // 행 상세보기 → 드로어
+    document.querySelectorAll(".view-detail").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const title = btn.closest("tr").querySelector(".content-title").textContent;
+        document.getElementById("drawerContentTitle").textContent = title;
+        ui.overlay.open("drawer");
+      })
+    );
+
+    // ---- 데모 전용: 탭/셀렉트/검색 필터링 (앱별 로직 예시) ----
+    const tableBody = document.getElementById("contentTableBody");
+    const state = { type: "all", status: "all", category: "all", query: "" };
+
+    function applyFilters(notify = true) {
+      [...tableBody.querySelectorAll("tr")].forEach((row) => {
+        const text = row.textContent.toLowerCase();
+        const ok =
+          (state.type === "all" || row.dataset.type === state.type) &&
+          (state.status === "all" || row.dataset.status === state.status) &&
+          (state.category === "all" || row.dataset.category === state.category) &&
+          (!state.query || text.includes(state.query));
+        row.style.display = ok ? "" : "none";
+      });
+      const count = [...tableBody.querySelectorAll("tr")].filter((r) => r.style.display !== "none").length;
+      document.getElementById("selectionInfo").textContent = `총 ${count}개의 콘텐츠`;
+      if (notify) ui.toast("검색 조건이 적용되었습니다.", `${count}개의 콘텐츠가 표시됩니다.`);
+    }
+
+    document.addEventListener("admin:tab-change", (e) => { state.type = e.detail.value; applyFilters(false); });
+    document.addEventListener("admin:select-change", (e) => {
+      if (e.detail.name === "status") state.status = e.detail.value;
+      if (e.detail.name === "category") state.category = e.detail.value;
+    });
+    document.getElementById("applyFilterButton").addEventListener("click", () => {
+      state.query = document.getElementById("contentSearch").value.trim().toLowerCase();
+      applyFilters();
+    });
+    document.getElementById("contentSearch").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { state.query = e.target.value.trim().toLowerCase(); applyFilters(); }
+    });
+    document.getElementById("resetFilterButton").addEventListener("click", () => {
+      Object.assign(state, { type: "all", status: "all", category: "all", query: "" });
+      document.getElementById("contentSearch").value = "";
+      document.getElementById("activeFilters").innerHTML = "";
+      document.querySelectorAll(".line-tab").forEach((x, i) => x.classList.toggle("active", i === 0));
+      applyFilters(false);
+      ui.toast("필터를 초기화했습니다.", "전체 콘텐츠를 다시 표시합니다.");
+    });
+    document.querySelectorAll(".filter-chip button").forEach((b) =>
+      b.addEventListener("click", () => b.parentElement.remove())
+    );
+
+    // 선택 개수 표시 + 일괄 숨김 (selection-change 이벤트 활용)
+    const table = document.querySelector(".admin-table");
+    table.addEventListener("admin:selection-change", (e) => {
+      const { count } = e.detail;
+      if (count > 0) document.getElementById("selectionInfo").textContent = `${count}개 선택됨`;
+      else applyFilters(false);
+    });
+    document.getElementById("bulkHideButton").addEventListener("click", () => {
+      const selected = [...table.querySelectorAll(".row-check:checked")];
+      selected.forEach((c) => {
+        const row = c.closest("tr");
+        row.children[4].innerHTML = '<span class="badge badge-orange">숨김</span>';
+        row.dataset.status = "hidden";
+        c.checked = false;
+      });
+      table._adminSyncSelection?.();
+      ui.toast("선택한 콘텐츠를 숨겼습니다.", `${selected.length}개 콘텐츠가 숨김 처리되었습니다.`);
+    });
+
+    // CSV 다운로드
+    document.getElementById("exportButton").addEventListener("click", () => {
+      const rows = [...tableBody.querySelectorAll("tr")].filter((r) => r.style.display !== "none").map((row) =>
+        [...row.children].slice(1, 8).map((c) => `"${c.innerText.replaceAll('"', '""').replaceAll("\n", " ")}"`).join(",")
+      );
+      const csv = "﻿콘텐츠,유형,작성자,상태,조회,신고,등록일\n" + rows.join("\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = "admin-content.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      ui.toast("CSV 파일을 생성했습니다.", "현재 화면의 목록을 다운로드했습니다.");
+    });
+
+    // 페이지네이션 데모
+    document.querySelectorAll(".page-button").forEach((b) => {
+      if (/^\d+$/.test(b.textContent.trim())) {
+        b.addEventListener("click", () => {
+          document.querySelectorAll(".page-button").forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          ui.toast("페이지를 이동했습니다.", `${b.textContent.trim()}페이지를 표시합니다.`);
+        });
+      }
+    });
+
+    // ---- 차트 ----
+    const css = getComputedStyle(document.documentElement);
+    const primary = css.getPropertyValue("--primary-600").trim() || "#2563eb";
+    const accent = css.getPropertyValue("--brand-accent").trim() || "#06b6d4";
+    const dataset = {
+      7: { labels: ["6/11","6/12","6/13","6/14","6/15","6/16","6/17"], a: [620,710,680,790,870,940,1030], b: [260,320,300,350,420,450,510] },
+      30: { labels: ["5/19","5/23","5/27","5/31","6/4","6/8","6/12","6/17"], a: [480,540,510,650,710,790,880,1030], b: [180,230,210,270,310,360,420,510] },
+      90: { labels: ["3월","3월말","4월","4월말","5월","5월말","6월초","현재"], a: [220,300,390,470,590,710,860,1030], b: [80,110,150,210,270,330,410,510] },
+    };
+    function seriesFor(range) {
+      const d = dataset[range];
+      return { labels: d.labels, series: [
+        { values: d.a, color: primary, fill: "rgba(37,99,235,0.18)" },
+        { values: d.b, color: accent, fill: "rgba(6,182,212,0.13)" },
+      ] };
+    }
+    const chart = createLineChart(document.getElementById("trafficChart"), seriesFor(30));
+    document.addEventListener("admin:segment-change", (e) => chart.setData(seriesFor(Number(e.detail.value))));
+  </script>
+</body>
+</html>

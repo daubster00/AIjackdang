@@ -1,0 +1,24 @@
+/* Section — 콘텐츠 섹션 세로 리듬 */
+.section {
+  padding-block: var(--space-12);
+}
+.tight {
+  padding-block: var(--space-8);
+}
+.header {
+  margin-bottom: var(--space-6);
+}
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+.desc {
+  margin-top: var(--space-2);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-normal);
+}
+@media (max-width: 767px) {
+  .section {
+    padding-block: var(--space-8);
+  }
+}

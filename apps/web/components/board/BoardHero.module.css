@@ -1,0 +1,197 @@
+.heroVideo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  min-height: 408px;
+  overflow: visible;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(9, 10, 20, 0.82) 0%, rgba(9, 10, 20, 0.5) 54%, rgba(9, 10, 20, 0.2) 100%),
+    linear-gradient(180deg, rgba(9, 10, 20, 0.08) 0%, rgba(9, 10, 20, 0.62) 100%);
+}
+
+.heroInner {
+  display: grid;
+  align-content: center;
+  width: 100%;
+  max-width: var(--container-max);
+  min-height: 408px;
+  margin-inline: auto;
+  padding: 64px var(--space-6) 72px;
+}
+
+.heroCopy {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 760px;
+}
+
+.heroCopy > span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.heroCopy h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(34px, 5vw, 52px);
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.1;
+}
+
+.heroCopy p {
+  margin: 0;
+  max-width: 680px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.homeCrumb,
+.crumbMenu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.homeCrumb {
+  width: 36px;
+  font-size: 18px;
+}
+
+/* 홈 아이콘은 마우스를 올려도 색이 변하지 않는다 (전역 a:hover 무효화) */
+.homeCrumb:hover {
+  color: #ffffff;
+}
+
+.crumbDivider {
+  width: 28px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+}
+
+.crumbMenu {
+  position: relative;
+}
+
+.crumbMenu summary {
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.crumbMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 화살표: 평소 오른쪽을 보다가 드롭다운이 열리면 아래로 회전, 닫히면 원래대로 */
+.crumbMenu summary i {
+  transform: rotate(-90deg);
+  transition: transform var(--transition-base);
+}
+
+.crumbMenu[open] summary i {
+  transform: rotate(0deg);
+}
+
+.currentCrumb summary {
+  font-weight: var(--font-weight-bold);
+}
+
+.crumbDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: var(--z-dropdown);
+  display: grid;
+  min-width: 190px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: 8px;
+  box-shadow: var(--shadow-dropdown);
+}
+
+.crumbDropdown a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.crumbDropdown a:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .hero,
+  .heroInner {
+    min-height: 320px;
+  }
+
+  .heroInner {
+    padding-top: 44px;
+    padding-bottom: 56px;
+    padding-inline: var(--space-4);
+  }
+
+  .heroCopy h1 {
+    font-size: 34px;
+  }
+
+  .heroCopy p {
+    font-size: var(--font-size-base);
+  }
+}
+
+@media (max-width: 520px) {
+  /* 폰: 브레드크럼은 가장 오른쪽(현재) 항목만 노출, 위 제목과 좌측 정렬 */
+  .homeCrumb,
+  .crumbDivider,
+  .crumbMenu:not(.currentCrumb) {
+    display: none;
+  }
+
+  .currentCrumb summary {
+    padding-left: 0;
+  }
+}

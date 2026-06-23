@@ -1,0 +1,503 @@
+.page {
+  min-height: 100vh;
+  /* 헤더(.head)와 동일한 흰색으로 채워 좌우 회색 여백 없이 흰 배경이 가득 차게 한다 */
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* ── 상단 헤더 영역 (제목 + 액션 + 필터 탭) ── */
+
+.head {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.headInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6) var(--space-4);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.title i {
+  color: var(--color-primary);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.unreadBadge {
+  flex: 0 0 auto;
+}
+
+.headActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.markAllButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.markAllButton:not(:disabled):hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.markAllButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.markAllButton i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.settingsLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-size: 18px;
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.settingsLink:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── 필터 탭 ── */
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 0 var(--space-6);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-base);
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--color-primary);
+}
+
+/* 선택된 탭 하단 인디케이터 */
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-primary);
+}
+
+/* ── 목록 레이아웃 ── */
+
+.listLayout {
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.groupLabel {
+  padding-left: var(--space-1);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── 알림 1건 ── */
+
+.item {
+  /* 안쪽 강조 배경(itemUnread)이 둥근 모서리를 따라 깔끔히 잘리도록 overflow 클립 */
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 8px 22px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.item:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 10px 28px rgba(23, 24, 39, 0.07);
+}
+
+/* 안 읽은 알림: 좌측 강조 바 + 연한 브랜드 배경 */
+.itemUnread {
+  /* 브랜드 색을 옅게 섞은 강조 테두리(하드코딩 색 대신 토큰 기반 color-mix) */
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  /* 배경을 테두리 안쪽(padding-box)에 맞춰 칠해 테두리와 배경 사이 빈 간격 제거 */
+  background: linear-gradient(
+      90deg,
+      var(--color-primary-soft) 0,
+      var(--color-primary-soft) 4px,
+      var(--color-surface) 4px
+    )
+    padding-box;
+}
+
+.itemLink {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-5);
+  text-decoration: none;
+  color: inherit;
+  /* button 요소로 렌더링될 때를 위한 리셋 (시스템 알림은 모달을 여는 버튼) */
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ── 시각 표식 ── */
+
+.avatarWrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* 아바타 우하단에 겹쳐지는 작은 유형 배지 */
+.typeBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* 시스템 알림용 큰 유형 아이콘 (아바타 자리 대체) */
+.systemIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 19px;
+}
+
+/* 유형별 색 토널 (typeBadge / systemIcon 공통) */
+.toneReply {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+
+.toneLike {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.toneMention {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.toneAccept {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.toneRank {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.toneNotice {
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral);
+}
+
+/* ── 본문 ── */
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.text {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.actor {
+  font-weight: var(--font-weight-bold);
+}
+
+/* 대상 글 제목 — 한 줄 말줄임 */
+.targetText {
+  overflow: hidden;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.itemLink:hover .targetText {
+  color: var(--color-primary);
+}
+
+.metaRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.boardTag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  padding: 2px 8px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.metaDivider {
+  color: var(--color-border-strong);
+}
+
+.time {
+  color: var(--color-placeholder);
+  font-size: var(--font-size-xs);
+}
+
+/* 안 읽음 점 */
+.unreadDot {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 9px;
+  height: 9px;
+  margin-left: var(--space-1);
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+/* ── 더 보기 ── */
+
+.loadMore {
+  justify-self: center;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 var(--space-6);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.loadMore:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── 시스템 알림 상세 모달 ── */
+
+.modalBody {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* 모달 상단: 유형 아이콘 + 한 줄 요약 + 시간 */
+.modalMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modalIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 21px;
+}
+
+.modalAction {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+
+.modalTime {
+  color: var(--color-placeholder);
+  font-size: var(--font-size-xs);
+}
+
+.modalText {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-line;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── 반응형 ── */
+
+@media (max-width: 768px) {
+  .headInner {
+    padding: var(--space-6) var(--space-4) var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .tabs {
+    padding-inline: var(--space-4);
+  }
+
+  .listLayout {
+    padding: var(--space-5) var(--space-4) 72px;
+    gap: var(--space-5);
+  }
+
+  .itemLink {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 520px) {
+  .markAllButton span,
+  .markAllButton {
+    font-size: var(--font-size-xs);
+  }
+
+  .targetText {
+    font-size: var(--font-size-xs);
+  }
+}
