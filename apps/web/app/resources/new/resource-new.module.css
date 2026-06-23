@@ -1,0 +1,895 @@
+/* ── 페이지 레이아웃 ─────────────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.layout {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 40px var(--space-6) 96px;
+}
+
+/* ── 폼 컨테이너 ─────────────────────────────────────────────────────────────── */
+
+.form {
+  display: grid;
+  gap: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-8);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+}
+
+/* ── 스텝 진행 표시자 ────────────────────────────────────────────────────────── */
+
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 0;
+  margin: 0;
+  scrollbar-width: none;
+}
+
+.stepIndicator::-webkit-scrollbar {
+  display: none;
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1 0 auto;
+  min-width: 72px;
+  padding: var(--space-3) var(--space-2);
+  border: 0;
+  border-bottom: 2px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-sub);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+  text-align: center;
+}
+
+.stepItem:hover:not(:disabled) {
+  border-bottom-color: var(--color-text-sub);
+  color: var(--color-text);
+}
+
+.stepActive {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.stepCompleted {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+  opacity: 0.7;
+}
+
+.stepDisabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  border: 1.5px solid currentColor;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  transition: background var(--transition-base);
+}
+
+.stepActive .stepNumber {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.stepCompleted .stepNumber {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.stepLabel {
+  white-space: nowrap;
+}
+
+/* ── 스텝 헤더 ───────────────────────────────────────────────────────────────── */
+
+.stepHeader {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stepTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.stepDesc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ── 필드 공통 ───────────────────────────────────────────────────────────────── */
+
+.field {
+  display: grid;
+  gap: var(--space-3);
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.optional {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.input::placeholder {
+  color: var(--color-placeholder);
+}
+
+.input:focus {
+  outline: 0;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.inputError {
+  border-color: var(--color-danger);
+}
+
+.inputError:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(var(--color-danger-rgb, 220, 53, 69), 0.2);
+}
+
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  margin-top: -var(--space-1);
+}
+
+.charCount {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 12px;
+  color: var(--color-text-sub);
+  line-height: 1;
+}
+
+.charNearLimit {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Step 1: 유형 선택 ───────────────────────────────────────────────────────── */
+
+.typeGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.typeCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.typeCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+.typeCardActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 0 0 1px var(--color-primary) inset;
+}
+
+.typeCardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 20px;
+}
+
+.typeCardActive .typeCardIcon {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.typeCardText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.typeCardText strong {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.typeCardText span {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.typeCardCheck {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: var(--color-primary);
+  font-size: 16px;
+}
+
+/* ── Step 2: 공통 정보 ───────────────────────────────────────────────────────── */
+
+.envCheckGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.envCheckItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.envCheckItem input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.difficultySelect {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-4) center;
+  padding-right: var(--space-10);
+  transition: border-color var(--transition-base);
+}
+
+.difficultySelect:focus {
+  outline: 0;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Step 3: 첨부파일 ────────────────────────────────────────────────────────── */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.dropzone:hover,
+.dropzone:focus-visible {
+  outline: 0;
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.dropzoneActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.dropzone strong {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dropzoneIcon {
+  color: var(--color-primary);
+  font-size: 32px;
+}
+
+.dropzoneHint {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.fileInput {
+  display: none;
+}
+
+.fileError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.fileList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 10px var(--space-4);
+}
+
+.fileItemIcon {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  font-size: 18px;
+}
+
+.fileItemName {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileItemSize {
+  flex: 0 0 auto;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+.fileRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.fileRemove:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.filePrimaryRadio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+  white-space: nowrap;
+}
+
+.filePrimaryRadio input[type="radio"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* ── Step 5: 태그 ────────────────────────────────────────────────────────────── */
+
+.tagBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 8px var(--space-3);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.tagBox:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  padding: 4px 6px 4px 10px;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tagChip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.tagChip button:hover {
+  background: rgba(48, 48, 192, 0.16);
+}
+
+.tagInput {
+  flex: 1 1 120px;
+  min-width: 120px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 4px 0;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.tagInput::placeholder {
+  color: var(--color-placeholder);
+}
+
+.suggestedTags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.suggestedLabel {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.suggestedTag {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 5px 12px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.suggestedTag:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.suggestedTag:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Step 6: 미리보기 ────────────────────────────────────────────────────────── */
+
+.previewSection {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.previewTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.previewMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+}
+
+.previewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  padding: 3px 8px;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.previewSummary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+.previewEditLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.previewFileList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.previewFileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+}
+
+.previewTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.previewTag {
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  padding: 3px 8px;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Step 7: 저작권 동의 ─────────────────────────────────────────────────────── */
+
+.copyrightCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.copyrightCheck input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.copyrightLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+  cursor: pointer;
+}
+
+/* ── Step 네비게이션 버튼 ─────────────────────────────────────────────────────── */
+
+.stepNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.stepNavPrev {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-5);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.stepNavPrev:hover {
+  border-color: var(--color-text-sub);
+  background: var(--color-bg);
+}
+
+.stepNavPrev:first-child:last-child {
+  margin-left: auto;
+}
+
+.stepNavNext {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  padding: 0 var(--space-6);
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.stepNavNext:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.stepNavNext:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-5);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.saveBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rightBtns {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+/* ── 비회원 게이팅 ────────────────────────────────────────────────────────────── */
+
+.gateWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: 80px var(--space-6);
+  text-align: center;
+}
+
+.gateIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 28px;
+}
+
+.gateTitle {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+}
+
+.gateDesc {
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+.gateBtns {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .layout {
+    padding: var(--space-5) var(--space-4) 80px;
+  }
+
+  .form {
+    padding: var(--space-5);
+  }
+
+  .typeGroup {
+    grid-template-columns: 1fr;
+  }
+
+  .stepItem {
+    min-width: 56px;
+    font-size: 11px;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .stepNav {
+    flex-direction: column-reverse;
+  }
+
+  .stepNavPrev,
+  .stepNavNext,
+  .saveBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rightBtns {
+    width: 100%;
+    flex-direction: column-reverse;
+    margin-left: 0;
+  }
+}
