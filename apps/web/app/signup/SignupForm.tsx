@@ -7,6 +7,20 @@ import { useToast } from "@/components/ui/Toast/Toast";
 import { signUp } from "@/lib/auth-api";
 import styles from "./signup.module.css";
 
+/** 카카오 로그인 활성 여부 (NEXT_PUBLIC_KAKAO_ENABLED=true 시 활성) */
+const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
+
+/**
+ * Better Auth 소셜 회원가입/로그인 시작 URL.
+ * /api/v1/auth/sign-in/social/{provider} 로 리다이렉트 → OAuth 플로우 시작.
+ * 신규 유저면 자동 회원가입, 기존 유저면 로그인으로 처리된다.
+ * Next.js rewrite 가 /api/v1/* → API 서버(4003) 로 프록시한다.
+ */
+function getSocialSignupUrl(provider: "google" | "naver" | "kakao"): string {
+  const callbackURL = encodeURIComponent(`${window.location.origin}/`);
+  return `/api/v1/auth/sign-in/social/${provider}?callbackURL=${callbackURL}`;
+}
+
 export function SignupForm() {
   const [method, setMethod] = useState<"social" | "email">("social");
   const [emailSent, setEmailSent] = useState(false);
@@ -106,19 +120,34 @@ function SocialSignup() {
   return (
     <div className={styles.socialSection} role="tabpanel">
       <div className={styles.socialGrid}>
-        <button type="button" className={`${styles.socialButton} ${styles.kakaoButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.kakaoButton}`}
+          disabled={!KAKAO_ENABLED}
+          title={!KAKAO_ENABLED ? "카카오 로그인 준비 중" : undefined}
+          style={!KAKAO_ENABLED ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          onClick={KAKAO_ENABLED ? () => { window.location.href = getSocialSignupUrl("kakao"); } : undefined}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             <KakaoMark />
           </span>
           카카오로 가입
         </button>
-        <button type="button" className={`${styles.socialButton} ${styles.naverButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.naverButton}`}
+          onClick={() => { window.location.href = getSocialSignupUrl("naver"); }}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             N
           </span>
           네이버로 가입
         </button>
-        <button type="button" className={`${styles.socialButton} ${styles.googleButton}`}>
+        <button
+          type="button"
+          className={`${styles.socialButton} ${styles.googleButton}`}
+          onClick={() => { window.location.href = getSocialSignupUrl("google"); }}
+        >
           <span className={styles.socialLogo} aria-hidden="true">
             <GoogleMark />
           </span>

@@ -229,7 +229,10 @@ export const userAuth = betterAuth({
     },
   },
 
-  /** 소셜 Provider 슬롯 — 환경변수 미설정 시 비활성 */
+  /**
+   * 소셜 Provider 슬롯 — 환경변수 미설정 시 해당 provider 비활성.
+   * 카카오: KAKAO_ENABLED=true && 키 설정 시에만 활성 (ADR-0002 §카카오 정책 — 비즈앱 검수 필요).
+   */
   socialProviders: {
     ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
       ? {
@@ -247,17 +250,26 @@ export const userAuth = betterAuth({
           },
         }
       : {}),
-    // 카카오: 비즈앱 검수 전까지 비활성 (ADR-0002 §카카오 정책)
-    // ...(env.KAKAO_REST_API_KEY && env.KAKAO_CLIENT_SECRET
-    //   ? { kakao: { clientId: env.KAKAO_REST_API_KEY, clientSecret: env.KAKAO_CLIENT_SECRET } }
-    //   : {}),
+    // 카카오: 비즈앱 검수 완료 + KAKAO_ENABLED=true 시에만 활성 (ADR-0002 §카카오 정책)
+    ...(env.KAKAO_ENABLED && env.KAKAO_REST_API_KEY && env.KAKAO_CLIENT_SECRET
+      ? {
+          kakao: {
+            clientId: env.KAKAO_REST_API_KEY,
+            clientSecret: env.KAKAO_CLIENT_SECRET,
+          },
+        }
+      : {}),
   },
 
-  /** 신뢰된 소셜 Provider — 같은 이메일로 계정 연결 */
+  /**
+   * 신뢰된 소셜 Provider — 같은 이메일로 계정 연결 (AC #4).
+   * 검증된(verified) 이메일을 가진 provider만 신뢰: 미검증 이메일로 linking 금지.
+   * Better Auth의 trustedProviders는 해당 provider의 이메일이 verified일 때만 자동 연결한다.
+   */
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "naver"],
+      trustedProviders: ["google", "naver", "kakao"],
     },
   },
 });

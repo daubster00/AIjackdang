@@ -83,6 +83,12 @@ const envSchema = z
     NAVER_CLIENT_SECRET: z.string().optional(),
     KAKAO_REST_API_KEY: z.string().optional(),
     KAKAO_CLIENT_SECRET: z.string().optional(),
+    /**
+     * 카카오 로그인 활성 여부 (ADR-0002 §카카오 정책).
+     * 비즈앱(사업자) 검수 완료 후 true 로 전환.
+     * 기본값 false — 미검수 상태에서 버튼 비활성 처리에 사용.
+     */
+    KAKAO_ENABLED: boolish,
 
     // 로깅 / 네트워크 (선택)
     LOG_LEVEL: z.string().default("info"),
