@@ -1,0 +1,220 @@
+/* 게시판 목록 페이지 CSS — Story 2.3 */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page h3,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* 시각적으로 숨기되 스크린리더에 노출 (SEO H1) */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.guideToolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 56px var(--space-6) var(--space-3);
+}
+
+.listLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-6);
+  align-items: start;
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+.listHeader {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.listStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+}
+
+.writeButton {
+  flex: 0 0 auto;
+  min-width: 112px;
+}
+
+.mainCol {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.postList {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.postItem {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5);
+  box-shadow: 0 10px 26px rgba(23, 24, 39, 0.04);
+}
+
+.postBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.postHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-bold);
+}
+
+.postTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  text-decoration: none;
+}
+
+.postTitle:hover {
+  color: var(--color-primary);
+}
+
+.attachIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+}
+
+.postExcerpt {
+  color: var(--color-text-sub);
+  line-height: var(--line-height-relaxed);
+}
+
+.postFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+.postAuthor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.authorName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.footerDivider {
+  color: var(--color-border);
+}
+
+.postDate {
+  color: var(--color-text-sub);
+}
+
+.postStats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-sub);
+  font-size: 14px;
+}
+
+.postStats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 1080px) {
+  .listLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .guideToolbar,
+  .listLayout {
+    padding-inline: var(--space-4);
+  }
+
+  .guideToolbar {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .listLayout {
+    padding-top: var(--space-4);
+  }
+
+  .postFooter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .guideToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+}
