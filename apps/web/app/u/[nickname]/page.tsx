@@ -10,12 +10,8 @@ import { Avatar, EmptyState, Icon, RankBadge } from "@/components/ui";
 import type { PublicProfile } from "@ai-jakdang/contracts";
 import type { RankTier } from "@/lib/ranks";
 import { ProfileInteraction } from "./ProfileInteraction";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import styles from "./profile.module.css";
-
-/** 기본 아바타 URL. defaultAvatarIndex 기반 공용 헬퍼. */
-function getDefaultAvatarUrl(index: number): string {
-  return `/images/avatars/${index}.svg`;
-}
 
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -62,7 +58,7 @@ export async function generateMetadata({
   const description = profile.bio ?? `${profile.nickname} 님의 AI작당 공개 프로필`;
   const canonical = `https://aijakdang.com/u/${profile.nickname}`;
   const avatarUrl =
-    profile.avatarUrl ?? getDefaultAvatarUrl(profile.defaultAvatarIndex);
+    resolveAvatarUrl(profile);
 
   return {
     title,
@@ -95,7 +91,7 @@ export default async function UserProfilePage({
   }
 
   const avatarUrl =
-    profile.avatarUrl ?? getDefaultAvatarUrl(profile.defaultAvatarIndex);
+    resolveAvatarUrl(profile);
 
   // ProfilePage JSON-LD 스키마 (schema.org)
   const jsonLd = {

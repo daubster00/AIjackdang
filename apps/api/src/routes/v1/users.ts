@@ -102,6 +102,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         emailVerified: user.emailVerified,
         defaultAvatarIndex: user.defaultAvatarIndex,
         avatarUrl: user.avatarUrl,
+        image: user.image,
         bio: user.bio,
         createdAt: user.createdAt.toISOString(),
       });
@@ -142,6 +143,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         nickname: user.nickname,
         bio: user.bio,
         avatarUrl: user.avatarUrl,
+        image: user.image,
         defaultAvatarIndex: user.defaultAvatarIndex,
         bannerUrl: user.bannerUrl,
         rank: DEFAULT_RANK,
@@ -164,6 +166,8 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         body: updateProfileSchema.extend({
           avatarUrl: z.string().nullable().optional(),
           bannerUrl: z.string().nullable().optional(),
+          /** 기본 아바타 선택 시 인덱스. 함께 avatarUrl:null 을 보내면 커스텀 해제. */
+          defaultAvatarIndex: z.number().int().nonnegative().optional(),
         }),
         response: {
           200: publicUserSchema,
@@ -194,7 +198,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      const { nickname, bio, links, avatarUrl, bannerUrl } = request.body;
+      const { nickname, bio, links, avatarUrl, bannerUrl, defaultAvatarIndex } = request.body;
 
       // 닉네임 변경 시 중복 체크
       if (nickname !== undefined && nickname !== existingUser.nickname) {
@@ -226,6 +230,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       if (links !== undefined) updatePayload.links = links;
       if (avatarUrl !== undefined) updatePayload.avatarUrl = avatarUrl;
       if (bannerUrl !== undefined) updatePayload.bannerUrl = bannerUrl;
+      if (defaultAvatarIndex !== undefined) updatePayload.defaultAvatarIndex = defaultAvatarIndex;
 
       const [updatedUser] = await db
         .update(schema.users)
@@ -247,6 +252,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         emailVerified: updatedUser.emailVerified,
         defaultAvatarIndex: updatedUser.defaultAvatarIndex,
         avatarUrl: updatedUser.avatarUrl,
+        image: updatedUser.image,
         bio: updatedUser.bio,
         createdAt: updatedUser.createdAt.toISOString(),
       });

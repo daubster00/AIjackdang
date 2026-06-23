@@ -15,6 +15,7 @@ import {
   Tag,
 } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import { RANK_LIST, resolveRank } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
 import styles from "./mypage.module.css";
@@ -33,6 +34,8 @@ type ProfileView = {
   email: string;
   rank: RankTier;
   avatarUrl: string | null;
+  /** 소셜 프로필 사진 (avatarUrl 없을 때 폴백) */
+  image: string | null;
   defaultAvatarIndex: number;
   /** 가입일 ISO 문자열 */
   createdAt: string;
@@ -111,11 +114,6 @@ const stats = [
   { icon: "bookmark-line", label: "북마크", value: "0" },
 ] as const;
 
-/** 기본 아바타 URL (defaultAvatarIndex 기반) */
-function getDefaultAvatarUrl(index: number): string {
-  return `/images/avatars/${index}.svg`;
-}
-
 /** createdAt ISO 문자열을 "YYYY.MM.DD" 형식으로 포맷 */
 function formatJoinDate(iso: string): string {
   try {
@@ -161,6 +159,7 @@ export default function MyPage() {
             email: user.email,
             rank: "rookie" as RankTier,
             avatarUrl: user.avatarUrl,
+            image: user.image,
             defaultAvatarIndex: user.defaultAvatarIndex,
             createdAt: user.createdAt,
           }
@@ -231,7 +230,7 @@ export default function MyPage() {
     return <main id="main" className={styles.page} />;
   }
 
-  const avatarSrc = profile.avatarUrl ?? getDefaultAvatarUrl(profile.defaultAvatarIndex);
+  const avatarSrc = resolveAvatarUrl(profile);
   const joinDate = formatJoinDate(profile.createdAt);
 
   return (

@@ -47,6 +47,8 @@ export const publicUserSchema = z.object({
   emailVerified: z.boolean(),
   defaultAvatarIndex: z.number().int().nonnegative(),
   avatarUrl: z.string().nullable(),
+  /** 소셜 provider 프로필 사진 URL(Better Auth core 필드). avatarUrl 없을 때 폴백으로 사용. */
+  image: z.string().nullable(),
   bio: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -67,6 +69,8 @@ export const sessionSchema = z.object({
     emailVerified: z.boolean(),
     defaultAvatarIndex: z.number().int().nonnegative(),
     avatarUrl: z.string().nullable(),
+    /** 소셜 provider 프로필 사진 URL. avatarUrl 없을 때 폴백. */
+    image: z.string().nullable(),
     createdAt: z.string(),
   }),
   session: z.object({

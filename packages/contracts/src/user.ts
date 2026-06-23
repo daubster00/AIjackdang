@@ -22,6 +22,8 @@ export const publicProfileSchema = z.object({
   nickname: z.string(),
   bio: z.string().nullable(),
   avatarUrl: z.string().nullable(),
+  /** 소셜 provider 프로필 사진. avatarUrl 없을 때 폴백. */
+  image: z.string().nullable(),
   defaultAvatarIndex: z.number().int().nonnegative(),
   bannerUrl: z.string().nullable(),
   /** 등급 키: 'rookie' | 'regular' | ... (Epic 6 전까지 'rookie') */

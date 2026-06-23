@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, Dropdown, DropdownDivider, DropdownItem, Icon, RankBadge } from "@/components/ui";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import type { RankTier } from "@/lib/ranks";
 import styles from "./SiteHeader.module.css";
 
@@ -160,7 +161,7 @@ export function SiteHeader() {
           {user ? (
             <div className={styles.mobileUserBar}>
               <div className={styles.mobileUser}>
-                <Avatar name={user.nickname} size="sm" />
+                <Avatar name={user.nickname} src={resolveAvatarUrl(user)} size="sm" />
                 <div className={styles.mobileUserText}>
                   <span className={styles.mobileUserName}>{user.nickname}</span>
                   {/* rank는 별도 API에서 제공될 예정. 현재는 기본값 표시 */}
@@ -228,14 +229,14 @@ function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       align="end"
       trigger={
         <button type="button" className={styles.userTrigger} aria-label="내 계정 메뉴">
-          <Avatar name={user.nickname} size="sm" />
+          <Avatar name={user.nickname} src={resolveAvatarUrl(user)} size="sm" />
           <span className={styles.userName}>{user.nickname}</span>
           <Icon name="arrow-down-s-line" />
         </button>
       }
     >
       <div className={styles.userSummary}>
-        <Avatar name={user.nickname} size="md" />
+        <Avatar name={user.nickname} src={resolveAvatarUrl(user)} size="md" />
         <div className={styles.userSummaryText}>
           <span className={styles.userSummaryName}>{user.nickname}</span>
           <RankBadge rank={"member" as RankTier} size={18} showLabel />
