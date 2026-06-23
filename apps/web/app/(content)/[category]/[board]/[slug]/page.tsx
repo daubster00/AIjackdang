@@ -15,6 +15,7 @@ import {
   buildArticleJsonLd,
 } from "@/lib/seo";
 import { ShareButton } from "./ShareButton";
+import { DeleteButton } from "@/components/board";
 import styles from "./detail.module.css";
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -93,6 +94,9 @@ export default async function GenericDetailPage({ params }: PageProps) {
 
   // List URL to go back to
   const listUrl = boardMeta?.urlPath ?? `/${category}`;
+
+  // Edit URL: /{category}/{board}/{slug}/edit
+  const editUrl = `/${boardCategory}/${boardSlug}/${post.slug}/edit`;
 
   return (
     <main id="main" className={styles.page}>
@@ -173,14 +177,14 @@ export default async function GenericDetailPage({ params }: PageProps) {
             </div>
             {post.isOwner && (
               <div className={styles.ownerActions}>
-                <button type="button">
+                <Link href={editUrl} className={styles.editLink}>
                   <Icon name="edit-2-line" />
                   수정
-                </button>
-                <button type="button">
-                  <Icon name="delete-bin-line" />
-                  삭제
-                </button>
+                </Link>
+                <DeleteButton
+                  postId={post.id}
+                  listUrl={listUrl}
+                />
               </div>
             )}
           </footer>

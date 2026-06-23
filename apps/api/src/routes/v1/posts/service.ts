@@ -387,6 +387,228 @@ export async function getDraft({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Story 2.8: 게시글 수정 (PATCH /api/v1/posts/:id)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class ForbiddenError extends Error {
+  readonly code = "FORBIDDEN";
+  constructor(message = "권한이 없습니다.") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
+export class PostNotFoundError extends Error {
+  readonly code = "POST_NOT_FOUND";
+  constructor(message = "게시글을 찾을 수 없습니다.") {
+    super(message);
+    this.name = "PostNotFoundError";
+  }
+}
+
+export interface UpdatePostParams {
+  postId: string;
+  userId: string;
+  input: {
+    title?: string;
+    contentJson?: Record<string, unknown>;
+    summary?: string;
+    tags?: string[];
+    status?: string;
+    board?: string;
+    category?: string;
+  };
+}
+
+export interface UpdatePostResult {
+  id: string;
+  slug: string;
+  board: string;
+  category: string | null;
+}
+
+/**
+ * 게시글을 수정한다.
+ *
+ * - slug 는 NFR-8(불변) 에 따라 절대 변경하지 않는다.
+ * - summary: input 에 없으면 contentJson 으로 재생성.
+ * - taggable 재계산: 트랜잭션 내에서 기존 taggable 전량 삭제 후 새로 삽입.
+ * - 작성자가 아닌 경우 ForbiddenError.
+ */
+export async function updatePost({
+  postId,
+  userId,
+  input,
+}: UpdatePostParams): Promise<UpdatePostResult> {
+  const db = getDb();
+
+  // 1) 게시글 조회 + 권한 검증
+  const rows = await db
+    .select({
+      id: schema.posts.id,
+      slug: schema.posts.slug,
+      board: schema.posts.board,
+      category: schema.posts.category,
+      userId: schema.posts.userId,
+      contentJson: schema.posts.contentJson,
+    })
+    .from(schema.posts)
+    .where(and(eq(schema.posts.id, postId), isNull(schema.posts.deletedAt)))
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) {
+    throw new PostNotFoundError();
+  }
+
+  const post = rows[0];
+
+  if (post.userId !== userId) {
+    throw new ForbiddenError();
+  }
+
+  // 2) summary 재생성 (명시적 summary 없을 때 contentJson 기반)
+  const effectiveContentJson = input.contentJson ?? (post.contentJson as Record<string, unknown>);
+  const summary =
+    input.summary?.trim() || generateSummary(effectiveContentJson) || null;
+
+  // 3) 트랜잭션: posts UPDATE + taggable 재계산
+  return await db.transaction(async (tx) => {
+    // posts UPDATE (slug 제외)
+    const updateValues: Record<string, unknown> = {
+      updatedAt: new Date(),
+      summary: summary ?? undefined,
+    };
+    if (input.title !== undefined) updateValues.title = input.title;
+    if (input.contentJson !== undefined) updateValues.contentJson = input.contentJson;
+    if (input.status !== undefined) updateValues.status = input.status;
+    if (input.board !== undefined) updateValues.board = input.board;
+    if (input.category !== undefined) updateValues.category = input.category;
+
+    const [updated] = await tx
+      .update(schema.posts)
+      .set(updateValues)
+      .where(eq(schema.posts.id, postId))
+      .returning({
+        id: schema.posts.id,
+        slug: schema.posts.slug,
+        board: schema.posts.board,
+        category: schema.posts.category,
+      });
+
+    if (!updated) {
+      throw new Error("게시글 UPDATE 실패");
+    }
+
+    // taggable 재계산 (input.tags 가 있을 때만 실행)
+    if (input.tags !== undefined) {
+      // 기존 taggable 전량 삭제
+      await tx
+        .delete(schema.taggable)
+        .where(
+          and(
+            eq(schema.taggable.targetType, "post"),
+            eq(schema.taggable.targetId, postId),
+          ),
+        );
+
+      // 새 태그 upsert + taggable INSERT
+      if (input.tags.length > 0) {
+        const tagIds: string[] = [];
+
+        for (const tagName of input.tags) {
+          const tagSlug = slugify(tagName) || tagName.toLowerCase();
+
+          const existing = await tx
+            .select({ id: schema.tags.id })
+            .from(schema.tags)
+            .where(eq(schema.tags.slug, tagSlug))
+            .limit(1);
+
+          if (existing.length > 0 && existing[0]) {
+            tagIds.push(existing[0].id);
+          } else {
+            const [created] = await tx
+              .insert(schema.tags)
+              .values({ name: tagName, slug: tagSlug })
+              .onConflictDoNothing()
+              .returning({ id: schema.tags.id });
+
+            if (created) {
+              tagIds.push(created.id);
+            } else {
+              const retry = await tx
+                .select({ id: schema.tags.id })
+                .from(schema.tags)
+                .where(eq(schema.tags.slug, tagSlug))
+                .limit(1);
+              if (retry[0]) tagIds.push(retry[0].id);
+            }
+          }
+        }
+
+        if (tagIds.length > 0) {
+          await tx.insert(schema.taggable).values(
+            tagIds.map((tagId) => ({
+              targetType: "post" as const,
+              targetId: postId,
+              tagId,
+            })),
+          );
+        }
+      }
+    }
+
+    return {
+      id: updated.id,
+      slug: updated.slug,
+      board: updated.board,
+      category: updated.category ?? null,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.8: 게시글 삭제 (DELETE /api/v1/posts/:id) — soft-delete
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 게시글을 soft-delete 처리한다.
+ *
+ * - `status='deleted'` + `deleted_at=NOW()` 로 마킹 (물리 삭제 금지, AR-7).
+ * - 작성자가 아닌 경우 ForbiddenError.
+ */
+export async function deletePost({
+  postId,
+  userId,
+}: {
+  postId: string;
+  userId: string;
+}): Promise<void> {
+  const db = getDb();
+
+  // 게시글 조회 + 권한 검증
+  const rows = await db
+    .select({ id: schema.posts.id, userId: schema.posts.userId })
+    .from(schema.posts)
+    .where(and(eq(schema.posts.id, postId), isNull(schema.posts.deletedAt)))
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) {
+    throw new PostNotFoundError();
+  }
+
+  if (rows[0].userId !== userId) {
+    throw new ForbiddenError();
+  }
+
+  // soft-delete: status='deleted' + deleted_at=NOW()
+  await db
+    .update(schema.posts)
+    .set({ status: "deleted", deletedAt: new Date() })
+    .where(eq(schema.posts.id, postId));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Story 2.4: 게시글 상세 조회 (GET /api/v1/posts/:slug)
 // ─────────────────────────────────────────────────────────────────────────────
 

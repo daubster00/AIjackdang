@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero, CodeBlockCopyButton } from "@/components/board";
+import { AttachmentList, BoardHero, CodeBlockCopyButton, DeleteButton } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -57,6 +57,8 @@ export default async function LoungeDetailPage({ params }: PageProps) {
   const postUrl = `${boardUrl}/${post.slug}`;
   const boardLabel = boardMeta?.label ?? "AI 창작마당";
   const boardCategory = boardMeta?.category ?? "lounge";
+  const listUrl = boardMeta?.urlPath ?? "/lounge";
+  const editUrl = `/${boardCategory}/${post.board}/${post.slug}/edit`;
 
   const breadcrumbItems = buildPostBreadcrumb(boardCategory, boardLabel, boardUrl, post.title, postUrl);
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems);
@@ -147,14 +149,14 @@ export default async function LoungeDetailPage({ params }: PageProps) {
             <ShareButton url={postUrl} />
             {post.isOwner && (
               <div className={styles.ownerActions}>
-                <button type="button">
+                <Link href={editUrl} className={styles.editLink}>
                   <Icon name="edit-2-line" />
                   수정
-                </button>
-                <button type="button">
-                  <Icon name="delete-bin-line" />
-                  삭제
-                </button>
+                </Link>
+                <DeleteButton
+                  postId={post.id}
+                  listUrl={listUrl}
+                />
               </div>
             )}
           </footer>

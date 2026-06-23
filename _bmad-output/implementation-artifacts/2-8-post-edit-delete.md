@@ -1,6 +1,6 @@
 # Story 2.8: 게시글 수정 + 삭제 (soft-delete)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -130,10 +130,23 @@ await tx.delete(taggable).where(
 ## Dev Agent Record
 
 ### Agent Model Used
+sonnet
 
 ### Debug Log References
+없음 (typecheck 1회 통과)
 
 ### Completion Notes List
+- `updatePost` 서비스 함수: slug 불변(NFR-8) 준수, `db.transaction()` 내에서 posts UPDATE + taggable 전량 삭제 후 재삽입 (원자적).
+- `deletePost` 서비스 함수: `status='deleted'` + `deletedAt=NOW()` soft-delete(AR-7). 물리 삭제 없음.
+- `ForbiddenError` / `PostNotFoundError` 커스텀 에러 클래스를 service.ts에 정의, route handler에서 instanceof 분기.
+- `updatePostSchema` 는 이미 `packages/contracts/src/post.ts` 에 `createPostSchema.partial()`로 정의됨 — 재사용.
+- 수정 폼(`PostEditForm.tsx`): PostWriteForm 패턴 재사용, board 읽기전용, SEO 필드 비노출.
+- edit 페이지 서버 컴포넌트: `isOwner=false` 시 목록으로 redirect (클라이언트 레벨 방어는 UX 편의, 권위는 API).
+- `DeleteButton.tsx`: 기존 `ConfirmDialog` + `Modal` 컴포넌트 재사용. 포커스 트랩·ESC·배경 스크롤 잠금은 Modal이 처리(AC #5 충족).
+- 상세 페이지 4곳(vibe-coding/automation/monetize/lounge) + generic (content) 상세 페이지 모두 수정 Link + 삭제 DeleteButton으로 교체.
+- 각 CSS 모듈에 `.editLink` 추가 (Link 요소는 `button:first-child` 선택자에 안 걸리므로).
+- `pnpm --filter @ai-jakdang/api typecheck` 통과.
+- `pnpm --filter @ai-jakdang/web typecheck` 통과.
 
 ### File List
 - UPDATE: `apps/api/src/routes/v1/posts/routes.ts`
@@ -141,7 +154,14 @@ await tx.delete(taggable).where(
 - NEW: `apps/web/app/(content)/[category]/[board]/[slug]/edit/page.tsx`
 - NEW: `apps/web/app/(content)/[category]/[board]/[slug]/edit/PostEditForm.tsx`
 - NEW: `apps/web/components/board/DeleteButton.tsx`
+- UPDATE: `apps/web/components/board/index.ts`
+- UPDATE: `apps/web/app/(content)/[category]/[board]/[slug]/page.tsx`
+- UPDATE: `apps/web/app/(content)/[category]/[board]/[slug]/detail.module.css`
 - UPDATE: `apps/web/app/vibe-coding/[slug]/page.tsx`
+- UPDATE: `apps/web/app/vibe-coding/vibe-coding.module.css`
 - UPDATE: `apps/web/app/automation/[slug]/page.tsx`
+- UPDATE: `apps/web/app/automation/automation.module.css`
 - UPDATE: `apps/web/app/monetize/[slug]/page.tsx`
+- UPDATE: `apps/web/app/monetize/monetize.module.css`
 - UPDATE: `apps/web/app/lounge/[slug]/page.tsx`
+- UPDATE: `apps/web/app/lounge/lounge.module.css`

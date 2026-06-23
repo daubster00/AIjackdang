@@ -24,13 +24,14 @@ import {
   errorResponseSchema,
   createPostSchema,
   postDetailSchema,
+  updatePostSchema,
 } from "@ai-jakdang/contracts";
 import { paginationQuerySchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getPosts, createPost, getDraft, getPostBySlug, type SortOption } from "./service.js";
+import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
 
 /** 세션 user 타입 헬퍼 */
@@ -198,6 +199,120 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.code(200).send(draft);
+    },
+  );
+
+  // ── PATCH /posts/:id — 게시글 수정 (인증 필수, 작성자만) ─────────────────────
+  const patchPostParamsSchema = z.object({ id: z.string().uuid() });
+
+  const patchPostResponseSchema = z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    board: z.string(),
+    category: z.string().nullable(),
+  });
+
+  typed.patch(
+    "/posts/:id",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "게시글 수정. 인증 필수. 작성자만 수정 가능. slug 는 변경되지 않는다 (NFR-8).",
+        tags: ["posts"],
+        params: patchPostParamsSchema,
+        body: updatePostSchema,
+        response: {
+          200: patchPostResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const sessionUser = (request as typeof request & RequestWithUser).user;
+      if (!sessionUser?.id) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const { id } = request.params;
+      const body = request.body;
+
+      try {
+        const result = await updatePost({
+          postId: id,
+          userId: sessionUser.id,
+          input: body,
+        });
+        return reply.code(200).send(result);
+      } catch (err) {
+        if (err instanceof ForbiddenError) {
+          return reply.code(403).send({
+            error: { code: "FORBIDDEN", message: "수정 권한이 없습니다." },
+          });
+        }
+        if (err instanceof PostNotFoundError) {
+          return reply.code(404).send({
+            error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },
+          });
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ── DELETE /posts/:id — 게시글 삭제 (soft-delete, 인증 필수, 작성자만) ────────
+  const deletePostParamsSchema = z.object({ id: z.string().uuid() });
+
+  const deletePostResponseSchema = z.object({
+    success: z.literal(true),
+  });
+
+  typed.delete(
+    "/posts/:id",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "게시글 soft-delete. 인증 필수. 작성자만 삭제 가능. status=deleted + deleted_at=NOW().",
+        tags: ["posts"],
+        params: deletePostParamsSchema,
+        response: {
+          200: deletePostResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const sessionUser = (request as typeof request & RequestWithUser).user;
+      if (!sessionUser?.id) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const { id } = request.params;
+
+      try {
+        await deletePost({ postId: id, userId: sessionUser.id });
+        return reply.code(200).send({ success: true });
+      } catch (err) {
+        if (err instanceof ForbiddenError) {
+          return reply.code(403).send({
+            error: { code: "FORBIDDEN", message: "삭제 권한이 없습니다." },
+          });
+        }
+        if (err instanceof PostNotFoundError) {
+          return reply.code(404).send({
+            error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },
+          });
+        }
+        throw err;
+      }
     },
   );
 

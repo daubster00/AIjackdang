@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, AttachmentList, CodeBlockCopyButton } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -56,6 +56,8 @@ export default async function VibeCodingDetailPage({ params }: PageProps) {
   const postUrl = `${boardUrl}/${post.slug}`;
   const boardLabel = boardMeta?.label ?? "바이브코딩 가이드";
   const boardCategory = boardMeta?.category ?? "vibe-coding";
+  const listUrl = boardMeta?.urlPath ?? "/vibe-coding";
+  const editUrl = `/${boardCategory}/${post.board}/${post.slug}/edit`;
 
   const breadcrumbItems = buildPostBreadcrumb(boardCategory, boardLabel, boardUrl, post.title, postUrl);
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems);
@@ -143,14 +145,14 @@ export default async function VibeCodingDetailPage({ params }: PageProps) {
             <ShareButton url={postUrl} />
             {post.isOwner && (
               <div className={styles.ownerActions}>
-                <button type="button">
+                <Link href={editUrl} className={styles.editLink}>
                   <Icon name="edit-2-line" />
                   수정
-                </button>
-                <button type="button">
-                  <Icon name="delete-bin-line" />
-                  삭제
-                </button>
+                </Link>
+                <DeleteButton
+                  postId={post.id}
+                  listUrl={listUrl}
+                />
               </div>
             )}
           </footer>
