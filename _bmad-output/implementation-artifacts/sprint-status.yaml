@@ -20,9 +20,9 @@ development_status:
   1-5-social-login-account-linking: ready-for-dev
   1-6-password-reset: ready-for-dev
   1-7-action-gating-login-modal: done
-  1-8-mypage-activity-hub-shell: ready-for-dev
+  1-8-mypage-activity-hub-shell: done
   1-9-account-settings-profile-password-withdrawal: ready-for-dev
-  1-10-public-profile-page-json-ld: ready-for-dev
+  1-10-public-profile-page-json-ld: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
