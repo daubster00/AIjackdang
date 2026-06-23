@@ -1,8 +1,9 @@
-import { signUpSchema, publicUserSchema, errorResponseSchema } from "@ai-jakdang/contracts";
+import { signUpSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { env } from "@ai-jakdang/config";
 import { registerDevLoginRoute } from "../../auth/dev-login.js";
+import { usersRoutes } from "./users.js";
 
 /**
  * /api/v1 라우트.
@@ -41,21 +42,6 @@ export async function v1Routes(app: FastifyInstance) {
     },
   );
 
-  // ── 현재 로그인 사용자 스켈레톤 ───────────────────────────────────────────
-  typed.get(
-    "/auth/me",
-    {
-      schema: {
-        response: {
-          401: errorResponseSchema,
-        },
-      },
-    },
-    async (_request, reply) => {
-      void publicUserSchema; // 응답 규격은 publicUserSchema 를 따른다(구현 단계에서 사용).
-      return reply.code(401).send({
-        error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
-      });
-    },
-  );
+  // ── 사용자 라우트 (Story 1.8 /users/me · 1.10 /users/profile/:nickname) ──────
+  await usersRoutes(app);
 }
