@@ -103,9 +103,24 @@ so that 내 활동을 빠르게 파악하고 이동한다.
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+없음 (타입체크·린트·테스트 모두 첫 실행 통과)
 
 ### Completion Notes List
+- **미들웨어 변경 없음**: `apps/web/middleware.ts`에 이미 `/mypage`가 `PROTECTED_PATHS`에 포함되어 있었음. Task 1.1은 선행 스토리에서 이미 완료된 상태.
+- **page.tsx**: `useMockAuth` import가 이미 `useAuth`로 교체된 상태였으나, `DEMO_USER`·`profileExtra`·`myPosts`·`activityData`·`followingData`·`followersData` 모든 mock 상수가 남아 있었음. 이를 모두 제거하고 실제 세션 기반으로 재작성.
+- **ProfileView 타입**: `useAuth`의 `AuthUser`(세션)에는 `bio`가 없으므로, bio는 `GET /api/v1/users/me`로 별도 fetch하여 보강.
+- **rank**: 게이미피케이션 API 미구현으로 신규 기본값 `"rookie"`(새내기) 고정. Epic 6 이후 교체 예정.
+- **stats 4개 카드**: 모두 `"0"` 고정. Epic 2~5 구현 후 집계 예정.
+- **팔로잉/팔로워 탭**: 빈 배열 + `EmptyState` 렌더. 카운트 0 고정(`followingCount`·`followersCount` = 0). `// Epic 5에서 활성화` 주석 추가.
+- **댓글/북마크/좋아요 탭**: `EmptyState` 렌더. `// Epic 2~4에서 활성화` 주석.
+- **`FollowButton` import 제거**: 팔로우 목록이 EmptyState로 교체되어 불필요.
+- **`layout.tsx` 신규 생성**: page.tsx가 `"use client"`이므로 `export const metadata` 불가. `apps/web/app/mypage/layout.tsx`를 새로 만들어 `title: "마이페이지 | AI작당"`, `robots: { index: false, follow: false }` 처리.
+- **`profile`·`myPosts` useMemo화**: react-hooks/exhaustive-deps 경고 제거를 위해 `useMemo`로 안정적인 참조 유지.
+- **게이트**: typecheck 0 errors, lint 0 errors (warnings 13개 모두 pre-existing, mypage 관련 없음), tests 35/35 pass.
 
 ### File List
+- `apps/web/app/mypage/page.tsx` (UPDATE — mock 제거, 실세션 교체, 전체 재작성)
+- `apps/web/app/mypage/layout.tsx` (NEW — noindex 메타데이터, title)
