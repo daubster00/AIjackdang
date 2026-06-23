@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
+import { useGating } from "@/hooks/useGating";
 import { ReportModal } from "./ReportModal";
 // lounge 공통 스타일에서 리액션 바 관련 클래스를 가져온다.
 import styles from "../../lounge.module.css";
@@ -21,6 +22,7 @@ type Props = {
 
 /** 수다방 상세 페이지 반응 바 (좋아요·북마크·공유·신고) */
 export function ReactionBar({ likes, bookmarks }: Props) {
+  const { requireAuth } = useGating();
   const [reportOpen, setReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,11 +43,13 @@ export function ReactionBar({ likes, bookmarks }: Props) {
   }, [shareOpen]);
 
   function toggleLike() {
+    if (!requireAuth("like")) return;
     setLiked((prev) => !prev);
     setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
   }
 
   function toggleBookmark() {
+    if (!requireAuth("bookmark")) return;
     setBookmarked((prev) => !prev);
     setBookmarkCount((prev) => (bookmarked ? prev - 1 : prev + 1));
   }
@@ -130,7 +134,13 @@ export function ReactionBar({ likes, bookmarks }: Props) {
           )}
         </div>
 
-        <button type="button" onClick={() => setReportOpen(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            if (!requireAuth("report")) return;
+            setReportOpen(true);
+          }}
+        >
           <Icon name="alarm-warning-line" />
           신고
         </button>

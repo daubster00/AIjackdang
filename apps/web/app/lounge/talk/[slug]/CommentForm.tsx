@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Icon } from "@/components/ui";
+import { useGating } from "@/hooks/useGating";
 // lounge 공통 스타일에서 댓글 폼 관련 클래스를 가져온다.
 import styles from "../../lounge.module.css";
 
@@ -9,12 +10,19 @@ const MAX_LENGTH = 1000;
 
 /** 수다방 상세 페이지 댓글 작성 폼 */
 export function CommentForm() {
+  const { requireAuth } = useGating();
   const [value, setValue] = useState("");
   const remaining = MAX_LENGTH - value.length;
   const isNearLimit = remaining <= 100;
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!requireAuth("comment")) return;
+    // 댓글 등록 로직은 Epic 5에서 구현
+  }
+
   return (
-    <form className={styles.commentForm}>
+    <form className={styles.commentForm} onSubmit={handleSubmit}>
       <div className={styles.commentInputBox}>
         <label className="sr-only" htmlFor="comment">
           댓글 작성
@@ -26,6 +34,7 @@ export function CommentForm() {
           maxLength={MAX_LENGTH}
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onFocus={() => requireAuth("comment")}
         />
         <div className={styles.commentCharCount} aria-live="polite">
           <span className={isNearLimit ? styles.commentCharNearLimit : undefined}>

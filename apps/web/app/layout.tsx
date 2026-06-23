@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui";
 import { SiteFooter, SiteHeader } from "@/components/site";
+import { GatingProvider } from "@/contexts/GatingContext";
 // 사용자 사이트 전역 디자인 시스템 (이 앱 전용)
 import "../styles/index.css";
 // 아이콘은 Remix Icon 으로 통일
@@ -23,9 +24,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           본문 바로가기
         </a>
         <ToastProvider>
-          <SiteHeader />
-          {children}
-          <SiteFooter />
+          <GatingProvider>
+            <SiteHeader />
+            {children}
+            <SiteFooter />
+          </GatingProvider>
         </ToastProvider>
       </body>
     </html>

@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-23T14:15:00
+last_updated: 2026-06-23
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -19,7 +19,7 @@ development_status:
   1-4-login-logout-session: done
   1-5-social-login-account-linking: ready-for-dev
   1-6-password-reset: ready-for-dev
-  1-7-action-gating-login-modal: ready-for-dev
+  1-7-action-gating-login-modal: done
   1-8-mypage-activity-hub-shell: ready-for-dev
   1-9-account-settings-profile-password-withdrawal: ready-for-dev
   1-10-public-profile-page-json-ld: ready-for-dev

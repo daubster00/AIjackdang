@@ -30,6 +30,7 @@ export * from "./Pagination";
 
 // 레이어 요소
 export * from "./Modal";
+export * from "./LoginGatingModal";
 export * from "./MessageModal";
 export * from "./ConfirmDialog";
 export * from "./Dropdown";

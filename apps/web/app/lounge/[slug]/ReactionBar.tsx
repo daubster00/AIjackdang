@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
+import { useGating } from "@/hooks/useGating";
 import { ReportModal } from "./ReportModal";
 import styles from "../lounge.module.css";
 
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export function ReactionBar({ likes, bookmarks }: Props) {
+  const { requireAuth } = useGating();
   const [reportOpen, setReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -39,11 +41,13 @@ export function ReactionBar({ likes, bookmarks }: Props) {
   }, [shareOpen]);
 
   function toggleLike() {
+    if (!requireAuth("like")) return;
     setLiked((prev) => !prev);
     setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
   }
 
   function toggleBookmark() {
+    if (!requireAuth("bookmark")) return;
     setBookmarked((prev) => !prev);
     setBookmarkCount((prev) => (bookmarked ? prev - 1 : prev + 1));
   }
@@ -128,7 +132,13 @@ export function ReactionBar({ likes, bookmarks }: Props) {
           )}
         </div>
 
-        <button type="button" onClick={() => setReportOpen(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            if (!requireAuth("report")) return;
+            setReportOpen(true);
+          }}
+        >
           <Icon name="alarm-warning-line" />
           신고
         </button>
