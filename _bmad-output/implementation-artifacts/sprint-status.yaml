@@ -54,10 +54,10 @@ development_status:
 
   epic-4: in-progress
   4-1-resource-schema-api-contracts: done
-  4-2-resource-list-page: review
-  4-3-resource-detail-page: ready-for-dev
+  4-2-resource-list-page: done
+  4-3-resource-detail-page: done
   4-4-resource-write-form: ready-for-dev
-  4-5-file-upload-security-pipeline: review
+  4-5-file-upload-security-pipeline: done
   4-6-resource-download: ready-for-dev
   4-7-resource-rating: ready-for-dev
   4-8-resource-edit-delete: ready-for-dev
