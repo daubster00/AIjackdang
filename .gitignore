@@ -37,3 +37,6 @@ Thumbs.db
 
 # 업로드 임시 저장소(로컬 스토리지 사용 시)
 /storage/
+
+# git worktrees (서브에이전트 격리 작업폴더 — 추적 금지)
+.claude/worktrees/

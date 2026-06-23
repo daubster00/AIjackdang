@@ -3,8 +3,10 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { Avatar, Button, Icon, Input, Textarea } from "@/components/ui";
+import { useToast } from "@/components/ui/Toast";
 import { useMockAuth } from "@/hooks/useMockAuth";
 import type { MockUser } from "@/lib/mockAuth";
+import { updateProfile, checkNickname, uploadAvatar, uploadBanner } from "@/lib/users-api";
 import shell from "../settings.module.css";
 import styles from "./profile.module.css";
 
@@ -33,6 +35,7 @@ function newLinkId() {
 
 export function ProfileForm() {
   const { user } = useMockAuth();
+  const { toast } = useToast();
   // 로그인 사용자가 있으면 사용, 없으면 데모 프로필로 폴백한다.
   const profile = user ?? DEMO_USER;
 
@@ -42,28 +45,39 @@ export function ProfileForm() {
     "n8n·Claude Code로 사이드 프로젝트 만드는 중. 자동화 외주도 조금씩 받고 있어요.",
   );
 
+  // 닉네임 중복 체크 상태
+  const [nicknameError, setNicknameError] = useState<string | undefined>(undefined);
+  const [nicknameOk, setNicknameOk] = useState<boolean>(false);
+
   // avatarPreview: 선택한 프로필 이미지의 미리보기 URL(dataURL).
   // null 이면 기본 아바타(닉네임 첫 글자 자동 생성)로 표시한다.
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  // avatarFile: 업로드 대기 중인 파일
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   // avatarFileRef: 숨김 파일 input 을 버튼으로 대신 여는 ref
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
   // bannerPreview: 배너 이미지 미리보기 URL(dataURL).
   // null 이면 그라데이션 플레이스홀더 표시.
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  // bannerFile: 업로드 대기 중인 파일
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
   // bannerFileRef: 배너 이미지 숨김 input ref
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
   // links: 외부 링크 행 목록 (GitHub·블로그·사이트 등 여러 개 추가 가능)
   const [links, setLinks] = useState<LinkItem[]>([{ id: newLinkId(), url: "" }]);
 
+  // 폼 제출 중 상태
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // ── 아바타 이미지 핸들러 ──
 
   // "이미지 변경": 파일 선택 시 FileReader 로 dataURL 미리보기 생성
-  // (PostWriteForm 의 이미지 삽입 패턴 참고)
   function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (typeof ev.target?.result === "string") {
@@ -78,6 +92,7 @@ export function ProfileForm() {
   // "기본 이미지로": 선택한 아바타를 지워 닉네임 첫 글자 아바타로 복귀
   function handleAvatarReset() {
     setAvatarPreview(null);
+    setAvatarFile(null);
   }
 
   // ── 배너 이미지 핸들러 ──
@@ -86,6 +101,7 @@ export function ProfileForm() {
   function handleBannerChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setBannerFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (typeof ev.target?.result === "string") {
@@ -99,6 +115,7 @@ export function ProfileForm() {
   // "배너 기본으로": 업로드한 배너를 지워 그라데이션 플레이스홀더로 복귀
   function handleBannerReset() {
     setBannerPreview(null);
+    setBannerFile(null);
   }
 
   // ── 외부 링크 핸들러 ──
@@ -115,12 +132,89 @@ export function ProfileForm() {
     setLinks((prev) => prev.filter((l) => l.id !== id));
   }
 
+  // ── 닉네임 blur 중복 확인 ──
+
+  async function handleNicknameBlur() {
+    if (nickname === profile.nickname) {
+      // 자기 자신 닉네임 → 중복 아님
+      setNicknameError(undefined);
+      setNicknameOk(false);
+      return;
+    }
+    if (nickname.length < 2 || nickname.length > 20) return;
+
+    const result = await checkNickname(nickname);
+    if (result === null) return; // 네트워크 오류 시 무시
+
+    if (!result.available) {
+      setNicknameError("이미 사용 중인 닉네임입니다.");
+      setNicknameOk(false);
+    } else {
+      setNicknameError(undefined);
+      setNicknameOk(true);
+    }
+  }
+
   // ── 폼 저장 ──
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // 목업 단계: 실제 저장 API 가 붙기 전이라 안내만 한다.
-    alert("프로필이 저장되었습니다. (목업)");
+
+    if (nicknameError) return; // 닉네임 중복 오류가 있으면 제출 불가
+    setIsSubmitting(true);
+
+    try {
+      let uploadedAvatarUrl: string | undefined = undefined;
+      let uploadedBannerUrl: string | undefined = undefined;
+
+      // 아바타 파일 업로드
+      if (avatarFile) {
+        const res = await uploadAvatar(avatarFile);
+        if ("ok" in res) {
+          toast({ tone: "danger", title: "이미지 업로드 실패", description: res.message });
+          setIsSubmitting(false);
+          return;
+        }
+        uploadedAvatarUrl = res.url;
+      }
+
+      // 배너 파일 업로드
+      if (bannerFile) {
+        const res = await uploadBanner(bannerFile);
+        if ("ok" in res) {
+          toast({ tone: "danger", title: "배너 업로드 실패", description: res.message });
+          setIsSubmitting(false);
+          return;
+        }
+        uploadedBannerUrl = res.url;
+      }
+
+      // 프로필 수정 API 호출
+      const validLinks = links
+        .filter((l) => l.url.trim() !== "")
+        .map((l) => ({ label: l.url, url: l.url }));
+
+      const result = await updateProfile({
+        nickname,
+        bio,
+        links: validLinks,
+        ...(uploadedAvatarUrl !== undefined ? { avatarUrl: uploadedAvatarUrl } : {}),
+        ...(uploadedBannerUrl !== undefined ? { bannerUrl: uploadedBannerUrl } : {}),
+      });
+
+      if (result.ok) {
+        toast({ tone: "success", title: "프로필이 저장됐어요" });
+        setAvatarFile(null);
+        setBannerFile(null);
+        setNicknameOk(false);
+      } else if (result.code === "NICKNAME_TAKEN") {
+        setNicknameError("이미 사용 중인 닉네임입니다.");
+      } else {
+        toast({ tone: "danger", title: "저장 실패", description: result.message });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -175,7 +269,7 @@ export function ProfileForm() {
         <input
           ref={bannerFileRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           className={styles.fileInput}
           onChange={handleBannerChange}
           aria-label="배너 이미지 파일 선택"
@@ -226,7 +320,7 @@ export function ProfileForm() {
           <input
             ref={avatarFileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             className={styles.fileInput}
             onChange={handleAvatarChange}
             aria-label="프로필 이미지 파일 선택"
@@ -240,18 +334,27 @@ export function ProfileForm() {
           label="닉네임"
           name="nickname"
           value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
+          onChange={(e) => {
+            setNickname(e.target.value);
+            setNicknameError(undefined);
+            setNicknameOk(false);
+          }}
+          onBlur={handleNicknameBlur}
           placeholder="닉네임을 입력하세요"
           autoComplete="nickname"
           required
           maxLength={20}
           leftIcon={<Icon name="user-line" />}
+          error={nicknameError}
+          success={nicknameOk ? "사용 가능한 닉네임입니다." : undefined}
         />
         {/* 닉네임 허용 문자 및 유니크 안내 (인라인 힌트) */}
-        <p className={styles.nicknameHint}>
-          <Icon name="information-line" />
-          한글·영문·숫자 2~20자, 특수문자 제외. 닉네임은 중복 사용이 불가합니다.
-        </p>
+        {!nicknameError && !nicknameOk && (
+          <p className={styles.nicknameHint}>
+            <Icon name="information-line" />
+            한글·영문·숫자 2~20자, 특수문자 제외. 닉네임은 중복 사용이 불가합니다.
+          </p>
+        )}
       </div>
 
       <Textarea
@@ -297,7 +400,7 @@ export function ProfileForm() {
           ))}
         </div>
 
-        {/* 링크 추가 버튼: 최대 5개까지 허용 (목업 제한) */}
+        {/* 링크 추가 버튼: 최대 5개까지 허용 */}
         {links.length < 5 && (
           <Button
             type="button"
@@ -333,8 +436,8 @@ export function ProfileForm() {
             취소
           </Button>
         </Link>
-        <Button type="submit" leftIcon={<Icon name="save-line" />}>
-          저장
+        <Button type="submit" leftIcon={<Icon name="save-line" />} disabled={isSubmitting}>
+          {isSubmitting ? "저장 중..." : "저장"}
         </Button>
       </div>
     </form>

@@ -21,4 +21,5 @@ export const QUEUE_NAMES = {
   imageProcessing: "image-processing",
   email: "email",
   stats: "stats-aggregation",
+  cleanup: "cleanup",
 } as const;
