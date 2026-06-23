@@ -8,6 +8,7 @@ import { registerForgotPasswordRoute } from "./auth/forgot-password.js";
 import { registerResetPasswordRoute } from "./auth/reset-password.js";
 import { postsRoutes } from "./posts/routes.js";
 import { tagsRoutes } from "./tags/routes.js";
+import { resourcesRoutes } from "./resources/routes.js";
 
 /**
  * /api/v1 라우트.
@@ -43,4 +44,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 태그 라우트 (Story 2.7 GET /tags?q=) ────────────────────────────────────────
   await tagsRoutes(app);
+
+  // ── 실전자료 라우트 (Epic 4: 목록/상세/등록/업로드/다운로드/평점/수정삭제) ──────
+  await resourcesRoutes(app);
 }
