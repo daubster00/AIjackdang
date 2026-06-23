@@ -52,7 +52,7 @@ development_status:
   3-9-qa-page-json-ld-seo: ready-for-dev
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-resource-schema-api-contracts: done
   4-2-resource-list-page: done
   4-3-resource-detail-page: done
