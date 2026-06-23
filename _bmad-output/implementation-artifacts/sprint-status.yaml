@@ -56,7 +56,7 @@ development_status:
   4-1-resource-schema-api-contracts: done
   4-2-resource-list-page: done
   4-3-resource-detail-page: done
-  4-4-resource-write-form: ready-for-dev
+  4-4-resource-write-form: review
   4-5-file-upload-security-pipeline: done
   4-6-resource-download: ready-for-dev
   4-7-resource-rating: ready-for-dev

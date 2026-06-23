@@ -1,22 +1,12 @@
-import type { Metadata } from "next";
-import { BoardHero } from "@/components/board";
-import { ResourceWriteForm } from "./ResourceWriteForm";
-import styles from "./resource-write.module.css";
+/**
+ * /resources/templates/write → /resources/new 리다이렉트 (Story 4.4)
+ *
+ * 단일 7-Step 등록 폼(/resources/new)으로 통합됨.
+ * 기존 링크 유입 시 깨진 링크 없이 새 등록 폼으로 이동한다.
+ */
 
-export const metadata: Metadata = {
-  title: "자료 등록 | 템플릿·체크리스트 - AI작당",
-  description: "템플릿·체크리스트 자료실에 새 자료를 등록합니다.",
-};
+import { redirect } from "next/navigation";
 
-export default function TemplatesWritePage() {
-  return (
-    <main id="main" className={styles.page}>
-      {/* 히어로 섹션: 실전자료 대메뉴 공통 히어로 */}
-      <BoardHero menu="resources" currentSub="템플릿·체크리스트" />
-
-      <div className={styles.layout}>
-        <ResourceWriteForm />
-      </div>
-    </main>
-  );
+export default function TemplatesWriteRedirect() {
+  redirect("/resources/new");
 }
