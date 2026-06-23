@@ -136,17 +136,27 @@ export default function MyPage() {
   const [postSort, setPostSort] = useState<PostSortKey>("latest");
   const [postKeyword, setPostKeyword] = useState("");
 
-  // bio: 세션에 없으므로 /api/v1/users/me 에서 별도 조회 (Epic 2~5 이전까지 null)
+  // bio·배너·외부링크: 세션에 없으므로 /api/v1/users/me 에서 별도 조회
   const [bio, setBio] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [links, setLinks] = useState<{ label: string; url: string }[]>([]);
 
   useEffect(() => {
     if (!user) return;
     fetch("/api/v1/users/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { bio?: string | null } | null) => {
-        if (data?.bio) setBio(data.bio);
-      })
-      .catch(() => { /* bio 로드 실패 시 무시 */ });
+      .then(
+        (data: {
+          bio?: string | null;
+          bannerUrl?: string | null;
+          links?: { label: string; url: string }[] | null;
+        } | null) => {
+          if (data?.bio) setBio(data.bio);
+          if (data?.bannerUrl) setBannerUrl(data.bannerUrl);
+          if (Array.isArray(data?.links)) setLinks(data.links);
+        },
+      )
+      .catch(() => { /* 로드 실패 시 무시 */ });
   }, [user]);
 
   // 로그인 사용자 프로필 뷰 구성 (세션 기반)
@@ -235,8 +245,14 @@ export default function MyPage() {
 
   return (
     <main id="main" className={styles.page}>
-      {/* ── 프로필 헤더 밴드 ── */}
+      {/* ── 프로필 헤더 밴드 (배너 배경 + 정보) ── */}
       <section className={styles.profileBand} aria-label="내 프로필">
+        {bannerUrl && (
+          <>
+            <img src={bannerUrl} alt="" className={styles.bandBanner} />
+            <div className={styles.bandBannerOverlay} aria-hidden="true" />
+          </>
+        )}
         <div className={styles.profileBandInner}>
           <div className={styles.identity}>
             <Avatar name={profile.nickname} src={avatarSrc} size="lg" className={styles.avatar} />
@@ -278,6 +294,23 @@ export default function MyPage() {
                 </span>
               </div>
               {bio && <p className={styles.bio}>{bio}</p>}
+              {links.length > 0 && (
+                <ul className={styles.profileLinks}>
+                  {links.map((link, i) => (
+                    <li key={`${link.url}-${i}`}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className={styles.profileLink}
+                      >
+                        <Icon name="link" />
+                        {link.label || link.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
