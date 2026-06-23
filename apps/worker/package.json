@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@ai-jakdang/core": "workspace:*",
+    "@ai-jakdang/database": "workspace:*",
     "bullmq": "^5.34.0",
+    "drizzle-orm": "^0.38.0",
     "ioredis": "5.10.1",
     "nodemailer": "^9.0.1"
   },

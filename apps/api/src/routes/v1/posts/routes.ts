@@ -23,13 +23,15 @@ import {
   paginatedPostsSchema,
   errorResponseSchema,
   createPostSchema,
+  postDetailSchema,
 } from "@ai-jakdang/contracts";
 import { paginationQuerySchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getPosts, createPost, getDraft, type SortOption } from "./service.js";
+import { getPosts, createPost, getDraft, getPostBySlug, type SortOption } from "./service.js";
+import { userAuth } from "../../../auth/user-auth.js";
 
 /** 세션 user 타입 헬퍼 */
 type RequestWithUser = { user?: { id: string } };
@@ -196,6 +198,48 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.code(200).send(draft);
+    },
+  );
+
+  // ── GET /posts/:slug — 게시글 상세 (비회원 공개) ─────────────────────────────
+  // NOTE: /posts/drafts/:id 보다 반드시 나중에 등록해야 Fastify가 정확한 경로를 매칭한다.
+  const slugParamsSchema = z.object({ slug: z.string() });
+
+  typed.get(
+    "/posts/:slug",
+    {
+      schema: {
+        description:
+          "게시글 slug로 상세 조회. 비회원 포함 공개. published 게시글만 노출 (본인 draft 제외).",
+        tags: ["posts"],
+        params: slugParamsSchema,
+        response: {
+          200: postDetailSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { slug } = request.params;
+
+      // 선택적 인증 — 실패해도 비회원으로 처리 (401 미반환)
+      let currentUserId: string | undefined;
+      try {
+        const session = await userAuth.api.getSession({
+          headers: request.headers as unknown as Headers,
+        });
+        currentUserId = session?.user?.id;
+      } catch { /* 비회원 */ }
+
+      const result = await getPostBySlug(slug, currentUserId);
+
+      if (!result) {
+        return reply.code(404).send({
+          error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },
+        });
+      }
+
+      return reply.code(200).send(result);
     },
   );
 }

@@ -1,6 +1,6 @@
 # Story 2.4: 게시글 상세 SSR 페이지 (참여 슬롯 + 조회수 인프라)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -140,21 +140,42 @@ Lua 스크립트로 원자적 GET+DEL 처리 권장.
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+(none)
 
 ### Completion Notes List
+1. `contentHtml` 임시 구현: `extractTextFromTiptapJson` 헬퍼로 Tiptap JSON → `<p>` 단락 플레인텍스트 변환. Story 2.6에서 `apps/api/src/lib/tiptap-renderer.ts` + `sanitize-html`로 교체 예정. 마킹: `// TODO(Story 2.6): replace with sanitize-html pipeline`.
+2. Redis URL 기본값: `redis://localhost:6380` (프로젝트 규정 포트). API service와 worker 모두 동일.
+3. `apps/web/app/(content)/[category]/[board]/[slug]/page.tsx` — 기존 board별 상세 페이지(vibe-coding/automation/monetize/lounge)와 병렬 라우팅 가능. 두 라우팅이 모두 유효하므로 주의: Story 2.10 라우팅 확정 시 board별 구 페이지는 (content) 공통으로 통합 고려 가능.
+4. 기존 board별 상세 페이지에서 `vibe-coding.module.css` 등 board별 CSS 스타일 그대로 유지. `data-slot` participation placeholder는 CSS `style` prop으로 인라인 처리(기존 CSS에 `.participationSlot` 클래스 없음).
+5. lounge 페이지: `CreativeSpecPanel`은 mock 유지 (story 2.11에서 API 연동). API에서 가져온 post에는 `creativeSpec` 필드 없으므로 `spec={undefined}` 전달.
+6. `apps/worker/src/connection.ts`에 `viewFlush: "view-flush"` 추가.
+7. `apps/worker/package.json`에 `@ai-jakdang/database` 의존성 추가 (processor에서 Drizzle DB 접근).
+8. `apps/web/app/not-found.tsx` 신규 생성: `robots: { index: false, follow: false }` noindex.
 
 ### File List
 - NEW: `apps/web/app/(content)/[category]/[board]/[slug]/page.tsx`
 - NEW: `apps/web/app/(content)/[category]/[board]/[slug]/ShareButton.tsx`
+- NEW: `apps/web/app/(content)/[category]/[board]/[slug]/detail.module.css`
+- NEW: `apps/web/app/vibe-coding/[slug]/ShareButton.tsx`
+- NEW: `apps/web/app/automation/[slug]/ShareButton.tsx`
+- NEW: `apps/web/app/monetize/[slug]/ShareButton.tsx`
+- NEW: `apps/web/app/lounge/[slug]/ShareButton.tsx`
+- NEW: `apps/web/app/not-found.tsx`
 - NEW: `apps/worker/src/processors/view.flush.ts`
 - NEW: `apps/worker/src/queues/view-flush.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/routes.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/service.ts`
-- UPDATE: `apps/api/src/routes/v1/index.ts`
 - UPDATE: `apps/web/app/vibe-coding/[slug]/page.tsx`
 - UPDATE: `apps/web/app/automation/[slug]/page.tsx`
 - UPDATE: `apps/web/app/monetize/[slug]/page.tsx`
 - UPDATE: `apps/web/app/lounge/[slug]/page.tsx`
+- UPDATE: `apps/web/app/vibe-coding/vibe-coding.module.css`
+- UPDATE: `apps/web/app/automation/automation.module.css`
+- UPDATE: `apps/web/app/monetize/monetize.module.css`
+- UPDATE: `apps/web/app/lounge/lounge.module.css`
 - UPDATE: `apps/worker/src/index.ts`
+- UPDATE: `apps/worker/src/connection.ts`
+- UPDATE: `apps/worker/package.json`

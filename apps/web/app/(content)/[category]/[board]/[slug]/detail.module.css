@@ -1,0 +1,191 @@
+/* Detail page — Story 2.4 generic board detail */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page h3,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.detailLayout {
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
+  padding: 64px var(--space-6) 104px;
+}
+
+.postDetail {
+  display: grid;
+  gap: 0;
+}
+
+.detailHeader {
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+  padding: var(--space-8) var(--space-8) var(--space-8);
+}
+
+.detailHeader::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: var(--space-4);
+  background: var(--color-border);
+}
+
+.detailCategoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.detailHeader h1 {
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-tight);
+}
+
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+.articleBody {
+  display: grid;
+  gap: var(--space-6);
+  border-inline: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-7) var(--space-8) var(--space-6);
+}
+
+.articleBody p {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  line-height: 1.9;
+}
+
+/* ── participation slots (Epic 5에서 활성화) ── */
+
+.participationSlot {
+  opacity: 0.6;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+  background: var(--color-bg);
+}
+
+.slotHint {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+/* ── footer ── */
+
+.detailFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-6);
+}
+
+.listButton,
+.shareButton,
+.ownerActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.listButton:hover,
+.shareButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.ownerActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ownerActions button:first-child {
+  border-color: rgba(48, 48, 192, 0.24);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.ownerActions button:first-child:hover {
+  border-color: var(--color-primary);
+  background: #ffffff;
+}
+
+.ownerActions button:last-child {
+  border-color: rgba(217, 54, 62, 0.24);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.ownerActions button:last-child:hover {
+  border-color: var(--color-danger);
+  background: #ffffff;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .detailLayout {
+    padding-inline: var(--space-4);
+  }
+
+  .detailHeader h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .detailFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ownerActions {
+    justify-content: flex-end;
+  }
+}

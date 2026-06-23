@@ -8,10 +8,22 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import type { PostCard } from "@ai-jakdang/contracts";
+import type { PostCard, PostDetail } from "@ai-jakdang/contracts";
 import type { CreatePostInput } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
+import { Redis } from "ioredis";
+
+// ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
+let _redis: Redis | null = null;
+function getRedis(): Redis {
+  if (!_redis) {
+    const url = process.env.REDIS_URL ?? "redis://localhost:6380";
+    _redis = new Redis(url, { lazyConnect: true });
+    _redis.on("error", (err) => console.error("[view-redis] 연결 오류:", err.message));
+  }
+  return _redis;
+}
 
 export type SortOption = "latest" | "popular" | "most-comments";
 
@@ -370,5 +382,156 @@ export async function getDraft({
     category: post.category ?? null,
     status: post.status,
     tags: taggableRows.map((r) => r.tagName),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.4: 게시글 상세 조회 (GET /api/v1/posts/:slug)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tiptap JSON → plain text HTML (단락 단위 <p> 태그 감싸기)
+ * TODO(Story 2.6): replace with sanitize-html pipeline using tiptap-renderer
+ */
+function extractTextFromTiptapJson(json: Record<string, unknown>): string {
+  try {
+    const content = json["content"] as Array<Record<string, unknown>> | undefined;
+    if (!content) return "";
+    const paragraphs: string[] = [];
+    for (const node of content) {
+      const text = extractNodeText(node);
+      if (text.trim()) {
+        paragraphs.push(`<p>${text}</p>`);
+      }
+    }
+    return paragraphs.join("\n");
+  } catch {
+    return "";
+  }
+}
+
+function extractNodeText(node: Record<string, unknown>): string {
+  if (node["type"] === "text") {
+    return String(node["text"] ?? "");
+  }
+  const children = node["content"] as Array<Record<string, unknown>> | undefined;
+  if (!children) return "";
+  return children.map((c) => extractNodeText(c)).join("");
+}
+
+/**
+ * Redis INCR 조회수 버퍼링.
+ * dedup key: view:post:{postId}:{fingerprint} — NX EX 1800
+ * incr key:  view:post:{postId} (집계, worker가 flush)
+ * AR-16·AR-17: 직접 DB UPDATE 절대 금지.
+ */
+async function incrementViewCount(postId: string, fingerprint: string): Promise<void> {
+  try {
+    const redis = getRedis();
+    const dedupKey = `view:post:${postId}:${fingerprint}`;
+    const incrKey = `view:post:${postId}`;
+    // NX = 없을 때만 SET. "OK" = 새 조회, null = dedup
+    const result = await redis.set(dedupKey, "1", "EX", 1800, "NX");
+    if (result === "OK") {
+      await redis.incr(incrKey);
+    }
+  } catch (err) {
+    console.warn("[view-redis] INCR 실패 (무시):", (err as Error).message);
+  }
+}
+
+/**
+ * slug로 게시글 상세를 조회한다.
+ *
+ * - status !== 'published' 이고 본인이 아니면 null 반환 (→ 404).
+ * - 조회 시 Redis INCR 버퍼링 (fire-and-forget) — AR-16·AR-17.
+ * - contentHtml: Tiptap JSON에서 임시 추출 (TODO Story 2.6).
+ */
+export async function getPostBySlug(
+  slug: string,
+  currentUserId?: string,
+): Promise<PostDetail | null> {
+  const db = getDb();
+
+  // posts + author LEFT JOIN
+  const rows = await db
+    .select({
+      id: schema.posts.id,
+      slug: schema.posts.slug,
+      title: schema.posts.title,
+      summary: schema.posts.summary,
+      board: schema.posts.board,
+      viewCount: schema.posts.viewCount,
+      createdAt: schema.posts.createdAt,
+      updatedAt: schema.posts.updatedAt,
+      isPinned: schema.posts.isPinned,
+      seoTitle: schema.posts.seoTitle,
+      seoDescription: schema.posts.seoDescription,
+      status: schema.posts.status,
+      contentJson: schema.posts.contentJson,
+      userId: schema.posts.userId,
+      authorNickname: schema.users.nickname,
+    })
+    .from(schema.posts)
+    .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
+    .where(
+      and(
+        eq(schema.posts.slug, slug),
+        isNull(schema.posts.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) return null;
+  const row = rows[0];
+
+  // Only published posts are visible to non-owners
+  const isOwner = !!currentUserId && row.userId === currentUserId;
+  if (row.status !== "published" && !isOwner) return null;
+
+  // Tags
+  const taggableRows = await db
+    .select({ tagName: schema.tags.name })
+    .from(schema.taggable)
+    .innerJoin(schema.tags, eq(schema.taggable.tagId, schema.tags.id))
+    .where(
+      and(
+        eq(schema.taggable.targetType, "post"),
+        eq(schema.taggable.targetId, row.id),
+      ),
+    );
+
+  const tags = taggableRows.map((r) => r.tagName);
+
+  // contentHtml — TODO(Story 2.6): replace with sanitize-html pipeline
+  // Temporary: extract plain text from Tiptap JSON nodes
+  const contentHtml = extractTextFromTiptapJson(row.contentJson as Record<string, unknown>);
+
+  // View count: Redis INCR with dedup (30min TTL per IP/session)
+  // Fire-and-forget — don't let Redis failures block the response
+  void incrementViewCount(row.id, currentUserId ?? "anon");
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    summary: row.summary ?? null,
+    board: row.board,
+    viewCount: row.viewCount,
+    commentCount: 0, // Epic 5 이전 고정
+    likeCount: 0,    // Epic 5 이전 고정
+    hasAttachment: false, // Epic 4 이전 고정
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    isPinned: row.isPinned,
+    seoTitle: row.seoTitle ?? null,
+    seoDescription: row.seoDescription ?? null,
+    status: row.status as PostDetail["status"],
+    contentHtml,
+    contentJson: row.contentJson as Record<string, unknown>,
+    authorId: row.userId ?? null,
+    authorNickname: row.authorNickname ?? null,
+    isOwner,
+    tags,
   };
 }

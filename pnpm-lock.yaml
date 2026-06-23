@@ -226,9 +226,15 @@ importers:
       '@ai-jakdang/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ai-jakdang/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       bullmq:
         specifier: ^5.34.0
         version: 5.78.1
+      drizzle-orm:
+        specifier: ^0.38.0
+        version: 0.38.4(@types/pg@8.20.0)(@types/react@19.2.17)(kysely@0.29.2)(pg@8.21.0)(react@19.2.7)
       ioredis:
         specifier: 5.10.1
         version: 5.10.1

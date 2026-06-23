@@ -22,4 +22,5 @@ export const QUEUE_NAMES = {
   email: "email",
   stats: "stats-aggregation",
   cleanup: "cleanup",
+  viewFlush: "view-flush",
 } as const;

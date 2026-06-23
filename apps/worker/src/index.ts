@@ -1,8 +1,9 @@
-import { Worker } from "bullmq";
+import { Worker, Queue } from "bullmq";
 import { createConnection, QUEUE_NAMES } from "./connection";
 import { renderResetPasswordEmail } from "./templates/reset-password.js";
 import { renderEmailVerification } from "./templates/email-verification.js";
 import { sendMail, isSmtpConfigured } from "./mailer.js";
+import { viewFlushProcessor } from "./processors/view.flush.js";
 
 /**
  * 워커 엔트리.
@@ -101,11 +102,47 @@ function startWorkers(): Worker[] {
   );
   // ── [1.3] email worker END ─────────────────────────────────────────────────
 
-  return [imageWorker, emailWorker];
+  // ── [2.4] view-flush worker ─────────────────────────────────────────────────
+  // Redis 조회수 버퍼를 1분마다 DB로 flush한다.
+  const viewFlushConnection = createConnection();
+  const viewFlushWorker = new Worker(
+    QUEUE_NAMES.viewFlush,
+    viewFlushProcessor,
+    { connection: viewFlushConnection },
+  );
+
+  viewFlushWorker.on("ready", () => console.log("[worker] view-flush 워커 준비 완료"));
+  viewFlushWorker.on("completed", (job) =>
+    console.info(`[view-flush-worker] job 완료: ${job.id}`),
+  );
+  viewFlushWorker.on("failed", (job, error) =>
+    console.error(`[view-flush-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [2.4] view-flush worker END ───────────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker];
 }
 
 const workers = startWorkers();
 console.log("[worker] AI작당 워커가 기동되었습니다. (Redis 연결 대기 중일 수 있음)");
+
+// view-flush 반복 job 등록 (1분마다)
+// BullMQ repeat job — 이미 등록된 경우 중복 없음
+void (async () => {
+  try {
+    const viewFlushQueue = new Queue(QUEUE_NAMES.viewFlush, {
+      connection: createConnection(),
+    });
+    await viewFlushQueue.add(
+      "view.flush",
+      {},
+      { repeat: { every: 60000 }, jobId: "view-flush-repeat" },
+    );
+    console.log("[worker] view-flush 반복 job 등록 완료 (1분마다)");
+  } catch (err) {
+    console.warn("[worker] view-flush 반복 job 등록 실패:", (err as Error).message);
+  }
+})();
 
 // 안전한 종료
 async function shutdown() {

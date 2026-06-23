@@ -552,6 +552,7 @@
   gap: var(--space-3);
 }
 
+.detailHeader h1,
 .detailHeader h2 {
   font-size: var(--font-size-4xl);
   line-height: var(--line-height-tight);
@@ -1427,6 +1428,7 @@
     display: none;
   }
 
+  .detailHeader h1,
   .detailHeader h2 {
     font-size: var(--font-size-2xl);
   }
