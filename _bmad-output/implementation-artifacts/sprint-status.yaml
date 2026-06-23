@@ -15,13 +15,13 @@ development_status:
   epic-1: in-progress
   1-1-dev-foundation-conventions: done
   1-2-auth-foundation-schema-packages-auth-better-auth: done
-  1-3-email-signup-verification: ready-for-dev
+  1-3-email-signup-verification: done
   1-4-login-logout-session: done
   1-5-social-login-account-linking: ready-for-dev
   1-6-password-reset: ready-for-dev
   1-7-action-gating-login-modal: done
   1-8-mypage-activity-hub-shell: done
-  1-9-account-settings-profile-password-withdrawal: ready-for-dev
+  1-9-account-settings-profile-password-withdrawal: done
   1-10-public-profile-page-json-ld: done
   epic-1-retrospective: optional
 
