@@ -20,6 +20,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./auth";
 
 // ── Enum ──────────────────────────────────────────────────────────────────────
@@ -62,6 +63,12 @@ export const posts = pgTable(
 
     // 통계 — 직접 UPDATE 금지, Redis 버퍼 경유 (Story 2.4)
     viewCount: integer("view_count").notNull().default(0),
+
+    // 전문 검색 — pg_bigm GIN 인덱스 대상 (Story 8.1, AR-5)
+    // text GENERATED ALWAYS AS STORED: title || ' ' || coalesce(content_json::text, '')
+    searchVector: text("search_vector").generatedAlwaysAs(
+      sql`title || ' ' || coalesce(content_json::text, '')`,
+    ),
 
     // 공통 타임스탬프
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

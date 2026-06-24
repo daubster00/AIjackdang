@@ -93,6 +93,11 @@ export const resources = pgTable(
     usageJson: jsonb("usage_json").notNull(),
     cautionJson: jsonb("caution_json"),
 
+    // 전문 검색 — pg_bigm GIN 인덱스 대상 (Story 8.1, AR-5)
+    searchVector: text("search_vector").generatedAlwaysAs(
+      sql`title || ' ' || coalesce(description_json::text, '')`,
+    ),
+
     // 메타
     version: text("version"),
     /** [{label: string, url: string}] 형식 */

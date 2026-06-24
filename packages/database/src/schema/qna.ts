@@ -19,12 +19,14 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   uniqueIndex,
   uuid,
   varchar,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./auth";
 
 // ── Enum ──────────────────────────────────────────────────────────────────────
@@ -122,6 +124,11 @@ export const questions = pgTable(
     }),
 
     viewCount: integer("view_count").notNull().default(0),
+
+    // 전문 검색 — pg_bigm GIN 인덱스 대상 (Story 8.1, AR-5)
+    searchVector: text("search_vector").generatedAlwaysAs(
+      sql`title || ' ' || coalesce(content_json::text, '')`,
+    ),
 
     /** 운영 상태 (AR-7 soft-delete) */
     status: questionStatus("status").notNull().default("published"),
