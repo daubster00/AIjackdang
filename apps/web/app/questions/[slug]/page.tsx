@@ -1,269 +1,184 @@
+/**
+ * 질문 상세 페이지 — Story 3.5
+ *
+ * SSR 서버 컴포넌트:
+ * - generateMetadata: 질문 제목·요약·canonical (/questions/{slug})
+ * - JSON-LD: BreadcrumbList (AI작당 > 묻고답하기 > 질문 제목)
+ * - API 호출 → notFound() 처리
+ * - 쿠키 포워딩으로 isAsker 판단
+ * - contentHtml: dangerouslySetInnerHTML (API 서버에서 sanitize-html 처리됨, AR-8)
+ * - 조회수: API GET 시 서버에서 trackView 호출 (fire-and-forget)
+ * - 답변 영역: 읽기 전용 렌더 (작성/수정/삭제는 3.6 소유)
+ *
+ * ⚠️ SSR 500 방지: process.env 상수는 constants.ts에서만 정의하고 import한다.
+ */
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AuthorName, Avatar, Badge, Icon, Tag } from "@/components/ui";
+import { headers } from "next/headers";
+import { AuthorName, Avatar, Icon } from "@/components/ui";
 import { BoardHero, AttachmentList } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
 import { AnswerForm } from "./AnswerForm";
-import { AnswerItem, type Answer } from "./AnswerItem";
+import { QuestionDetailClient } from "./QuestionDetailClient";
+import { API_URL, SITE_URL } from "./constants";
+import type { AnswerResponse } from "@ai-jakdang/contracts";
 
-type QuestionStatus = "waiting" | "answered" | "solved";
+// ── 타입 ────────────────────────────────────────────────────────────────────────
 
-const statusBadge: Record<
-  QuestionStatus,
-  { label: string; tone: "warning" | "info" | "success" }
-> = {
-  waiting: { label: "답변대기", tone: "warning" },
-  answered: { label: "답변있음", tone: "info" },
-  solved: { label: "해결됨", tone: "success" },
-};
+type QuestionDerivedStatus = "waiting" | "answered" | "resolved";
 
-type Question = {
-  status: QuestionStatus;
-  title: string;
-  author: string;
-  date: string;
-  views: string;
-  likes: number;
-  bookmarks: number;
-  tags: string[];
-  body: string[];
-  answers: Answer[];
-};
-
-/** 목록 페이지의 slug와 1:1로 맞춘 질문 상세 데이터 */
-const questions: Record<string, Question> = {
-  "claude-code-php-misunderstanding": {
-    status: "waiting",
-    title: "Claude Code가 기존 PHP 구조를 계속 잘못 이해합니다",
-    author: "작당입문러",
-    date: "2026.06.18",
-    views: "82",
-    likes: 4,
-    bookmarks: 1,
-    tags: ["ClaudeCode", "PHP", "바이브코딩"],
-    body: [
-      "레거시 PHP 프로젝트를 수정하려는데 Claude Code가 파일 구조를 매번 다르게 해석해서 엉뚱한 곳을 고칩니다.",
-      "include/require로 얽혀 있는 구식 구조라서 그런지, 컨트롤러가 어디인지조차 매번 다르게 추측합니다. 어떻게 컨텍스트를 잡아줘야 일관되게 이해할까요?",
-      "프로젝트 루트에 간단한 설명 파일을 두면 도움이 될까요? 예시가 있으면 좋겠습니다.",
-    ],
-    answers: [],
-  },
-  "n8n-gmail-auto-classify": {
-    status: "solved",
-    title: "n8n으로 Gmail 문의를 자동 분류할 수 있을까요?",
-    author: "자동화카페",
-    date: "2026.06.15",
-    views: "146",
-    likes: 21,
-    bookmarks: 8,
-    tags: ["n8n", "Gmail", "자동화"],
-    body: [
-      "하루 수십 건 들어오는 고객 문의를 카테고리별로 나눠서 라벨링하고 싶습니다.",
-      "n8n만으로 가능한지, 아니면 별도 AI 노드가 필요한지 궁금합니다. 분류 기준은 환불 / 배송 / 기타 정도로 단순합니다.",
-    ],
-    answers: [
-      {
-        id: "a1",
-        author: "리뷰메이트",
-        level: "고수",
-        date: "2026.06.15",
-        votes: 14,
-        accepted: true,
-        body: [
-          "결론부터 말하면 n8n만으로 충분히 가능합니다. Gmail Trigger 노드로 새 메일을 받고, 본문을 AI 노드(OpenAI/Claude)로 보내 카테고리 한 단어만 반환하게 하세요.",
-          "프롬프트는 \"다음 문의를 환불/배송/기타 중 하나로만 답하라\"처럼 출력을 강하게 제한하는 게 핵심입니다. 그래야 Switch 노드에서 분기하기 쉽습니다.",
-          "마지막에 Gmail 노드의 Add Label 동작으로 분류 결과 라벨을 붙이면 끝입니다. 분류 기준이 단순해서 토큰 비용도 거의 안 듭니다.",
-        ],
-        comments: [
-          { author: "자동화카페", date: "2026.06.15", text: "Switch 노드로 분기하는 부분이 딱 막혔던 지점이었어요. 감사합니다!" },
-        ],
-      },
-      {
-        id: "a2",
-        author: "프론트라인",
-        level: "실전러",
-        date: "2026.06.15",
-        votes: 5,
-        body: [
-          "AI 노드 없이 키워드 규칙만으로도 1차 분류는 가능합니다. '환불', '취소' 같은 단어를 IF 노드로 거르면 비용 0원으로 70% 정도는 잡힙니다.",
-          "정확도를 더 올리고 싶을 때만 AI 노드를 얹는 단계적 접근을 추천합니다.",
-        ],
-      },
-    ],
-  },
-  "automation-outsourcing-quote": {
-    status: "answered",
-    title: "AI 자동화 외주 견적은 얼마가 적당할까요?",
-    author: "프리랜서비",
-    date: "2026.06.14",
-    views: "318",
-    likes: 37,
-    bookmarks: 19,
-    tags: ["수익화", "외주", "견적"],
-    body: [
-      "소규모 사업장 대상으로 n8n + GPT 자동화를 구축해주는 외주를 시작하려는데, 첫 견적 기준을 어떻게 잡아야 할지 감이 안 옵니다.",
-      "워크플로우 1개당 단가로 받아야 할지, 시간제로 받아야 할지 고민입니다. 경험 있으신 분들의 기준이 궁금합니다.",
-    ],
-    answers: [
-      {
-        id: "a1",
-        author: "자동화카페",
-        level: "마스터",
-        date: "2026.06.14",
-        votes: 9,
-        body: [
-          "초기에는 워크플로우 단위 + 유지보수 월정액 조합을 추천합니다. 구축 비용은 노드 개수와 연동 서비스 수로 산정하고, 운영은 별도 월 구독으로 받는 구조입니다.",
-          "단순 자동화 1건 30~60만 원, 복잡한 다단계 연동은 100만 원 이상으로 시작하는 경우가 많습니다. 첫 고객은 약간 낮게 받되 후기를 꼭 확보하세요.",
-        ],
-      },
-    ],
-  },
-  "which-ai-tool-for-beginner": {
-    status: "answered",
-    title: "비개발자인데 어떤 AI 코딩 툴부터 써야 할까요?",
-    author: "기획하는사람",
-    date: "2026.06.13",
-    views: "204",
-    likes: 15,
-    bookmarks: 6,
-    tags: ["Cursor", "ClaudeCode", "입문"],
-    body: [
-      "Cursor, Claude Code, Windsurf 중에 고민입니다.",
-      "코딩 경험이 거의 없는 기획자가 시작하기에 가장 부담 없는 도구가 궁금합니다.",
-    ],
-    answers: [
-      {
-        id: "a1",
-        author: "코드작당러",
-        level: "작당원",
-        date: "2026.06.13",
-        votes: 6,
-        body: [
-          "비개발자라면 채팅으로 대화하듯 쓸 수 있는 도구가 진입장벽이 낮습니다. 처음에는 결과를 바로 눈으로 확인할 수 있는 환경에서 작게 시작해보세요.",
-          "툴 선택보다 중요한 건 '한 번에 하나씩' 요청하는 습관입니다. 어떤 도구든 작은 단위로 요청하고 확인하는 흐름이 익으면 갈아타기도 쉽습니다.",
-        ],
-      },
-    ],
-  },
-  "prompt-structure-tips": {
-    status: "answered",
-    title: "프롬프트를 어떻게 짜야 답변 품질이 올라가나요?",
-    author: "작당탐험가",
-    date: "2026.06.16",
-    views: "263",
-    likes: 19,
-    bookmarks: 11,
-    tags: ["프롬프트", "품질", "팁"],
-    body: [
-      "같은 질문을 해도 어떤 날은 좋은 답이 나오고, 어떤 날은 엉뚱한 답이 나옵니다.",
-      "프롬프트를 더 잘 짜는 일반적인 원칙이 있을까요? 특히 코딩 작업을 시킬 때 결과 편차가 커서 고민입니다.",
-    ],
-    answers: [
-      {
-        id: "a1",
-        author: "리뷰메이트",
-        level: "고수",
-        date: "2026.06.16",
-        votes: 12,
-        body: [
-          "결과 편차의 대부분은 맥락 부족에서 옵니다. ① 무엇을 만드는지(목표), ② 어떤 제약이 있는지(바꾸면 안 되는 것), ③ 어떤 형식으로 답해야 하는지(출력 형식)를 항상 같이 적어주세요.",
-          "특히 코딩은 \"어떤 파일을 수정 가능하고, 무엇을 건드리면 안 되는지\"를 명시하면 엉뚱한 곳을 고치는 일이 확 줄어듭니다.",
-        ],
-        comments: [
-          { author: "작당탐험가", date: "2026.06.16", text: "출력 형식을 같이 적는다는 게 핵심이었네요. 바로 적용해볼게요!" },
-        ],
-      },
-      {
-        id: "a2",
-        author: "자동화카페",
-        level: "마스터",
-        date: "2026.06.16",
-        votes: 8,
-        body: [
-          "예시를 1~2개 같이 주는 것만으로도 품질이 크게 올라갑니다. \"이런 입력이면 이런 출력\"을 보여주면 모델이 형식과 톤을 훨씬 안정적으로 따라옵니다.",
-        ],
-      },
-      {
-        id: "a3",
-        author: "프론트라인",
-        level: "실전러",
-        date: "2026.06.16",
-        votes: 5,
-        body: [
-          "한 프롬프트에 여러 가지를 동시에 요구하면 품질이 떨어집니다. 큰 작업은 작은 단위로 쪼개서 한 번에 하나씩 요청하고, 중간 결과를 확인한 뒤 다음으로 넘어가는 게 가장 안정적이었습니다.",
-        ],
-        comments: [
-          { author: "기획하는사람", date: "2026.06.17", text: "쪼개서 요청하니 확실히 헛도는 일이 줄었어요." },
-        ],
-      },
-      {
-        id: "a4",
-        author: "코드작당러",
-        level: "작당원",
-        date: "2026.06.17",
-        votes: 2,
-        body: [
-          "마지막에 \"근거나 확인 방법도 같이 알려줘\"를 붙이면 검증하기 쉬운 답이 옵니다. 답만 받는 것보다 검토 비용이 훨씬 줄어듭니다.",
-        ],
-      },
-    ],
-  },
-  "service-direction-review": {
-    status: "waiting",
-    title: "제가 만든 서비스 방향, 이대로 괜찮을까요?",
-    author: "사이드프로젝트",
-    date: "2026.06.12",
-    views: "97",
-    likes: 6,
-    bookmarks: 2,
-    tags: ["방향성", "기획", "피드백"],
-    body: [
-      "AI로 회의록을 요약해주는 서비스를 만들고 있는데 비슷한 게 이미 많아서 방향이 맞는지 모르겠습니다.",
-      "차별점을 어디서 찾아야 할지 의견 부탁드립니다.",
-    ],
-    answers: [],
-  },
-};
-
-export function generateStaticParams() {
-  return Object.keys(questions).map((slug) => ({ slug }));
+interface QuestionAuthor {
+  id: string;
+  nickname: string;
+  avatarUrl: string | null;
 }
 
-export async function generateMetadata({
-  params,
-}: {
+interface QuestionDetail {
+  id: string;
+  author: QuestionAuthor | null;
+  title: string;
+  slug: string;
+  contentJson: Record<string, unknown>;
+  contentHtml: string;
+  status: "draft" | "published" | "hidden" | "deleted";
+  derivedStatus: QuestionDerivedStatus;
+  isResolved: boolean;
+  helpfulAnswerId: string | null;
+  viewCount: number;
+  answerCount: number;
+  tags: string[];
+  answers: AnswerResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── 데이터 페칭 ─────────────────────────────────────────────────────────────────
+
+async function fetchQuestion(
+  slug: string,
+  cookie?: string,
+): Promise<QuestionDetail | null> {
+  try {
+    const res = await fetch(
+      `${API_URL}/api/v1/qna/questions/${encodeURIComponent(slug)}`,
+      {
+        headers: cookie ? { cookie } : {},
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return null;
+    return res.json() as Promise<QuestionDetail>;
+  } catch {
+    return null;
+  }
+}
+
+// ── 서버 세션 조회 ───────────────────────────────────────────────────────────────
+
+async function getServerSession(cookie?: string): Promise<{ userId: string } | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/get-session`, {
+      headers: cookie ? { cookie } : {},
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { user?: { id: string } } | null;
+    if (!data?.user?.id) return null;
+    return { userId: data.user.id };
+  } catch {
+    return null;
+  }
+}
+
+// ── generateMetadata ────────────────────────────────────────────────────────────
+
+interface PageProps {
   params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const question = questions[slug];
+  const question = await fetchQuestion(slug);
+
+  if (!question) {
+    return { robots: { index: false, follow: false } };
+  }
+
+  const canonicalUrl = `${SITE_URL}/questions/${question.slug}`;
+  const description = question.title.slice(0, 160);
+
   return {
-    title: question ? `${question.title} — 묻고답하기` : "묻고답하기",
+    title: `${question.title} — 묻고답하기 | AI작당`,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title: `${question.title} — 묻고답하기 | AI작당`,
+      description,
+      url: canonicalUrl,
+      type: "article",
+    },
   };
 }
 
-export default async function QuestionDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+// ── Page ─────────────────────────────────────────────────────────────────────────
+
+export const dynamic = "force-dynamic";
+
+export default async function QuestionDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const question = questions[slug];
+
+  // 쿠키 포워딩
+  const headersList = await headers();
+  const cookie = headersList.get("cookie") ?? "";
+
+  // 병렬 페칭
+  const [question, session] = await Promise.all([
+    fetchQuestion(slug, cookie),
+    getServerSession(cookie),
+  ]);
 
   if (!question) {
     notFound();
   }
 
-  const badge = statusBadge[question.status];
-  const answerCount = question.answers.length;
-  const hasAccepted = question.answers.some((a) => a.accepted);
-  // 데모에서는 현재 보는 사람을 질문 작성자로 가정해 채택 동선을 보여준다.
-  const isAsker = true;
+  // 질문 작성자 여부
+  const isAsker = Boolean(
+    session?.userId && question.author?.id && session.userId === question.author.id,
+  );
+
+  // 날짜 포맷
+  const formattedDate = new Date(question.createdAt).toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  // JSON-LD: BreadcrumbList
+  const questionUrl = `${SITE_URL}/questions/${question.slug}`;
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "AI작당", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "묻고답하기", item: `${SITE_URL}/questions` },
+      { "@type": "ListItem", position: 3, name: question.title, item: questionUrl },
+    ],
+  };
+
+  const answerCount = question.answerCount;
 
   return (
     <main id="main" className={styles.page}>
-      {/* 묻고답하기 대메뉴 공통 히어로 (대메뉴당 1개, 하위 페이지 공유) */}
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      {/* 묻고답하기 대메뉴 공통 히어로 */}
       <BoardHero menu="questions" currentSub="묻고답하기" />
 
       <div className={styles.detailLayout}>
@@ -277,32 +192,32 @@ export default async function QuestionDetailPage({
         {/* ── 질문 본문 ── */}
         <article className={styles.questionDetail}>
           <header className={styles.detailHeader}>
-            <div className={styles.detailTopRow}>
-              <Badge className={styles.detailStatusBadge} tone={badge.tone}>
-                {badge.label}
-              </Badge>
-              <div className={styles.detailTagRow}>
-                {question.tags.map((tag) => (
-                  <Tag key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
-                    #{tag}
-                  </Tag>
-                ))}
-              </div>
-            </div>
+            {/*
+              QuestionDetailClient: detailTopRow(배지+태그) + 질문자 액션 버튼
+              낙관적 상태를 위해 클라이언트 컴포넌트가 isResolved 상태를 소유한다.
+            */}
+            <QuestionDetailClient
+              questionId={question.id}
+              questionSlug={question.slug}
+              initialDerivedStatus={question.derivedStatus}
+              isResolved={question.isResolved}
+              isAsker={isAsker}
+              tags={question.tags}
+            />
 
             <h1 className={styles.detailTitle}>{question.title}</h1>
 
             <div className={styles.detailMeta}>
               <span className={styles.detailAuthor}>
-                <Avatar name={question.author} size="sm" />
-                <AuthorName name={question.author} />
+                <Avatar name={question.author?.nickname ?? "익명"} size="sm" />
+                <AuthorName name={question.author?.nickname ?? "익명"} />
               </span>
               <span className={styles.metaDivider} aria-hidden="true">|</span>
-              <span>{question.date}</span>
+              <span>{formattedDate}</span>
               <span className={styles.metaDivider} aria-hidden="true">|</span>
               <span>
                 <Icon name="eye-line" />
-                조회 {question.views}
+                조회 {question.viewCount.toLocaleString()}
               </span>
               <span>
                 <Icon name="chat-1-line" />
@@ -311,17 +226,21 @@ export default async function QuestionDetailPage({
             </div>
           </header>
 
+          {/* 본문 HTML — API 서버에서 sanitize-html 처리됨 (AR-8) */}
+          <div
+            className={styles.articleBody}
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: question.contentHtml }}
+          />
+
           <div className={styles.articleBody}>
-            {question.body.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
             <AttachmentList />
           </div>
 
-          <QuestionActions questionId={slug} />
+          <QuestionActions questionId={question.slug} />
         </article>
 
-        {/* ── 답변 영역 ── */}
+        {/* ── 답변 영역 (읽기 전용 렌더 — 작성/수정/삭제는 Story 3.6 소유) ── */}
         <section className={styles.answerSection} aria-labelledby="answer-title">
           <div className={styles.answerSectionHead}>
             <h2 id="answer-title">
@@ -344,18 +263,50 @@ export default async function QuestionDetailPage({
           ) : (
             <div className={styles.answerList}>
               {question.answers.map((answer) => (
-                <AnswerItem
+                <article
                   key={answer.id}
-                  answer={answer}
-                  canAccept={isAsker}
-                  hasAccepted={hasAccepted}
-                />
+                  className={styles.answerItem}
+                  aria-label="답변"
+                >
+                  <div className={styles.answerMain}>
+                    <div className={styles.answerHead}>
+                      <div className={styles.answerAvatar} aria-hidden="true">
+                        {(answer.author?.nickname ?? "익명").slice(0, 1)}
+                      </div>
+                      <div className={styles.answerAuthorInfo}>
+                        <strong>
+                          <AuthorName name={answer.author?.nickname ?? "익명"} />
+                        </strong>
+                        <span>
+                          {new Date(answer.createdAt).toLocaleDateString("ko-KR", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    {/* 답변 본문: Story 3.6에서 contentHtml 변환 추가 예정 */}
+                    <div className={styles.answerBody}>
+                      <p>[답변 본문 — Story 3.6에서 에디터 렌더 연결]</p>
+                    </div>
+                    {/* 좋아요·신고 슬롯 — Epic 5 예약 */}
+                    <div className={styles.answerToolbar}>
+                      <div className={styles.answerToolbarLeft}>
+                        <button type="button" aria-disabled="true" disabled>
+                          <Icon name="thumb-up-line" />
+                          도움이 됐어요
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
               ))}
             </div>
           )}
         </section>
 
-        {/* ── 답변 작성 ── */}
+        {/* ── 답변 작성 (3.6 소유 — 슬롯 유지) ── */}
         <section className={styles.answerWriteSection} aria-labelledby="answer-write-title">
           <h2 id="answer-write-title" className={styles.answerWriteTitle}>
             <Icon name="quill-pen-line" />
@@ -370,16 +321,7 @@ export default async function QuestionDetailPage({
             <Icon name="list-check" />
             목록으로
           </Link>
-          <div className={styles.ownerActions}>
-            <button type="button">
-              <Icon name="edit-2-line" />
-              수정
-            </button>
-            <button type="button">
-              <Icon name="delete-bin-line" />
-              삭제
-            </button>
-          </div>
+          {/* 질문자 액션(수정·삭제)은 QuestionDetailClient 내 QuestionOwnerActions가 렌더한다 */}
         </footer>
       </div>
     </main>
