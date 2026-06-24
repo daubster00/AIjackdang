@@ -10,6 +10,7 @@ import { badgeCheckProcessor } from "./processors/badgeCheck.processor.js"; // S
 import { rankingComputeProcessor } from "./processors/rankingCompute.processor.js"; // Story 6.5
 import { setupRankingCron } from "./schedules/ranking.cron.js"; // Story 6.5
 import { ogFetchProcessor } from "./processors/og-fetch.js"; // Story 8.6
+import { contentCleanupProcessor } from "./jobs/cleanup.js"; // Story 9.10
 
 /**
  * 워커 엔트리.
@@ -285,12 +286,9 @@ async function shutdown() {
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
 
-// ── [1.9] cleanup worker ──────────────────────────────────────────────────────
-// 탈퇴 회원 콘텐츠 익명화 워커.
-// posts.user_id / comments.user_id 를 null 로 처리한다.
-// posts·comments 테이블이 생성된 이후(Epic 2~) 실제 익명화 로직을 구현한다.
-//
-// job 데이터: { userId: string; jobName: "cleanup.anonymize" }
+// ── [1.9 + 9.10] cleanup worker ──────────────────────────────────────────────
+// 1.9: 탈퇴 회원 콘텐츠 익명화 (cleanup.anonymize)
+// 9.10: 소프트 삭제된 콘텐츠 hard-delete (content.cleanup) — 매일 새벽 3시
 
 const cleanupConnection = createConnection();
 const cleanupWorker = new Worker(
@@ -301,6 +299,9 @@ const cleanupWorker = new Worker(
       // TODO(Epic 2 이후): posts.user_id = null WHERE user_id = userId
       // TODO(Epic 2 이후): comments.user_id = null WHERE user_id = userId
       console.log(`[worker] cleanup.anonymize 수신 userId=${userId} — posts·comments 테이블 생성 후 처리`);
+    } else if (job.name === "content.cleanup") {
+      // Story 9.10: soft-delete 보존 기간 초과 콘텐츠 hard-delete
+      await contentCleanupProcessor(job);
     } else {
       console.log(`[worker] cleanup job 수신: ${job.id} name=${job.name} (처리기 미구현)`);
     }
@@ -309,8 +310,34 @@ const cleanupWorker = new Worker(
 );
 
 cleanupWorker.on("ready", () => console.log("[worker] cleanup 워커 준비 완료"));
+cleanupWorker.on("completed", (job) =>
+  console.info(`[cleanup-worker] job 완료: ${job.id} (${job.name})`),
+);
 cleanupWorker.on("failed", (job, error) =>
   console.error(`[worker] cleanup job 실패 ${job?.id}:`, error.message),
 );
 
 workers.push(cleanupWorker);
+
+// ── [9.10] content.cleanup 일일 cron 등록 (매일 새벽 3시) ─────────────────────
+void (async () => {
+  try {
+    const contentCleanupQueue = new Queue(QUEUE_NAMES.cleanup, {
+      connection: createConnection(),
+    });
+    await contentCleanupQueue.add(
+      "content.cleanup",
+      { triggeredAt: new Date().toISOString() },
+      {
+        repeat: { pattern: "0 3 * * *" }, // 매일 03:00
+        jobId: "content-cleanup-daily",
+        attempts: 3,
+        backoff: { type: "exponential", delay: 60000 },
+      },
+    );
+    console.log("[worker] content.cleanup 일일 cron 등록 완료 (매일 03:00)");
+  } catch (err) {
+    console.warn("[worker] content.cleanup cron 등록 실패:", (err as Error).message);
+  }
+})();
+// ── [9.10] content.cleanup cron END ──────────────────────────────────────────

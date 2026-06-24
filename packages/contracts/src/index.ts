@@ -51,6 +51,9 @@ export * from "./admin/ads";
 export * from "./admin/gamification";
 export * from "./admin/messages";
 
+// ── 신고 관리 (Story 9.10) ────────────────────────────────────────────────────
+export * from "./admin/reports";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

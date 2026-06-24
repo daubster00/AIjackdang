@@ -23,3 +23,6 @@ export type { BadgeSlug, BadgeCheckOpts } from "./badges";
 // ── ranking ───────────────────────────────────────────────────────────────────
 export { rankingWindowDates, computeRanking } from "./ranking";
 export type { PeriodType, RankEntry } from "./ranking";
+
+// ── moderation (Story 9.10) ───────────────────────────────────────────────────
+export { deriveReportAction } from "./moderation";

@@ -7,6 +7,7 @@
 
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   pgEnum,
@@ -152,6 +153,12 @@ export const reports = pgTable(
     reasonCode: text("reason_code").notNull(),
     detail: text("detail"),
     status: reportStatus("status").notNull().default("pending"),
+    /** [9.11] 신고 누적 자동 숨김으로 처리된 건(검토 후 복구 가능) */
+    autoHidden: boolean("auto_hidden").notNull().default(false),
+    /** [9.10] 처리한 관리자 admin_users.id (크로스 도메인 FK 대신 id 보관) */
+    reviewedBy: uuid("reviewed_by"),
+    /** [9.10] 처리 시각 */
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("idx_reports_target").on(t.targetType, t.targetId)],

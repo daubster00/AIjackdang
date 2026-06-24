@@ -27,6 +27,7 @@ import { registerAdminGradesRoutes } from "./grades/index.js";
 import { registerAdminBadgesRoutes } from "./badges/index.js";
 import { registerAdminAdsRoutes } from "./ads/index.js";
 import { registerAdminMessagesRoutes } from "./messages/index.js";
+import { registerAdminReportsRoutes } from "./reports/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
@@ -52,4 +53,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminBadgesRoutes(app);
   await registerAdminAdsRoutes(app);
   await registerAdminMessagesRoutes(app);
+
+  // Epic 9 Wave C (9.10) — 신고 통합 큐·처리·반려.
+  await registerAdminReportsRoutes(app);
 }
