@@ -18,6 +18,7 @@ import { reportsRoutes } from "./reports.js";
 import { relatedRoutes } from "./related.js";
 import { blocksRoutes } from "./blocks.js";
 import { followsRoutes } from "./follows.js";
+import { gamificationRoutes } from "./gamification/gamification.routes.js";
 
 /**
  * /api/v1 라우트.
@@ -83,4 +84,9 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 묻고답하기(Q&A) 라우트 (Epic 3: 목록/작성/상세/답변/도움된답변) ──────────
   await qnaRoutes(app);
+
+  // ── 게이미피케이션 라우트 (Story 6.3: 등급 조회; 6.4/6.5에서 확장) ──────────
+  // GET /api/v1/gamification/me          — 내 등급 (인증 필요)
+  // GET /api/v1/gamification/user/:userId/grade — 공개 등급 조회
+  await gamificationRoutes(app);
 }

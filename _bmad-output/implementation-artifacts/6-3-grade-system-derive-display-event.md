@@ -1,6 +1,10 @@
+---
+baseline_commit: f1db68b129bc6e3c4c63ec06401b7658078250cd
+---
+
 # Story 6.3: 등급 시스템 — 도출 · 표시 · 변동 알림 이벤트
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,56 +32,54 @@ so that 활동이 늘수록 가벼운 명예가 쌓인다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 등급 조회 API 서비스 (AC: #1, #7)
-  - [ ] `apps/api/src/routes/v1/gamification/gamification.service.ts` 신규 생성 (NEW)
-  - [ ] `getUserGrade(db, userId)` 함수:
+- [x] Task 1: 등급 조회 API 서비스 (AC: #1, #7)
+  - [x] `apps/api/src/routes/v1/gamification/gamification.service.ts` 신규 생성 (NEW)
+  - [x] `getUserGrade(db, userId)` 함수:
     - `points_ledger` SUM(delta) WHERE user_id=userId → totalPoints
     - `grades` 전체 조회 (5행, 캐시 고려)
     - `gradeForPoints(totalPoints, grades)` 호출 → 현재 등급
     - `nextGrade(current, grades)`, `pointsToNextGrade(totalPoints, grades)` 호출
     - `{ totalPoints, grade, nextGrade, pointsToNext }` 반환
-  - [ ] `apps/api/src/routes/v1/gamification/gamification.routes.ts` 신규 생성 (NEW)
-  - [ ] `GET /api/v1/gamification/me` 라우트: 인증 필요, `getUserGrade` 호출, `gradeSchema` 응답 검증
-  - [ ] `GET /api/v1/gamification/user/:userId/grade` 라우트: 공개 (프로필 SSR용), userId로 조회
+  - [x] `apps/api/src/routes/v1/gamification/gamification.routes.ts` 신규 생성 (NEW)
+  - [x] `GET /api/v1/gamification/me` 라우트: 인증 필요, `getUserGrade` 호출, `gradeSchema` 응답 검증
+  - [x] `GET /api/v1/gamification/user/:userId/grade` 라우트: 공개 (프로필 SSR용), userId로 조회
 
-- [ ] Task 2: 등급 변동 감지 + 큐 enqueue (AC: #4)
-  - [ ] `apps/api/src/routes/v1/gamification/points.service.ts` UPDATE (6.2에서 생성)
-  - [ ] `earnPoints` 함수 내 insert 성공 후:
+- [x] Task 2: 등급 변동 감지 + 큐 enqueue (AC: #4)
+  - [x] `apps/api/src/routes/v1/gamification/points.service.ts` UPDATE (6.2에서 생성)
+  - [x] `earnPoints` 함수 내 insert 성공 후:
     - 이전 totalPoints 계산 (insert 전 SUM)
     - 신규 totalPoints 계산 (insert 후 SUM)
     - `gradeForPoints(prev, grades)` vs `gradeForPoints(next, grades)` 비교
-    - 등급 변동 시 `ranking` 큐에 `gamification.grade-up` enqueue: `{ userId, prevLevel, newLevel }`
-  - [ ] `apps/api/src/connection.ts` 또는 BullMQ 큐 초기화 파일 UPDATE: `ranking` 큐 Producer 추가
-  - [ ] `apps/worker/src/connection.ts` UPDATE: `QUEUE_NAMES`에 `ranking: 'ranking'` 추가 (NEW)
+    - 등급 변동 시 `ranking` 큐에 `gamification.grade-up` enqueue: `{ userId, prevLevel, newLevel, newGradeName }`
+  - [x] `apps/api/src/lib/queues.ts` UPDATE: `ranking` 큐 Producer(`getRankingQueue`) + 상수 추가
+  - [x] `apps/worker/src/connection.ts` UPDATE: `QUEUE_NAMES`에 `ranking: 'ranking'` 추가
 
-- [ ] Task 3: Worker 등급 변동 잡 프로세서 (AC: #4)
-  - [ ] `apps/worker/src/processors/gradeUp.processor.ts` 신규 생성 (NEW)
-  - [ ] `gamification.grade-up` 잡 소비: payload `{ userId, prevLevel, newLevel }`
-  - [ ] 알림 큐(`notification` 큐)에 `grade.level-up` 이벤트 enqueue: `{ userId, level: newLevel, gradeName }`
-  - [ ] 멱등: 동일 userId + newLevel 알림이 이미 최근 N초 내 발행됐으면 skip (Redis key로 dedup)
-  - [ ] `apps/worker/src/index.ts` UPDATE: ranking worker 등록
+- [x] Task 3: Worker 등급 변동 잡 프로세서 (AC: #4)
+  - [x] `apps/worker/src/processors/gradeUp.processor.ts` 신규 생성 (NEW)
+  - [x] `gamification.grade-up` 잡 소비: payload `{ userId, prevLevel, newLevel, newGradeName }`
+  - [x] 알림 큐(`notifications` 큐)에 `grade.level-up` 이벤트 enqueue: `{ userId, level: newLevel, gradeName, prevLevel }`
+  - [x] 멱등: Redis key `grade-up-notified:{userId}:{newLevel}` TTL 24h dedup
+  - [x] `apps/worker/src/index.ts` UPDATE: ranking worker 등록
 
-- [ ] Task 4: 공개 프로필 SSR 등급 연동 (AC: #2)
-  - [ ] `apps/web/app/u/[nickname]/page.tsx` UPDATE
-  - [ ] 현재: MOCK_PROFILES 맵에서 `rank: RankTier` 직접 참조
-  - [ ] 변경: `GET /api/v1/users/{nickname}/profile` 또는 `GET /api/v1/gamification/user/:userId/grade` API 호출로 실제 등급 데이터 조회
-  - [ ] `RankBadge` 컴포넌트는 그대로 유지 — `rank` prop을 API 응답의 `grade.level`에서 `RankTier`로 매핑
-  - [ ] 레벨→RankTier 매핑: `{ 1: 'rookie', 2: 'member', 3: 'practitioner', 4: 'expert', 5: 'master' }`
-  - [ ] SSR에서 `notFound()` 처리 유지, 비회원 열람 가능 (인증 미필요 API)
-  - [ ] JSON-LD ProfilePage 스크립트 유지
+- [x] Task 4: 공개 프로필 SSR 등급 연동 (AC: #2)
+  - [x] `apps/web/app/u/[nickname]/page.tsx` UPDATE
+  - [x] `fetchUserGrade(userId)` 헬퍼 추가 → `GET /api/v1/gamification/user/:userId/grade` 호출
+  - [x] `RankBadge` 컴포넌트는 그대로 유지 — `rank` prop을 API 응답의 `grade.level`에서 `RankTier`로 매핑
+  - [x] 레벨→RankTier 매핑: `LEVEL_TO_RANK_TIER` 상수 (Story 6.6 정식 통합)
+  - [x] SSR에서 `notFound()` 처리 유지, 비회원 열람 가능 (인증 미필요 API)
+  - [x] JSON-LD ProfilePage 스크립트 유지
 
-- [ ] Task 5: 마이페이지 등급 사이드바 API 연동 (AC: #3)
-  - [ ] `apps/web/app/mypage/page.tsx` UPDATE
-  - [ ] 현재: `profileExtra.points`, `profileExtra.nextThreshold` 하드코딩 목업 데이터
-  - [ ] 변경: 로그인 시 `GET /api/v1/gamification/me` 호출 → `{ totalPoints, grade, nextGrade, pointsToNext }` 수신
-  - [ ] `rankProgress` 계산 로직: API 응답값으로 대체 (현재 `resolveRank` + `RANK_LIST` 기반 계산 유지하되 데이터 소스만 교체)
-  - [ ] 등급 진행률 `pct` = `Math.min(100, Math.round(totalPoints / (totalPoints + (pointsToNext || 0)) * 100))` 또는 현재 grade 내 진행률 계산
-  - [ ] 포인트 표시: 사이드바의 `{profileExtra.points.toLocaleString()} P` → API 응답 `totalPoints` 적용
-  - [ ] **보존 규칙**: 기존 RankBadge 렌더링 패턴, 탭 구조, followingData/followersData 목업 데이터 유지
+- [x] Task 5: 마이페이지 등급 사이드바 API 연동 (AC: #3)
+  - [x] `apps/web/app/mypage/page.tsx` UPDATE
+  - [x] `GET /api/v1/gamification/me` useEffect로 호출 → `gradeData` state 저장
+  - [x] `rankProgress` 계산 로직: API 응답값 기반으로 교체 (미조회 시 기존 로직 폴백)
+  - [x] 등급 진행률 `pct` = `totalPoints / (totalPoints + remaining) * 100`
+  - [x] 포인트 표시: API 응답 `totalPoints` 적용 (기존 0 → 실제값)
+  - [x] 탭 구조, followingData, CSS 레이아웃 보존
 
-- [ ] Task 6: gamification 라우트를 v1 index에 등록 (AC: #6)
-  - [ ] `apps/api/src/routes/v1/index.ts` UPDATE: gamification 라우트 prefix `/gamification` 등록
-  - [ ] 직접 points_ledger insert 엔드포인트 미노출 확인 (API 레이어에서 없는 것 확인)
+- [x] Task 6: gamification 라우트를 v1 index에 등록 (AC: #6)
+  - [x] `apps/api/src/routes/v1/index.ts` UPDATE: `gamificationRoutes` 등록 (prefix `/gamification`)
+  - [x] 직접 points_ledger insert 엔드포인트 미노출 확인 (gamification.routes.ts에 없음)
 
 ## Dev Notes
 
@@ -138,9 +140,35 @@ if (user.gradeLevel < 2) throw forbidden(...)
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- points.service.test.ts: gradeForPoints mock 누락 → `vi.mock("@ai-jakdang/core")` 에 추가 해결
+- gamification.service.test.ts: 미사용 `makeTestDb` 함수 TypeScript TS6133 오류 → 제거 해결
+- mypage/page.tsx: levelToRankTier 컴포넌트 내 정의로 useMemo 의존성 경고 → 컴포넌트 외부 상수로 이동
 
 ### Completion Notes List
+- AC#1, #7: `gamification.service.ts` + `gamification.routes.ts` 신규 생성. `getUserGrade`가 SUM(delta) + gradeForPoints 주입 방식으로 등급 도출.
+- AC#2: `/u/[nickname]/page.tsx` SSR에서 `fetchUserGrade(profile.id)` 호출 → RankBadge에 실제 등급 레벨 전달.
+- AC#3: `/mypage/page.tsx` 클라이언트 useEffect로 `/api/v1/gamification/me` 조회 → rankProgress 실제 데이터 적용. 포인트 소형 표시(`.rankShowcaseText span` CSS 재사용).
+- AC#4: `points.service.ts` earnPoints 내 insert 후 prevTotal vs newTotal 비교 → 등급 변동 시 `ranking` 큐 enqueue. `gradeUp.processor.ts` 신규 — Redis dedup(TTL 24h) + notifications 큐 grade.level-up 발행.
+- AC#5: gradeLevel 기반 접근 가드 없음 확인 (gamification.routes.ts에 gradeLevel 조건 없음).
+- AC#6: points_ledger 직접 insert 엔드포인트 gamification.routes.ts에 없음 확인.
+- `packages/contracts/src/gamification.ts` + `index.ts`: `gradeUpJobSchema` / `GradeUpJobPayload` 추가.
+- 단위 테스트 9건 신규 작성 (경계값: 99→새내기, 100→작당원, 499→작당원, 500→실전러, 0→새내기, 5000→마스터, 큐 enqueue mock).
 
 ### File List
+- apps/api/src/routes/v1/gamification/gamification.service.ts (NEW)
+- apps/api/src/routes/v1/gamification/gamification.routes.ts (NEW)
+- apps/api/src/routes/v1/gamification/gamification.service.test.ts (NEW)
+- apps/api/src/routes/v1/gamification/points.service.ts (MODIFIED — earnPoints에 등급 변동 감지 + enqueue 추가)
+- apps/api/src/routes/v1/gamification/points.service.test.ts (MODIFIED — gradeForPoints mock, gamification.service mock, getRankingQueue mock 추가)
+- apps/api/src/lib/queues.ts (MODIFIED — getRankingQueue, RANKING_QUEUE_NAME, GRADE_UP_JOB_NAME 추가)
+- apps/api/src/routes/v1/index.ts (MODIFIED — gamificationRoutes 등록)
+- apps/worker/src/connection.ts (MODIFIED — QUEUE_NAMES.ranking 추가)
+- apps/worker/src/processors/gradeUp.processor.ts (NEW)
+- apps/worker/src/index.ts (MODIFIED — ranking worker 등록)
+- packages/contracts/src/gamification.ts (MODIFIED — gradeUpJobSchema, GradeUpJobPayload 추가)
+- packages/contracts/src/index.ts (MODIFIED — gradeUpJobSchema, GradeUpJobPayload export)
+- apps/web/app/u/[nickname]/page.tsx (MODIFIED — fetchUserGrade 추가, RankBadge에 실제 등급 레벨 전달)
+- apps/web/app/mypage/page.tsx (MODIFIED — gamification API 연동, rankProgress 실제 데이터 적용)

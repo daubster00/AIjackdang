@@ -91,3 +91,14 @@ export const userBadgesResponseSchema = z.object({
   total: z.number().int().nonnegative(),
 });
 export type UserBadgesResponse = z.infer<typeof userBadgesResponseSchema>;
+
+// ── GradeUpJob ────────────────────────────────────────────────────────────────
+
+/** BullMQ gamification.grade-up 잡 페이로드 (Story 6.3) */
+export const gradeUpJobSchema = z.object({
+  userId: z.string().uuid(),
+  prevLevel: z.number().int().min(1).max(5),
+  newLevel: z.number().int().min(1).max(5),
+  newGradeName: z.string().min(1),
+});
+export type GradeUpJobPayload = z.infer<typeof gradeUpJobSchema>;

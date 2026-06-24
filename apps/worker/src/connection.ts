@@ -24,4 +24,5 @@ export const QUEUE_NAMES = {
   cleanup: "cleanup",
   viewFlush: "view-flush",
   notifications: "notifications",
+  ranking: "ranking", // Story 6.3: 등급 변동 감지 + 뱃지/랭킹 집계 (6.4/6.5 확장)
 } as const;

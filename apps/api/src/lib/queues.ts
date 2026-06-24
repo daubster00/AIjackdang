@@ -12,7 +12,7 @@
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { env } from "@ai-jakdang/config";
-import type { ResourceScanJobPayload } from "@ai-jakdang/contracts";
+import type { ResourceScanJobPayload, GradeUpJobPayload } from "@ai-jakdang/contracts";
 
 /** BullMQ 큐 이름 상수 */
 export const FILE_SCAN_QUEUE_NAME = "file-scan" as const;
@@ -102,4 +102,40 @@ export function getNotificationsQueue(): Queue {
     });
   }
   return _notificationsQueue;
+}
+
+/** ranking 큐 이름 (Story 6.3) — worker QUEUE_NAMES.ranking와 동일해야 함 */
+export const RANKING_QUEUE_NAME = "ranking" as const;
+
+/** BullMQ job 이름 상수 (ranking 큐) */
+export const GRADE_UP_JOB_NAME = "gamification.grade-up" as const;
+
+let _rankingQueue: Queue<GradeUpJobPayload> | null = null;
+
+/**
+ * 랭킹/등급 큐 인스턴스를 반환한다(지연 초기화 싱글톤).
+ *
+ * 현재 사용 잡:
+ * - gamification.grade-up: 등급 변동 감지 후 알림 발행 (Story 6.3)
+ *
+ * 향후 확장:
+ * - Story 6.4: badge-check 잡 추가
+ * - Story 6.5: ranking.compute 잡 추가
+ */
+export function getRankingQueue(): Queue<GradeUpJobPayload> {
+  if (!_rankingQueue) {
+    _rankingQueue = new Queue<GradeUpJobPayload>(RANKING_QUEUE_NAME, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 500 },
+      },
+    });
+  }
+  return _rankingQueue;
 }

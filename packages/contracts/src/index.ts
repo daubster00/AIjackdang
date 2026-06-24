@@ -19,6 +19,7 @@ export {
   periodTypeSchema,
   rankingResponseSchema,
   userBadgesResponseSchema,
+  gradeUpJobSchema,
 } from "./gamification";
 export type {
   Grade,
@@ -29,4 +30,5 @@ export type {
   PeriodType as GamificationPeriodType,
   RankingResponse,
   UserBadgesResponse,
+  GradeUpJobPayload,
 } from "./gamification";

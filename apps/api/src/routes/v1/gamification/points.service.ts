@@ -15,9 +15,11 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as dbSchema from "@ai-jakdang/database";
 import { schema } from "@ai-jakdang/database";
-import { canEarnPoint, pointsForAction } from "@ai-jakdang/core";
+import { canEarnPoint, pointsForAction, gradeForPoints } from "@ai-jakdang/core";
 import type { PointReason } from "@ai-jakdang/core";
 import { eq, and, gt, sql, gte } from "drizzle-orm";
+import { getRankingQueue, GRADE_UP_JOB_NAME } from "../../../lib/queues.js";
+import { fetchGrades } from "./gamification.service.js";
 
 // ── 공용 DB 타입 ────────────────────────────────────────────────────────────
 // NodePgDatabase<schema> + 트랜잭션 객체 모두 같은 인터페이스를 공유한다.
@@ -112,6 +114,16 @@ export async function earnPoints(
   // ── 3. points_ledger INSERT ────────────────────────────────────────────────
   const delta = pointsForAction(reason);
 
+  // insert 전 총점 조회 (등급 변동 감지용)
+  const prevSumRows = await db
+    .select({
+      total: sql<number>`coalesce(cast(sum(${schema.pointsLedger.delta}) as int), 0)`,
+    })
+    .from(schema.pointsLedger)
+    .where(eq(schema.pointsLedger.userId, userId));
+
+  const prevTotal = prevSumRows[0]?.total ?? 0;
+
   await db
     .insert(schema.pointsLedger)
     .values({
@@ -121,6 +133,30 @@ export async function earnPoints(
       sourceType,
       sourceId,
     });
+
+  // ── 4. 등급 변동 감지 + 큐 enqueue (best-effort) ──────────────────────────
+  try {
+    const newTotal = prevTotal + delta;
+    const gradeRows = await fetchGrades(db);
+
+    if (gradeRows.length > 0) {
+      const prevGrade = gradeForPoints(prevTotal, gradeRows);
+      const newGrade = gradeForPoints(newTotal, gradeRows);
+
+      if (prevGrade.level !== newGrade.level) {
+        // 등급 변동 감지 → ranking 큐에 gamification.grade-up 잡 enqueue
+        await getRankingQueue().add(GRADE_UP_JOB_NAME, {
+          userId,
+          prevLevel: prevGrade.level,
+          newLevel: newGrade.level,
+          newGradeName: newGrade.name,
+        });
+      }
+    }
+  } catch (err) {
+    // 포인트 적립은 성공으로 유지 — 큐 enqueue 실패는 로그만 남김
+    console.error("[points.service] 등급 변동 큐 enqueue 실패:", (err as Error).message);
+  }
 
   return true;
 }

@@ -14,8 +14,32 @@ import { ProfileInteraction } from "./ProfileInteraction";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import styles from "./profile.module.css";
 
+// ── 레벨 → RankTier 임시 매핑 (Story 6.6에서 정식 통합) ──────────────────────
+const LEVEL_TO_RANK_TIER: Record<number, RankTier> = {
+  1: "rookie",
+  2: "member",
+  3: "practitioner",
+  4: "expert",
+  5: "master",
+};
+
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+
+/** 사용자 등급 API fetch (서버 컴포넌트 전용, 공개). */
+async function fetchUserGrade(userId: string): Promise<{ level: number; name: string } | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/gamification/user/${encodeURIComponent(userId)}/grade`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { grade: { level: number; name: string } };
+    return data.grade ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** 공개 프로필 API fetch (서버 컴포넌트 전용). */
 async function fetchPublicProfile(nickname: string): Promise<PublicProfile | null> {
@@ -86,6 +110,12 @@ export default async function UserProfilePage({
 
   if (!profile) notFound();
 
+  // 등급 정보 조회 (공개 API, 실패 시 기본값 사용)
+  const gradeInfo = await fetchUserGrade(profile.id);
+  const rankTier: RankTier = gradeInfo
+    ? (LEVEL_TO_RANK_TIER[gradeInfo.level] ?? "rookie")
+    : "rookie";
+
   const cookieStore = cookies();
   const cookie = cookieStore.toString();
 
@@ -149,8 +179,9 @@ export default async function UserProfilePage({
             <div className={styles.nameRow}>
               <h1 className={styles.name}>{profile.nickname}</h1>
               {/* RankBadge: lib/ranks + RankBadge 컴포넌트로만 표기(전역 규칙) */}
+              {/* rankTier: 실제 등급 API 응답에서 레벨 매핑 (Story 6.3; 정식 통합은 Story 6.6) */}
               <RankBadge
-                rank={profile.rank as RankTier}
+                rank={rankTier}
                 size={22}
                 showLabel
                 className={styles.rankBadge}

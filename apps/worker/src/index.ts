@@ -5,6 +5,7 @@ import { renderEmailVerification } from "./templates/email-verification.js";
 import { sendMail, isSmtpConfigured } from "./mailer.js";
 import { viewFlushProcessor } from "./processors/view.flush.js";
 import { processResourceScan } from "./processors/resource-scan.processor.js"; // Story 4.5
+import { gradeUpProcessor } from "./processors/gradeUp.processor.js"; // Story 6.3
 
 /**
  * 워커 엔트리.
@@ -173,7 +174,26 @@ function startWorkers(): Worker[] {
   );
   // ── [5.4] notifications worker END ───────────────────────────────────────
 
-  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker];
+  // ── [6.3] ranking worker ─────────────────────────────────────────────────
+  // gamification.grade-up 잡 처리: 등급 변동 감지 → notifications 큐에 grade.level-up 발행
+  // 향후 6.4 badge-check, 6.5 ranking.compute 잡도 이 ranking 큐에서 처리
+  const rankingConnection = createConnection();
+  const rankingWorker = new Worker(
+    QUEUE_NAMES.ranking,
+    gradeUpProcessor,
+    { connection: rankingConnection },
+  );
+
+  rankingWorker.on("ready", () => console.log("[worker] ranking 워커 준비 완료"));
+  rankingWorker.on("completed", (job) =>
+    console.info(`[ranking-worker] job 완료: ${job.id} (${job.name})`),
+  );
+  rankingWorker.on("failed", (job, error) =>
+    console.error(`[ranking-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [6.3] ranking worker END ──────────────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker, rankingWorker];
 }
 
 const workers = startWorkers();

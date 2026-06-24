@@ -131,6 +131,15 @@ function formatJoinDate(iso: string): string {
   }
 }
 
+// ── 레벨 → RankTier 임시 매핑 (Story 6.6에서 정식 통합) ────────────────────────
+const LEVEL_TO_RANK_TIER_MAP: Record<number, RankTier> = {
+  1: "rookie",
+  2: "member",
+  3: "practitioner",
+  4: "expert",
+  5: "master",
+};
+
 export default function MyPage() {
   const { user, ready, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("posts");
@@ -208,18 +217,74 @@ export default function MyPage() {
       });
   }, [myPosts, postBoard, postSort, postKeyword]);
 
-  // 등급 진행도: 현재 등급 정보 + 다음 등급 + 진행률(%) 계산
-  // points: 게이미피케이션 API 구현 전까지 0
+  // ── 게이미피케이션 API: 등급 정보 조회 ──────────────────────────────────────
+  const [gradeData, setGradeData] = useState<{
+    totalPoints: number;
+    grade: { level: number; name: string };
+    nextGrade: { level: number; name: string } | null;
+    pointsToNext: number | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    void fetch("/api/v1/gamification/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (data: {
+          totalPoints: number;
+          grade: { level: number; name: string };
+          nextGrade: { level: number; name: string } | null;
+          pointsToNext: number | null;
+        } | null) => {
+          if (data) setGradeData(data);
+        },
+      )
+      .catch(() => { /* 로드 실패 시 기본값 유지 */ });
+  }, [user]);
+
+  // 등급 진행도: API 응답 사용. 미조회 시 기존 로직(resolveRank) 폴백.
   const rankProgress = useMemo(() => {
     if (!profile) return null;
+
+    if (gradeData) {
+      // API 응답 기반 계산
+      const tier: RankTier = LEVEL_TO_RANK_TIER_MAP[gradeData.grade.level] ?? "rookie";
+      const info = resolveRank(tier);
+      if (!info) return null;
+
+      const nextTier = gradeData.nextGrade
+        ? (LEVEL_TO_RANK_TIER_MAP[gradeData.nextGrade.level] ?? null)
+        : null;
+      const nextInfo = nextTier ? resolveRank(nextTier) : null;
+
+      const totalPoints = gradeData.totalPoints;
+      const remaining = gradeData.pointsToNext ?? 0;
+      // 진행률: 현재 등급 내 위치 (totalPoints / (totalPoints + remaining))
+      const pct =
+        gradeData.pointsToNext === null
+          ? 100
+          : Math.min(100, Math.round((totalPoints / (totalPoints + remaining)) * 100));
+
+      return {
+        info,
+        next: nextInfo ?? null,
+        pct,
+        remaining,
+        points: totalPoints,
+        // rank tier (프로필 헤더 RankBadge 업데이트용)
+        tier,
+      };
+    }
+
+    // API 미조회 폴백: 기존 로직 (rank='rookie' + 0포인트)
     const info = resolveRank(profile.rank);
     if (!info) return null;
     const next = RANK_LIST.find((r) => r.order === info.order + 1);
-    const points = 0; // Epic 6 포인트 시스템 구현 전
-    const pct = 0; // 포인트 없음
-    const remaining = next ? next.order * 1000 : 0; // 플레이스홀더
-    return { info, next, pct, remaining, points };
-  }, [profile]);
+    const points = 0;
+    const pct = 0;
+    const remaining = next ? next.order * 1000 : 0;
+    return { info, next, pct, remaining, points, tier: profile.rank as RankTier };
+  }, [profile, gradeData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 팔로잉/팔로워/북마크: 실API 조회
   const [followingList, setFollowingList] = useState<{ id: string; nickname: string; avatarUrl: string | null }[]>([]);
@@ -299,7 +364,8 @@ export default function MyPage() {
             <div className={styles.identityText}>
               <div className={styles.nameRow}>
                 <h1 className={styles.name}>{profile.nickname}</h1>
-                <RankBadge rank={profile.rank} size={22} showLabel className={styles.rankBadge} />
+                {/* rankProgress.tier: API 등급 레벨에서 매핑 (Story 6.3; 정식 통합은 Story 6.6) */}
+                <RankBadge rank={rankProgress?.tier ?? profile.rank} size={22} showLabel className={styles.rankBadge} />
               </div>
               <div className={styles.metaRow}>
                 <span className={styles.metaItem}>
@@ -628,9 +694,11 @@ export default function MyPage() {
               </div>
 
               <div className={styles.rankShowcase}>
-                <RankBadge rank={profile.rank} size={56} />
+                {/* tier: API 응답 레벨에서 매핑 (Story 6.3; 정식 통합은 Story 6.6) */}
+                <RankBadge rank={rankProgress.tier ?? profile.rank} size={56} />
                 <div className={styles.rankShowcaseText}>
                   <strong>{rankProgress.info.label}</strong>
+                  {/* 포인트 숫자: 소형 비강조 처리 (AC#3) — .rankShowcaseText span 이 font-size-sm 적용 */}
                   <span>{rankProgress.points.toLocaleString()} P</span>
                 </div>
               </div>

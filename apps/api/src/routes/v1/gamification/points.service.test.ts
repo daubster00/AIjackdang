@@ -13,6 +13,25 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// ── gamification.service 모킹 (fetchGrades + getRankingQueue 의존) ────────────
+// earnPoints 내에서 fetchGrades 및 getRankingQueue를 호출한다.
+// 등급 변동 감지 로직을 best-effort(try/catch)로 처리하므로 mock이 빈 배열을 반환해도 OK.
+vi.mock("./gamification.service.js", () => ({
+  fetchGrades: vi.fn(async () => [
+    { id: "uuid-1", level: 1, name: "새내기", minPoints: 0, maxPoints: 99 },
+    { id: "uuid-2", level: 2, name: "작당원", minPoints: 100, maxPoints: 499 },
+    { id: "uuid-3", level: 3, name: "실전러", minPoints: 500, maxPoints: 1499 },
+    { id: "uuid-4", level: 4, name: "고수", minPoints: 1500, maxPoints: 4999 },
+    { id: "uuid-5", level: 5, name: "마스터", minPoints: 5000, maxPoints: null },
+  ]),
+}));
+
+// ── getRankingQueue 모킹 ─────────────────────────────────────────────────────
+vi.mock("../../../lib/queues.js", () => ({
+  getRankingQueue: vi.fn(() => ({ add: vi.fn().mockResolvedValue({ id: "mock-job" }) })),
+  GRADE_UP_JOB_NAME: "gamification.grade-up",
+}));
+
 // ── @ai-jakdang/core 모킹 ─────────────────────────────────────────────────────
 vi.mock("@ai-jakdang/core", () => ({
   canEarnPoint: vi.fn(({ todayCount, reason }: { todayCount: number; reason: string }) => {
@@ -37,6 +56,11 @@ vi.mock("@ai-jakdang/core", () => ({
       "download.given": 1,
     };
     return rules[reason] ?? 0;
+  }),
+  // gradeForPoints: earnPoints 내 등급 변동 감지에 사용 (gamification.service.js가 mock되므로 단순 구현)
+  gradeForPoints: vi.fn((totalPoints: number, grades: { level: number; minPoints: number }[]) => {
+    const sorted = [...grades].sort((a, b) => b.level - a.level);
+    return sorted.find((g) => totalPoints >= g.minPoints) ?? sorted[sorted.length - 1];
   }),
 }));
 
@@ -111,6 +135,13 @@ vi.mock("@ai-jakdang/database", () => {
         sourceId: "source_id",
         delta: "delta",
         createdAt: "created_at",
+      },
+      grades: {
+        id: "id",
+        level: "level",
+        name: "name",
+        minPoints: "min_points",
+        maxPoints: "max_points",
       },
     },
     getDb: vi.fn(() => makeDb()),
