@@ -26,13 +26,13 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "바이브 코딩 가이드",
     description: "바이브 코딩 방법론 · 튜토리얼 · 실전 가이드",
     category: "vibe-coding",
-    urlPath: "/vibe-coding/guide",
+    urlPath: "/vibe-coding",
   },
   "vibe-coding-tips": {
     label: "바이브 코딩 팁",
     description: "바이브 코딩 노하우 · 팁 · 트릭 공유",
     category: "vibe-coding",
-    urlPath: "/vibe-coding/tips",
+    urlPath: "/vibe-coding",
   },
 
   // ── AI 자동화 ──────────────────────────────────────────────────────────────
@@ -40,19 +40,19 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "자동화 가이드",
     description: "AI 자동화 구축 방법 · 워크플로 설계 가이드",
     category: "ai-automation",
-    urlPath: "/automation/guide",
+    urlPath: "/automation",
   },
   "automation-cases": {
     label: "자동화 사례",
     description: "실제 AI 자동화 적용 사례 · 결과 공유",
     category: "ai-automation",
-    urlPath: "/automation/cases",
+    urlPath: "/automation",
   },
   "automation-tips": {
     label: "자동화 팁",
     description: "자동화 구현 팁 · 도구 추천 · 트러블슈팅",
     category: "ai-automation",
-    urlPath: "/automation/tips",
+    urlPath: "/automation",
   },
 
   // ── AI 수익화 ──────────────────────────────────────────────────────────────
@@ -60,13 +60,13 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "수익화 팁",
     description: "AI 활용 수익 창출 팁 · 아이디어 공유",
     category: "ai-monetization",
-    urlPath: "/monetization/tips",
+    urlPath: "/monetize",
   },
   "monetization-cases": {
     label: "수익화 사례",
     description: "AI 수익화 실제 사례 · 결과 공유",
     category: "ai-monetization",
-    urlPath: "/monetization/cases",
+    urlPath: "/monetize",
   },
 
   // ── AI 창작 ────────────────────────────────────────────────────────────────
@@ -74,14 +74,14 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "AI 창작물",
     description: "AI로 만든 창작물 · 이미지 · 영상 · 음악 공유",
     category: "ai-creation",
-    urlPath: "/ai-creation",
+    urlPath: "/lounge",
     hasCreativeSpec: true,
   },
   "ai-products": {
     label: "AI 제품 · 서비스",
     description: "AI 기반 제품 · 서비스 소개 · 피드백",
     category: "ai-creation",
-    urlPath: "/ai-products",
+    urlPath: "/lounge/products",
   },
 
   // ── 커뮤니티 ───────────────────────────────────────────────────────────────
@@ -89,13 +89,13 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "작당 라운지",
     description: "AI 작당 멤버들의 자유 대화 공간",
     category: "lounge",
-    urlPath: "/talk",
+    urlPath: "/lounge/talk",
   },
   gigs: {
     label: "구인구직",
     description: "AI · 자동화 분야 인재 모집 · 프리랜서 구직",
     category: "lounge",
-    urlPath: "/gigs",
+    urlPath: "/lounge/gigs",
     boardKind: "recruit",
   },
 

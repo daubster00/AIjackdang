@@ -6,7 +6,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Select, SearchInput } from "@/components/ui";
-import { GIG_FIELDS } from "./page";
+import { GIG_FIELDS } from "./constants";
 import styles from "./gigs.module.css";
 
 const TYPE_OPTIONS = [

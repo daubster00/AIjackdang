@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { Button, Icon } from "@/components/ui";
 import { LightEditor } from "@/components/board";
 import { useToast } from "@/components/ui/Toast/Toast";
-import { GIG_FIELDS, type GigField, type GigType, type GigStatus } from "../page";
+import { GIG_FIELDS, type GigField, type GigType, type GigStatus } from "../constants";
 import styles from "../gigs.module.css";
 
 // 첨부 파일 최대 개수
