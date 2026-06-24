@@ -90,7 +90,7 @@ describe("adminGuardHook", () => {
 
   it("케이스 3-a: pending 상태 admin session — 401 ADMIN_INACTIVE 반환", async () => {
     vi.mocked(adminAuth.api.getSession).mockResolvedValueOnce({
-      user: { id: "admin-1", email: "staff@test.com", name: "테스터", status: "pending", role: "staff" },
+      user: { id: "admin-1", email: "staff@test.com", name: "테스터", status: "pending", role: "staff" } as never,
       session: {} as never,
     });
 
@@ -105,7 +105,7 @@ describe("adminGuardHook", () => {
 
   it("케이스 3-b: suspended 상태 admin session — 401 ADMIN_INACTIVE 반환", async () => {
     vi.mocked(adminAuth.api.getSession).mockResolvedValueOnce({
-      user: { id: "admin-2", email: "staff@test.com", name: "테스터", status: "suspended", role: "staff" },
+      user: { id: "admin-2", email: "staff@test.com", name: "테스터", status: "suspended", role: "staff" } as never,
       session: {} as never,
     });
 
@@ -120,7 +120,7 @@ describe("adminGuardHook", () => {
 
   it("케이스 3-c: disabled 상태 admin session — 401 ADMIN_INACTIVE 반환", async () => {
     vi.mocked(adminAuth.api.getSession).mockResolvedValueOnce({
-      user: { id: "admin-3", email: "super@test.com", name: "관리자", status: "disabled", role: "super_admin" },
+      user: { id: "admin-3", email: "super@test.com", name: "관리자", status: "disabled", role: "super_admin" } as never,
       session: {} as never,
     });
 
@@ -135,7 +135,7 @@ describe("adminGuardHook", () => {
 
   it("케이스 4: active admin session — request.adminSession 설정, 가드 통과", async () => {
     vi.mocked(adminAuth.api.getSession).mockResolvedValueOnce({
-      user: { id: "admin-4", email: "super@test.com", name: "관리자", status: "active", role: "super_admin" },
+      user: { id: "admin-4", email: "super@test.com", name: "관리자", status: "active", role: "super_admin" } as never,
       session: {} as never,
     });
 
