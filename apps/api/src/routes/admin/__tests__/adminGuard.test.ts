@@ -159,7 +159,7 @@ describe("adminGuardHook", () => {
 
     await adminGuardHook(req, reply);
 
-    // getSession 호출 없이 통과
+    // getSession 호출 없이 통과 — status 미변경(기본값 200 유지)
     expect(adminAuth.api.getSession).not.toHaveBeenCalled();
     expect(reply._statusCode).toBe(200);
   });
