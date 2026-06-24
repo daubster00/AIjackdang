@@ -79,13 +79,13 @@ development_status:
   5-12-member-follow: done
   epic-5-retrospective: optional
 
-  epic-6: in-progress
-  6-1-gamification-db-schema-core-functions: ready-for-dev
-  6-2-points-ledger-earn-revoke-hooks: ready-for-dev
-  6-3-grade-system-derive-display-event: ready-for-dev
-  6-4-badge-system-auto-award-view: ready-for-dev
-  6-5-ranking-weekly-monthly-page-widget: ready-for-dev
-  6-6-gamification-ui-integration: ready-for-dev
+  epic-6: done
+  6-1-gamification-db-schema-core-functions: done
+  6-2-points-ledger-earn-revoke-hooks: done
+  6-3-grade-system-derive-display-event: done
+  6-4-badge-system-auto-award-view: done
+  6-5-ranking-weekly-monthly-page-widget: done
+  6-6-gamification-ui-integration: done # AC#5/#7 목록·상세 실등급 주입은 동시세션 충돌로 보류(후속)
   epic-6-retrospective: optional
 
   epic-7: in-progress
