@@ -171,6 +171,90 @@
   gap: 4px;
 }
 
+/* ── 유형 필터 탭 ── */
+.tablist {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: color var(--transition-base), border-color var(--transition-base);
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-subtle, var(--color-primary));
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  opacity: 0.85;
+}
+
+.tabActive .tabBadge {
+  background: var(--color-primary);
+  color: var(--color-on-primary, #fff);
+  opacity: 1;
+}
+
+/* ── 정렬 셀렉트 ── */
+.sortBar {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+.sortBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.sortActive {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
 /* ── 페이지네이션 ── */
 .pagination {
   display: flex;
@@ -178,6 +262,30 @@
   justify-content: center;
   gap: var(--space-2);
   margin-top: var(--space-5);
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.pageBtn:hover,
+.pageBtnActive,
+.pageBtn[aria-current="page"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .pagination button {
@@ -200,6 +308,12 @@
 .pagination button[aria-current="page"] {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+/* ── 사이드바 기타 ── */
+.noRelated {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
 }
 
 /* ── 사이드바 ── */
