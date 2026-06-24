@@ -30,7 +30,7 @@ export const commentTargetType = pgEnum("comment_target_type", [
   "comment",
 ]);
 
-export const commentStatus = pgEnum("comment_status", ["visible", "deleted"]);
+export const commentStatus = pgEnum("comment_status", ["visible", "hidden", "deleted"]);
 
 export const reactionTargetType = pgEnum("reaction_target_type", [
   "post",
@@ -54,6 +54,7 @@ export const reportTargetType = pgEnum("report_target_type", [
   "answer",
   "resource",
   "comment",
+  "message",
 ]);
 
 export const reportStatus = pgEnum("report_status", [
