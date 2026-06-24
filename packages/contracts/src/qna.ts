@@ -125,6 +125,8 @@ export const questionDetailResponseSchema = z.object({
     })
     .nullable(),
   title: z.string(),
+  /** SEO URL 슬러그 (`/questions/{slug}` 라우팅·canonical). */
+  slug: z.string(),
   contentJson: z.record(z.string(), z.unknown()),
   status: z.enum(["draft", "published", "hidden", "deleted"]),
   /** packages/core deriveQuestionStatus() 도출 결과 */
@@ -154,6 +156,8 @@ export const questionListItemResponseSchema = z.object({
     })
     .nullable(),
   title: z.string(),
+  /** SEO URL 슬러그 (`/questions/{slug}` 라우팅). */
+  slug: z.string(),
   status: z.enum(["draft", "published", "hidden", "deleted"]),
   derivedStatus: z.enum(["waiting", "answered", "resolved"]),
   isResolved: z.boolean(),

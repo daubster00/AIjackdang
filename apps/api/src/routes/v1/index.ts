@@ -9,6 +9,7 @@ import { registerResetPasswordRoute } from "./auth/reset-password.js";
 import { postsRoutes } from "./posts/routes.js";
 import { tagsRoutes } from "./tags/routes.js";
 import { resourcesRoutes } from "./resources/routes.js";
+import { qnaRoutes } from "./qna/routes.js";
 import { registerMeResourcesRoutes } from "./me/resources.route.js";
 import { reactionsRoutes } from "./reactions.js";
 import { commentsRoutes } from "./comments.js";
@@ -79,4 +80,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 팔로우 라우트 (Story 5.12) ────────────────────────────────────────────
   await followsRoutes(app);
+
+  // ── 묻고답하기(Q&A) 라우트 (Epic 3: 목록/작성/상세/답변/도움된답변) ──────────
+  await qnaRoutes(app);
 }

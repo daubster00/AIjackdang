@@ -20,6 +20,7 @@ import {
   pgEnum,
   pgTable,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
   type AnyPgColumn,
@@ -90,6 +91,13 @@ export const questions = pgTable(
 
     title: varchar("title", { length: 300 }).notNull(),
 
+    /**
+     * SEO URL 슬러그 — posts.slug 와 동일 컨벤션(프로젝트 전역 slug 기반 라우팅).
+     * `/questions/{slug}` 라우팅·canonical·QAPage JSON-LD(Story 3.2/3.5/3.9)에서 사용.
+     * 서버가 slugify(title) → generateUniqueSlug(중복 시 -{nanoid6}) 로 생성.
+     */
+    slug: varchar("slug", { length: 350 }).notNull().unique(),
+
     /** 질문 본문 — Tiptap JSON 전용 (HTML 저장 절대 금지, AR-8) */
     contentJson: jsonb("content_json").notNull(),
 
@@ -125,6 +133,7 @@ export const questions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    uniqueIndex("questions_slug_uq").on(t.slug),
     index("questions_user_id_idx").on(t.userId),
     index("questions_status_idx").on(t.status),
     index("questions_is_resolved_idx").on(t.isResolved),
