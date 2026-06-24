@@ -40,10 +40,12 @@ export type Answer = {
 
 type Props = {
   answer: Answer;
-  /** 현재 사용자가 이 질문의 작성자인지 — true일 때만 채택 버튼 노출 */
-  canAccept: boolean;
-  /** 이 질문에 이미 채택된 답변이 있는지 — 있으면 다른 답변의 채택 버튼을 숨긴다 */
-  hasAccepted: boolean;
+  /** 이 답변이 도움된 답변으로 지정됐는지 (부모의 helpfulAnswerId === answer.id 로 계산) */
+  isHelpful: boolean;
+  /** 현재 사용자가 이 질문의 작성자인지 — true일 때만 [도움된 답변으로 표시] 토글 노출 */
+  canMarkHelpful: boolean;
+  /** 도움된 답변 지정/해제 콜백 (answerId=null이면 해제) */
+  onMarkHelpful: (answerId: string | null) => void;
   /** 현재 로그인 사용자 ID — 일치 시 수정/삭제 메뉴 노출 */
   currentUserId?: string | null;
   /** 답변이 삭제됐을 때 부모에서 제거하기 위한 콜백 */
@@ -54,8 +56,9 @@ type Props = {
 
 export function AnswerItem({
   answer,
-  canAccept,
-  hasAccepted,
+  isHelpful,
+  canMarkHelpful,
+  onMarkHelpful,
   currentUserId,
   onDeleted,
   onUpdated,
@@ -74,7 +77,6 @@ export function AnswerItem({
   const [voteState, setVoteState] = useState<"up" | "down" | null>(null);
   const [likeCount, setLikeCount] = useState(answer.votes ?? 0);
   const [dislikeCount, setDislikeCount] = useState(0);
-  const [accepted, setAccepted] = useState(Boolean(answer.accepted));
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -210,13 +212,13 @@ export function AnswerItem({
 
   return (
     <article
-      className={`${styles.answerItem} ${accepted ? styles.answerAccepted : ""}`}
-      aria-label={accepted ? "채택된 답변" : "답변"}
+      className={`${styles.answerItem} ${isHelpful ? styles.answerAccepted : ""}`}
+      aria-label={isHelpful ? "도움된 답변" : "답변"}
     >
-      {accepted && (
+      {isHelpful && (
         <div className={styles.acceptedBanner}>
           <Icon name="checkbox-circle-fill" />
-          채택된 답변
+          도움된 답변
         </div>
       )}
 
@@ -329,11 +331,27 @@ export function AnswerItem({
 
         <div className={styles.answerToolbar}>
           <div className={styles.answerToolbarLeft}>
-            {/* 채택하기 — 질문 작성자에게만, 아직 채택된 답변이 없을 때만 노출 */}
-            {!accepted && canAccept && !hasAccepted && (
-              <button type="button" className={styles.acceptBtn} onClick={() => setAccepted(true)}>
+            {/* 도움된 답변으로 표시 토글 — 질문 작성자에게만 노출 */}
+            {canMarkHelpful && !isHelpful && (
+              <button
+                type="button"
+                className={styles.acceptBtn}
+                onClick={() => onMarkHelpful(answer.id)}
+                aria-label="도움된 답변으로 표시"
+              >
                 <Icon name="checkbox-circle-line" />
-                채택하기
+                도움된 답변으로 표시
+              </button>
+            )}
+            {canMarkHelpful && isHelpful && (
+              <button
+                type="button"
+                className={styles.acceptBtn}
+                onClick={() => onMarkHelpful(null)}
+                aria-label="도움된 답변 해제"
+              >
+                <Icon name="checkbox-circle-fill" />
+                도움된 답변 해제
               </button>
             )}
             <button
