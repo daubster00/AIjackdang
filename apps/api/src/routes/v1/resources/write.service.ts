@@ -14,6 +14,7 @@ import { getDb, schema } from "@ai-jakdang/database";
 import type { CreateResourceInput } from "@ai-jakdang/contracts";
 import { eq } from "drizzle-orm";
 import { slugify, generateUniqueSlug } from "@ai-jakdang/utilities";
+import { earnPoints, getTodayCount } from "../gamification/points.service.js";
 
 export interface CreateResourceParams {
   input: CreateResourceInput & { status?: "published" | "draft" };
@@ -145,6 +146,22 @@ export async function createResource({
             tagId,
           })),
         );
+      }
+    }
+
+    // 포인트 적립 (published 자료만, 실패해도 자료 저장 유지)
+    if (resource.status === "published") {
+      try {
+        const todayCount = await getTodayCount(tx, { userId, reason: "resource.created" });
+        await earnPoints(tx, {
+          userId,
+          reason: "resource.created",
+          sourceType: "resource",
+          sourceId: resource.id,
+          todayCount,
+        });
+      } catch (err) {
+        console.error("[points] 자료 적립 실패 (무시):", (err as Error).message);
       }
     }
 

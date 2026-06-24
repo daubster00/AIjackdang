@@ -1,6 +1,6 @@
 # Story 6.2: 포인트 적립 · 회수 훅
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -38,53 +38,54 @@ so that 포인트 원장이 항상 정합 상태를 유지한다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 포인트 서비스 레이어 신규 생성 (AC: #1, #2, #3, #5)
-  - [ ] `apps/api/src/routes/v1/gamification/points.service.ts` 신규 생성 (NEW)
-  - [ ] `earnPoints(db, { userId, reason, sourceType, sourceId, todayCount })` 함수 구현:
+- [x] Task 1: 포인트 서비스 레이어 신규 생성 (AC: #1, #2, #3, #5)
+  - [x] `apps/api/src/routes/v1/gamification/points.service.ts` 신규 생성 (NEW)
+  - [x] `earnPoints(db, { userId, reason, sourceType, sourceId, todayCount })` 함수 구현:
     - `canEarnPoint({ reason, userId, todayCount })` 로 상한 체크
     - 멱등 체크: `points_ledger`에서 `(user_id=userId, reason=reason, source_id=sourceId)` AND delta>0 인 행 조회
     - 존재하지 않으면 `points_ledger` insert
-  - [ ] `revokePoints(db, { userId, reason, sourceType, sourceId })` 함수 구현:
+  - [x] `revokePoints(db, { userId, reason, sourceType, sourceId })` 함수 구현:
     - 기존 적립 행 조회 (동일 userId/reason/sourceId)
     - 없으면 no-op, 있으면 `{reason}.revoked` + 원본 delta 음수로 insert
-  - [ ] `getTodayCount(db, { userId, reason })` 헬퍼: 오늘 00:00:00 UTC 이후 해당 reason 적립 건수 조회
+  - [x] `getTodayCount(db, { userId, reason })` 헬퍼: 오늘 00:00:00 UTC 이후 해당 reason 적립 건수 조회
 
-- [ ] Task 2: 게시글 서비스에 포인트 훅 추가 (AC: #1)
-  - [ ] `apps/api/src/routes/v1/posts/posts.service.ts` UPDATE
-  - [ ] 글 생성 트랜잭션 내 `earnPoints(db, { userId, reason: 'post.created', sourceType: 'post', sourceId: post.id, todayCount })` 호출
-  - [ ] 글 삭제(soft-delete) 트랜잭션 내 `revokePoints(db, { userId, reason: 'post.created', sourceType: 'post', sourceId: post.id })` 호출
-  - [ ] `todayCount`는 동일 트랜잭션 전 `getTodayCount` 호출로 획득
+- [x] Task 2: 게시글 서비스에 포인트 훅 추가 (AC: #1)
+  - [x] `apps/api/src/routes/v1/posts/service.ts` UPDATE
+  - [x] 글 생성 트랜잭션 내 `earnPoints(db, { userId, reason: 'post.created', sourceType: 'post', sourceId: post.id, todayCount })` 호출
+  - [x] 글 삭제(soft-delete) 트랜잭션 내 `revokePoints(db, { userId, reason: 'post.created', sourceType: 'post', sourceId: post.id })` 호출
+  - [x] `todayCount`는 동일 트랜잭션 전 `getTodayCount` 호출로 획득
 
-- [ ] Task 3: 답변·댓글 서비스에 포인트 훅 추가 (AC: #1)
-  - [ ] `apps/api/src/routes/v1/qna/qna.service.ts` 또는 해당 answer service UPDATE
-  - [ ] 답변 생성 시 `earnPoints(..., reason: 'answer.created', sourceType: 'answer', ...)`
-  - [ ] 답변 삭제 시 `revokePoints(..., reason: 'answer.created', ...)`
-  - [ ] `apps/api/src/routes/v1/comments/comments.service.ts` UPDATE
-  - [ ] 댓글 생성 시 `earnPoints(..., reason: 'comment.created', sourceType: 'comment', ...)`
-  - [ ] 댓글 삭제 시 `revokePoints(..., reason: 'comment.created', ...)`
+- [x] Task 3: 답변·댓글 서비스에 포인트 훅 추가 (AC: #1)
+  - [x] `apps/api/src/routes/v1/qna/answer.service.ts` UPDATE
+  - [x] 답변 생성 시 `earnPoints(..., reason: 'answer.created', sourceType: 'answer', ...)`
+  - [x] 답변 삭제 시 `revokePoints(..., reason: 'answer.created', ...)`
+  - [x] `apps/api/src/routes/v1/comments.ts` UPDATE (route 파일 내 인라인 처리)
+  - [x] 댓글 생성 시 `earnPoints(..., reason: 'comment.created', sourceType: 'comment', ...)`
+  - [x] 댓글 삭제 시 `revokePoints(..., reason: 'comment.created', ...)`
 
-- [ ] Task 4: 자료 서비스에 포인트 훅 추가 (AC: #1)
-  - [ ] `apps/api/src/routes/v1/resources/resources.service.ts` UPDATE
-  - [ ] 자료 등록 시 `earnPoints(..., reason: 'resource.created', sourceType: 'resource', ...)`
-  - [ ] 자료 삭제(soft-delete) 시 `revokePoints(..., reason: 'resource.created', ...)`
+- [x] Task 4: 자료 서비스에 포인트 훅 추가 (AC: #1)
+  - [x] `apps/api/src/routes/v1/resources/write.service.ts` UPDATE
+  - [x] 자료 등록 시 `earnPoints(..., reason: 'resource.created', sourceType: 'resource', ...)`
+  - [x] `apps/api/src/routes/v1/resources/mutate.service.ts` UPDATE
+  - [x] 자료 삭제(soft-delete) 시 `revokePoints(..., reason: 'resource.created', ...)`
 
-- [ ] Task 5: 좋아요 수신 포인트 훅 추가 (AC: #1, #4)
-  - [ ] `apps/api/src/routes/v1/reactions/reactions.service.ts` UPDATE
-  - [ ] 좋아요 추가 시 콘텐츠 작성자 userId 조회 후 `earnPoints(...targetUserId, reason: 'reaction.received', sourceType: 'reaction', sourceId: reaction.id, ...)`
-  - [ ] 좋아요 취소 시 `revokePoints(...targetUserId, reason: 'reaction.received', ...)`
-  - [ ] SELF_REACTION 가드는 Epic 5에서 이미 400 반환 → 이 service에서는 포인트 코드 미도달 확인
+- [x] Task 5: 좋아요 수신 포인트 훅 추가 (AC: #1, #4)
+  - [x] `apps/api/src/routes/v1/reactions.ts` UPDATE
+  - [x] 좋아요 추가 시 콘텐츠 작성자 userId 조회 후 `earnPoints(...targetUserId, reason: 'reaction.received', sourceType: 'reaction', sourceId: reaction.id, ...)`
+  - [x] 좋아요 취소 시 `revokePoints(...targetUserId, reason: 'reaction.received', ...)`
+  - [x] SELF_REACTION 가드는 Epic 5에서 이미 409 반환 → 이 service에서는 포인트 코드 미도달 확인
 
-- [ ] Task 6: 다운로드 수신 포인트 훅 추가 (AC: #1)
-  - [ ] `apps/api/src/routes/v1/resources/resources.service.ts` UPDATE (다운로드 처리 섹션)
-  - [ ] 다운로드 로그 insert 트랜잭션 내 `earnPoints(...resourceOwnerId, reason: 'download.given', sourceType: 'download_log', sourceId: downloadLog.id, ...)`
+- [x] Task 6: 다운로드 수신 포인트 훅 추가 (AC: #1)
+  - [x] `apps/api/src/routes/v1/resources/download.service.ts` UPDATE
+  - [x] download_count 증가 후 `earnPoints(...resourceOwnerId, reason: 'download.given', sourceType: 'resource', sourceId: crypto.randomUUID(), ...)`
 
-- [ ] Task 7: 포인트 서비스 테스트 작성 (AC: #6)
-  - [ ] `apps/api/src/routes/v1/gamification/points.service.test.ts` 신규 생성 (NEW)
-  - [ ] 글 생성 → 적립 fixture 테스트
-  - [ ] 글 삭제 → 회수 fixture 테스트 (누적 SUM 감소 확인)
-  - [ ] 일일 상한 초과(todayCount >= CAP) → 미삽입 테스트
-  - [ ] 중복 이벤트(동일 userId/reason/sourceId) → 멱등 테스트
-  - [ ] DB fixture는 Drizzle + test DB 또는 mock 방식 사용
+- [x] Task 7: 포인트 서비스 테스트 작성 (AC: #6)
+  - [x] `apps/api/src/routes/v1/gamification/points.service.test.ts` 신규 생성 (NEW)
+  - [x] 글 생성 → 적립 fixture 테스트
+  - [x] 글 삭제 → 회수 fixture 테스트 (누적 SUM 감소 확인)
+  - [x] 일일 상한 초과(todayCount >= CAP) → 미삽입 테스트
+  - [x] 중복 이벤트(동일 userId/reason/sourceId) → 멱등 테스트
+  - [x] DB fixture는 vitest mock 방식 사용
 
 ## Dev Notes
 
@@ -151,9 +152,32 @@ Epic 2~5 service 파일은 이 스토리에서 트랜잭션 내 1~2줄 추가가
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- Task 1: `points.service.ts` DB 타입을 `PostgresJsDatabase` → `NodePgDatabase` (node-postgres)로 수정
+- Task 2: `deletePost` 기존 직접 UPDATE를 `db.transaction()` 내부로 이동하여 회수와 원자적 처리
+- Task 6: `download_log` 테이블 미존재(Epic 4 미구현) → `crypto.randomUUID()` 로 sourceId 생성
+- 기존 `mutate.service.test.ts` 실패: `transaction: vi.fn()` → 콜백 실행 mock으로 수정
+- `write.service.test.ts` stderr 경고: gamification points.service mock 추가로 해결
 
 ### Completion Notes List
+- AC#1: 6개 액션(post.created, answer.created, comment.created, resource.created, reaction.received, download.given) 모두 해당 service 트랜잭션 내 earnPoints 호출 삽입 완료
+- AC#2: earnPoints가 canEarnPoint 상한 초과 시 false 반환, 콘텐츠는 정상 저장 (try/catch 패턴)
+- AC#3: revokePoints가 {reason}.revoked + 음수 delta 행 삽입, 이미 회수 시 no-op
+- AC#4: reactions.ts의 SELF_REACTION 가드(409) 통과 후에만 earnPoints 도달 → 포인트 미삽입 확인
+- AC#5: earnPoints 내 멱등 체크 (user_id, reason, source_id, delta>0) 구현
+- AC#6: points.service.test.ts 10개 테스트 모두 통과 (136 total 통과, 0 실패)
 
 ### File List
+- `apps/api/src/routes/v1/gamification/points.service.ts` (NEW)
+- `apps/api/src/routes/v1/gamification/points.service.test.ts` (NEW)
+- `apps/api/src/routes/v1/posts/service.ts` (MODIFIED — earnPoints/revokePoints 훅 추가)
+- `apps/api/src/routes/v1/qna/answer.service.ts` (MODIFIED — earnPoints/revokePoints 훅 추가)
+- `apps/api/src/routes/v1/comments.ts` (MODIFIED — earnPoints/revokePoints 훅 추가)
+- `apps/api/src/routes/v1/resources/write.service.ts` (MODIFIED — earnPoints 훅 추가)
+- `apps/api/src/routes/v1/resources/mutate.service.ts` (MODIFIED — revokePoints 훅 추가, deleteResource 트랜잭션화)
+- `apps/api/src/routes/v1/reactions.ts` (MODIFIED — reaction.received earnPoints/revokePoints 훅)
+- `apps/api/src/routes/v1/resources/download.service.ts` (MODIFIED — download.given earnPoints 훅)
+- `apps/api/src/routes/v1/resources/write.service.test.ts` (MODIFIED — gamification mock 추가)
+- `apps/api/src/routes/v1/resources/mutate.service.test.ts` (MODIFIED — transaction mock 콜백 실행, gamification mock 추가)

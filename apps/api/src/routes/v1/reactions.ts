@@ -23,6 +23,7 @@ import { eq, and } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { getStatsQueue } from "../../lib/queues.js";
+import { earnPoints, revokePoints, getTodayCount } from "./gamification/points.service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -206,6 +207,23 @@ export async function reactionsRoutes(app: FastifyInstance): Promise<void> {
         throw new Error("INSERT reaction returned no row");
       }
 
+      // 포인트 적립: 콘텐츠 작성자에게 reaction.received +2
+      // 자가추천은 위에서 409 반환하므로 authorId !== user.id 보장됨
+      if (reactionType === "like" && authorId) {
+        try {
+          const todayCount = await getTodayCount(db, { userId: authorId, reason: "reaction.received" });
+          await earnPoints(db, {
+            userId: authorId,
+            reason: "reaction.received",
+            sourceType: "reaction",
+            sourceId: row.id,
+            todayCount,
+          });
+        } catch (err) {
+          console.error("[points] 좋아요 수신 적립 실패 (무시):", (err as Error).message);
+        }
+      }
+
       // stats 큐에 reaction.created job 발행 (Epic 6 포인트 처리 담당)
       try {
         await getStatsQueue().add("reaction.created", {
@@ -253,7 +271,13 @@ export async function reactionsRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
 
       const existing = await db
-        .select({ id: schema.reactions.id, userId: schema.reactions.userId })
+        .select({
+          id: schema.reactions.id,
+          userId: schema.reactions.userId,
+          targetType: schema.reactions.targetType,
+          targetId: schema.reactions.targetId,
+          reactionType: schema.reactions.reactionType,
+        })
         .from(schema.reactions)
         .where(eq(schema.reactions.id, id))
         .limit(1);
@@ -268,6 +292,25 @@ export async function reactionsRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(403).send({
           error: { code: "FORBIDDEN", message: "본인의 좋아요만 취소할 수 있습니다." },
         });
+      }
+
+      const reactionRow = existing[0];
+
+      // 포인트 회수: 콘텐츠 작성자 포인트 회수 (like 취소 시만)
+      if (reactionRow.reactionType === "like") {
+        const contentAuthorId = await getAuthorId(reactionRow.targetType, reactionRow.targetId);
+        if (contentAuthorId) {
+          try {
+            await revokePoints(db, {
+              userId: contentAuthorId,
+              reason: "reaction.received",
+              sourceType: "reaction",
+              sourceId: id,
+            });
+          } catch (err) {
+            console.error("[points] 좋아요 취소 회수 실패 (무시):", (err as Error).message);
+          }
+        }
       }
 
       await db.delete(schema.reactions).where(eq(schema.reactions.id, id));

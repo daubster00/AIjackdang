@@ -19,6 +19,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { buildSanitizeOptions } from "../../../lib/sanitize.js";
 import _sanitizeHtml from "sanitize-html";
+import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
 
 // ── 답변 contentJson → 안전 HTML 변환 ───────────────────────────────────────
 
@@ -116,6 +117,20 @@ export async function createAnswer({
 
   if (!inserted) {
     throw new Error("답변 INSERT 실패");
+  }
+
+  // ── 포인트 적립 (실패해도 답변 저장은 유지) ───────────────────────────────
+  try {
+    const todayCount = await getTodayCount(db, { userId, reason: "answer.created" });
+    await earnPoints(db, {
+      userId,
+      reason: "answer.created",
+      sourceType: "answer",
+      sourceId: inserted.id,
+      todayCount,
+    });
+  } catch (err) {
+    console.error("[points] 답변 적립 실패 (무시):", (err as Error).message);
   }
 
   // ── 작성자 조회 ────────────────────────────────────────────────────────────
@@ -297,14 +312,27 @@ export async function deleteAnswer({
   }
 
   // ── soft-delete: status='deleted' + deleted_at=now() (AR-7) ──────────────
-  await db
-    .update(schema.answers)
-    .set({
-      status: "deleted",
-      deletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.answers.id, answerId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.answers)
+      .set({
+        status: "deleted",
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.answers.id, answerId));
+
+    try {
+      await revokePoints(tx, {
+        userId,
+        reason: "answer.created",
+        sourceType: "answer",
+        sourceId: answerId,
+      });
+    } catch (err) {
+      console.error("[points] 답변 회수 실패 (무시):", (err as Error).message);
+    }
+  });
 
   return { ok: true };
 }

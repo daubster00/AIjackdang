@@ -23,6 +23,7 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { UpdateResourceInput } from "@ai-jakdang/contracts";
+import { revokePoints } from "../gamification/points.service.js";
 
 // ── 에러 타입 ──────────────────────────────────────────────────────────────────
 
@@ -181,15 +182,28 @@ export async function deleteResource(resourceId: string, userId: string): Promis
     throw new MutateServiceError("FORBIDDEN", "이 자료를 삭제할 권한이 없습니다.", 403);
   }
 
-  // ── 3. soft-delete (AR-7) ─────────────────────────────────────────────────
-  await db
-    .update(schema.resources)
-    .set({
-      status: "deleted",
-      deletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.resources.id, resourceId));
+  // ── 3. soft-delete + 포인트 회수 (동일 트랜잭션, AR-7) ──────────────────
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.resources)
+      .set({
+        status: "deleted",
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.resources.id, resourceId));
+
+    try {
+      await revokePoints(tx, {
+        userId,
+        reason: "resource.created",
+        sourceType: "resource",
+        sourceId: resourceId,
+      });
+    } catch (err) {
+      console.error("[points] 자료 회수 실패 (무시):", (err as Error).message);
+    }
+  });
 }
 
 // ── getMyResources ─────────────────────────────────────────────────────────────

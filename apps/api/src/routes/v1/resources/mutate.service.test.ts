@@ -64,15 +64,32 @@ vi.mock("@ai-jakdang/database", () => {
         resourceType: "resources.resourceType",
         status: "resources.status",
         updatedAt: "resources.updatedAt",
+        deletedAt: "resources.deletedAt",
       },
       resourceFiles: {
         id: "resourceFiles.id",
         resourceId: "resourceFiles.resourceId",
         fileStatus: "resourceFiles.fileStatus",
       },
+      pointsLedger: {
+        id: "pointsLedger.id",
+        userId: "pointsLedger.userId",
+        reason: "pointsLedger.reason",
+        sourceType: "pointsLedger.sourceType",
+        sourceId: "pointsLedger.sourceId",
+        delta: "pointsLedger.delta",
+        createdAt: "pointsLedger.createdAt",
+      },
     },
   };
 });
+
+// ── gamification points.service 모킹 (mutate.service가 import) ───────────────
+vi.mock("../gamification/points.service.js", () => ({
+  revokePoints: vi.fn().mockResolvedValue(true),
+  earnPoints: vi.fn().mockResolvedValue(true),
+  getTodayCount: vi.fn().mockResolvedValue(0),
+}));
 
 // ── 테스트 임포트 (vi.mock 이후) ─────────────────────────────────────────────
 // dynamic import 사용 (호이스팅 회피)
@@ -228,7 +245,12 @@ describe("deleteResource", () => {
     mockDb = {
       select: selectMock,
       update: updateMock,
-      transaction: vi.fn(),
+      // Story 6.2: deleteResource가 이제 트랜잭션 내에서 soft-delete + 포인트 회수를 수행함
+      // transaction mock이 콜백을 실행하도록 구현
+      transaction: vi.fn(async (callback: (tx: typeof mockDb) => Promise<void>) => {
+        const tx = { select: selectMock, update: updateMock };
+        return callback(tx as unknown as typeof mockDb);
+      }),
     };
 
     await deleteResource(RESOURCE_ID, OWNER_ID);

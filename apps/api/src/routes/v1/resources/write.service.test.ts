@@ -20,6 +20,17 @@ vi.mock("@ai-jakdang/utilities", () => ({
 // drizzle-orm eq 모킹
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((a: unknown, b: unknown) => ({ type: "eq", a, b })),
+  and: vi.fn((...args: unknown[]) => ({ type: "and", args })),
+  gt: vi.fn((a: unknown, b: unknown) => ({ type: "gt", a, b })),
+  gte: vi.fn((a: unknown, b: unknown) => ({ type: "gte", a, b })),
+  sql: Object.assign(vi.fn(() => ({})), { join: vi.fn() }),
+}));
+
+// gamification points.service 모킹 (write.service 가 내부적으로 import)
+vi.mock("../gamification/points.service.js", () => ({
+  earnPoints: vi.fn().mockResolvedValue(true),
+  revokePoints: vi.fn().mockResolvedValue(true),
+  getTodayCount: vi.fn().mockResolvedValue(0),
 }));
 
 // @ai-jakdang/database 모킹 — 팩터리 내 외부 변수 참조 없이 인라인 정의

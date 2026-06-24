@@ -22,6 +22,7 @@ import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { getNotificationsQueue } from "../../lib/queues.js";
 import { userAuth } from "../../auth/user-auth.js";
+import { earnPoints, revokePoints, getTodayCount } from "./gamification/points.service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -344,6 +345,20 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
       const row = inserted[0];
       if (!row) throw new Error("INSERT comment returned no row");
 
+      // 포인트 적립 (실패해도 댓글 저장 유지)
+      try {
+        const todayCount = await getTodayCount(db, { userId: user.id, reason: "comment.created" });
+        await earnPoints(db, {
+          userId: user.id,
+          reason: "comment.created",
+          sourceType: "comment",
+          sourceId: row.id,
+          todayCount,
+        });
+      } catch (err) {
+        console.error("[points] 댓글 적립 실패 (무시):", (err as Error).message);
+      }
+
       // notifications 큐 발행 (Epic 7 알림 전송 담당)
       try {
         await getNotificationsQueue().add("comment.created", {
@@ -468,10 +483,23 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      await db
-        .update(schema.comments)
-        .set({ status: "deleted", deletedAt: new Date() })
-        .where(eq(schema.comments.id, id));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(schema.comments)
+          .set({ status: "deleted", deletedAt: new Date() })
+          .where(eq(schema.comments.id, id));
+
+        try {
+          await revokePoints(tx, {
+            userId: user.id,
+            reason: "comment.created",
+            sourceType: "comment",
+            sourceId: id,
+          });
+        } catch (err) {
+          console.error("[points] 댓글 회수 실패 (무시):", (err as Error).message);
+        }
+      });
 
       return reply.code(204).send({});
     },

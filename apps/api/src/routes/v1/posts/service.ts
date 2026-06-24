@@ -15,6 +15,7 @@ import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 import { Redis } from "ioredis";
 import sanitizeHtml from "sanitize-html";
+import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
 
 // ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
 let _redis: Redis | null = null;
@@ -394,6 +395,22 @@ export async function createPost({
       });
     }
 
+    // 5) 포인트 적립 (published 게시글만, 실패해도 콘텐츠 저장은 유지)
+    if (status === "published") {
+      try {
+        const todayCount = await getTodayCount(tx, { userId, reason: "post.created" });
+        await earnPoints(tx, {
+          userId,
+          reason: "post.created",
+          sourceType: "post",
+          sourceId: post.id,
+          todayCount,
+        });
+      } catch (err) {
+        console.error("[points] 게시글 적립 실패 (무시):", (err as Error).message);
+      }
+    }
+
     return {
       id: post.id,
       slug: post.slug,
@@ -696,11 +713,24 @@ export async function deletePost({
     throw new ForbiddenError();
   }
 
-  // soft-delete: status='deleted' + deleted_at=NOW()
-  await db
-    .update(schema.posts)
-    .set({ status: "deleted", deletedAt: new Date() })
-    .where(eq(schema.posts.id, postId));
+  // soft-delete + 포인트 회수 (동일 트랜잭션)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.posts)
+      .set({ status: "deleted", deletedAt: new Date() })
+      .where(eq(schema.posts.id, postId));
+
+    try {
+      await revokePoints(tx, {
+        userId,
+        reason: "post.created",
+        sourceType: "post",
+        sourceId: postId,
+      });
+    } catch (err) {
+      console.error("[points] 게시글 회수 실패 (무시):", (err as Error).message);
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

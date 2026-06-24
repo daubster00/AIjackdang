@@ -19,6 +19,7 @@ import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "../../../lib/s3.js";
+import { earnPoints, getTodayCount } from "../gamification/points.service.js";
 
 export interface DownloadResult {
   url: string;
@@ -64,9 +65,9 @@ export async function downloadResource(
 ): Promise<DownloadResult> {
   const db = getDb();
 
-  // ── 1. resource 존재 확인 ────────────────────────────────────────────────────
+  // ── 1. resource 존재 확인 + 소유자 조회 ─────────────────────────────────────
   const resources = await db
-    .select({ id: schema.resources.id })
+    .select({ id: schema.resources.id, userId: schema.resources.userId })
     .from(schema.resources)
     .where(eq(schema.resources.id, resourceId))
     .limit(1);
@@ -74,6 +75,8 @@ export async function downloadResource(
   if (resources.length === 0) {
     throw new ResourceNotFoundError();
   }
+
+  const resourceOwnerId = resources[0]?.userId ?? null;
 
   // ── 2. 대표 파일 조회 ────────────────────────────────────────────────────────
   const files = await db
@@ -132,6 +135,26 @@ export async function downloadResource(
     .update(schema.resources)
     .set({ downloadCount: sql`${schema.resources.downloadCount} + 1` })
     .where(eq(schema.resources.id, resourceId));
+
+  // ── 6. 포인트 적립: 자료 소유자에게 download.given +1 ─────────────────────
+  // 다운로드하는 사람이 아닌 자료 **소유자**에게 적립.
+  // download_log 테이블이 없으므로(Epic 4 미구현) 새 UUID를 sourceId로 생성.
+  // 다운로드마다 별개 이벤트이므로 멱등 체크가 각 UUID 기준으로 동작한다.
+  if (resourceOwnerId) {
+    try {
+      const downloadSourceId = crypto.randomUUID();
+      const todayCount = await getTodayCount(db, { userId: resourceOwnerId, reason: "download.given" });
+      await earnPoints(db, {
+        userId: resourceOwnerId,
+        reason: "download.given",
+        sourceType: "resource",
+        sourceId: downloadSourceId,
+        todayCount,
+      });
+    } catch (err) {
+      console.error("[points] 다운로드 적립 실패 (무시):", (err as Error).message);
+    }
+  }
 
   return {
     url: presignedUrl,
