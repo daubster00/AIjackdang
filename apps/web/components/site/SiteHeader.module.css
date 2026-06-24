@@ -137,6 +137,11 @@
   color: var(--color-primary);
 }
 
+.headerSearch {
+  flex: 0 1 280px;
+  min-width: 0;
+}
+
 .authActions {
   display: flex;
   align-items: center;
@@ -337,7 +342,8 @@
   }
 
   .nav,
-  .authActions {
+  .authActions,
+  .headerSearch {
     display: none;
   }
 

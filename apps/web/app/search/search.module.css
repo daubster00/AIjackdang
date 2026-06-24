@@ -1,0 +1,383 @@
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-5) var(--space-12);
+}
+
+/* ── 페이지 헤더 ─────────────────────────────────────────────────────────── */
+
+.pageHeader {
+  margin-bottom: var(--space-6);
+}
+
+.pageTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.pageTitle mark {
+  background: none;
+  color: var(--color-primary);
+}
+
+/* ── 탭 ─────────────────────────────────────────────────────────────────── */
+
+.tabList {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-6);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 16px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-sub);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.tab[aria-selected="true"] .tabCount {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+/* ── 결과 목록 ───────────────────────────────────────────────────────────── */
+
+.resultPanel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.resultItem {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.resultItem:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.resultMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.typeBadge[data-type="post"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.typeBadge[data-type="question"] {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.typeBadge[data-type="resource"] {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.resolvedBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.resultTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.resultLink {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.resultLink:hover {
+  color: var(--color-primary);
+}
+
+.resultLink mark {
+  background: #fff9c4;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.resultSummary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.resultSummary mark {
+  background: #fff9c4;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-sub);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+.tagChip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.resultFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-tertiary, var(--color-text-sub));
+  font-size: var(--font-size-xs);
+}
+
+.author {
+  font-weight: var(--font-weight-semibold);
+}
+
+.date {
+  opacity: 0.7;
+}
+
+/* ── EmptyState ──────────────────────────────────────────────────────────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-5);
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  color: var(--color-text-sub);
+  opacity: 0.4;
+}
+
+.emptyTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.emptyDesc {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.suggestedLabel {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.suggestedTags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+/* ── 페이지네이션 ─────────────────────────────────────────────────────────── */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  margin-top: var(--space-8);
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.pageBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pageBtn[aria-current="page"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.pageBtnDisabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── 스켈레톤 (loading.tsx 공용) ─────────────────────────────────────────── */
+
+.skeletonTabList {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: var(--space-3);
+}
+
+.skeletonTab {
+  height: 20px;
+  width: 80px;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeletonItem {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.skeletonLine {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeletonTitle {
+  height: 20px;
+  width: 70%;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeletonBadge {
+  height: 22px;
+  width: 60px;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-soft);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

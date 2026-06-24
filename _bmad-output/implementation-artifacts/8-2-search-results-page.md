@@ -1,6 +1,6 @@
 # Story 8.2: 검색 결과 페이지 (`/search`) — SSR · URL 상태 · 통합+영역별 탭
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

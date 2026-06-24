@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -50,6 +51,7 @@ export function SearchAutocomplete({
   const [open, setOpen] = useState(false);
   const inputId = useId();
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
 
   const query = value.trim();
   const matches = query
@@ -74,7 +76,14 @@ export function SearchAutocomplete({
     <form
       className={cn(styles.form, className)}
       role="search"
-      onSubmit={(event) => event.preventDefault()}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          setOpen(false);
+          router.push(`/search?q=${encodeURIComponent(trimmed)}&type=all&page=1`);
+        }
+      }}
     >
       <div className={styles.box}>
         <Icon name="search-line" />

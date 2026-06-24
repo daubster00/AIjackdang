@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, Dropdown, DropdownDivider, DropdownItem, Icon, RankBadge } from "@/components/ui";
+import { SearchAutocomplete } from "@/components/board/SearchAutocomplete";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import type { RankTier } from "@/lib/ranks";
 import styles from "./SiteHeader.module.css";
@@ -58,16 +61,12 @@ const navItems: {
     href: "/lounge",
     label: "작당 라운지",
     children: [
+      { label: "공지사항", href: "/notice" },
       { label: "AI 창작마당", href: "/lounge" },
       { label: "내가 만든 AI 제품", href: "/lounge/products" },
       { label: "작당 수다방", href: "/lounge/talk" },
       { label: "작당 의뢰소", href: "/lounge/gigs" },
     ],
-  },
-  {
-    href: "/notice",
-    label: "공지사항",
-    children: [],
   },
 ];
 
@@ -75,6 +74,8 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { count: unreadCount } = useUnreadNotifications(!!user);
+  const { count: unreadMessages } = useUnreadMessages(!!user);
 
   async function handleLogout() {
     await logout();
@@ -93,7 +94,7 @@ export function SiteHeader() {
         <nav className={styles.nav} aria-label="주요 메뉴">
           {navItems.map((item) => (
             <div key={item.href} className={styles.navItem}>
-              <a className={styles.navLink} href={item.href}>
+              <a className={styles.navLink} href={item.children[0]?.href ?? item.href}>
                 {item.label}
                 {item.children.length > 0 && <Icon name="arrow-down-s-line" />}
               </a>
@@ -110,12 +111,18 @@ export function SiteHeader() {
           ))}
         </nav>
 
+        <SearchAutocomplete
+          label="전체 검색"
+          placeholder="검색어 입력"
+          className={styles.headerSearch}
+        />
+
         <div className={styles.authActions}>
           {user ? (
             <>
               <div className={styles.iconActions}>
-                <IconAction href="/notifications" label="알림" icon="notification-3-line" count={3} />
-                <IconAction href="/messages" label="쪽지함" icon="mail-line" count={1} />
+                <IconAction href="/notifications" label="알림" icon="notification-3-line" count={unreadCount} />
+                <IconAction href="/messages" label="쪽지함" icon="mail-line" count={unreadMessages} />
               </div>
               <UserMenu user={user} onLogout={handleLogout} />
             </>
@@ -148,7 +155,7 @@ export function SiteHeader() {
           <nav className={styles.mobileNav} aria-label="모바일 주요 메뉴">
             {navItems.map((item) => (
               <div key={item.href} className={styles.mobileGroup}>
-                <a href={item.href} onClick={() => setOpen(false)}>
+                <a href={item.children[0]?.href ?? item.href} onClick={() => setOpen(false)}>
                   {item.label}
                 </a>
                 {item.children.length > 0 && (
@@ -174,8 +181,8 @@ export function SiteHeader() {
                 </div>
               </div>
               <div className={styles.mobileUserActions}>
-                <IconAction href="/notifications" label="알림" icon="notification-3-line" count={3} />
-                <IconAction href="/messages" label="쪽지함" icon="mail-line" count={1} />
+                <IconAction href="/notifications" label="알림" icon="notification-3-line" count={unreadCount} />
+                <IconAction href="/messages" label="쪽지함" icon="mail-line" count={unreadMessages} />
                 <button type="button" className={styles.mobileLogout} onClick={handleLogout}>
                   <Icon name="logout-box-r-line" />
                   로그아웃
