@@ -10,6 +10,8 @@ export interface RankBadgeProps {
   size?: number;
   /** 등급명 라벨을 뱃지 옆에 함께 표기할지. 기본 false (이미지만) */
   showLabel?: boolean;
+  /** 접근성 레이블 (AC#8). 미지정 시 "등급: {등급명}" 자동 생성. */
+  ariaLabel?: string;
   /** 추가 클래스 */
   className?: string;
 }
@@ -19,15 +21,18 @@ export interface RankBadgeProps {
  * - 색(이미지) 단독 전달 금지 규칙에 따라, 이미지만 쓸 때도 alt/aria-label 로 등급명을 항상 제공한다.
  * - showLabel=true 면 시각적으로도 등급명 텍스트를 함께 노출한다 (답변 작성자 옆 등).
  */
-export function RankBadge({ rank, size = 28, showLabel = false, className }: RankBadgeProps) {
+export function RankBadge({ rank, size = 28, showLabel = false, ariaLabel, className }: RankBadgeProps) {
   const info = resolveRank(rank);
   if (!info) return null;
+
+  // aria-label 우선순위: 명시적 prop > 자동 생성 "등급: {등급명}" > showLabel일 때 undefined (라벨 텍스트가 이미 가시)
+  const resolvedAriaLabel = ariaLabel ?? (showLabel ? undefined : `등급: ${info.label}`);
 
   return (
     <span
       className={cn(styles.root, className)}
       // 라벨을 글자로 함께 보일 땐 이미지를 장식 처리하고, 이미지만일 땐 그룹에 등급명을 부여
-      aria-label={showLabel ? undefined : info.label}
+      aria-label={resolvedAriaLabel}
     >
       <Image
         src={info.badge}

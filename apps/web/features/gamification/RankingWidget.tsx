@@ -14,7 +14,7 @@ import Link from "next/link";
 import { RankBadge } from "@/components/ui/RankBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { RankTier } from "@/lib/ranks";
+import { rankTierFromGradeLevel } from "@/lib/ranks";
 import styles from "./RankingWidget.module.css";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -34,19 +34,7 @@ interface RankingData {
   generatedAt: string;
 }
 
-// ── gradeLevel → RankTier 매핑 ─────────────────────────────────────────────
-
-const GRADE_LEVEL_TO_TIER: Record<number, RankTier> = {
-  1: "rookie",
-  2: "member",
-  3: "practitioner",
-  4: "expert",
-  5: "master",
-};
-
-function gradeLevelToTier(level: number): RankTier {
-  return GRADE_LEVEL_TO_TIER[level] ?? "rookie";
-}
+// ── gradeLevel → RankTier 매핑: lib/ranks 정식 함수 사용 (Story 6.6) ────────
 
 // ── 위젯 컴포넌트 ─────────────────────────────────────────────────────────────
 
@@ -145,7 +133,7 @@ export function RankingWidget() {
                 <span className={styles.nickname}>{item.nickname}</span>
                 <span className={styles.grade}>
                   <RankBadge
-                    rank={gradeLevelToTier(item.gradeLevel)}
+                    rank={rankTierFromGradeLevel(item.gradeLevel)}
                     size={20}
                   />
                 </span>

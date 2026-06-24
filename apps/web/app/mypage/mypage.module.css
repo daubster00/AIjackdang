@@ -727,7 +727,8 @@
 }
 
 .rankShowcaseText span {
-  color: var(--color-text-sub);
+  /* 포인트 숫자: 소형 비강조 (AC#2 — 등급명보다 작고 주목도 낮음) */
+  color: var(--color-placeholder);
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
 }

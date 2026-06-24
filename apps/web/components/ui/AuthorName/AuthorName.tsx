@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { resolveRank, type RankTier } from "@/lib/ranks";
+import { resolveRank, rankTierFromGradeLevel, type RankTier } from "@/lib/ranks";
 import { cn } from "@/lib/cn";
 import { RankBadge } from "../RankBadge";
 import { MessageModal } from "../MessageModal";
@@ -29,6 +29,9 @@ export interface AuthorNameProps {
   name: string;
   /** 등급(키 또는 한국어 라벨). 미지정 시 닉네임으로부터 결정적으로 도출 */
   rank?: RankTier | string;
+  /** gradeLevel(1~5) — API 응답의 숫자 레벨을 직접 전달할 때 사용 (AC#5, Story 6.6).
+   *  rank prop보다 우선 적용된다. 미지정 시 rank prop 또는 닉네임 기반 폴백 사용. */
+  gradeLevel?: number;
   /** 등급 뱃지 한 변 크기(px). 기본 16 */
   badgeSize?: number;
   /** 등급명 라벨 텍스트도 함께 표기할지. 기본 false (뱃지 이미지만) */
@@ -44,7 +47,7 @@ export interface AuthorNameProps {
  * - 닉네임 옆에 항상 등급 뱃지를 함께 표기한다(lib/ranks + RankBadge 사용).
  * - 메뉴는 카드의 overflow:hidden 에 잘리지 않도록 body 포털에 fixed 로 렌더한다.
  */
-export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
+export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -54,7 +57,10 @@ export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, clas
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
-  const resolved = rank && resolveRank(rank) ? rank : rankFromName(name);
+  // gradeLevel(숫자) 우선 → rank(키/라벨) → 닉네임 해시 폴백
+  const resolved: RankTier | string = gradeLevel !== undefined
+    ? rankTierFromGradeLevel(gradeLevel)
+    : (rank && resolveRank(rank) ? rank : rankFromName(name));
 
   function openMenu() {
     const r = triggerRef.current?.getBoundingClientRect();
@@ -100,7 +106,12 @@ export function AuthorName({ name, rank, badgeSize = 16, showLabel = false, clas
         title={`${name} 님`}
       >
         <span className={styles.name}>{name}</span>
-        <RankBadge rank={resolved} size={badgeSize} showLabel={showLabel} />
+        <RankBadge
+          rank={resolved}
+          size={badgeSize}
+          showLabel={showLabel}
+          ariaLabel={`등급: ${resolveRank(resolved)?.label ?? String(resolved)}`}
+        />
       </button>
 
       {menuOpen &&

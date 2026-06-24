@@ -45,12 +45,28 @@ const myBadgesResponseSchema = z.object({
 
 // ── [6.4] END ─────────────────────────────────────────────────────────────────
 
-/** GET /gamification/me 응답 스키마 */
+/** GET /gamification/me 응답 스키마 (공개 등급 조회용) */
 const userGradeResponseSchema = z.object({
   totalPoints: z.number().int().nonnegative(),
   grade: gradeInfoSchema,
   nextGrade: gradeInfoSchema.nullable(),
   pointsToNext: z.number().int().nonnegative().nullable(),
+});
+
+/** GET /gamification/me 통합 응답 스키마 (grade + badges) — Story 6.6 */
+const meWithBadgesResponseSchema = z.object({
+  totalPoints: z.number().int().nonnegative(),
+  grade: gradeInfoSchema,
+  nextGrade: gradeInfoSchema.nullable(),
+  pointsToNext: z.number().int().nonnegative().nullable(),
+  badges: z.array(
+    z.object({
+      badgeSlug: z.string().min(1),
+      badgeName: z.string().min(1),
+      iconUrl: z.string(),
+      grantedAt: z.string().datetime(),
+    }),
+  ),
 });
 
 // ── 라우트 등록 ───────────────────────────────────────────────────────────────
@@ -59,24 +75,31 @@ export async function gamificationRoutes(app: FastifyInstance) {
   const typed = app.withTypeProvider<ZodTypeProvider>();
 
   // ── GET /api/v1/gamification/me ───────────────────────────────────────────
-  // 로그인 필수. 본인의 포인트 + 현재 등급 + 다음 등급 + 잔여 포인트 반환.
+  // 로그인 필수. 본인의 포인트 + 현재 등급 + 다음 등급 + 잔여 포인트 + 보유 뱃지 반환.
+  // Story 6.6: getUserGrade + getUserBadges 병렬 호출로 통합 응답.
   typed.get(
     "/gamification/me",
     {
       preHandler: [requireAuthHook],
       schema: {
-        description: "내 등급 조회",
+        description: "내 등급·뱃지 통합 조회",
         tags: ["gamification"],
         response: {
-          200: userGradeResponseSchema,
+          200: meWithBadgesResponseSchema,
         },
       },
     },
     async (request, reply) => {
       const { user } = request as RequestWithUser;
       const db = getDb();
-      const result = await getUserGrade(db, user.id);
-      return reply.code(200).send(result);
+      const [gradeResult, badgesResult] = await Promise.all([
+        getUserGrade(db, user.id),
+        getUserBadges(db, user.id),
+      ]);
+      return reply.code(200).send({
+        ...gradeResult,
+        badges: badgesResult.items,
+      });
     },
   );
 

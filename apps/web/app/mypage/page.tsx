@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
-import { RANK_LIST, resolveRank } from "@/lib/ranks";
+import { RANK_LIST, resolveRank, rankTierFromGradeLevel } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
 import { MyResourceList } from "./MyResourceList";
 import styles from "./mypage.module.css";
@@ -135,14 +135,7 @@ function formatJoinDate(iso: string): string {
   }
 }
 
-// ── 레벨 → RankTier 임시 매핑 (Story 6.6에서 정식 통합) ────────────────────────
-const LEVEL_TO_RANK_TIER_MAP: Record<number, RankTier> = {
-  1: "rookie",
-  2: "member",
-  3: "practitioner",
-  4: "expert",
-  5: "master",
-};
+// ── 레벨 → RankTier 정식 함수 사용 (Story 6.6) ───────────────────────────────
 
 export default function MyPage() {
   const { user, ready, logout } = useAuth();
@@ -221,12 +214,13 @@ export default function MyPage() {
       });
   }, [myPosts, postBoard, postSort, postKeyword]);
 
-  // ── 게이미피케이션 API: 등급 정보 조회 ──────────────────────────────────────
+  // ── 게이미피케이션 API: 등급 + 뱃지 통합 조회 (Story 6.6) ─────────────────
   const [gradeData, setGradeData] = useState<{
     totalPoints: number;
     grade: { level: number; name: string };
     nextGrade: { level: number; name: string } | null;
     pointsToNext: number | null;
+    badges: { badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[];
   } | null>(null);
 
   useEffect(() => {
@@ -239,6 +233,7 @@ export default function MyPage() {
           grade: { level: number; name: string };
           nextGrade: { level: number; name: string } | null;
           pointsToNext: number | null;
+          badges: { badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[];
         } | null) => {
           if (data) setGradeData(data);
         },
@@ -251,13 +246,13 @@ export default function MyPage() {
     if (!profile) return null;
 
     if (gradeData) {
-      // API 응답 기반 계산
-      const tier: RankTier = LEVEL_TO_RANK_TIER_MAP[gradeData.grade.level] ?? "rookie";
+      // API 응답 기반 계산 — rankTierFromGradeLevel 정식 함수 사용 (Story 6.6)
+      const tier: RankTier = rankTierFromGradeLevel(gradeData.grade.level);
       const info = resolveRank(tier);
       if (!info) return null;
 
       const nextTier = gradeData.nextGrade
-        ? (LEVEL_TO_RANK_TIER_MAP[gradeData.nextGrade.level] ?? null)
+        ? rankTierFromGradeLevel(gradeData.nextGrade.level)
         : null;
       const nextInfo = nextTier ? resolveRank(nextTier) : null;
 
@@ -324,11 +319,19 @@ export default function MyPage() {
   const followingCount = followingList.length;
   const followersCount = followerList.length;
 
-  // ── [6.4] 뱃지 탭 상태 ──────────────────────────────────────────────────────
+  // ── [6.4/6.6] 뱃지 탭 상태 ─────────────────────────────────────────────────
+  // Story 6.6: 통합 GET /me 응답의 badges 배열을 우선 사용.
+  // gradeData 미로드 시 탭 진입 시점에 /my-badges 폴백 fetch.
   const [badgeList, setBadgeList] = useState<{ badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[]>([]);
   const [badgeLoaded, setBadgeLoaded] = useState(false);
 
   useEffect(() => {
+    // 통합 API에서 이미 뱃지를 받았으면 별도 fetch 생략
+    if (gradeData?.badges) {
+      setBadgeList(gradeData.badges);
+      setBadgeLoaded(true);
+      return;
+    }
     if (!user || activeTab !== "badges" || badgeLoaded) return;
     void fetch("/api/v1/gamification/my-badges", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
@@ -337,8 +340,8 @@ export default function MyPage() {
         setBadgeLoaded(true);
       })
       .catch(() => { setBadgeLoaded(true); });
-  }, [user, activeTab, badgeLoaded]);
-  // ── [6.4] END ─────────────────────────────────────────────────────────────────
+  }, [user, activeTab, badgeLoaded, gradeData]);
+  // ── [6.4/6.6] END ─────────────────────────────────────────────────────────────
 
   // 패널 카운트
   const panelCount =
@@ -778,7 +781,7 @@ export default function MyPage() {
                   </p>
                 </>
               ) : (
-                <p className={styles.progressText}>최고 등급을 달성했습니다 🎉</p>
+                <p className={styles.progressText}>최고 등급 달성 🎉</p>
               )}
             </section>
           )}

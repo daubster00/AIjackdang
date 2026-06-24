@@ -51,3 +51,17 @@ const RANK_BY_LABEL: Record<string, RankInfo> = RANK_LIST.reduce(
 export function resolveRank(value: RankTier | string): RankInfo | undefined {
   return RANKS[value as RankTier] ?? RANK_BY_LABEL[value];
 }
+
+/** gradeLevel(1~5) → RankTier 정식 매핑 (Story 6.6).
+ *  API 응답의 grade.level 값을 클라이언트 등급 키로 변환할 때 사용한다.
+ *  범위 밖 값(0, 6 등)은 "rookie" 로 안전하게 폴백. */
+export function rankTierFromGradeLevel(level: number): RankTier {
+  const map: Record<number, RankTier> = {
+    1: "rookie",
+    2: "member",
+    3: "practitioner",
+    4: "expert",
+    5: "master",
+  };
+  return map[level] ?? "rookie";
+}

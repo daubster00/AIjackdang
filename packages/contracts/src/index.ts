@@ -24,6 +24,8 @@ export {
   badgeCheckJobSchema,
   // ── [6.5] ──
   rankingComputeJobSchema,
+  // ── [6.6] ──
+  meResponseSchema,
 } from "./gamification";
 export type {
   Grade,
@@ -39,4 +41,6 @@ export type {
   BadgeCheckJobPayload,
   // ── [6.5] ──
   RankingComputeJobPayload,
+  // ── [6.6] ──
+  MeResponse,
 } from "./gamification";

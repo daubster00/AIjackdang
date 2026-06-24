@@ -122,3 +122,29 @@ export const rankingComputeJobSchema = z.object({
 export type RankingComputeJobPayload = z.infer<typeof rankingComputeJobSchema>;
 
 // ── [6.5] END ─────────────────────────────────────────────────────────────────
+
+// ── [6.6] MeResponse ─────────────────────────────────────────────────────────
+
+/** GET /api/v1/gamification/me 통합 응답 스키마 (grade + badges) */
+const gradeInfoSchema = z.object({
+  level: z.number().int().min(1).max(5),
+  name: z.string().min(1),
+});
+
+const badgeItemSchema = z.object({
+  badgeSlug: z.string().min(1),
+  badgeName: z.string().min(1),
+  iconUrl: z.string(),
+  grantedAt: z.string().datetime(),
+});
+
+export const meResponseSchema = z.object({
+  totalPoints: z.number().int().nonnegative(),
+  grade: gradeInfoSchema,
+  nextGrade: gradeInfoSchema.nullable(),
+  pointsToNext: z.number().int().nonnegative().nullable(),
+  badges: z.array(badgeItemSchema),
+});
+export type MeResponse = z.infer<typeof meResponseSchema>;
+
+// ── [6.6] END ─────────────────────────────────────────────────────────────────

@@ -9,19 +9,13 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { Avatar, EmptyState, Icon, RankBadge } from "@/components/ui";
 import type { PublicProfile } from "@ai-jakdang/contracts";
+import { rankTierFromGradeLevel } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
 import { ProfileInteraction } from "./ProfileInteraction";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import styles from "./profile.module.css";
 
-// ── 레벨 → RankTier 임시 매핑 (Story 6.6에서 정식 통합) ──────────────────────
-const LEVEL_TO_RANK_TIER: Record<number, RankTier> = {
-  1: "rookie",
-  2: "member",
-  3: "practitioner",
-  4: "expert",
-  5: "master",
-};
+// ── 레벨 → RankTier 정식 함수 사용 (Story 6.6) ───────────────────────────────
 
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -137,7 +131,7 @@ export default async function UserProfilePage({
   // 등급 정보 조회 (공개 API, 실패 시 기본값 사용)
   const gradeInfo = await fetchUserGrade(profile.id);
   const rankTier: RankTier = gradeInfo
-    ? (LEVEL_TO_RANK_TIER[gradeInfo.level] ?? "rookie")
+    ? rankTierFromGradeLevel(gradeInfo.level)
     : "rookie";
 
   // ── [6.4] 보유 뱃지 조회 (공개, 비회원 열람 가능 — AC#5) ─────────────────
@@ -207,11 +201,12 @@ export default async function UserProfilePage({
             <div className={styles.nameRow}>
               <h1 className={styles.name}>{profile.nickname}</h1>
               {/* RankBadge: lib/ranks + RankBadge 컴포넌트로만 표기(전역 규칙) */}
-              {/* rankTier: 실제 등급 API 응답에서 레벨 매핑 (Story 6.3; 정식 통합은 Story 6.6) */}
+              {/* aria-label: AC#4, AC#8 — 색 단독 전달 금지, 등급명 명시 필수 */}
               <RankBadge
                 rank={rankTier}
                 size={22}
                 showLabel
+                ariaLabel={gradeInfo ? `등급: ${gradeInfo.name}` : undefined}
                 className={styles.rankBadge}
               />
             </div>
