@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 목록 페이지 60초 TTL 캐시 (AR-17)
+export const revalidate = 60;
+
 /**
  * AI 자동화 카테고리 랜딩 페이지 — Story 2.3 (API 연동)
  *
@@ -44,7 +47,7 @@ async function fetchPosts(boardSlug: string, sort: string, page: number, cookie:
   try {
     const res = await fetch(
       `${API_URL}/api/v1/posts?board=${boardSlug}&sort=${sort}&page=${page}&pageSize=20`,
-      { headers: { cookie }, next: { revalidate: 30 } },
+      { headers: { cookie }, cache: "no-store" },
     );
     if (res.ok) return (await res.json()) as PaginatedPosts;
   } catch {
@@ -201,7 +204,7 @@ function PostItem({ post, basePath }: { post: PostCard; basePath: string }) {
 
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
-            <Avatar name={post.authorNickname ?? "익명"} size="sm" />
+            <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
             <AuthorName name={post.authorNickname ?? "익명"} className={styles.authorName} />
             <span className={styles.footerDivider} aria-hidden="true">|</span>
             <span className={styles.postDate}>{formattedDate}</span>

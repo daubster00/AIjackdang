@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 상세 페이지 300초 TTL 캐시 (AR-17)
+export const revalidate = 300;
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,7 +15,6 @@ import {
   buildBreadcrumbJsonLd,
   buildDiscussionJsonLd,
 } from "@/lib/seo";
-import { ShareButton } from "./ShareButton";
 import { ReactionBar } from "./ReactionBar";
 import { CommentForm } from "./CommentForm";
 import { CommentItem, type ApiComment } from "./CommentItem";
@@ -27,8 +29,8 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
+      cache: "no-store",
     });
     if (!res.ok) return {};
     const post = (await res.json()) as PostDetail;
@@ -44,9 +46,9 @@ export default async function MonetizeDetailPage({ params }: PageProps) {
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? "";
 
-  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
+  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
     headers: { cookie },
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) notFound();
@@ -157,7 +159,6 @@ export default async function MonetizeDetailPage({ params }: PageProps) {
               <Icon name="list-check" />
               목록으로
             </Link>
-            <ShareButton url={postUrl} />
             {post.isOwner && (
               <div className={styles.ownerActions}>
                 <Link href={editUrl} className={styles.editLink}>

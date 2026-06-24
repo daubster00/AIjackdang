@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 상세 페이지 300초 TTL 캐시 (AR-17)
+export const revalidate = 300;
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,7 +15,6 @@ import {
   buildBreadcrumbJsonLd,
   buildDiscussionJsonLd,
 } from "@/lib/seo";
-import { ShareButton } from "./ShareButton";
 import { CreativeSpecPanel } from "./CreativeSpecPanel";
 import { ReactionBar } from "./ReactionBar";
 import { CommentForm } from "./CommentForm";
@@ -28,8 +30,8 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
+      cache: "no-store",
     });
     if (!res.ok) return {};
     const post = (await res.json()) as PostDetail;
@@ -45,9 +47,9 @@ export default async function LoungeDetailPage({ params }: PageProps) {
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? "";
 
-  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
+  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
     headers: { cookie },
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) notFound();
@@ -89,8 +91,9 @@ export default async function LoungeDetailPage({ params }: PageProps) {
     day: "2-digit",
   });
 
-  // CreativeSpecPanel은 spec=undefined 시 null을 반환하므로 안전
-  const layoutClass = styles.detailLayout;
+  // item 11: spec 존재 시 2열 레이아웃(detailWithSpec), 없으면 1열(detailLayout)
+  const hasSpec = !!post.creativeSpec;
+  const layoutClass = hasSpec ? styles.detailWithSpec : styles.detailLayout;
 
   return (
     <main id="main" className={styles.page}>
@@ -142,6 +145,14 @@ export default async function LoungeDetailPage({ params }: PageProps) {
             authorId={post.authorId}
           />
 
+          {/* item 12: 모바일에서 댓글 입력(CommentForm) 바로 위에 스펙 패널 표시.
+              데스크톱에서는 CSS로 숨기고 오른쪽 aside만 보임. */}
+          {hasSpec && (
+            <div className={styles.specPanelMobile} aria-hidden="false">
+              <CreativeSpecPanel spec={post.creativeSpec} />
+            </div>
+          )}
+
           <section className={styles.commentSection} aria-labelledby="comment-title">
             <h3 id="comment-title" className={styles.commentTitle}>
               댓글 {commentsData.items.length}
@@ -161,7 +172,6 @@ export default async function LoungeDetailPage({ params }: PageProps) {
               <Icon name="list-check" />
               목록으로
             </Link>
-            <ShareButton url={postUrl} />
             {post.isOwner && (
               <div className={styles.ownerActions}>
                 <Link href={editUrl} className={styles.editLink}>
@@ -177,8 +187,13 @@ export default async function LoungeDetailPage({ params }: PageProps) {
           </footer>
         </article>
 
-        {/* Story 2.11: 창작 스펙 패널 — spec 없으면 CreativeSpecPanel이 null을 반환하므로 안전 */}
-        <CreativeSpecPanel spec={post.creativeSpec} />
+        {/* item 11: 데스크톱 우측 사이드 패널 (≥1025px).
+            spec 없으면 CreativeSpecPanel이 null을 반환하므로 aside가 비어도 레이아웃 안전. */}
+        {hasSpec && (
+          <aside className={styles.specPanelDesktop} aria-label="창작 스펙">
+            <CreativeSpecPanel spec={post.creativeSpec} />
+          </aside>
+        )}
       </div>
     </main>
   );

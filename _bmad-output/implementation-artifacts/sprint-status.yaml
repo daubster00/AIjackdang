@@ -105,7 +105,7 @@ development_status:
   8-6-link-og-worker-and-card-render: done
   8-7-sitemap-robots: done
   8-8-og-tags-ga4-gsc-noindex: ready-for-dev
-  8-9-public-page-caching: ready-for-dev
+  8-9-public-page-caching: done
   epic-8-retrospective: optional
 
   epic-9: in-progress

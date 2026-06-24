@@ -1,6 +1,6 @@
 # Story 8.9: 공개 페이지 성능 캐싱
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

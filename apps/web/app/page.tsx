@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 홈 메인 페이지 60초 TTL 캐시 (AR-17)
+export const revalidate = 60;
+
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Badge, Card, CardDesc, CardHead, CardMeta, CardTitle, Icon, Tag, EmptyState } from "@/components/ui";

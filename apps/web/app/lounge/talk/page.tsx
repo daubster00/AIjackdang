@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 목록 페이지 60초 TTL 캐시 (AR-17)
+export const revalidate = 60;
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";

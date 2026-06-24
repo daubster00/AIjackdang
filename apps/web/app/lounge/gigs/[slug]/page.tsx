@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 상세 페이지 300초 TTL 캐시 (AR-17)
+export const revalidate = 300;
+
 // 작당 의뢰소 상세 페이지 (서버 컴포넌트 래퍼).
 // Story 2.12: mock 데이터 → 실 API 연동.
 
@@ -13,7 +16,7 @@ async function fetchGigDetail(slug: string): Promise<PostDetail | null> {
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/posts/${slug}`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     if (res.status === 404) return null;
     if (!res.ok) return null;

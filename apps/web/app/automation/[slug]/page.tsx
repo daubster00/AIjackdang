@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 상세 페이지 300초 TTL 캐시 (AR-17)
+export const revalidate = 300;
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";

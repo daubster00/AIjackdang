@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 목록 페이지 60초 TTL 캐시 (AR-17)
+export const revalidate = 60;
+
 /**
  * 작당 라운지 카테고리 랜딩 페이지 — Story 2.3 (API 연동)
  *

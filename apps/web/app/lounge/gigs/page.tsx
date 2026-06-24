@@ -1,3 +1,6 @@
+// Story 8.9: ISR — 목록 페이지 60초 TTL 캐시 (AR-17)
+export const revalidate = 60;
+
 // 작당 의뢰소 목록 페이지 (서버 컴포넌트 — SSR + 비회원 색인 가능).
 // Story 2.12: mock 데이터 → 실 API 연동.
 // 필터(유형·분야·상태)는 URL 쿼리 파라미터 기반으로 클라이언트 컴포넌트(GigsFilter)에서 처리.
