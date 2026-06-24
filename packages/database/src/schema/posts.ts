@@ -55,7 +55,12 @@ export const posts = pgTable(
     status: postStatus("status").notNull().default("draft"),
 
     // 관리 플래그
+    // isPinned = 고정(sticky). 공지 핀·게시판 상단 고정에 재사용(Story 2.9·9.6).
     isPinned: boolean("is_pinned").notNull().default(false),
+    // 어드민 운영 플래그 (Story 9.6) — 공지/추천/메인노출. 고정은 isPinned 재사용.
+    isNotice: boolean("is_notice").notNull().default(false),
+    isFeatured: boolean("is_featured").notNull().default(false),
+    isMainFeatured: boolean("is_main_featured").notNull().default(false),
 
     // SEO (architecture.md 2026-06-22 보강분)
     seoTitle: text("seo_title"),
