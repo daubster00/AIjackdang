@@ -8,3 +8,25 @@ export * from "./editor";
 export * from "./qna";
 export * from "./resource";
 export * from "./engagement";
+
+// ── gamification ──────────────────────────────────────────────────────────────
+export {
+  gradeSchema,
+  badgeSchema,
+  userBadgeSchema,
+  pointsLedgerEntrySchema,
+  rankEntrySchema,
+  periodTypeSchema,
+  rankingResponseSchema,
+  userBadgesResponseSchema,
+} from "./gamification";
+export type {
+  Grade,
+  Badge,
+  UserBadge,
+  PointsLedgerEntry,
+  RankEntry as GamificationRankEntry,
+  PeriodType as GamificationPeriodType,
+  RankingResponse,
+  UserBadgesResponse,
+} from "./gamification";

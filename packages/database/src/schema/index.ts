@@ -6,3 +6,19 @@ export * from "./qna";
 export * from "./resources";
 export * from "./engagement";
 export * from "./recruit-post";
+export {
+  pointsLedger,
+  grades,
+  badges,
+  userBadges,
+} from "./gamification";
+export type {
+  PointsLedgerRow,
+  NewPointsLedgerRow,
+  GradeTableRow,
+  NewGradeTableRow,
+  BadgeTableRow,
+  NewBadgeTableRow,
+  UserBadgeRow,
+  NewUserBadgeRow,
+} from "./gamification";
