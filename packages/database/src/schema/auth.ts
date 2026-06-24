@@ -23,7 +23,13 @@ import {
 
 export const userStatus = pgEnum("user_status", ["active", "suspended", "withdrawn"]);
 
-export const sanctionType = pgEnum("sanction_type", ["warning", "suspend", "permaban"]);
+export const sanctionType = pgEnum("sanction_type", [
+  "warning",
+  "suspend",
+  "permaban",
+  // [9.18] 쪽지 발신만 제한 (계정 정지와 독립)
+  "message_restriction",
+]);
 
 // ── users ─────────────────────────────────────────────────────────────────────
 

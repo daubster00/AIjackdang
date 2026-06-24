@@ -1,124 +1,390 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { API_BASE_URL } from "@/lib/api";
 
 /**
- * 쪽지 관리 페이지(라우트 /messages).
- * 회원 간 1:1 쪽지(개인 메시지)를 운영자가 모니터링하고, 스팸·사기·욕설 등 신고된 쪽지를
- * 숨김·삭제·발신 제한으로 처리한다.
- * 카드 상단에 .line-tabs(상태 탭)로 전체/정상/신고됨/숨김/삭제됨을 구분해 볼 수 있다.
- * 데이터는 전부 더미(정적 상수)이며, 이후 단계에서 API(@ai-jakdang/api)와 연동한다.
- * 인터랙션(셀렉트/행 메뉴/전체선택/탭)은 AdminShell 의 AdminInteractions 가 전역 연결한다.
+ * 쪽지 관리 페이지 (Story 9.18).
+ * GET /api/v1/admin/messages 실제 API 연동.
+ * URL 파라미터: page, tab, hasReport, from, to
  */
 
-// STATS(핵심 지표 카드 더미). 운영자가 쪽지 영역에서 바로 봐야 하는 수치.
-const STATS = [
-  { label: "오늘 발송 쪽지", value: "1,284", icon: "ri-mail-send-line", tone: "blue", dir: "up", delta: "6.4%", note: "전일 대비" },
-  { label: "신고된 쪽지", value: "14", icon: "ri-flag-2-line", tone: "orange", dir: "up", delta: "5건", note: "어제보다 증가" },
-  { label: "스팸 의심", value: "37", icon: "ri-spam-2-line", tone: "purple", dir: "up", delta: "12건", note: "최근 7일" },
-  { label: "발신 제한 회원", value: "6", icon: "ri-user-forbid-line", tone: "green", dir: "down", delta: "2명", note: "최근 7일" },
-] as const;
+// ── 타입 ──────────────────────────────────────────────────────────────────────
 
-/**
- * MESSAGES(쪽지 목록 더미).
- * - excerpt: 쪽지 본문 미리보기. sender/receiver: 보낸·받는 회원([이니셜, 닉네임]).
- * - reports: 신고 누적 수(0이면 정상). spam: 스팸 의심 자동 탐지 여부.
- * - status: 정상/신고됨/숨김/삭제 상태(배지). statusKey: 필터 키(data-status 속성값).
- * - datetime: 보낸 시각.
- */
-const MESSAGES = [
-  {
-    excerpt: "안녕하세요! 올려주신 n8n 자동화 워크플로우 관련해서 따로 여쭤볼 게 있어서 쪽지 드립니다.",
-    sender: ["박", "박자동"],
-    receiver: ["김", "김개발"],
-    datetime: "2026.06.18 14:22",
-    reports: 0,
-    spam: false,
-    status: ["badge-green", "정상"], statusKey: "normal",
-  },
-  {
-    excerpt: "외주 작업 가능하실까요? 단가 협의해서 진행하고 싶습니다. 연락처는 아래로 부탁드려요.",
-    sender: ["최", "최대표"],
-    receiver: ["이", "이수익"],
-    datetime: "2026.06.18 11:05",
-    reports: 0,
-    spam: false,
-    status: ["badge-green", "정상"], statusKey: "normal",
-  },
-  {
-    excerpt: "💰 단기 고수익 부업 모집합니다! 하루 30분 투자로 월 300 보장. 지금 바로 링크 클릭 → bit.ly/xxxx",
-    sender: ["스", "스팸계정01"],
-    receiver: ["한", "한창작"],
-    datetime: "2026.06.18 09:47",
-    reports: 6,
-    spam: true,
-    status: ["badge-red", "신고됨"], statusKey: "reported",
-  },
-  {
-    excerpt: "제 제품 베타테스터로 참여해주셔서 감사합니다. 피드백 주신 부분 반영해서 업데이트했어요!",
-    sender: ["정", "정메이커"],
-    receiver: ["서", "서대표"],
-    datetime: "2026.06.17 19:30",
-    reports: 0,
-    spam: false,
-    status: ["badge-green", "정상"], statusKey: "normal",
-  },
-  {
-    excerpt: "[자동 탐지] 동일 내용을 24시간 내 18명에게 반복 발송한 쪽지입니다. 스팸 의심으로 분류되었습니다.",
-    sender: ["광", "광고봇"],
-    receiver: ["다", "다수 회원"],
-    datetime: "2026.06.17 16:12",
-    reports: 2,
-    spam: true,
-    status: ["badge-orange", "신고됨"], statusKey: "reported",
-  },
-  {
-    excerpt: "지난번에 알려주신 Claude Code 스킬 설정 덕분에 잘 해결했습니다. 정말 감사드려요 :)",
-    sender: ["한", "한사용"],
-    receiver: ["이", "이코딩"],
-    datetime: "2026.06.17 13:08",
-    reports: 0,
-    spam: false,
-    status: ["badge-green", "정상"], statusKey: "normal",
-  },
-  {
-    excerpt: "비방·욕설이 포함되어 운영자가 숨김 처리한 쪽지입니다.",
-    sender: ["익", "익명777"],
-    receiver: ["정", "정뉴비"],
-    datetime: "2026.06.16 22:51",
-    reports: 4,
-    spam: false,
-    status: ["badge-gray", "숨김"], statusKey: "hidden",
-  },
-  {
-    excerpt: "허위 투자 권유로 신고 누적되어 삭제 처리된 쪽지입니다.",
-    sender: ["사", "사기의심"],
-    receiver: ["박", "박투자"],
-    datetime: "2026.06.15 08:19",
-    reports: 9,
-    spam: true,
-    status: ["badge-gray", "삭제됨"], statusKey: "deleted",
-  },
-] as const;
+interface MessageAdminRow {
+  id: string;
+  senderId: string;
+  senderNickname: string;
+  receiverId: string;
+  receiverNickname: string;
+  bodyPreview: string;
+  createdAt: string;
+  hiddenByAdmin: boolean;
+  reportCount: number;
+  deletedAt: string | null;
+}
 
-// STATUSES(상태 필터 옵션). all=전체, normal=정상, reported=신고됨, hidden=숨김, deleted=삭제됨.
-const STATUSES = [
-  { value: "all", label: "상태: 전체" },
-  { value: "normal", label: "정상" },
-  { value: "reported", label: "신고됨" },
+// ── 탭 정의 ───────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { value: "all", label: "전체" },
+  { value: "reported", label: "신고있음" },
   { value: "hidden", label: "숨김" },
-  { value: "deleted", label: "삭제됨" },
 ] as const;
 
-// STATUS_TABS(상태 탭 정의). label: 탭 표시 문구, value: data-tab 속성값(line-tabs 규약).
-const STATUS_TABS = [
-  { label: "전체", value: "all" },
-  { label: "정상", value: "normal" },
-  { label: "신고됨", value: "reported" },
-  { label: "숨김", value: "hidden" },
-  { label: "삭제됨", value: "deleted" },
-] as const;
+// ── 유틸 ──────────────────────────────────────────────────────────────────────
 
-export default function AdminMessagesPage() {
+function formatDate(iso: string): string {
+  return iso.slice(0, 10).replace(/-/g, ".");
+}
+
+function statusBadge(row: MessageAdminRow): [string, string] {
+  if (row.deletedAt) return ["badge-gray", "삭제됨"];
+  if (row.hiddenByAdmin) return ["badge-gray", "숨김"];
+  if (row.reportCount > 0) return ["badge-orange", "신고있음"];
+  return ["badge-green", "정상"];
+}
+
+// ── 모달 컴포넌트 ─────────────────────────────────────────────────────────────
+
+function RestrictModal({
+  messageId,
+  senderNickname,
+  onConfirm,
+  onClose,
+}: {
+  messageId: string;
+  senderNickname: string;
+  onConfirm: (messageId: string, days: number, reason: string) => void;
+  onClose: () => void;
+}) {
+  const [days, setDays] = useState(7);
+  const [reason, setReason] = useState("");
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
+      }}
+    >
+      <div
+        style={{
+          background: "var(--surface)", borderRadius: 8, padding: 24,
+          width: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
+        }}
+      >
+        <h3 style={{ marginBottom: 8, fontSize: 16 }}>쪽지 발신제한</h3>
+        <p style={{ fontSize: 13, color: "var(--gray-600)", marginBottom: 16 }}>
+          <strong>{senderNickname}</strong> 회원의 쪽지 발송을 제한합니다.
+        </p>
+        <label style={{ fontSize: 12, color: "var(--gray-500)", display: "block", marginBottom: 6 }}>
+          제한 기간 (일 수, 0 = 영구)
+        </label>
+        <input
+          type="number"
+          min={0}
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="control"
+          style={{ marginBottom: 16 }}
+        />
+        <label style={{ fontSize: 12, color: "var(--gray-500)", display: "block", marginBottom: 6 }}>
+          제한 사유 (필수)
+        </label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="제한 사유를 입력하세요"
+          rows={3}
+          style={{
+            width: "100%", padding: "8px 10px", border: "1px solid var(--border)",
+            borderRadius: 6, fontSize: 13, resize: "vertical", boxSizing: "border-box",
+          }}
+        />
+        <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+          <button className="btn btn-outline" onClick={onClose}>취소</button>
+          <button
+            className="btn btn-primary"
+            disabled={!reason.trim()}
+            onClick={() => onConfirm(messageId, days, reason.trim())}
+          >
+            발신제한 확정
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteModal({
+  count: cnt,
+  onConfirm,
+  onClose,
+}: {
+  count: number;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
+      }}
+    >
+      <div
+        style={{
+          background: "var(--surface)", borderRadius: 8, padding: 24,
+          width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
+        }}
+      >
+        <h3 style={{ marginBottom: 12, fontSize: 16 }}>쪽지 삭제</h3>
+        <p style={{ fontSize: 13, color: "var(--gray-600)", marginBottom: 16 }}>
+          선택한 <strong>{cnt}개</strong> 쪽지를 삭제합니다. (최고관리자 전용)
+        </p>
+        <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+          <button className="btn btn-outline" onClick={onClose}>취소</button>
+          <button className="btn btn-danger" onClick={onConfirm}>
+            삭제 확정
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 토스트 ────────────────────────────────────────────────────────────────────
+
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  return (
+    <div
+      style={{
+        position: "fixed", bottom: 24, right: 24, zIndex: 99999,
+        background: type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
+        color: "#fff", borderRadius: 8, padding: "12px 20px",
+        fontSize: 14, boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        display: "flex", alignItems: "center", gap: 10,
+      }}
+    >
+      <i className={type === "success" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
+      {message}
+      <button
+        onClick={onClose}
+        style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", marginLeft: 8 }}
+        aria-label="닫기"
+      >
+        <i className="ri-close-line" />
+      </button>
+    </div>
+  );
+}
+
+// ── 메인 페이지 컴포넌트 ───────────────────────────────────────────────────────
+
+function AdminMessagesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const pageParam = Number(searchParams.get("page") ?? "1");
+  const tabParam = (searchParams.get("tab") ?? "all") as "all" | "reported" | "hidden";
+  const hasReportParam = searchParams.get("hasReport") ?? "";
+  const fromParam = searchParams.get("from") ?? "";
+  const toParam = searchParams.get("to") ?? "";
+
+  const [items, setItems] = useState<MessageAdminRow[]>([]);
+  const [meta, setMeta] = useState({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+  const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [restrictModal, setRestrictModal] = useState<{ messageId: string; senderNickname: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error") => {
+    setToast({ message, type });
+  }, []);
+
+  // 현재 관리자 role 확인
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.user?.role === "super_admin") setIsSuperAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(pageParam));
+      params.set("pageSize", "20");
+      if (tabParam && tabParam !== "all") params.set("tab", tabParam);
+      if (hasReportParam === "true") params.set("hasReport", "true");
+      if (fromParam) params.set("from", fromParam);
+      if (toParam) params.set("to", toParam);
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("목록 조회 실패");
+      const data = await res.json();
+      setItems(data.items ?? []);
+      setMeta(data.meta ?? { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    } catch {
+      showToast("쪽지 목록을 불러오지 못했습니다.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [pageParam, tabParam, hasReportParam, fromParam, toParam, showToast]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  function updateParams(updates: Record<string, string>) {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      if (v && v !== "all" && v !== "") next.set(k, v);
+      else next.delete(k);
+    }
+    next.delete("page");
+    router.push(`/messages?${next.toString()}`);
+  }
+
+  function goPage(p: number) {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("page", String(p));
+    router.push(`/messages?${next.toString()}`);
+  }
+
+  // ── 액션 ─────────────────────────────────────────────────────────────────────
+
+  async function handleHide(id: string) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/${id}/hide`, {
+        method: "PATCH", credentials: "include",
+      });
+      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("숨김 처리되었습니다.", "success");
+      fetchMessages();
+    } catch {
+      showToast("숨김 처리 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  async function handleUnhide(id: string) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/${id}/unhide`, {
+        method: "PATCH", credentials: "include",
+      });
+      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("숨김이 복구되었습니다.", "success");
+      fetchMessages();
+    } catch {
+      showToast("숨김 복구 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setSingleDeleteId(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/${id}`, {
+        method: "DELETE", credentials: "include",
+      });
+      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("쪽지가 삭제되었습니다.", "success");
+      fetchMessages();
+    } catch {
+      showToast("삭제 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  async function handleRestrictConfirm(messageId: string, days: number, reason: string) {
+    setRestrictModal(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/${messageId}/restrict-sender`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days, reason }),
+      });
+      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("발신제한이 적용되었습니다.", "success");
+    } catch {
+      showToast("발신제한 처리 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  async function handleBulkHide() {
+    if (selectedIds.size === 0) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/bulk-hide`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(`${selectedIds.size}개 쪽지가 숨김 처리되었습니다.`, "success");
+      setSelectedIds(new Set());
+      fetchMessages();
+    } catch {
+      showToast("일괄 숨김 처리 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkDeleteOpen(false);
+    if (selectedIds.size === 0) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/messages/bulk`, {
+        method: "DELETE", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast(`${selectedIds.size}개 쪽지가 삭제되었습니다.`, "success");
+      setSelectedIds(new Set());
+      fetchMessages();
+    } catch {
+      showToast("일괄 삭제 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map((m) => m.id)));
+    }
+  }
+
+  const hasSelection = selectedIds.size > 0;
+
   return (
     <AdminShell breadcrumb={["관리자", "쪽지 관리"]} activeKey="messages">
       <div className="page-header">
@@ -126,272 +392,320 @@ export default function AdminMessagesPage() {
           <h1 className="page-title">쪽지 관리</h1>
           <p className="page-description">회원 간 1:1 쪽지를 모니터링하고 스팸·사기·욕설 쪽지를 숨김·삭제·발신 제한으로 처리합니다.</p>
         </div>
-        <div className="page-actions">
-          <button className="btn btn-outline" type="button">
-            <i className="ri-file-excel-2-line" />
-            CSV 다운로드
-          </button>
-          <button className="btn btn-primary" type="button">
-            <i className="ri-flag-2-line" />
-            신고 대기열 보기
-          </button>
-        </div>
       </div>
 
-      <section className="grid stats-grid" aria-label="쪽지 핵심 통계">
-        {STATS.map((s) => (
-          <article className="stat-card" key={s.label}>
-            <div className="stat-head">
-              <span className="stat-label">{s.label}</span>
-              <span className={`stat-icon ${s.tone}`}>
-                <i className={s.icon} />
-              </span>
-            </div>
-            <div className="stat-value">{s.value}</div>
-            <div className="stat-foot">
-              <span className={`trend ${s.dir}`}>
-                <i className={s.dir === "up" ? "ri-arrow-up-line" : "ri-arrow-down-line"} />
-                {s.delta}
-              </span>
-              <span>{s.note}</span>
-            </div>
-          </article>
-        ))}
-      </section>
-
       <section className="section">
-        <div className="section-heading">
-          <div>
-            <h2 className="section-title">쪽지 목록</h2>
-            <p className="section-description">상태 탭으로 좁힌 뒤, 행 메뉴에서 수정·숨김·삭제·발신 제한을 처리합니다.</p>
-          </div>
-        </div>
-
         <article className="card">
-          {/*
-            .line-tabs(상태별 탭 내비게이션): AdminInteractions 의 line-tabs JS 가
-            탭 클릭 시 .line-tab.active 이동 + 'admin:tab-change'(detail.value = data-tab) 이벤트를 발행한다.
-            각 행에 data-status 속성이 있으므로 이벤트를 받아 JS로 필터링할 수 있다(디자인용 마크업).
-          */}
+          {/* 탭 */}
           <div className="line-tabs" style={{ padding: "0 16px" }} aria-label="쪽지 상태 탭">
-            {STATUS_TABS.map((tab, i) => (
+            {TABS.map((tab) => (
               <button
                 key={tab.value}
-                className={`line-tab${i === 0 ? " active" : ""}`}
+                className={`line-tab${tabParam === tab.value ? " active" : ""}`}
                 data-tab={tab.value}
                 type="button"
+                onClick={() => updateParams({ tab: tab.value })}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          {/* 필터: 내용/회원 검색, 상태 셀렉트, 신고 여부, 보낸 날짜 */}
+          {/* 필터 패널 */}
           <div className="filter-panel">
             <div className="filter-row">
-              <div className="input-icon">
-                <i className="ri-search-line" />
-                <input className="control" type="search" placeholder="쪽지 내용 또는 보낸/받는 회원 검색" aria-label="쪽지 검색" />
-              </div>
-
-              {/* 상태 필터 셀렉트(탭과 독립, 정교한 필터링 시 병용) */}
-              <div className="custom-select" data-select="status">
-                <button className="select-trigger" type="button" aria-expanded="false">
-                  <span>상태: 전체</span>
-                  <i className="ri-arrow-down-s-line" />
-                </button>
-                <div className="select-menu">
-                  {STATUSES.map((s) => (
-                    <button
-                      key={s.value}
-                      className={`select-option${s.value === "all" ? " selected" : ""}`}
-                      data-value={s.value}
-                    >
-                      {s.label}
-                      {s.value === "all" ? <i className="ri-check-line" /> : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* 신고 여부 필터 */}
-              <div className="custom-select" data-select="report">
+              <div className="custom-select" data-select="hasReport">
                 <button className="select-trigger" type="button" aria-expanded="false">
-                  <span>신고: 전체</span>
+                  <span>{hasReportParam === "true" ? "신고 있음" : "신고: 전체"}</span>
                   <i className="ri-arrow-down-s-line" />
                 </button>
                 <div className="select-menu">
-                  <button className="select-option selected" data-value="all">신고: 전체<i className="ri-check-line" /></button>
-                  <button className="select-option" data-value="reported">신고 있음</button>
-                  <button className="select-option" data-value="spam">스팸 의심</button>
-                  <button className="select-option" data-value="clean">신고 없음</button>
+                  <button
+                    className={`select-option${!hasReportParam ? " selected" : ""}`}
+                    onClick={() => updateParams({ hasReport: "" })}
+                  >
+                    신고: 전체
+                    {!hasReportParam ? <i className="ri-check-line" /> : null}
+                  </button>
+                  <button
+                    className={`select-option${hasReportParam === "true" ? " selected" : ""}`}
+                    onClick={() => updateParams({ hasReport: "true" })}
+                  >
+                    신고 있음
+                    {hasReportParam === "true" ? <i className="ri-check-line" /> : null}
+                  </button>
                 </div>
               </div>
 
-              {/* 보낸 날짜 기간 */}
+              {/* 기간 필터 */}
               <div className="input-icon">
                 <i className="ri-calendar-line" />
-                <input className="control" type="text" defaultValue="2026.06.01 - 2026.06.18" aria-label="보낸 날짜 기간" />
+                <input
+                  className="control"
+                  type="date"
+                  aria-label="시작 날짜"
+                  value={fromParam}
+                  onChange={(e) => updateParams({ from: e.target.value })}
+                  placeholder="시작 날짜"
+                />
+              </div>
+              <div className="input-icon">
+                <i className="ri-calendar-line" />
+                <input
+                  className="control"
+                  type="date"
+                  aria-label="종료 날짜"
+                  value={toParam}
+                  onChange={(e) => updateParams({ to: e.target.value })}
+                  placeholder="종료 날짜"
+                />
               </div>
 
               <div className="filter-actions">
-                <button className="btn btn-outline">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => router.push("/messages")}
+                >
                   <i className="ri-refresh-line" />
                   초기화
                 </button>
-                <button className="btn btn-primary">
-                  <i className="ri-search-line" />
-                  검색
-                </button>
               </div>
-            </div>
-
-            <div className="active-filters">
-              <span className="filter-chip">신고 있음<button aria-label="필터 제거"><i className="ri-close-line" /></button></span>
-              <span className="filter-chip">최근 18일<button aria-label="필터 제거"><i className="ri-close-line" /></button></span>
             </div>
           </div>
 
-          {/* 일괄 처리 툴바: 숨김/삭제/발신 제한 중심 */}
+          {/* 툴바 */}
           <div className="table-toolbar">
             <div className="toolbar-left">
-              <span className="selection-info">총 {MESSAGES.length}개의 쪽지</span>
-              <button className="btn btn-outline btn-sm" data-admin-requires-selection disabled>
+              <span className="selection-info">총 {meta.totalItems}개의 쪽지</span>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={!hasSelection}
+                onClick={handleBulkHide}
+              >
                 <i className="ri-eye-off-line" />
                 숨김 처리
               </button>
-              <button className="btn btn-outline btn-sm" data-admin-requires-selection disabled>
-                <i className="ri-user-forbid-line" />
-                발신 제한
-              </button>
-              <button className="btn btn-danger btn-sm" data-admin-requires-selection disabled>
-                <i className="ri-delete-bin-line" />
-                삭제
-              </button>
-            </div>
-            <div className="toolbar-right">
-              <button className="btn btn-outline btn-sm">
-                <i className="ri-file-excel-2-line" />
-                CSV 다운로드
-              </button>
+              {isSuperAdmin && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  disabled={!hasSelection}
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  <i className="ri-delete-bin-line" />
+                  일괄 삭제
+                </button>
+              )}
             </div>
           </div>
 
+          {/* 테이블 */}
           <div className="table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th style={{ width: "44px" }}>
-                    <input className="check" data-admin-select-all type="checkbox" aria-label="전체 선택" />
-                  </th>
-                  <th>쪽지 내용</th>
-                  <th>보낸 회원</th>
-                  <th>받는 회원</th>
-                  <th>신고</th>
-                  <th>상태</th>
-                  <th>보낸 시각</th>
-                  <th style={{ width: "60px" }}>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MESSAGES.map((m, idx) => (
-                  // data-status(상태 키): 탭 필터링 JS 가 이 속성으로 행 표시/숨김을 결정한다.
-                  <tr key={m.excerpt} data-status={m.statusKey}>
-                    <td>
-                      <input className="check row-check" type="checkbox" aria-label="행 선택" />
-                    </td>
-                    <td>
-                      {/* 쪽지 내용 클릭 시 상세 페이지(/messages/[id])로 이동 */}
-                      <Link className="content-title" href={`/messages/${idx + 1}`}>
-                        {m.spam ? <span className="badge badge-purple" title="스팸 의심" style={{ marginRight: 6 }}>스팸</span> : null}
-                        {m.excerpt}
-                      </Link>
-                    </td>
-                    <td>
-                      <div className="author">
-                        <span className="author-avatar">{m.sender[0]}</span>
-                        <span>{m.sender[1]}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="author">
-                        <span className="author-avatar">{m.receiver[0]}</span>
-                        <span>{m.receiver[1]}</span>
-                      </div>
-                    </td>
-                    <td className="num">
-                      {m.reports > 0 ? (
-                        <span className="badge badge-red">{m.reports}</span>
-                      ) : (
-                        <span className="content-meta">0</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge ${m.status[0]}`}>{m.status[1]}</span>
-                    </td>
-                    <td className="num">{m.datetime}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button className="icon-button row-action-button" aria-label="행 메뉴">
-                          <i className="ri-more-2-fill" />
-                        </button>
-                        {/* 행 액션 메뉴: 상세 보기 / 수정 / 숨김 처리 / 발신 제한 / 삭제 */}
-                        <div className="action-menu">
-                          <Link href={`/messages/${idx + 1}`}>
-                            <i className="ri-eye-line" />상세 보기
-                          </Link>
-                          {/* "수정": 상세 페이지의 수정과 동일 맥락 — 목록에서도 바로 접근 가능하도록 */}
-                          <Link href={`/messages/${idx + 1}`}>
-                            <i className="ri-edit-line" />수정
-                          </Link>
-                          <button type="button">
-                            <i className="ri-flag-2-line" />신고 내역 보기
-                          </button>
-                          <button type="button">
-                            <i className="ri-alarm-warning-line" />발신자 경고
-                          </button>
-                          {m.statusKey === "hidden" ? (
-                            <button type="button">
-                              <i className="ri-eye-line" />숨김 해제
-                            </button>
-                          ) : (
-                            <button type="button">
-                              <i className="ri-eye-off-line" />쪽지 숨김
-                            </button>
-                          )}
-                          <button type="button">
-                            <i className="ri-user-forbid-line" />발신자 쪽지 제한
-                          </button>
-                          {m.statusKey === "deleted" ? (
-                            <button type="button">
-                              <i className="ri-arrow-go-back-line" />복구
-                            </button>
-                          ) : (
-                            <button className="danger" type="button">
-                              <i className="ri-delete-bin-line" />쪽지 삭제
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </td>
+            {loading ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--gray-400)" }}>
+                불러오는 중...
+              </div>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 44 }}>
+                      <input
+                        className="check"
+                        type="checkbox"
+                        aria-label="전체 선택"
+                        checked={items.length > 0 && selectedIds.size === items.length}
+                        onChange={toggleSelectAll}
+                      />
+                    </th>
+                    <th>쪽지 내용</th>
+                    <th>발신자</th>
+                    <th>수신자</th>
+                    <th>신고</th>
+                    <th>상태</th>
+                    <th>발송일</th>
+                    <th style={{ width: 60 }}>관리</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>
+                        쪽지가 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((m) => {
+                      const [badgeClass, statusLabel] = statusBadge(m);
+                      const isSpam = m.hiddenByAdmin || m.reportCount > 0;
+                      return (
+                        <tr key={m.id}>
+                          <td>
+                            <input
+                              className="check row-check"
+                              type="checkbox"
+                              aria-label="행 선택"
+                              checked={selectedIds.has(m.id)}
+                              onChange={() => toggleSelect(m.id)}
+                            />
+                          </td>
+                          <td>
+                            <Link className="content-title" href={`/messages/${m.id}`}>
+                              {isSpam ? (
+                                <span className="badge badge-purple" title="스팸 의심" style={{ marginRight: 6 }}>스팸</span>
+                              ) : null}
+                              {m.bodyPreview}
+                            </Link>
+                          </td>
+                          <td>
+                            <div className="author">
+                              <span className="author-avatar">{m.senderNickname.slice(0, 1)}</span>
+                              <span>{m.senderNickname}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="author">
+                              <span className="author-avatar">{m.receiverNickname.slice(0, 1)}</span>
+                              <span>{m.receiverNickname}</span>
+                            </div>
+                          </td>
+                          <td className="num">
+                            {m.reportCount > 0 ? (
+                              <span className="badge badge-red">{m.reportCount}</span>
+                            ) : (
+                              <span className="content-meta">0</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`badge ${badgeClass}`}>{statusLabel}</span>
+                          </td>
+                          <td className="num">{formatDate(m.createdAt)}</td>
+                          <td>
+                            <div className="row-actions">
+                              <button className="icon-button row-action-button" aria-label="행 메뉴">
+                                <i className="ri-more-2-fill" />
+                              </button>
+                              <div className="action-menu">
+                                <Link href={`/messages/${m.id}`}>
+                                  <i className="ri-eye-line" />원문보기
+                                </Link>
+                                {m.hiddenByAdmin ? (
+                                  <button type="button" onClick={() => handleUnhide(m.id)}>
+                                    <i className="ri-eye-line" />숨김 복구
+                                  </button>
+                                ) : (
+                                  <button type="button" onClick={() => handleHide(m.id)}>
+                                    <i className="ri-eye-off-line" />숨김
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setRestrictModal({ messageId: m.id, senderNickname: m.senderNickname })}
+                                >
+                                  <i className="ri-user-forbid-line" />발신제한
+                                </button>
+                                {isSuperAdmin && (
+                                  <button
+                                    className="danger"
+                                    type="button"
+                                    onClick={() => setSingleDeleteId(m.id)}
+                                  >
+                                    <i className="ri-delete-bin-line" />삭제
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
-          <div className="pagination">
-            <div className="page-info">1–{MESSAGES.length} / 총 1,284개</div>
-            <div className="page-buttons">
-              <button className="page-button" aria-label="이전 페이지"><i className="ri-arrow-left-s-line" /></button>
-              <button className="page-button active">1</button>
-              <button className="page-button">2</button>
-              <button className="page-button">3</button>
-              <button className="page-button" aria-label="다음 페이지"><i className="ri-arrow-right-s-line" /></button>
+          {/* 페이지네이션 */}
+          {meta.totalPages > 1 && (
+            <div className="pagination">
+              <div className="page-info">
+                {(meta.page - 1) * meta.pageSize + 1}–{Math.min(meta.page * meta.pageSize, meta.totalItems)} / 총 {meta.totalItems}개
+              </div>
+              <div className="page-buttons">
+                <button
+                  className="page-button"
+                  aria-label="이전 페이지"
+                  disabled={meta.page <= 1}
+                  onClick={() => goPage(meta.page - 1)}
+                >
+                  <i className="ri-arrow-left-s-line" />
+                </button>
+                {Array.from({ length: Math.min(meta.totalPages, 5) }, (_, i) => {
+                  const p = i + 1;
+                  return (
+                    <button
+                      key={p}
+                      className={`page-button${meta.page === p ? " active" : ""}`}
+                      onClick={() => goPage(p)}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  className="page-button"
+                  aria-label="다음 페이지"
+                  disabled={meta.page >= meta.totalPages}
+                  onClick={() => goPage(meta.page + 1)}
+                >
+                  <i className="ri-arrow-right-s-line" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </article>
       </section>
+
+      {/* 발신제한 모달 */}
+      {restrictModal && (
+        <RestrictModal
+          messageId={restrictModal.messageId}
+          senderNickname={restrictModal.senderNickname}
+          onConfirm={handleRestrictConfirm}
+          onClose={() => setRestrictModal(null)}
+        />
+      )}
+
+      {/* 단일 삭제 확인 */}
+      {singleDeleteId && (
+        <DeleteModal
+          count={1}
+          onConfirm={() => handleDelete(singleDeleteId)}
+          onClose={() => setSingleDeleteId(null)}
+        />
+      )}
+
+      {/* 벌크 삭제 모달 */}
+      {bulkDeleteOpen && (
+        <DeleteModal
+          count={selectedIds.size}
+          onConfirm={handleBulkDelete}
+          onClose={() => setBulkDeleteOpen(false)}
+        />
+      )}
+
+      {/* 토스트 */}
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
     </AdminShell>
+  );
+}
+
+export default function AdminMessagesPage() {
+  return (
+    <Suspense>
+      <AdminMessagesContent />
+    </Suspense>
   );
 }

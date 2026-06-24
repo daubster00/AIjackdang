@@ -26,6 +26,10 @@ export const messages = pgTable(
     deletedBySender: boolean("deleted_by_sender").notNull().default(false),
     /** 수신자가 대화함을 삭제했는지 여부 */
     deletedByReceiver: boolean("deleted_by_receiver").notNull().default(false),
+    /** [9.18] 운영자가 모더레이션으로 숨긴 쪽지 (발신·수신 양쪽 비노출) */
+    hiddenByAdmin: boolean("hidden_by_admin").notNull().default(false),
+    /** [9.18] 운영자 soft-delete 시각 (30일 후 cleanup worker hard-delete) */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

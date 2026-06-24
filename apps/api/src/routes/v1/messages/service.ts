@@ -5,7 +5,7 @@
  * 트랜잭션은 이 레이어에서만 처리한다.
  */
 
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "@ai-jakdang/database";
 import { schema } from "@ai-jakdang/database";
 import type { NotificationEventPayload } from "@ai-jakdang/contracts";
@@ -18,6 +18,7 @@ export const MSG_ERROR = {
   ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
   RECEIVER_NOT_FOUND: "RECEIVER_NOT_FOUND",
   NOT_PARTICIPANT: "NOT_PARTICIPANT",
+  MESSAGE_SENDING_RESTRICTED: "MESSAGE_SENDING_RESTRICTED",
 } as const;
 
 // ── 쪽지 발송 ─────────────────────────────────────────────────────────────────
@@ -77,6 +78,31 @@ export async function sendMessage(
         httpStatus: 403,
       };
     }
+  }
+
+  // 2-b. 쪽지 발신제한(message_restriction) 확인 [9.18]
+  const now9_18 = new Date();
+  const activeRestriction = await db
+    .select({ id: schema.userSanctions.id })
+    .from(schema.userSanctions)
+    .where(
+      and(
+        eq(schema.userSanctions.userId, senderId),
+        eq(schema.userSanctions.type, "message_restriction"),
+        or(
+          sql`${schema.userSanctions.endsAt} IS NULL`,
+          sql`${schema.userSanctions.endsAt} > ${now9_18}`,
+        ),
+      ),
+    )
+    .limit(1);
+
+  if (activeRestriction.length > 0) {
+    throw {
+      code: MSG_ERROR.MESSAGE_SENDING_RESTRICTED,
+      message: "쪽지 발송이 제한된 계정입니다.",
+      httpStatus: 403,
+    };
   }
 
   // 3. 수신자 존재 확인
@@ -178,8 +204,12 @@ export async function getConversations(
         sender_id
       FROM messages
       WHERE
-        (sender_id = ${userId} AND deleted_by_sender = false)
-        OR (receiver_id = ${userId} AND deleted_by_receiver = false)
+        hidden_by_admin = false
+        AND deleted_at IS NULL
+        AND (
+          (sender_id = ${userId} AND deleted_by_sender = false)
+          OR (receiver_id = ${userId} AND deleted_by_receiver = false)
+        )
     ),
     latest AS (
       SELECT
@@ -208,6 +238,8 @@ export async function getConversations(
       WHERE receiver_id = ${userId}
         AND is_read = false
         AND deleted_by_receiver = false
+        AND hidden_by_admin = false
+        AND deleted_at IS NULL
       GROUP BY partner_id
     )
     SELECT
@@ -272,6 +304,9 @@ export async function getConversationThread(
     .from(schema.messages)
     .where(
       and(
+        // [9.18] 관리자 숨김·삭제 메시지 제외
+        eq(schema.messages.hiddenByAdmin, false),
+        isNull(schema.messages.deletedAt),
         or(
           and(
             eq(schema.messages.senderId, userId),
