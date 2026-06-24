@@ -5,8 +5,8 @@
  * hasAdminPermission 기반 읽기 전용 체크박스 그리드.
  */
 
-import { hasAdminPermission } from "@ai-jakdang/auth";
-import type { AdminAction, AdminRole } from "@ai-jakdang/auth";
+import { hasAdminPermission } from "@/lib/adminPermissions";
+import type { AdminAction, AdminRole } from "@/lib/adminPermissions";
 
 // 표시할 AdminAction 목록 (packages/auth/src/permissions.ts 기준)
 const ADMIN_ACTIONS: { key: AdminAction; label: string; description: string }[] = [

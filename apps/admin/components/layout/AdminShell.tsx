@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
 import { BOARDS } from "@/lib/boards";
-import { getAdminSession } from "@/lib/adminSession";
+import { API_BASE_URL } from "@/lib/api";
 import type { AdminSessionUser } from "@/lib/adminSession";
 import { AdminInteractions } from "./AdminInteractions";
 import { NotificationMenu } from "./NotificationMenu";
@@ -94,7 +96,7 @@ const NAV_GROUPS: NavGroup[] = [
 /** super_admin 전용으로 숨길 메뉴 key 집합(UX-DR-A6: 숨김, disabled 아님) */
 const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members"]);
 
-export async function AdminShell({
+export function AdminShell({
   breadcrumb,
   activeKey,
   activeSubKey,
@@ -123,8 +125,19 @@ export async function AdminShell({
   pendingReportsCount?: number;
   children: ReactNode;
 }) {
-  // adminUser prop 미전달 시 서버에서 세션 조회(AC#7)
-  const adminUser = adminUserProp !== undefined ? adminUserProp : await getAdminSession();
+  // adminUser prop 미전달 시 클라이언트에서 세션 조회(AC#7).
+  // 서버 컴포넌트가 직접 값을 내려준 경우(undefined 가 아님)에는 그 값을 그대로 사용한다.
+  const [fetchedUser, setFetchedUser] = useState<AdminSessionUser | null>(null);
+  useEffect(() => {
+    if (adminUserProp !== undefined) return; // 서버에서 주입됨 → fetch 불필요
+    let active = true;
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (active) setFetchedUser((d?.user as AdminSessionUser) ?? null); })
+      .catch(() => { if (active) setFetchedUser(null); });
+    return () => { active = false; };
+  }, [adminUserProp]);
+  const adminUser = adminUserProp !== undefined ? adminUserProp : fetchedUser;
 
   const crumbs = breadcrumb.length ? breadcrumb : ["관리자"];
   const role = adminUser?.role ?? "super_admin"; // 세션 없으면 super_admin으로 간주(미들웨어가 보호)
