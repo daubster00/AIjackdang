@@ -86,6 +86,10 @@ export const badges = pgTable(
     description: text("description").notNull(),
     iconUrl: text("icon_url").notNull(),
     isAuto: boolean("is_auto").notNull().default(true),
+    /** [9.13] 수여 조건 설명(운영자 관리용 텍스트) */
+    condition: text("condition"),
+    /** [9.13] 활성 여부. false면 수여 중단(기존 보유분은 유지) */
+    isActive: boolean("is_active").notNull().default(true),
   },
   (t) => [index("badges_slug_idx").on(t.slug)],
 );
