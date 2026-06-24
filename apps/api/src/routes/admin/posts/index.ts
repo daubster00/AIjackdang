@@ -1,14 +1,182 @@
 /**
  * 게시글 관리 API 등록 진입점 (Story 9.6).
  *
- * 오케스트레이터 stub. Story 9.6 에이전트가 GET 목록 + PATCH flags/hide/restore/seo ·
- * DELETE(soft, super_admin) · POST bulk 라우트를 이 폴더에 구현하고 이 함수에서 등록한다.
- * DELETE·벌크삭제에만 requireSuperAdmin 적용.
- * routes/admin/index.ts 등록은 이미 연결돼 있다.
+ * GET    /api/v1/admin/posts                — 목록 조회
+ * PATCH  /api/v1/admin/posts/:id/flags      — 플래그 토글
+ * PATCH  /api/v1/admin/posts/:id/hide       — 숨김
+ * PATCH  /api/v1/admin/posts/:id/restore    — 복구
+ * DELETE /api/v1/admin/posts/:id            — 소프트 삭제 (super_admin)
+ * PATCH  /api/v1/admin/posts/:id/seo        — SEO 메타
+ * POST   /api/v1/admin/posts/bulk           — 벌크 액션
  */
 
 import type { FastifyInstance } from "fastify";
+import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
+import {
+  adminPostsQuerySchema,
+  adminPostsFlagsSchema,
+  adminPostsSeoSchema,
+  adminPostsBulkSchema,
+} from "@ai-jakdang/contracts";
+import {
+  listPosts,
+  updatePostFlags,
+  hidePost,
+  restorePost,
+  deletePost,
+  updatePostSeo,
+  bulkPostAction,
+} from "./service.js";
 
-export async function registerAdminPostsRoutes(_app: FastifyInstance): Promise<void> {
-  // Story 9.6 에이전트가 구현한다.
+export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /api/v1/admin/posts ──────────────────────────────────────────────────
+  app.get("/api/v1/admin/posts", async (request, reply) => {
+    const parsed = adminPostsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "잘못된 쿼리 파라미터입니다.", details: parsed.error.flatten() },
+      });
+    }
+
+    try {
+      const result = await listPosts(parsed.data);
+      return reply.send(result);
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/posts/bulk — 벌크 액션 (경로 충돌 방지: :id 앞에 등록) ─
+  app.post("/api/v1/admin/posts/bulk", async (request, reply) => {
+    const parsed = adminPostsBulkSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "잘못된 요청입니다.", details: parsed.error.flatten() },
+      });
+    }
+
+    const { ids, action, note: _note } = parsed.data;
+
+    // delete 는 super_admin 만
+    if (action === "delete") {
+      if (request.adminSession?.role !== "super_admin") {
+        return reply.status(403).send({
+          error: { code: "FORBIDDEN", message: "최고 관리자(super_admin) 권한이 필요합니다." },
+        });
+      }
+    }
+
+    try {
+      const result = await bulkPostAction(ids, action);
+      return reply.send(result);
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/posts/:id/flags ─────────────────────────────────────
+  app.patch("/api/v1/admin/posts/:id/flags", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = adminPostsFlagsSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "잘못된 요청입니다.", details: parsed.error.flatten() },
+      });
+    }
+
+    try {
+      const result = await updatePostFlags(id, parsed.data);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/posts/:id/hide ──────────────────────────────────────
+  app.patch("/api/v1/admin/posts/:id/hide", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await hidePost(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/posts/:id/restore ───────────────────────────────────
+  app.patch("/api/v1/admin/posts/:id/restore", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await restorePost(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── DELETE /api/v1/admin/posts/:id — super_admin 전용 ───────────────────────
+  app.delete(
+    "/api/v1/admin/posts/:id",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      try {
+        const result = await deletePost(id);
+        return reply.send(result);
+      } catch (err: unknown) {
+        const e = err as Error & { code?: string };
+        if (e.code === "NOT_FOUND") {
+          return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+        }
+        request.log.error(err);
+        return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+      }
+    },
+  );
+
+  // ── PATCH /api/v1/admin/posts/:id/seo ───────────────────────────────────────
+  app.patch("/api/v1/admin/posts/:id/seo", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = adminPostsSeoSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: { code: "VALIDATION_ERROR", message: "잘못된 요청입니다.", details: parsed.error.flatten() },
+      });
+    }
+
+    try {
+      const result = await updatePostSeo(id, {
+        seoTitle: parsed.data.seoTitle,
+        seoDescription: parsed.data.seoDescription,
+      });
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
 }
