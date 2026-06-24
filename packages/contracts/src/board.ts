@@ -32,7 +32,7 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "바이브 코딩 팁",
     description: "바이브 코딩 노하우 · 팁 · 트릭 공유",
     category: "vibe-coding",
-    urlPath: "/vibe-coding",
+    urlPath: "/vibe-coding?board=vibe-coding-tips",
   },
 
   // ── AI 자동화 ──────────────────────────────────────────────────────────────
@@ -46,13 +46,13 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "자동화 사례",
     description: "실제 AI 자동화 적용 사례 · 결과 공유",
     category: "ai-automation",
-    urlPath: "/automation",
+    urlPath: "/automation?board=automation-cases",
   },
   "automation-tips": {
     label: "자동화 팁",
     description: "자동화 구현 팁 · 도구 추천 · 트러블슈팅",
     category: "ai-automation",
-    urlPath: "/automation",
+    urlPath: "/automation?board=automation-tips",
   },
 
   // ── AI 수익화 ──────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export const BOARDS: Record<string, BoardMeta> = {
     label: "수익화 사례",
     description: "AI 수익화 실제 사례 · 결과 공유",
     category: "ai-monetization",
-    urlPath: "/monetize",
+    urlPath: "/monetize?board=monetization-cases",
   },
 
   // ── AI 창작 ────────────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 /**
  * 바이브 코딩 카테고리 랜딩 페이지 — Story 2.3 (API 연동)
  *
- * vibe-coding-guide 게시판의 게시글을 API에서 SSR로 불러온다.
+ * vibe-coding-guide / vibe-coding-tips 게시판의 게시글을 API에서 SSR로 불러온다.
+ * 서브 게시판은 ?board=<slug> 쿼리 파람으로 전환하며, 기본값은 vibe-coding-guide.
  * 레이아웃·컴포넌트 구조는 Story 2.3 이전과 동일하게 유지한다.
  */
 
@@ -11,19 +12,37 @@ import { headers } from "next/headers";
 import { AuthorName, Avatar, Button, Icon, Tag, EmptyState } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
 import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
+import { BOARDS } from "@ai-jakdang/contracts";
+import { buildPageMeta } from "@/lib/seo/metadata";
 import styles from "./vibe-coding.module.css";
 
-export const metadata: Metadata = {
-  title: "바이브 코딩 가이드 | AI작당",
-  description: "바이브 코딩 방법론 · 튜토리얼 · 실전 가이드",
-};
+/** 바이브 코딩 서브 게시판 목록 (primary 먼저) */
+const SUB_BOARDS = [
+  { slug: "vibe-coding-guide", label: "바이브코딩 가이드" },
+  { slug: "vibe-coding-tips",  label: "바이브코딩 팁" },
+] as const;
+
+type SubBoardSlug = (typeof SUB_BOARDS)[number]["slug"];
+
+function resolveSubBoard(boardParam: string | undefined) {
+  return SUB_BOARDS.find((b) => b.slug === boardParam) ?? SUB_BOARDS[0];
+}
+
+/** 페이지네이션 href 빌더: primary 게시판이면 board 파람 생략 */
+function pageHref(sectionPath: string, boardSlug: SubBoardSlug, p: number) {
+  const isPrimary = boardSlug === SUB_BOARDS[0].slug;
+  const boardPart = isPrimary ? "" : `board=${boardSlug}&`;
+  if (p === 1 && isPrimary) return sectionPath;
+  if (p === 1) return `${sectionPath}?${boardPart.slice(0, -1)}`; // remove trailing &
+  return `${sectionPath}?${boardPart}page=${p}`;
+}
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
-async function fetchPosts(sort: string, page: number, cookie: string): Promise<PaginatedPosts> {
+async function fetchPosts(boardSlug: string, sort: string, page: number, cookie: string): Promise<PaginatedPosts> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/posts?board=vibe-coding-guide&sort=${sort}&page=${page}&pageSize=20`,
+      `${API_URL}/api/v1/posts?board=${boardSlug}&sort=${sort}&page=${page}&pageSize=20`,
       { headers: { cookie }, next: { revalidate: 30 } },
     );
     if (res.ok) return (await res.json()) as PaginatedPosts;
@@ -34,21 +53,29 @@ async function fetchPosts(sort: string, page: number, cookie: string): Promise<P
 }
 
 interface PageProps {
-  searchParams: Promise<{ sort?: string; page?: string }>;
+  searchParams: Promise<{ sort?: string; page?: string; board?: string }>;
+}
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const { board, page: rawPage } = await searchParams;
+  const selected = resolveSubBoard(board);
+  const page = Math.max(1, parseInt(rawPage ?? "1", 10) || 1);
+  return buildPageMeta(BOARDS[selected.slug], { page });
 }
 
 export default async function VibeCodingPage({ searchParams }: PageProps) {
-  const { sort = "latest", page: rawPage = "1" } = await searchParams;
+  const { sort = "latest", page: rawPage = "1", board } = await searchParams;
   const page = Math.max(1, parseInt(rawPage, 10) || 1);
+  const selected = resolveSubBoard(board);
 
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? "";
 
-  const { items: posts, meta } = await fetchPosts(sort, page, cookie);
+  const { items: posts, meta } = await fetchPosts(selected.slug, sort, page, cookie);
 
   const recentPosts = posts.slice(0, 4).map((post) => ({
     href: `/vibe-coding/${post.slug}`,
-    board: "바이브코딩 가이드",
+    board: selected.label,
     title: post.title,
   }));
 
@@ -61,7 +88,7 @@ export default async function VibeCodingPage({ searchParams }: PageProps) {
 
   return (
     <main id="main" className={styles.page}>
-      <BoardHero menu="vibe-coding" currentSub="바이브코딩 가이드" />
+      <BoardHero menu="vibe-coding" currentSub={selected.label} />
 
       <section className={styles.guideToolbar} aria-label="가이드 검색 및 정렬">
         <div className={styles.sortGroup}>
@@ -118,7 +145,7 @@ export default async function VibeCodingPage({ searchParams }: PageProps) {
                 <Icon name="arrow-left-s-line" />
               </button>
               {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map((p) => (
-                <Link key={p} href={p === 1 ? "/vibe-coding" : `/vibe-coding?page=${p}`}>
+                <Link key={p} href={pageHref("/vibe-coding", selected.slug, p)}>
                   <button type="button" aria-current={p === page ? "page" : undefined}>
                     {p}
                   </button>

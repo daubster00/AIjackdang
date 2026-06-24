@@ -42,9 +42,9 @@ export const boardHeroes = {
     media: "/hero-vibe-coding.mp4",
     mainLabel: "바이브 코딩",
     subMenus: [
-      // 하위 카테고리는 목록 내 분류일 뿐 별도 라우트가 없어 단일 목록 페이지로 통일.
+      // 하위 게시판은 ?board=<slug> 쿼리 파람으로 전환한다. primary(기본)는 bare 경로.
       { label: "바이브코딩 가이드", href: "/vibe-coding" },
-      { label: "바이브코딩 팁", href: "/vibe-coding" },
+      { label: "바이브코딩 팁", href: "/vibe-coding?board=vibe-coding-tips" },
     ],
   },
   // 묻고답하기 대메뉴: 하위메뉴(소메뉴)가 없는 통합 질문 공간이지만,
@@ -87,10 +87,10 @@ export const boardHeroes = {
     media: "/hero-automation.mp4",
     mainLabel: "AI 자동화",
     subMenus: [
-      // 하위 카테고리는 목록 내 분류일 뿐 별도 라우트가 없어 단일 목록 페이지로 통일.
+      // 하위 게시판은 ?board=<slug> 쿼리 파람으로 전환한다. primary(기본)는 bare 경로.
       { label: "자동화 가이드", href: "/automation" },
-      { label: "자동화 사례", href: "/automation" },
-      { label: "자동화 팁", href: "/automation" },
+      { label: "자동화 사례", href: "/automation?board=automation-cases" },
+      { label: "자동화 팁", href: "/automation?board=automation-tips" },
     ],
   },
   // AI 수익화 대메뉴: AI로 만든 결과물을 외주·판매로 연결해 수익을 내는 주제를 다루는 게시판.
@@ -103,9 +103,9 @@ export const boardHeroes = {
     media: "/hero-monetize.mp4",
     mainLabel: "AI 수익화",
     subMenus: [
-      // 하위 카테고리는 목록 내 분류일 뿐 별도 라우트가 없어 단일 목록 페이지로 통일.
+      // 하위 게시판은 ?board=<slug> 쿼리 파람으로 전환한다. primary(기본)는 bare 경로.
       { label: "외주·판매 팁", href: "/monetize" },
-      { label: "수익화 사례", href: "/monetize" },
+      { label: "수익화 사례", href: "/monetize?board=monetization-cases" },
     ],
   },
   // 작당 라운지 대메뉴: 창작물과 직접 만든 AI 제품을 자유롭게 나누는 커뮤니티 공간.

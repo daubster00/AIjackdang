@@ -28,7 +28,8 @@ export function buildPageMeta(
   const titleSuffix = opts?.page && opts.page > 1 ? ` — ${opts.page}페이지` : "";
 
   return {
-    title: `${board.label}${titleSuffix} | ${SITE_NAME}`,
+    // 사이트명은 루트 layout 의 title.template("%s · AI작당")이 붙이므로 여기서는 생략(중복 방지).
+    title: `${board.label}${titleSuffix}`,
     description: board.description,
     alternates: {
       canonical: canonicalUrl,
@@ -59,7 +60,8 @@ export function buildPostMeta(post: PostDetail): Metadata {
   const description = post.summary ?? post.title.slice(0, 160);
 
   return {
-    title: `${post.title} | ${boardLabel} - ${SITE_NAME}`,
+    // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
+    title: `${post.title} | ${boardLabel}`,
     description,
     alternates: {
       canonical: canonicalUrl,
@@ -91,7 +93,8 @@ export function buildNoticeMeta(post: PostDetail): Metadata {
   const description = post.summary ?? post.title.slice(0, 160);
 
   return {
-    title: `${post.title} | 공지사항 - ${SITE_NAME}`,
+    // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
+    title: `${post.title} | 공지사항`,
     description,
     alternates: {
       canonical: canonicalUrl,

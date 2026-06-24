@@ -19,7 +19,7 @@ const navItems: {
     label: "바이브 코딩",
     children: [
       { label: "바이브코딩 가이드", href: "/vibe-coding" },
-      { label: "바이브코딩 팁", href: "/vibe-coding" },
+      { label: "바이브코딩 팁", href: "/vibe-coding?board=vibe-coding-tips" },
     ],
   },
   {
@@ -27,8 +27,8 @@ const navItems: {
     label: "AI 자동화",
     children: [
       { label: "자동화 가이드", href: "/automation" },
-      { label: "자동화 사례", href: "/automation" },
-      { label: "자동화 팁", href: "/automation" },
+      { label: "자동화 사례", href: "/automation?board=automation-cases" },
+      { label: "자동화 팁", href: "/automation?board=automation-tips" },
     ],
   },
   {
@@ -36,7 +36,7 @@ const navItems: {
     label: "AI 수익화",
     children: [
       { label: "외주·판매 팁", href: "/monetize" },
-      { label: "수익화 사례", href: "/monetize" },
+      { label: "수익화 사례", href: "/monetize?board=monetization-cases" },
     ],
   },
   {
