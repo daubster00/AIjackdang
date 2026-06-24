@@ -1,22 +1,25 @@
 "use client";
 
 // 비회원 게이팅 래퍼.
-// useMockAuth로 로그인 여부를 판단해 폼 또는 로그인 유도 메시지를 렌더한다.
+// Story 2.12: useMockAuth → useAuth(실 인증) 교체.
+// 회원 → RecruitForm 렌더, 비회원 → 로그인 유도 UI.
 // hydration 불일치를 피하기 위해 ready 상태 확인 후 렌더.
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button, Icon } from "@/components/ui";
-import { useMockAuth } from "@/hooks/useMockAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { RecruitForm } from "./RecruitForm";
 import styles from "../gigs.module.css";
 
 export function GigWriteGate() {
-  const { user, ready } = useMockAuth();
+  const { user, ready } = useAuth();
+  const pathname = usePathname();
 
   // hydration 전: 아무것도 렌더하지 않음 (깜빡임 방지)
   if (!ready) return null;
 
-  // 비회원: 로그인 유도 UI
+  // 비회원: 로그인 유도 UI (행동 게이팅 — project-context §UX)
   if (!user) {
     return (
       <div className={styles.writeContainer}>
@@ -56,7 +59,7 @@ export function GigWriteGate() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <Link href="/login">
+            <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
               <Button>로그인</Button>
             </Link>
             <Link href="/lounge/gigs">

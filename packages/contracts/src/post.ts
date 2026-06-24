@@ -55,6 +55,64 @@ export const createPostWithSpecSchema = z.object({
 });
 export type CreatePostWithSpecInput = z.infer<typeof createPostWithSpecSchema>;
 
+// ── 구인·외주 스펙 (Story 2.12) ───────────────────────────────────────────────
+
+/**
+ * 연락방법 스키마.
+ * types: 선택된 연락 유형 배열 (사이트 쪽지, 이메일, 오픈채팅 링크)
+ * external: 외부 연락처 (이메일 또는 오픈채팅 링크 URL)
+ */
+export const contactMethodSchema = z.object({
+  types: z.array(z.string()).min(1),
+  external: z.string().optional(),
+});
+export type ContactMethod = z.infer<typeof contactMethodSchema>;
+
+/**
+ * recruitPostSchema — Zod 검증 계약.
+ * 필수: postKind, fields, recruitStatus, contactMethod
+ * 선택: budget, duration, workMode
+ */
+export const recruitPostSchema = z.object({
+  postKind: z.enum(["request", "offer"]),
+  fields: z.array(z.string()).min(1),
+  recruitStatus: z.enum(["open", "closed"]).default("open"),
+  budget: z.string().optional(),
+  duration: z.string().optional(),
+  workMode: z.enum(["remote", "onsite", "hybrid"]).optional(),
+  contactMethod: contactMethodSchema,
+});
+export type RecruitPost = z.infer<typeof recruitPostSchema>;
+
+/**
+ * createGigPostSchema — createPostSchema + recruitPost 필수.
+ * board='gigs' 게시글 작성 시 사용.
+ */
+export const createGigPostSchema = z.object({
+  board: z.string().trim().min(1).max(50),
+  category: z.string().trim().max(50).optional(),
+  title: z.string().trim().min(2).max(300),
+  contentJson: z.record(z.string(), z.unknown()),
+  summary: z.string().trim().max(500).optional(),
+  tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]),
+  recruitPost: recruitPostSchema,
+});
+export type CreateGigPostInput = z.infer<typeof createGigPostSchema>;
+
+/**
+ * 목록 카드에서 사용하는 recruit 메타 (요약 정보).
+ */
+export const recruitMetaSchema = z.object({
+  postKind: z.enum(["request", "offer"]),
+  fields: z.array(z.string()),
+  recruitStatus: z.enum(["open", "closed"]),
+  budget: z.string().nullable().optional(),
+  duration: z.string().nullable().optional(),
+  workMode: z.enum(["remote", "onsite", "hybrid"]).nullable().optional(),
+  contactMethod: contactMethodSchema,
+});
+export type RecruitMeta = z.infer<typeof recruitMetaSchema>;
+
 // ── 게시글 운영 상태 ──────────────────────────────────────────────────────────
 // AR-7 soft-delete: status + deleted_at 패턴
 
@@ -84,6 +142,7 @@ export const postCardSchema = z.object({
   hasAttachment: z.boolean(),
   isPinned: z.boolean(),
   tags: z.array(z.string()),
+  recruitMeta: recruitMetaSchema.nullable().optional(),
 });
 export type PostCard = z.infer<typeof postCardSchema>;
 
@@ -107,6 +166,8 @@ export const postDetailSchema = postCardSchema.extend({
   updatedAt: z.string(), // ISO 8601 UTC
   /** Story 2.11: AI 창작마당 창작 스펙. board='ai-creation'이고 스펙이 있을 때만 존재. */
   creativeSpec: creativeSpecSchema.nullable().optional(),
+  /** Story 2.12: 작당 의뢰소 모집 스펙. board='gigs'이고 스펙이 있을 때만 존재. */
+  recruitPost: recruitPostSchema.nullable().optional(),
 });
 export type PostDetail = z.infer<typeof postDetailSchema>;
 

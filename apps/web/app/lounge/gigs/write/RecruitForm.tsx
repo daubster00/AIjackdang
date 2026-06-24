@@ -1,13 +1,15 @@
 "use client";
 
 // 작당 의뢰소 전용 구조화 글쓰기 폼.
+// Story 2.12: 실 API 연동 (POST /api/v1/posts, board=gigs + recruitPost).
 // 필수/선택 필드 + 인라인 검증 + 거래주의 고지 배너 포함.
-// 실제 등록 API는 없으며 목업 수준(alert)으로 구현.
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button, Icon } from "@/components/ui";
 import { LightEditor } from "@/components/board";
+import { useToast } from "@/components/ui/Toast/Toast";
 import { GIG_FIELDS, type GigField, type GigType, type GigStatus } from "../page";
 import styles from "../gigs.module.css";
 
@@ -22,6 +24,13 @@ type WorkStyle = (typeof WORK_STYLES)[number];
 const CONTACT_TYPES = ["사이트 쪽지", "이메일", "오픈채팅 링크"] as const;
 type ContactType = (typeof CONTACT_TYPES)[number];
 
+// 진행방식 → API enum 매핑
+const WORK_STYLE_API: Record<WorkStyle, "remote" | "onsite" | "hybrid"> = {
+  "원격": "remote",
+  "대면": "onsite",
+  "혼합": "hybrid",
+};
+
 // ── 폼 state 타입 ──────────────────────────────────────────
 type FormState = {
   type: GigType | "";
@@ -33,13 +42,17 @@ type FormState = {
   period: string;
   workStyle: WorkStyle | "";
   title: string;
-  body: string;
+  bodyHtml: string; // LightEditor HTML
+  bodyText: string; // 순수 텍스트 (검증용)
 };
 
 // ── 인라인 오류 타입 ──────────────────────────────────────
 type FormErrors = Partial<Record<keyof FormState | "contactRoot", string>>;
 
 export function RecruitForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+
   const [form, setForm] = useState<FormState>({
     type: "",
     fields: [],
@@ -50,10 +63,11 @@ export function RecruitForm() {
     period: "",
     workStyle: "",
     title: "",
-    body: "",
+    bodyHtml: "",
+    bodyText: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // 첨부 파일 state
   const [files, setFiles] = useState<File[]>([]);
@@ -87,11 +101,11 @@ export function RecruitForm() {
       errs.externalContact = "이메일 또는 오픈채팅 링크를 입력하세요.";
     }
     if (!form.title.trim()) errs.title = "제목을 입력하세요.";
-    if (!form.body.trim()) errs.body = "본문을 입력하세요.";
+    if (!form.bodyText.trim()) errs.bodyText = "본문을 입력하세요.";
     return errs;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
@@ -102,8 +116,69 @@ export function RecruitForm() {
       return;
     }
     setErrors({});
-    setSubmitted(true);
-    alert("등록 기능은 아직 개발 중입니다. (목업)");
+    setSubmitting(true);
+
+    try {
+      // HTML → 간단한 Tiptap 호환 JSON 래핑
+      // (LightEditor는 HTML을 반환하므로 paragraph 노드로 감싸서 전송)
+      const contentJson = {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: form.bodyText }],
+          },
+        ],
+      };
+
+      // 연락방법 타입 변환 (한국어 → API 값)
+      const contactTypes = form.contactTypes.map((c) => {
+        if (c === "사이트 쪽지") return "dm";
+        if (c === "이메일") return "email";
+        return "openchat";
+      });
+
+      const body = {
+        board: "gigs",
+        title: form.title.trim(),
+        contentJson,
+        status: "published",
+        tags: [],
+        recruitPost: {
+          postKind: form.type === "의뢰" ? "request" : "offer",
+          fields: form.fields as string[],
+          recruitStatus: form.status === "모집중" ? "open" : "closed",
+          budget: form.budget.trim() || undefined,
+          duration: form.period.trim() || undefined,
+          workMode: form.workStyle ? WORK_STYLE_API[form.workStyle as WorkStyle] : undefined,
+          contactMethod: {
+            types: contactTypes,
+            external: form.externalContact.trim() || undefined,
+          },
+        },
+      };
+
+      const res = await fetch("/api/v1/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: { message?: string } };
+        toast({ tone: "danger", title: data.error?.message ?? "등록에 실패했습니다." });
+        return;
+      }
+
+      const result = (await res.json()) as { slug: string };
+      toast({ tone: "success", title: "의뢰·구직 글이 등록되었습니다." });
+      router.push(`/lounge/gigs/${result.slug}`);
+    } catch {
+      toast({ tone: "danger", title: "등록에 실패했습니다. 잠시 후 다시 시도해주세요." });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // ── 필드 토글 핸들러 ───────────────────────────────────
@@ -407,21 +482,21 @@ export function RecruitForm() {
               본문 <span className={styles.required} aria-hidden="true">*</span>
             </label>
             <div
-              id="field-body"
-              className={errors.body ? styles.editorError : undefined}
+              id="field-bodyText"
+              className={errors.bodyText ? styles.editorError : undefined}
             >
               <LightEditor
                 placeholder="의뢰 내용, 지원 자격, 포트폴리오 첨부 방법 등을 자세히 작성하세요."
                 ariaLabel="본문 입력"
                 minHeight={240}
                 onChange={(s) => {
-                  setForm((p) => ({ ...p, body: s.text }));
-                  setErrors((er) => ({ ...er, body: undefined }));
+                  setForm((p) => ({ ...p, bodyHtml: s.html, bodyText: s.text }));
+                  setErrors((er) => ({ ...er, bodyText: undefined }));
                 }}
               />
             </div>
-            {errors.body && (
-              <span id="err-body" className={styles.fieldError} role="alert">{errors.body}</span>
+            {errors.bodyText && (
+              <span id="err-body" className={styles.fieldError} role="alert">{errors.bodyText}</span>
             )}
           </div>
 
@@ -491,9 +566,9 @@ export function RecruitForm() {
           <Link href="/lounge/gigs">
             <Button variant="ghost" type="button">취소</Button>
           </Link>
-          <Button type="submit" disabled={submitted}>
+          <Button type="submit" disabled={submitting}>
             <Icon name="check-line" />
-            등록하기
+            {submitting ? "등록 중..." : "등록하기"}
           </Button>
         </div>
       </div>

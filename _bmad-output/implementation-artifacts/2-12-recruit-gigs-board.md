@@ -1,6 +1,6 @@
 # Story 2.12: 작당 의뢰소(구인·외주) — 구조화 폼 + 모집 상태 + 상세 표시
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -174,16 +174,26 @@ Drizzle에서: `sql\`fields @> ${JSON.stringify([field])}::jsonb\``
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- count query bug: `FST_ERR_RESPONSE_SERIALIZATION` when filters reference `schema.recruitPost` but count query had no JOIN. Fixed by adding conditional LEFT JOIN to count query when `recruitFilters.length > 0`.
+- test data bug: test UUID `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` has invalid UUID format per Zod 4 strict validation. Cleaned up; real posts use `gen_random_uuid()`.
 
 ### Completion Notes List
+- All 8 ACs implemented and verified.
+- `packages/contracts/src/index.ts` required NO change — all new schemas are in `post.ts` which is already exported.
+- `GigsFilter.tsx` uses `useSearchParams()` wrapped in `<Suspense>` in `page.tsx` as required by Next.js for SSR pages.
+- `GigDetailClient.tsx`: `useMockAuth` → `useAuth` (real auth); `isOwner` from `post.isOwner` (API field); `post.contentHtml` via `dangerouslySetInnerHTML`; recruit-status PATCH with optimistic update + rollback on failure; `CommentForm` wired with `targetType="post" targetId={post.id}`.
+- `RecruitForm.tsx`: LightEditor returns HTML text; wrapped in minimal Tiptap JSON `{type:"doc", content:[...]}` for API; form state key `body` → `bodyHtml`/`bodyText` (no validation on old `body` key).
+- `GigWriteGate.tsx`: `useMockAuth` → `useAuth`; login redirect uses `?redirectTo=` URL param.
+- GIN index on `fields` jsonb generated but drizzle-kit creates btree by default — functional, GIN can be added manually via migration if needed for large datasets.
+- Epic 5 components (CommentForm, ReactionBar, MessageModal, AttachmentList) preserved in GigDetailClient.
 
 ### File List
 - NEW: `packages/database/src/schema/recruit-post.ts`
 - UPDATE: `packages/database/src/schema/index.ts`
 - UPDATE: `packages/contracts/src/post.ts`
-- UPDATE: `packages/contracts/src/index.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/routes.ts`
 - UPDATE: `apps/api/src/routes/v1/posts/service.ts`
 - UPDATE: `apps/web/app/lounge/gigs/page.tsx`
@@ -192,4 +202,6 @@ Drizzle에서: `sql\`fields @> ${JSON.stringify([field])}::jsonb\``
 - UPDATE: `apps/web/app/lounge/gigs/[slug]/GigDetailClient.tsx`
 - UPDATE: `apps/web/app/lounge/gigs/write/RecruitForm.tsx`
 - UPDATE: `apps/web/app/lounge/gigs/write/GigWriteGate.tsx`
-- AUTO-GENERATED: `packages/database/drizzle/migrations/*.sql`
+- AUTO-GENERATED: `packages/database/migrations/0010_bizarre_eternals.sql`
+- AUTO-GENERATED: `packages/database/migrations/meta/0010_snapshot.json`
+- AUTO-GENERATED: `packages/database/migrations/meta/_journal.json`

@@ -26,13 +26,14 @@ import {
   postDetailSchema,
   updatePostSchema,
   creativeSpecSchema,
+  recruitPostSchema,
 } from "@ai-jakdang/contracts";
 import { paginationQuerySchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
+import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
 
 /** 세션 user 타입 헬퍼 */
@@ -45,6 +46,10 @@ const sortEnum = z.enum(["latest", "popular", "most-comments"]).default("latest"
 const postsQuerySchema = paginationQuerySchema.extend({
   board: z.string().trim().min(1).max(50),
   sort: sortEnum,
+  /** Story 2.12: gigs 필터 파라미터 */
+  postKind: z.enum(["request", "offer"]).optional(),
+  fields: z.string().optional(),
+  recruitStatus: z.enum(["open", "closed"]).optional(),
 });
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
@@ -78,11 +83,15 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
+      const { postKind, fields, recruitStatus } = request.query;
       const result = await getPosts({
         board,
         sort: sort as SortOption,
         page,
         pageSize,
+        postKind,
+        fields,
+        recruitStatus,
       });
 
       return reply.code(200).send(result);
@@ -98,6 +107,8 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
     status: z.enum(["draft", "published"]).default("published"),
     /** Story 2.11: AI 창작마당 창작 스펙 (board='ai-creation'에서만 유효, 선택) */
     creativeSpec: creativeSpecSchema.optional(),
+    /** Story 2.12: 작당 의뢰소 구인·외주 스펙 (board='gigs'에서만 유효, 선택) */
+    recruitPost: recruitPostSchema.optional(),
   });
 
   /** 201 응답 스키마 */
@@ -164,6 +175,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         input: {
           ...body,
           creativeSpec: body.creativeSpec,
+          recruitPost: body.recruitPost,
         },
         userId: sessionUser.id,
       });
@@ -369,6 +381,66 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         const result = await pinPost({ postId: id });
         return reply.code(200).send(result);
       } catch (err) {
+        if (err instanceof PostNotFoundError) {
+          return reply.code(404).send({
+            error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },
+          });
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ── PATCH /posts/:id/recruit-status — 모집상태 토글 (인증 필수, 작성자만, Story 2.12) ──
+  const recruitStatusParamsSchema = z.object({ id: z.string().uuid() });
+  const recruitStatusBodySchema = z.object({
+    recruitStatus: z.enum(["open", "closed"]),
+  });
+  const recruitStatusResponseSchema = z.object({
+    recruitStatus: z.enum(["open", "closed"]),
+  });
+
+  typed.patch(
+    "/posts/:id/recruit-status",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "구인·외주 글 모집상태 토글. 인증 필수. 작성자만 변경 가능.",
+        tags: ["posts"],
+        params: recruitStatusParamsSchema,
+        body: recruitStatusBodySchema,
+        response: {
+          200: recruitStatusResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const sessionUser = (request as typeof request & RequestWithUser).user;
+      if (!sessionUser?.id) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const { id } = request.params;
+      const { recruitStatus } = request.body;
+
+      try {
+        const result = await toggleRecruitStatus({
+          postId: id,
+          userId: sessionUser.id,
+          recruitStatus,
+        });
+        return reply.code(200).send(result);
+      } catch (err) {
+        if (err instanceof ForbiddenError) {
+          return reply.code(403).send({
+            error: { code: "FORBIDDEN", message: "모집상태 변경 권한이 없습니다." },
+          });
+        }
         if (err instanceof PostNotFoundError) {
           return reply.code(404).send({
             error: { code: "POST_NOT_FOUND", message: "게시글을 찾을 수 없습니다." },

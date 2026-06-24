@@ -5,3 +5,4 @@ export * from "./post-creative-spec";
 export * from "./qna";
 export * from "./resources";
 export * from "./engagement";
+export * from "./recruit-post";

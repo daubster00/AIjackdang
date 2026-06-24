@@ -71,6 +71,13 @@
       "when": 1782255800822,
       "tag": "0009_messy_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782259363284,
+      "tag": "0010_bizarre_eternals",
+      "breakpoints": true
     }
   ]
 }

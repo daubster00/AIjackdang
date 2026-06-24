@@ -9,9 +9,9 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { PostCard, PostDetail, CreativeSpec } from "@ai-jakdang/contracts";
-import type { CreatePostInput } from "@ai-jakdang/contracts";
+import type { CreatePostInput, RecruitPost, RecruitMeta } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
-import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
+import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 import { Redis } from "ioredis";
 import sanitizeHtml from "sanitize-html";
@@ -34,6 +34,10 @@ export interface GetPostsParams {
   sort?: SortOption;
   page?: number;
   pageSize?: number;
+  /** Story 2.12: gigs 전용 필터 */
+  postKind?: "request" | "offer";
+  fields?: string;
+  recruitStatus?: "open" | "closed";
 }
 
 export interface GetPostsResult {
@@ -59,6 +63,9 @@ export async function getPosts({
   sort = "latest",
   page = 1,
   pageSize = 20,
+  postKind,
+  fields,
+  recruitStatus,
 }: GetPostsParams): Promise<GetPostsResult> {
   const db = getDb();
   const offset = (page - 1) * pageSize;
@@ -72,17 +79,37 @@ export async function getPosts({
       : desc(schema.posts.createdAt);
 
   // ── WHERE 조건 ────────────────────────────────────────────────────────────────
+  // Story 2.12: gigs 필터 (postKind, recruitStatus, fields)
+  const recruitFilters = [];
+  if (board === "gigs") {
+    if (postKind) recruitFilters.push(eq(schema.recruitPost.postKind, postKind));
+    if (recruitStatus) recruitFilters.push(eq(schema.recruitPost.recruitStatus, recruitStatus));
+    if (fields) {
+      recruitFilters.push(sql`${schema.recruitPost.fields} @> ${JSON.stringify([fields])}::jsonb`);
+    }
+  }
+
   const whereCondition = and(
     eq(schema.posts.board, board),
     eq(schema.posts.status, "published"),
     isNull(schema.posts.deletedAt),
+    ...recruitFilters,
   );
 
   // ── 총 개수 쿼리 ──────────────────────────────────────────────────────────────
-  const [countRow] = await db
+  // Story 2.12: gigs 필터가 recruit_post를 참조하는 경우 LEFT JOIN 필요
+  const countQuery = db
     .select({ total: count() })
-    .from(schema.posts)
-    .where(whereCondition);
+    .from(schema.posts);
+
+  const countRow = recruitFilters.length > 0
+    ? await countQuery
+        .leftJoin(schema.recruitPost, eq(schema.recruitPost.postId, schema.posts.id))
+        .where(whereCondition)
+        .then(([row]) => row)
+    : await countQuery
+        .where(whereCondition)
+        .then(([row]) => row);
 
   const totalItems = countRow?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -99,9 +126,18 @@ export async function getPosts({
       isPinned: schema.posts.isPinned,
       createdAt: schema.posts.createdAt,
       authorNickname: schema.users.nickname,
+      // Story 2.12: 구인·외주 메타 JOIN (board='gigs' 전용)
+      recruitPostKind: schema.recruitPost.postKind,
+      recruitFields: schema.recruitPost.fields,
+      recruitStatus: schema.recruitPost.recruitStatus,
+      recruitBudget: schema.recruitPost.budget,
+      recruitDuration: schema.recruitPost.duration,
+      recruitWorkMode: schema.recruitPost.workMode,
+      recruitContactMethod: schema.recruitPost.contactMethod,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
+    .leftJoin(schema.recruitPost, eq(schema.recruitPost.postId, schema.posts.id))
     .where(whereCondition)
     .orderBy(desc(schema.posts.isPinned), secondaryOrder)
     .limit(pageSize)
@@ -154,6 +190,18 @@ export async function getPosts({
     hasAttachment: false, // Epic 4 이전 고정 (첨부파일 테이블 미존재)
     isPinned: row.isPinned, // Story 2.9: 공지 핀 고정 여부
     tags: tagMap.get(row.id) ?? [],
+    // Story 2.12: gigs 전용 recruitMeta
+    recruitMeta: row.recruitPostKind != null
+      ? {
+          postKind: row.recruitPostKind as "request" | "offer",
+          fields: Array.isArray(row.recruitFields) ? (row.recruitFields as string[]) : [],
+          recruitStatus: (row.recruitStatus ?? "open") as "open" | "closed",
+          budget: row.recruitBudget ?? null,
+          duration: row.recruitDuration ?? null,
+          workMode: (row.recruitWorkMode ?? null) as ("remote" | "onsite" | "hybrid") | null,
+          contactMethod: (row.recruitContactMethod ?? { types: [] }) as RecruitMeta["contactMethod"],
+        }
+      : null,
   }));
 
   return {
@@ -169,7 +217,7 @@ export async function getPosts({
 export type PostStatus = "draft" | "published";
 
 export interface CreatePostParams {
-  input: CreatePostInput & { status?: PostStatus; creativeSpec?: CreativeSpec };
+  input: CreatePostInput & { status?: PostStatus; creativeSpec?: CreativeSpec; recruitPost?: RecruitPost };
   userId: string;
 }
 
@@ -206,6 +254,7 @@ export async function createPost({
     tags = [],
     status = "published",
     creativeSpec,
+    recruitPost,
   } = input;
 
   // ── slug 생성 ──────────────────────────────────────────────────────────────
@@ -328,6 +377,20 @@ export async function createPost({
         costType: creativeSpec.costType ?? null,
         timeSpent: creativeSpec.timeSpent ?? null,
         licenseNote: licenseNote ?? null,
+      });
+    }
+
+    // 4) recruit_post INSERT (board='gigs'이고 recruitPost가 있을 때만)
+    if (board === "gigs" && recruitPost) {
+      await tx.insert(schema.recruitPost).values({
+        postId: post.id,
+        postKind: recruitPost.postKind,
+        fields: recruitPost.fields,
+        recruitStatus: recruitPost.recruitStatus ?? "open",
+        budget: recruitPost.budget ?? null,
+        duration: recruitPost.duration ?? null,
+        workMode: recruitPost.workMode ?? null,
+        contactMethod: recruitPost.contactMethod,
       });
     }
 
@@ -707,12 +770,24 @@ export async function getPostBySlug(
       specCostType: schema.postCreativeSpec.costType,
       specTimeSpent: schema.postCreativeSpec.timeSpent,
       specLicenseNote: schema.postCreativeSpec.licenseNote,
+      // Story 2.12: 구인·외주 스펙 JOIN 컬럼
+      recruitPostKind: schema.recruitPost.postKind,
+      recruitFields: schema.recruitPost.fields,
+      recruitStatus: schema.recruitPost.recruitStatus,
+      recruitBudget: schema.recruitPost.budget,
+      recruitDuration: schema.recruitPost.duration,
+      recruitWorkMode: schema.recruitPost.workMode,
+      recruitContactMethod: schema.recruitPost.contactMethod,
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
     .leftJoin(
       schema.postCreativeSpec,
       eq(schema.postCreativeSpec.postId, schema.posts.id),
+    )
+    .leftJoin(
+      schema.recruitPost,
+      eq(schema.recruitPost.postId, schema.posts.id),
     )
     .where(
       and(
@@ -780,6 +855,19 @@ export async function getPostBySlug(
   // suppress unused variable warning
   void hasSpec;
 
+  // Story 2.12: 구인·외주 스펙 조립
+  const recruitPostData: RecruitPost | null = row.recruitPostKind != null
+    ? {
+        postKind: row.recruitPostKind as "request" | "offer",
+        fields: Array.isArray(row.recruitFields) ? (row.recruitFields as string[]) : [],
+        recruitStatus: (row.recruitStatus ?? "open") as "open" | "closed",
+        budget: row.recruitBudget ?? undefined,
+        duration: row.recruitDuration ?? undefined,
+        workMode: (row.recruitWorkMode ?? undefined) as ("remote" | "onsite" | "hybrid") | undefined,
+        contactMethod: (row.recruitContactMethod ?? { types: [] }) as RecruitMeta["contactMethod"],
+      }
+    : null;
+
   return {
     id: row.id,
     slug: row.slug,
@@ -803,6 +891,7 @@ export async function getPostBySlug(
     isOwner,
     tags,
     creativeSpec,
+    recruitPost: recruitPostData,
   };
 }
 
@@ -841,4 +930,59 @@ export async function pinPost({ postId }: { postId: string }): Promise<PinPostRe
     .where(eq(schema.posts.id, postId));
 
   return { id: current.id, isPinned: newIsPinned };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 2.12: 모집상태 토글 (PATCH /api/v1/posts/:id/recruit-status)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ToggleRecruitStatusParams {
+  postId: string;
+  userId: string;
+  recruitStatus: "open" | "closed";
+}
+
+export interface ToggleRecruitStatusResult {
+  recruitStatus: "open" | "closed";
+}
+
+/**
+ * 모집상태를 변경한다.
+ * - 작성자 본인만 가능 (ForbiddenError)
+ * - recruit_post 레코드가 없으면 PostNotFoundError
+ */
+export async function toggleRecruitStatus({
+  postId,
+  userId,
+  recruitStatus,
+}: ToggleRecruitStatusParams): Promise<ToggleRecruitStatusResult> {
+  const db = getDb();
+
+  // 게시글 조회 + 권한 검증
+  const rows = await db
+    .select({ id: schema.posts.id, userId: schema.posts.userId })
+    .from(schema.posts)
+    .where(and(eq(schema.posts.id, postId), isNull(schema.posts.deletedAt)))
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) {
+    throw new PostNotFoundError();
+  }
+
+  if (rows[0].userId !== userId) {
+    throw new ForbiddenError();
+  }
+
+  // recruit_post UPDATE
+  const updated = await db
+    .update(schema.recruitPost)
+    .set({ recruitStatus, updatedAt: new Date() })
+    .where(eq(schema.recruitPost.postId, postId))
+    .returning({ recruitStatus: schema.recruitPost.recruitStatus });
+
+  if (updated.length === 0) {
+    throw new PostNotFoundError("recruit_post 레코드를 찾을 수 없습니다.");
+  }
+
+  return { recruitStatus: updated[0]!.recruitStatus as "open" | "closed" };
 }

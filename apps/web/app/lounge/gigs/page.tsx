@@ -1,16 +1,15 @@
-"use client";
-
-// 작당 의뢰소 목록 페이지.
-// 글유형·분야·모집상태 필터를 클라이언트 state로 처리하고,
-// mock 배열을 필터링하여 카드 목록으로 렌더한다.
-// → 비회원도 목록 열람 가능, 글쓰기 버튼만 useMockAuth 게이팅.
+// 작당 의뢰소 목록 페이지 (서버 컴포넌트 — SSR + 비회원 색인 가능).
+// Story 2.12: mock 데이터 → 실 API 연동.
+// 필터(유형·분야·상태)는 URL 쿼리 파라미터 기반으로 클라이언트 컴포넌트(GigsFilter)에서 처리.
 
 import Link from "next/link";
-import { Avatar, AuthorName, Badge, Button, Icon, Select, SearchInput } from "@/components/ui";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { Avatar, AuthorName, Badge, Button, Icon } from "@/components/ui";
 import { BoardHero } from "@/components/board";
-import { useMockAuth } from "@/hooks/useMockAuth";
-import { useState } from "react";
+import { GigsFilter } from "./GigsFilter";
 import styles from "./gigs.module.css";
+import type { PostCard, RecruitMeta } from "@ai-jakdang/contracts";
 
 // ── 분야(FR-5.3) 목록 ──────────────────────────────────────
 export const GIG_FIELDS = [
@@ -26,6 +25,11 @@ export const GIG_FIELDS = [
 ] as const;
 
 export type GigField = (typeof GIG_FIELDS)[number];
+/** API 응답 기준 enum 값 */
+export type GigPostKind = "request" | "offer";
+export type GigRecruitStatus = "open" | "closed";
+
+// ── 레거시 타입 (다른 파일들이 아직 import할 수 있으므로 유지) ──
 export type GigType = "의뢰" | "구직";
 export type GigStatus = "모집중" | "마감";
 
@@ -40,194 +44,79 @@ export type GigPost = {
   date: string;
   views: string;
   comments: number;
-  budget?: string; // 예산/희망단가 (선택)
-  period?: string; // 작업기간/마감 (선택)
+  budget?: string;
+  period?: string;
 };
 
-// ── mock 데이터 (의뢰/구직 · 모집중/마감 각각 섞어서 5개) ─
-export const MOCK_GIGS: GigPost[] = [
-  {
-    slug: "ai-video-short-form",
-    type: "의뢰",
-    fields: ["AI 영상", "이미지 생성"],
-    status: "모집중",
-    title: "숏폼 유튜브 채널용 AI 영상 편집자를 찾습니다",
-    excerpt:
-      "월 8~12편 분량의 1분 내외 쇼츠 영상 편집 의뢰입니다. AI 영상 생성 툴 활용 경험자 우대. 샘플 포트폴리오 제출 필수.",
-    author: "채널운영중",
-    date: "2026.06.20",
-    views: "852",
-    comments: 14,
-    budget: "편당 3만원~",
-    period: "월 단위 계약",
-  },
-  {
-    slug: "chatbot-llm-dev-outsource",
-    type: "의뢰",
-    fields: ["챗봇·LLM 개발", "웹·앱 개발"],
-    status: "모집중",
-    title: "고객 상담용 LLM 챗봇 외주 개발 의뢰",
-    excerpt:
-      "쇼핑몰 CS 자동화용 RAG 기반 챗봇입니다. Claude API 또는 GPT 모델 활용 가능. 요구사항 문서 제공. 원격 진행 가능합니다.",
-    author: "스타트업창업자",
-    date: "2026.06.18",
-    views: "1,203",
-    comments: 22,
-    budget: "350만원 ~ 협의",
-    period: "6주 이내",
-  },
-  {
-    slug: "prompt-engineer-wanted",
-    type: "구직",
-    fields: ["프롬프트 엔지니어링", "컨설팅·강의"],
-    status: "모집중",
-    title: "프롬프트 엔지니어링·AI 교육 강사로 활동하고 싶습니다",
-    excerpt:
-      "2년 이상의 Claude/GPT 프롬프트 최적화 경험, 기업 대상 AI 워크숍 진행 이력 보유. 강의·컨설팅·콘텐츠 제작 협업 제안 환영합니다.",
-    author: "프롬프트장인",
-    date: "2026.06.17",
-    views: "674",
-    comments: 8,
-    period: "상시 모집",
-  },
-  {
-    slug: "music-ai-bgm-request",
-    type: "의뢰",
-    fields: ["음악·오디오"],
-    status: "마감",
-    title: "팟캐스트 배경음악 AI 작곡 의뢰 — 마감되었습니다",
-    excerpt:
-      "주간 팟캐스트 인트로/아웃트로 및 배경음악 5종 제작 의뢰. 상업적 이용 가능한 라이선스 포함. (현재 협업자 선정 완료, 마감)",
-    author: "팟캐스터K",
-    date: "2026.06.14",
-    views: "430",
-    comments: 6,
-    budget: "30만원 (일괄)",
-  },
-  {
-    slug: "automation-workflow-expert",
-    type: "구직",
-    fields: ["자동화·워크플로", "챗봇·LLM 개발"],
-    status: "마감",
-    title: "n8n / Make 자동화 전문가 — 포지션 결정됨",
-    excerpt:
-      "n8n, Make, Zapier 3년 경력. LLM API 연동 자동화 파이프라인 구축 전문. 당분간 추가 프로젝트 어렵습니다. (마감)",
-    author: "자동화마스터",
-    date: "2026.06.12",
-    views: "589",
-    comments: 9,
-  },
-];
+// ── 변환 헬퍼 ──────────────────────────────────────────────
+function postKindToLabel(kind: GigPostKind): GigType {
+  return kind === "request" ? "의뢰" : "구직";
+}
 
-// ── 셀렉트 박스 옵션 (유형 / 분야 / 상태) ──────────────────
-const TYPE_OPTIONS = [
-  { value: "전체", label: "유형 전체" },
-  { value: "의뢰", label: "의뢰" },
-  { value: "구직", label: "구직" },
-];
-const FIELD_OPTIONS = [
-  { value: "전체", label: "분야 전체" },
-  ...GIG_FIELDS.map((f) => ({ value: f, label: f })),
-];
-const STATUS_OPTIONS = [
-  { value: "전체", label: "상태 전체" },
-  { value: "모집중", label: "모집중" },
-  { value: "마감", label: "마감" },
-];
+function recruitStatusToLabel(status: GigRecruitStatus): GigStatus {
+  return status === "open" ? "모집중" : "마감";
+}
 
-// ── 컴포넌트 ──────────────────────────────────────────────
-export default function GigsPage() {
-  const { user } = useMockAuth();
+export const metadata: Metadata = {
+  title: "작당 의뢰소 | 작당 라운지 — AI작당",
+  description: "AI 외주·협업 의뢰와 구직 글을 분야·예산·상태 기준으로 찾아보세요.",
+};
 
-  // 필터 state: "전체" = 필터 없음
-  const [filterType, setFilterType] = useState<GigType | "전체">("전체");
-  const [filterField, setFilterField] = useState<GigField | "전체">("전체");
-  const [filterStatus, setFilterStatus] = useState<GigStatus | "전체">("전체");
-  // 검색어 state (제목·본문 대상)
-  const [query, setQuery] = useState("");
+// ── API 데이터 fetcher ──────────────────────────────────────
+async function fetchGigsList(searchParams: Record<string, string>) {
+  const API_BASE = process.env.INTERNAL_API_URL ?? "http://localhost:4003";
 
-  // 글쓰기 버튼 클릭 핸들러 — 비회원은 안내 alert, 회원은 write 페이지로
-  function handleWriteClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (!user) {
-      e.preventDefault();
-      alert("로그인 후 의뢰/구직 글을 작성할 수 있습니다.");
-    }
+  const params = new URLSearchParams({ board: "gigs", pageSize: "20" });
+  if (searchParams.postKind) params.set("postKind", searchParams.postKind);
+  if (searchParams.fields) params.set("fields", searchParams.fields);
+  if (searchParams.recruitStatus) params.set("recruitStatus", searchParams.recruitStatus);
+  if (searchParams.page) params.set("page", searchParams.page);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/posts?${params.toString()}`, {
+      next: { revalidate: 30 }, // 30초 재검증 (SSR 캐시)
+    });
+    if (!res.ok) return { items: [] as PostCard[], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
+    return (await res.json()) as { items: PostCard[]; meta: { page: number; pageSize: number; totalItems: number; totalPages: number } };
+  } catch {
+    return { items: [] as PostCard[], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
+  }
+}
+
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+export default async function GigsPage({ searchParams }: { searchParams: SearchParams }) {
+  const resolvedParams = await searchParams;
+
+  // string[] → string 변환
+  const sp: Record<string, string> = {};
+  for (const [k, v] of Object.entries(resolvedParams)) {
+    if (typeof v === "string") sp[k] = v;
+    else if (Array.isArray(v) && v[0]) sp[k] = v[0];
   }
 
-  // mock 배열 클라이언트 필터링 + 검색
-  const trimmedQuery = query.trim().toLowerCase();
-  const filtered = MOCK_GIGS.filter((g) => {
-    if (filterType !== "전체" && g.type !== filterType) return false;
-    if (filterField !== "전체" && !g.fields.includes(filterField)) return false;
-    if (filterStatus !== "전체" && g.status !== filterStatus) return false;
-    if (
-      trimmedQuery &&
-      !g.title.toLowerCase().includes(trimmedQuery) &&
-      !g.excerpt.toLowerCase().includes(trimmedQuery)
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const data = await fetchGigsList(sp);
+  const { items, meta } = data;
+  const currentPage = meta.page;
 
   return (
     <main id="main" className={styles.page}>
       {/* 히어로: 작당 라운지 대메뉴 공통 히어로 사용 */}
       <BoardHero menu="lounge" currentSub="작당 의뢰소" />
 
-      {/* ── 필터 툴바: 유형·분야·상태 셀렉트 박스 + 검색창 ── */}
-      <section className={styles.filterToolbar} aria-label="의뢰 목록 필터 및 검색">
-        <div className={styles.filterSelects}>
-          {/* 글유형 셀렉트 */}
-          <div className={styles.selectField}>
-            <Select
-              label="유형"
-              options={TYPE_OPTIONS}
-              value={filterType}
-              onChange={(v) => setFilterType(v as GigType | "전체")}
-            />
-          </div>
-
-          {/* 분야 셀렉트 (옵션이 많아 약간 넓게) */}
-          <div className={`${styles.selectField} ${styles.selectFieldWide}`}>
-            <Select
-              label="분야"
-              options={FIELD_OPTIONS}
-              value={filterField}
-              onChange={(v) => setFilterField(v as GigField | "전체")}
-            />
-          </div>
-
-          {/* 모집상태 셀렉트 */}
-          <div className={styles.selectField}>
-            <Select
-              label="상태"
-              options={STATUS_OPTIONS}
-              value={filterStatus}
-              onChange={(v) => setFilterStatus(v as GigStatus | "전체")}
-            />
-          </div>
-        </div>
-
-        {/* 검색창 */}
-        <div className={styles.filterSearch}>
-          <SearchInput
-            placeholder="제목·내용 검색"
-            buttonLabel="검색"
-            defaultValue={query}
-            onSearch={(v) => setQuery(v)}
-          />
-        </div>
-      </section>
+      {/* ── 필터 툴바: 클라이언트 컴포넌트 (URL 쿼리 기반) ── */}
+      <Suspense>
+        <GigsFilter />
+      </Suspense>
 
       {/* ── 목록 레이아웃 ── */}
       <div className={styles.listLayout}>
         <div className={styles.listHeader}>
           <div className={styles.listStats}>
-            <span>총 {filtered.length}개</span>
+            <span>총 {meta.totalItems}개</span>
           </div>
-          {/* 글쓰기 버튼: 비회원이면 alert 게이팅 */}
-          <Link href="/lounge/gigs/write" onClick={handleWriteClick}>
+          {/* 글쓰기 버튼: 비회원 게이팅은 GigWriteGate에서 처리 */}
+          <Link href="/lounge/gigs/write">
             <Button
               className={styles.writeButton}
               leftIcon={
@@ -243,27 +132,47 @@ export default function GigsPage() {
 
         <div className={styles.mainCol}>
           <section className={styles.postList} aria-label="작당 의뢰소 게시글 목록">
-            {filtered.length === 0 ? (
+            {items.length === 0 ? (
               <p style={{ textAlign: "center", color: "var(--color-text-sub)", padding: "48px 0" }}>
                 조건에 맞는 의뢰·구직 글이 없습니다.
               </p>
             ) : (
-              filtered.map((gig) => (
-                <GigCard key={gig.slug} gig={gig} />
+              items.map((post) => (
+                <GigCard key={post.id} post={post} />
               ))
             )}
           </section>
 
-          {/* 페이지네이션 (mock) */}
-          <nav className={styles.pagination} aria-label="페이지 이동">
-            <button type="button" aria-label="이전 페이지">
-              <Icon name="arrow-left-s-line" />
-            </button>
-            <button type="button" aria-current="page">1</button>
-            <button type="button" aria-label="다음 페이지">
-              <Icon name="arrow-right-s-line" />
-            </button>
-          </nav>
+          {/* 페이지네이션 */}
+          {meta.totalPages > 1 && (
+            <nav className={styles.pagination} aria-label="페이지 이동">
+              {currentPage > 1 && (
+                <Link
+                  href={`/lounge/gigs?${new URLSearchParams({ ...sp, page: String(currentPage - 1) }).toString()}`}
+                  aria-label="이전 페이지"
+                >
+                  <Icon name="arrow-left-s-line" />
+                </Link>
+              )}
+              {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map((p) => (
+                <Link
+                  key={p}
+                  href={`/lounge/gigs?${new URLSearchParams({ ...sp, page: String(p) }).toString()}`}
+                  aria-current={p === currentPage ? "page" : undefined}
+                >
+                  {p}
+                </Link>
+              ))}
+              {currentPage < meta.totalPages && (
+                <Link
+                  href={`/lounge/gigs?${new URLSearchParams({ ...sp, page: String(currentPage + 1) }).toString()}`}
+                  aria-label="다음 페이지"
+                >
+                  <Icon name="arrow-right-s-line" />
+                </Link>
+              )}
+            </nav>
+          )}
         </div>
       </div>
     </main>
@@ -271,73 +180,84 @@ export default function GigsPage() {
 }
 
 // ── 의뢰 카드 서브컴포넌트 ─────────────────────────────────
-function GigCard({ gig }: { gig: GigPost }) {
-  const isClosed = gig.status === "마감";
+function GigCard({ post }: { post: PostCard }) {
+  const meta = post.recruitMeta as RecruitMeta | null | undefined;
+  const isClosed = meta?.recruitStatus === "closed";
+  const typeLabel = meta?.postKind ? postKindToLabel(meta.postKind) : null;
+  const statusLabel = meta?.recruitStatus ? recruitStatusToLabel(meta.recruitStatus) : null;
 
   return (
     <article
       className={`${styles.gigItem} ${isClosed ? styles.gigItemClosed : ""}`}
-      aria-label={`${gig.type} - ${gig.status}`}
+      aria-label={`${typeLabel ?? ""} - ${statusLabel ?? ""}`}
     >
       {/* 카드 본문(왼쪽): 배지 + 제목 + 분야 칩 */}
       <div className={styles.gigBody}>
         {/* 배지 행: 글유형 + 모집상태 */}
-        <div className={styles.gigBadgeRow}>
-          {/* 의뢰=info 톤, 구직=success 톤 */}
-          <Badge tone={gig.type === "의뢰" ? "info" : "success"} variant="soft">
-            {gig.type}
-          </Badge>
-          {/* 모집중=success, 마감=neutral (흐리게는 gigItemClosed CSS로 처리) */}
-          <Badge tone={isClosed ? "neutral" : "success"} variant={isClosed ? "outline" : "soft"}>
-            {gig.status}
-          </Badge>
-        </div>
+        {(typeLabel || statusLabel) && (
+          <div className={styles.gigBadgeRow}>
+            {typeLabel && (
+              <Badge tone={meta?.postKind === "request" ? "info" : "success"} variant="soft">
+                {typeLabel}
+              </Badge>
+            )}
+            {statusLabel && (
+              <Badge tone={isClosed ? "neutral" : "success"} variant={isClosed ? "outline" : "soft"}>
+                {statusLabel}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* 제목 */}
         <h3>
-          <Link href={`/lounge/gigs/${gig.slug}`} className={styles.gigTitle}>
-            {gig.title}
+          <Link href={`/lounge/gigs/${post.slug}`} className={styles.gigTitle}>
+            {post.title}
           </Link>
         </h3>
 
         {/* 분야 칩 */}
-        <div className={styles.fieldChips} aria-label="분야">
-          {gig.fields.map((f) => (
-            <span key={f} className={styles.fieldChip}>{f}</span>
-          ))}
-        </div>
+        {meta?.fields && meta.fields.length > 0 && (
+          <div className={styles.fieldChips} aria-label="분야">
+            {meta.fields.map((f) => (
+              <span key={f} className={styles.fieldChip}>{f}</span>
+            ))}
+          </div>
+        )}
 
-        {/* 통계: 조회수 + 댓글 (구분선 왼쪽 = 본문 영역에 배치) */}
+        {/* 통계: 조회수 + 댓글 */}
         <div className={styles.gigStats} aria-label="통계">
-          <span><Icon name="eye-line" />{gig.views}</span>
-          <span><Icon name="chat-3-line" />{gig.comments}</span>
+          <span><Icon name="eye-line" />{post.viewCount}</span>
+          <span><Icon name="chat-3-line" />{post.commentCount}</span>
         </div>
       </div>
 
-      {/* 메타(오른쪽): 작성자·날짜(상단) → 예산/단가·기간. 본문과 세로 구분선으로 분리 */}
+      {/* 메타(오른쪽): 작성자·날짜·예산/기간 */}
       <div className={styles.gigMeta}>
-        {/* 작성자 + 날짜 (위쪽으로 이동) */}
+        {/* 작성자 + 날짜 */}
         <div className={styles.gigMetaAuthor}>
-          <Avatar name={gig.author} size="sm" />
+          <Avatar name={post.authorNickname ?? "익명"} size="sm" />
           <div className={styles.gigMetaAuthorText}>
-            <AuthorName name={gig.author} className={styles.authorName} />
-            <span className={styles.gigMetaDate}>{gig.date}</span>
+            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} className={styles.authorName} />
+            <span className={styles.gigMetaDate}>
+              {new Date(post.createdAt).toLocaleDateString("ko-KR")}
+            </span>
           </div>
         </div>
 
         {/* 예산/단가 (있을 때만) */}
-        {gig.budget && (
+        {meta?.budget && (
           <span className={styles.gigBudget}>
             예산/단가
-            <span className={styles.gigBudgetAmount}>{gig.budget}</span>
+            <span className={styles.gigBudgetAmount}>{meta.budget}</span>
           </span>
         )}
         {/* 기간 (있을 때만) */}
-        {gig.period && (
+        {meta?.duration && (
           <span className={styles.gigBudget}>
             기간
             <span className={styles.gigBudgetAmount} style={{ fontSize: "var(--font-size-sm)" }}>
-              {gig.period}
+              {meta.duration}
             </span>
           </span>
         )}
