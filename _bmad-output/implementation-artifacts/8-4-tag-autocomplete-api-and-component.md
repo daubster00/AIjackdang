@@ -1,6 +1,6 @@
 # Story 8.4: 태그 자동완성 API & 태그 입력 컴포넌트
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

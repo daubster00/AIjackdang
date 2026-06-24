@@ -109,3 +109,43 @@ export const popularTagsResponseSchema = z.object({
   items: z.array(popularTagItemSchema),
 });
 export type PopularTagsResponse = z.infer<typeof popularTagsResponseSchema>;
+
+// ── 태그 자동완성 (Story 8.4) ─────────────────────────────────────────────────
+
+/** 자동완성 쿼리 파라미터 스키마 */
+export const tagAutocompleteQuerySchema = z.object({
+  q: z.string().trim().default(""),
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+});
+export type TagAutocompleteQuery = z.infer<typeof tagAutocompleteQuerySchema>;
+
+/** 자동완성 응답 아이템 */
+export const tagAutocompleteItemSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  usageCount: z.number().int(),
+});
+export type TagAutocompleteItem = z.infer<typeof tagAutocompleteItemSchema>;
+
+/** 자동완성 응답 */
+export const tagAutocompleteResponseSchema = z.object({
+  items: z.array(tagAutocompleteItemSchema),
+});
+export type TagAutocompleteResponse = z.infer<typeof tagAutocompleteResponseSchema>;
+
+// ── 신규 태그 생성 (Story 8.4 AC #5) ─────────────────────────────────────────
+
+/** POST /api/v1/tags 요청 바디 */
+export const createTagBodySchema = z.object({
+  name: z.string().trim().min(1).max(30),
+});
+export type CreateTagBody = z.infer<typeof createTagBodySchema>;
+
+/** POST /api/v1/tags 응답 */
+export const createTagResponseSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  slug: z.string(),
+  createdAt: z.string(),
+});
+export type CreateTagResponse = z.infer<typeof createTagResponseSchema>;

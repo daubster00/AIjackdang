@@ -8,6 +8,14 @@
  *   - latest/list     : 60s   (Next.js fetch revalidate 와 동일)
  */
 
+// ── 태그 캐시 키 (Story 8.4) ──────────────────────────────────────────────────
+
+/** 인기 태그 목록 — TTL 3600s (1h) */
+export const TAGS_POPULAR = "tags:popular" as const;
+
+/** 인기 태그 캐시 TTL (초) */
+export const TAGS_POPULAR_TTL = 3600;
+
 // ── 홈 페이지 섹션 캐시 키 (Story 8.5) ───────────────────────────────────────
 
 /** ②실전 인기글 탭 — 전 카테고리 7일 인기 (category 없음 → all) */

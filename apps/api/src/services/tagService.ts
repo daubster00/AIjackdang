@@ -16,6 +16,8 @@ import type {
   PopularTagsResponse,
 } from "@ai-jakdang/contracts/tag";
 import { sql } from "drizzle-orm";
+import { getApiRedis } from "../lib/redis.js";
+import { TAGS_POPULAR, TAGS_POPULAR_TTL } from "../lib/cache.js";
 
 export interface GetTagContentParams {
   tagName: string;
@@ -254,11 +256,24 @@ export async function getTagContent(
 
 /**
  * 인기 태그 목록을 반환한다.
- * taggable 테이블에서 사용 횟수를 집계하여 내림차순 정렬.
+ * Redis 캐시(TAGS_POPULAR, TTL 1h)를 먼저 확인하고, miss 시 taggable 테이블에서 집계.
  *
  * @param limit - 반환할 태그 수 (기본값 20)
  */
 export async function getPopularTags(limit = 20): Promise<PopularTagsResponse> {
+  // ── Redis 캐시 확인 ────────────────────────────────────────────────────────
+  try {
+    const redis = getApiRedis();
+    const cached = await redis.get(TAGS_POPULAR);
+    if (cached) {
+      console.log("[tagService] popular tags cache hit");
+      return JSON.parse(cached) as PopularTagsResponse;
+    }
+  } catch {
+    // Redis 장애 시 DB로 폴백
+  }
+
+  // ── DB 집계 ────────────────────────────────────────────────────────────────
   const db = getDb();
 
   const rows = await db.execute<{ name: string; slug: string; usage_count: string }>(sql`
@@ -273,11 +288,21 @@ export async function getPopularTags(limit = 20): Promise<PopularTagsResponse> {
     LIMIT ${limit}
   `);
 
-  return {
+  const result: PopularTagsResponse = {
     items: rows.rows.map((row) => ({
       name: row.name,
       slug: row.slug,
       usageCount: parseInt(String(row.usage_count), 10),
     })),
   };
+
+  // ── Redis 저장 ─────────────────────────────────────────────────────────────
+  try {
+    const redis = getApiRedis();
+    await redis.setex(TAGS_POPULAR, TAGS_POPULAR_TTL, JSON.stringify(result));
+  } catch {
+    // Redis 장애 시 무시
+  }
+
+  return result;
 }
