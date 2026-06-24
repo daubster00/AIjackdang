@@ -13,7 +13,7 @@ import { ConversationsPage } from "@/features/messages/ConversationsPage";
 
 export const metadata: Metadata = {
   title: "쪽지함 | AI작당",
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: true },
 };
 
 export default async function Page() {

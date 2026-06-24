@@ -7,7 +7,7 @@ import shell from "../settings.module.css";
 export const metadata: Metadata = {
   title: "비밀번호 변경",
   description: "AI작당 계정의 비밀번호를 변경하세요.",
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: true },
 };
 
 export default function SecuritySettingsPage() {

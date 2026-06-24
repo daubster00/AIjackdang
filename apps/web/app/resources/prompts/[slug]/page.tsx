@@ -184,8 +184,25 @@ const typeMeta: Record<ResourceType, { label: string; icon: string; className: s
 
 type ResourceSlug = keyof typeof resources;
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+
 export const metadata: Metadata = {
   title: "프롬프트 자료 상세",
+  openGraph: {
+    title: "프롬프트 자료 상세 | AI작당",
+    description: "바로 복사해서 쓰는 재사용 가능한 프롬프트 자료",
+    url: `${SITE_URL}/resources/prompts`,
+    type: "article",
+    siteName: "AI작당",
+    images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "프롬프트 자료" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "프롬프트 자료 상세 | AI작당",
+    description: "바로 복사해서 쓰는 재사용 가능한 프롬프트 자료",
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 export function generateStaticParams() {

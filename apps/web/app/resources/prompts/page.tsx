@@ -18,11 +18,28 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   // 필터 쿼리 포함 URL의 canonical도 고정 페이지 URL로 강제 설정 (중복 색인 방지)
   void searchParams; // searchParams를 받아도 canonical은 변하지 않음
+  const SITE_URL =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+  const desc = "바로 복사해서 쓰는 재사용 가능한 프롬프트를 평점과 후기로 검증해 공유하는 다운로드형 자료실";
   return {
     title: "프롬프트 자료 — AI작당",
-    description: "바로 복사해서 쓰는 재사용 가능한 프롬프트를 평점과 후기로 검증해 공유하는 다운로드형 자료실",
+    description: desc,
     alternates: {
-      canonical: "https://aijakdang.com/resources/prompts",
+      canonical: `${SITE_URL}/resources/prompts`,
+    },
+    openGraph: {
+      title: "프롬프트 자료 | AI작당",
+      description: desc,
+      url: `${SITE_URL}/resources/prompts`,
+      type: "website",
+      siteName: "AI작당",
+      images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "프롬프트 자료" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "프롬프트 자료 | AI작당",
+      description: desc,
+      images: [`${SITE_URL}/og-default.png`],
     },
   };
 }

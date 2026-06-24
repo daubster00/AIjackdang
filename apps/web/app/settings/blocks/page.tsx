@@ -8,7 +8,7 @@ import shell from "../settings.module.css";
 export const metadata: Metadata = {
   title: "차단 목록",
   description: "차단한 회원 목록을 확인하고 차단을 해제할 수 있습니다.",
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: true },
 };
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";

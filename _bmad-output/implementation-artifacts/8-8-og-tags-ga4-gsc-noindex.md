@@ -1,6 +1,6 @@
 # Story 8.8: OG 태그 완성 · GA4 · Search Console · noindex 정책
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

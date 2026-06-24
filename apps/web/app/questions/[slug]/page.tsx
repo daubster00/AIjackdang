@@ -22,6 +22,7 @@ import { BoardHero, AttachmentList } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
 import { QuestionDetailClient } from "./QuestionDetailClient";
+import { QuestionFooterOwnerActions } from "./QuestionFooterOwnerActions";
 import { AnswerSection } from "./AnswerSection";
 import type { Answer } from "./AnswerItem";
 import { API_URL, SITE_URL } from "./constants";
@@ -65,7 +66,7 @@ async function fetchQuestion(
 ): Promise<QuestionDetail | null> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/qna/questions/${encodeURIComponent(slug)}`,
+      `${API_URL}/api/v1/qna/questions/${encodeURIComponent(decodeURIComponent(slug))}`,
       {
         headers: cookie ? { cookie } : {},
         cache: "no-store",
@@ -119,15 +120,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // deleted → 404(페이지에서 notFound()) / hidden → noindex / published → index
   const isPublished = question.status === "published";
 
+  const ogTitle = `${question.title} — 묻고답하기 | AI작당`;
+  const ogImageUrl = `${SITE_URL}/og-default.png`;
+
   return {
     title: `${question.title} — 묻고답하기 | AI작당`,
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
-      title: `${question.title} — 묻고답하기 | AI작당`,
+      title: ogTitle,
       description,
       url: canonicalUrl,
       type: "article",
+      siteName: "AI작당",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: question.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: [ogImageUrl],
     },
     robots: isPublished
       ? { index: true, follow: true }
@@ -241,7 +253,6 @@ export default async function QuestionDetailPage({ params }: PageProps) {
             */}
             <QuestionDetailClient
               questionId={question.id}
-              questionSlug={question.slug}
               initialDerivedStatus={question.derivedStatus}
               isResolved={question.isResolved}
               isAsker={isAsker}
@@ -252,7 +263,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
 
             <div className={styles.detailMeta}>
               <span className={styles.detailAuthor}>
-                <Avatar name={question.author?.nickname ?? "익명"} size="sm" />
+                <Avatar name={question.author?.nickname ?? "익명"} src={question.author?.avatarUrl ?? undefined} size="sm" />
                 <AuthorName name={question.author?.nickname ?? "익명"} />
               </span>
               <span className={styles.metaDivider} aria-hidden="true">|</span>
@@ -292,13 +303,18 @@ export default async function QuestionDetailPage({ params }: PageProps) {
           helpfulAnswerId={question.helpfulAnswerId}
         />
 
-        {/* ── 하단 동선 ── */}
+        {/* ── 하단 동선 — 다른 게시판과 동일하게 목록 옆에 수정·삭제 배치 ── */}
         <footer className={styles.detailFooter}>
           <Link href="/questions" className={styles.listButton}>
             <Icon name="list-check" />
             목록으로
           </Link>
-          {/* 질문자 액션(수정·삭제)은 QuestionDetailClient 내 QuestionOwnerActions가 렌더한다 */}
+          {isAsker && (
+            <QuestionFooterOwnerActions
+              questionId={question.id}
+              questionSlug={question.slug}
+            />
+          )}
         </footer>
       </div>
     </main>

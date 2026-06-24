@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "마이페이지 | AI작당",
   robots: {
     index: false,
-    follow: false,
+    follow: true,
   },
 };
 

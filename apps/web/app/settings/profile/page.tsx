@@ -7,7 +7,7 @@ import shell from "../settings.module.css";
 export const metadata: Metadata = {
   title: "프로필 수정",
   description: "AI작당 프로필을 수정하세요. 닉네임과 한 줄 소개를 변경할 수 있습니다.",
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: true },
 };
 
 export default function ProfileSettingsPage() {

@@ -37,18 +37,34 @@ const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
 // ── generateMetadata ──────────────────────────────────────────────────────────
 
+const QUESTIONS_DESC = "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간";
+
 export const metadata: Metadata = {
   title: "묻고답하기 | AI작당",
-  description: "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간",
+  description: QUESTIONS_DESC,
   alternates: {
     canonical: `${SITE_URL}/questions`,
   },
   openGraph: {
     title: "묻고답하기 | AI작당",
-    description: "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간",
+    description: QUESTIONS_DESC,
     url: `${SITE_URL}/questions`,
     siteName: "AI작당",
     type: "website",
+    images: [
+      {
+        url: `${SITE_URL}/og-default.png`,
+        width: 1200,
+        height: 630,
+        alt: "AI작당 묻고답하기",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "묻고답하기 | AI작당",
+    description: QUESTIONS_DESC,
+    images: [`${SITE_URL}/og-default.png`],
   },
   robots: { index: true, follow: true },
 };
@@ -300,7 +316,7 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
 
                     <div className={styles.questionFooter}>
                       <div className={styles.questionAuthor}>
-                        <Avatar name={q.author?.nickname ?? "익명"} size="sm" />
+                        <Avatar name={q.author?.nickname ?? "익명"} src={q.author?.avatarUrl ?? undefined} size="sm" />
                         {/* AuthorName: 클릭 시 쪽지/팔로우/계정 메뉴 (규약 준수) */}
                         <AuthorName
                           name={q.author?.nickname ?? "익명"}

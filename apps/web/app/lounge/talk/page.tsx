@@ -4,9 +4,27 @@ import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";
 import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import styles from "./talk.module.css";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+const TALK_DESC = "AI작당 작당 라운지 - AI 관련 잡담·수다 게시판";
+
 export const metadata: Metadata = {
   title: "작당 수다방",
-  description: "AI작당 작당 라운지 - AI 관련 잡담·수다 게시판",
+  description: TALK_DESC,
+  openGraph: {
+    title: "작당 수다방 | AI작당",
+    description: TALK_DESC,
+    url: `${SITE_URL}/lounge/talk`,
+    type: "website",
+    siteName: "AI작당",
+    images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "작당 수다방" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "작당 수다방 | AI작당",
+    description: TALK_DESC,
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 /** 정렬 옵션 */

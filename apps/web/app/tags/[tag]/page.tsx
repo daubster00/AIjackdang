@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AuthorName, Avatar, Icon, Tag, EmptyState } from "@/components/ui";
 import { SearchAutocomplete } from "@/components/board";
 import type { TagContentResponse, TagContentItem } from "@ai-jakdang/contracts/tag";
+import { shouldNoindex } from "@/lib/seo";
 import styles from "./tags.module.css";
 
 type Params = { tag: string };
@@ -90,19 +91,30 @@ export async function generateMetadata({
     // API 오류 시 기본 메타 반환
   }
 
-  const noindex = totalItems === 0;
+  const noindex = shouldNoindex({ path: `/tags/${tag}`, contentCount: totalItems });
+  const ogTitle = `#${decoded} 태그 글 모음 · AI작당`;
+  const ogDesc = `${decoded} 태그가 달린 AI작당 글·질문·자료 모음`;
+  const ogImageUrl = `${SITE_URL}/og-default.png`;
 
   return {
-    title: `#${decoded} 태그 글 모음 · AI작당`,
-    description: `${decoded} 태그가 달린 AI작당 글·질문·자료 모음`,
+    title: ogTitle,
+    description: ogDesc,
     alternates: {
       canonical,
     },
     openGraph: {
-      title: `#${decoded} 태그 글 모음 · AI작당`,
-      description: `${decoded} 태그가 달린 AI작당 글·질문·자료 모음`,
+      title: ogTitle,
+      description: ogDesc,
       url: canonical,
       type: "website",
+      siteName: "AI작당",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description: ogDesc,
+      images: [ogImageUrl],
     },
     ...(noindex ? { robots: { index: false, follow: true } } : {}),
   };

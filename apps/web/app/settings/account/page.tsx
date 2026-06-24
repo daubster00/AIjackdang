@@ -7,7 +7,7 @@ import shell from "../settings.module.css";
 export const metadata: Metadata = {
   title: "계정 관리",
   description: "AI작당 계정 탈퇴를 진행합니다.",
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: true },
 };
 
 export default function AccountSettingsPage() {

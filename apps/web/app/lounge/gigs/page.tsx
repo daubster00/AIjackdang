@@ -12,9 +12,27 @@ import styles from "./gigs.module.css";
 import type { PostCard, RecruitMeta } from "@ai-jakdang/contracts";
 import { postKindToLabel, recruitStatusToLabel } from "./constants";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+const GIGS_DESC = "AI 외주·협업 의뢰와 구직 글을 분야·예산·상태 기준으로 찾아보세요.";
+
 export const metadata: Metadata = {
   title: "작당 의뢰소 | 작당 라운지",
-  description: "AI 외주·협업 의뢰와 구직 글을 분야·예산·상태 기준으로 찾아보세요.",
+  description: GIGS_DESC,
+  openGraph: {
+    title: "작당 의뢰소 | AI작당",
+    description: GIGS_DESC,
+    url: `${SITE_URL}/lounge/gigs`,
+    type: "website",
+    siteName: "AI작당",
+    images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "작당 의뢰소" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "작당 의뢰소 | AI작당",
+    description: GIGS_DESC,
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 // ── API 데이터 fetcher ──────────────────────────────────────
@@ -29,7 +47,7 @@ async function fetchGigsList(searchParams: Record<string, string>) {
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/posts?${params.toString()}`, {
-      next: { revalidate: 30 }, // 30초 재검증 (SSR 캐시)
+      cache: "no-store", // 30초 재검증 (SSR 캐시)
     });
     if (!res.ok) return { items: [] as PostCard[], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
     return (await res.json()) as { items: PostCard[]; meta: { page: number; pageSize: number; totalItems: number; totalPages: number } };
@@ -194,7 +212,7 @@ function GigCard({ post }: { post: PostCard }) {
       <div className={styles.gigMeta}>
         {/* 작성자 + 날짜 */}
         <div className={styles.gigMetaAuthor}>
-          <Avatar name={post.authorNickname ?? "익명"} size="sm" />
+          <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
           <div className={styles.gigMetaAuthorText}>
             <AuthorName name={post.authorNickname ?? "탈퇴 회원"} className={styles.authorName} />
             <span className={styles.gigMetaDate}>

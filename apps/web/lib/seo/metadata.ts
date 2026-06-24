@@ -26,6 +26,8 @@ export function buildPageMeta(
 ): Metadata {
   const canonicalUrl = `${SITE_URL}${board.urlPath}`;
   const titleSuffix = opts?.page && opts.page > 1 ? ` — ${opts.page}페이지` : "";
+  const ogTitle = `${board.label}${titleSuffix} | ${SITE_NAME}`;
+  const ogImageUrl = `${SITE_URL}/og-default.png`;
 
   return {
     // 사이트명은 루트 layout 의 title.template("%s · AI작당")이 붙이므로 여기서는 생략(중복 방지).
@@ -35,11 +37,18 @@ export function buildPageMeta(
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: `${board.label}${titleSuffix} | ${SITE_NAME}`,
+      title: ogTitle,
       description: board.description,
       url: canonicalUrl,
       siteName: SITE_NAME,
       type: "website",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description: board.description,
+      images: [ogImageUrl],
     },
     robots: {
       index: true,
@@ -58,6 +67,14 @@ export function buildPostMeta(post: PostDetail): Metadata {
   const boardLabel = board?.label ?? post.board;
   const canonicalUrl = `${SITE_URL}${board?.urlPath ?? ""}/${post.slug}`;
   const description = post.summary ?? post.title.slice(0, 160);
+  const ogTitle = `${post.title} | ${boardLabel} - ${SITE_NAME}`;
+  // 게시글 썸네일이 있으면 사용, 없으면 기본 OG 이미지 폴백
+  const ogImageUrl =
+    (post as PostDetail & { thumbnailUrl?: string | null }).thumbnailUrl ||
+    `${SITE_URL}/og-default.png`;
+  const noindex =
+    (post as PostDetail & { isHidden?: boolean; isDeleted?: boolean }).isHidden === true ||
+    (post as PostDetail & { isHidden?: boolean; isDeleted?: boolean }).isDeleted === true;
 
   return {
     // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
@@ -67,16 +84,23 @@ export function buildPostMeta(post: PostDetail): Metadata {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: `${post.title} | ${boardLabel} - ${SITE_NAME}`,
+      title: ogTitle,
       description,
       url: canonicalUrl,
       siteName: SITE_NAME,
       type: "article",
       publishedTime: post.createdAt,
       modifiedTime: post.updatedAt,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: [ogImageUrl],
     },
     robots: {
-      index: true,
+      index: !noindex,
       follow: true,
     },
   };
@@ -91,6 +115,8 @@ export function buildPostMeta(post: PostDetail): Metadata {
 export function buildNoticeMeta(post: PostDetail): Metadata {
   const canonicalUrl = `${SITE_URL}/notice/${post.slug}`;
   const description = post.summary ?? post.title.slice(0, 160);
+  const ogTitle = `${post.title} | 공지사항 - ${SITE_NAME}`;
+  const ogImageUrl = `${SITE_URL}/og-default.png`;
 
   return {
     // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
@@ -100,13 +126,20 @@ export function buildNoticeMeta(post: PostDetail): Metadata {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: `${post.title} | 공지사항 - ${SITE_NAME}`,
+      title: ogTitle,
       description,
       url: canonicalUrl,
       siteName: SITE_NAME,
       type: "article",
       publishedTime: post.createdAt,
       modifiedTime: post.updatedAt,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: [ogImageUrl],
     },
     // robots 미설정 → 공개 색인 허용 (기본값)
   };

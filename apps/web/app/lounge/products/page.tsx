@@ -5,9 +5,27 @@ import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";
 import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import styles from "./products.module.css";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+const PRODUCTS_DESC = "AI작당 작당 라운지 - 직접 만든 AI 제품 소개 목록";
+
 export const metadata: Metadata = {
   title: "내가 만든 AI 제품",
-  description: "AI작당 작당 라운지 - 직접 만든 AI 제품 소개 목록",
+  description: PRODUCTS_DESC,
+  openGraph: {
+    title: "내가 만든 AI 제품 | AI작당",
+    description: PRODUCTS_DESC,
+    url: `${SITE_URL}/lounge/products`,
+    type: "website",
+    siteName: "AI작당",
+    images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "내가 만든 AI 제품" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "내가 만든 AI 제품 | AI작당",
+    description: PRODUCTS_DESC,
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 const sortOptions = [

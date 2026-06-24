@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { searchResponseSchema } from "@ai-jakdang/contracts";
+import { shouldNoindex } from "@/lib/seo";
 import { SearchResultItemCard } from "./_components/SearchResultItem";
 import styles from "./search.module.css";
 
@@ -16,12 +17,13 @@ interface SearchPageProps {
 export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
+  const noindex = shouldNoindex({ path: "/search", searchQuery: query || undefined });
 
   return {
     title: query
       ? `"${query}" 검색 결과 · AI작당`
       : "검색 · AI작당",
-    robots: { index: false, follow: true },
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

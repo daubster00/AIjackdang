@@ -183,8 +183,25 @@ const typeMeta: Record<ResourceType, { label: string; icon: string; className: s
 
 type ResourceSlug = keyof typeof resources;
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+
 export const metadata: Metadata = {
   title: "MCP·Skills 자료 상세",
+  openGraph: {
+    title: "MCP·Skills 자료 상세 | AI작당",
+    description: "Claude Code Skill과 MCP 서버 설정 자료",
+    url: `${SITE_URL}/resources/mcp-skills`,
+    type: "article",
+    siteName: "AI작당",
+    images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "MCP·Skills 자료" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MCP·Skills 자료 상세 | AI작당",
+    description: "Claude Code Skill과 MCP 서버 설정 자료",
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 export function generateStaticParams() {

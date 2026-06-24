@@ -13,9 +13,35 @@ import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
 import styles from "./lounge.module.css";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+
+const LOUNGE_DESC = "AI 작당 멤버들의 자유 대화 공간";
+
 export const metadata: Metadata = {
   title: "작당 라운지",
-  description: "AI 작당 멤버들의 자유 대화 공간",
+  description: LOUNGE_DESC,
+  openGraph: {
+    title: "작당 라운지 | AI작당",
+    description: LOUNGE_DESC,
+    url: `${SITE_URL}/lounge`,
+    type: "website",
+    siteName: "AI작당",
+    images: [
+      {
+        url: `${SITE_URL}/og-default.png`,
+        width: 1200,
+        height: 630,
+        alt: "AI작당 작당 라운지",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "작당 라운지 | AI작당",
+    description: LOUNGE_DESC,
+    images: [`${SITE_URL}/og-default.png`],
+  },
 };
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -24,7 +50,7 @@ async function fetchPosts(sort: string, page: number, cookie: string): Promise<P
   try {
     const res = await fetch(
       `${API_URL}/api/v1/posts?board=talk&sort=${sort}&page=${page}&pageSize=20`,
-      { headers: { cookie }, next: { revalidate: 30 } },
+      { headers: { cookie }, cache: "no-store" },
     );
     if (res.ok) return (await res.json()) as PaginatedPosts;
   } catch {
@@ -132,7 +158,7 @@ function PostCard({ post }: { post: PostCard }) {
     <article className={styles.card}>
       <div className={styles.cardBody}>
         <div className={styles.cardAuthor}>
-          <Avatar name={post.authorNickname ?? "익명"} size="sm" />
+          <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
           <AuthorName name={post.authorNickname ?? "익명"} className={styles.authorName} />
         </div>
 

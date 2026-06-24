@@ -18,11 +18,28 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   // 필터 쿼리 포함 URL의 canonical도 고정 페이지 URL로 강제 설정 (중복 색인 방지)
   void searchParams;
+  const SITE_URL =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+  const desc = "Claude Code Skill과 MCP 서버 설정 자료를 받아서 바로 적용하는 다운로드형 자료실";
   return {
     title: "MCP Skill 자료 — AI작당",
-    description: "Claude Code Skill과 MCP 서버 설정 자료를 받아서 바로 적용하는 다운로드형 자료실",
+    description: desc,
     alternates: {
-      canonical: "https://aijakdang.com/resources/mcp-skills",
+      canonical: `${SITE_URL}/resources/mcp-skills`,
+    },
+    openGraph: {
+      title: "MCP Skill 자료 | AI작당",
+      description: desc,
+      url: `${SITE_URL}/resources/mcp-skills`,
+      type: "website",
+      siteName: "AI작당",
+      images: [{ url: `${SITE_URL}/og-default.png`, width: 1200, height: 630, alt: "MCP Skill 자료" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "MCP Skill 자료 | AI작당",
+      description: desc,
+      images: [`${SITE_URL}/og-default.png`],
     },
   };
 }

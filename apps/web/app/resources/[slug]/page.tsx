@@ -19,8 +19,10 @@ import { headers } from "next/headers";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
 import { BoardHero } from "@/components/board";
 import { ResourceDetailClient } from "./ResourceDetailClient";
+import { ResourceOwnerActions } from "./ResourceOwnerActions";
 import styles from "./resource-detail.module.css";
 import type { ResourceFile } from "./ResourceDetailClient";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -94,10 +96,10 @@ async function fetchResourceDetail(
 ): Promise<ResourceDetailResponse | null> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/resources/${encodeURIComponent(slug)}`,
+      `${API_URL}/api/v1/resources/${encodeURIComponent(decodeURIComponent(slug))}`,
       {
         headers: cookie ? { cookie } : {},
-        next: { revalidate: 300 }, // 5분 캐시 (개인화 없는 공개 데이터)
+        cache: "no-store",
       },
     );
     if (!res.ok) return null;
@@ -122,17 +124,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const canonicalUrl = `${SITE_URL}/resources/${resource.slug}`;
+  const description = (resource.summary ?? resource.title).slice(0, 160);
+  const ogTitle = `${resource.title} | AI작당`;
+  const ogImageUrl = `${SITE_URL}/og-default.png`;
+  const noindex =
+    resource.status === "hidden" || resource.status === "deleted";
 
   return {
     title: resource.title,
-    description: resource.summary,
+    description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
-      title: resource.title,
-      description: resource.summary,
+      title: ogTitle,
+      description,
       url: canonicalUrl,
       type: "article",
+      siteName: "AI작당",
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: resource.title }],
     },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: [ogImageUrl],
+    },
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -257,6 +273,7 @@ export default async function ResourceDetailPage({ params }: PageProps) {
                   <span className={styles.metaAuthor}>
                     <Avatar
                       name={resource.authorNickname}
+                      src={getDefaultAvatarUrl(resource.authorAvatarIndex)}
                       size="sm"
                     />
                     <AuthorName
@@ -277,10 +294,10 @@ export default async function ResourceDetailPage({ params }: PageProps) {
               </div>
             </header>
 
-            {/* ── ③ 이 자료는 무엇인가요? (description_json) ─────────────── */}
+            {/* ── ③ 자료설명 (description_json — 사용법·주의사항을 통합) ───── */}
             <section className={styles.detailBody} aria-labelledby="desc-title">
               <h2 id="desc-title" className={styles.sectionTitle}>
-                이 자료는 무엇인가요?
+                자료설명
               </h2>
               {/* HTML은 API 서버에서 sanitize-html 처리됨 (AR-8) */}
               <div
@@ -289,32 +306,6 @@ export default async function ResourceDetailPage({ params }: PageProps) {
                 dangerouslySetInnerHTML={{ __html: resource.descriptionHtml }}
               />
             </section>
-
-            {/* ── ④ 사용법 (usage_json) ─────────────────────────────────── */}
-            <section className={styles.detailBody} aria-labelledby="usage-title">
-              <h2 id="usage-title" className={styles.sectionTitle}>
-                사용법
-              </h2>
-              <div
-                className={styles.richContent}
-                // eslint-disable-next-line react/no-danger
-                dangerouslySetInnerHTML={{ __html: resource.usageHtml }}
-              />
-            </section>
-
-            {/* ── ⑤ 주의사항 (caution_json, nullable) ──────────────────── */}
-            {resource.cautionHtml && (
-              <section className={styles.detailBody} aria-labelledby="caution-title">
-                <h2 id="caution-title" className={styles.sectionTitle}>
-                  주의사항
-                </h2>
-                <div
-                  className={styles.richContent}
-                  // eslint-disable-next-line react/no-danger
-                  dangerouslySetInnerHTML={{ __html: resource.cautionHtml }}
-                />
-              </section>
-            )}
 
             {/* ── 버전 (optional) ───────────────────────────────────────── */}
             {resource.version && (
@@ -372,12 +363,18 @@ export default async function ResourceDetailPage({ params }: PageProps) {
             userIsOwner={resource.userIsOwner}
           />
 
-          {/* ── ⑩ [목록으로] ──────────────────────────────────────────── */}
+          {/* ── ⑩ 하단 푸터: 목록으로 (left) · 수정/삭제 (right, 소유자만) ── */}
           <footer className={styles.detailFooter}>
             <Link href="/resources" className={styles.listButton}>
               <Icon name="list-check" />
               목록으로
             </Link>
+            {resource.userIsOwner && (
+              <ResourceOwnerActions
+                resourceId={resource.id}
+                resourceSlug={resource.slug}
+              />
+            )}
           </footer>
         </article>
       </div>

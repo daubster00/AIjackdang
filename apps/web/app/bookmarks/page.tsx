@@ -4,6 +4,7 @@ import { BookmarkList, type BookmarkItem } from "./BookmarkList";
 export const metadata: Metadata = {
   title: "북마크",
   description: "내가 저장한 글을 한곳에서 모아봅니다.",
+  robots: { index: false, follow: true },
 };
 
 /**

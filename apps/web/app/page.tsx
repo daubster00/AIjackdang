@@ -14,17 +14,36 @@ import styles from "./page.module.css";
 
 // ── generateMetadata (AC #2) ─────────────────────────────────────────────────
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+
+const HOME_DESC =
+  "바이브 코딩, AI 자동화, AI 수익화를 실제로 시도하는 사람들의 커뮤니티. 경험과 자료를 함께 쌓아가세요.";
+
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "AI작당 — 실전 AI 커뮤니티",
-    description:
-      "바이브 코딩, AI 자동화, AI 수익화를 실제로 시도하는 사람들의 커뮤니티. 경험과 자료를 함께 쌓아가세요.",
+    description: HOME_DESC,
     openGraph: {
       title: "AI작당 — 실전 AI 커뮤니티",
-      description:
-        "바이브 코딩, AI 자동화, AI 수익화를 실제로 시도하는 사람들의 커뮤니티. 경험과 자료를 함께 쌓아가세요.",
-      url: "/",
+      description: HOME_DESC,
+      url: `${SITE_URL}/`,
+      type: "website",
       siteName: "AI작당",
+      images: [
+        {
+          url: `${SITE_URL}/og-default.png`,
+          width: 1200,
+          height: 630,
+          alt: "AI작당",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "AI작당 — 실전 AI 커뮤니티",
+      description: HOME_DESC,
+      images: [`${SITE_URL}/og-default.png`],
     },
   };
 }
