@@ -1,6 +1,6 @@
 # Story 2.12: 작당 의뢰소(구인·외주) — 구조화 폼 + 모집 상태 + 상세 표시
 
-Status: review
+Status: done
 
 ## Story
 
