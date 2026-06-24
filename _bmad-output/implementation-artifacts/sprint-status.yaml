@@ -25,7 +25,7 @@ development_status:
   1-10-public-profile-page-json-ld: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-post-schema-board-seed: done
   2-2-seo-helpers-sitemap: done
   2-3-board-list-ssr: done
@@ -35,7 +35,7 @@ development_status:
   2-7-post-write-form-api: done
   2-8-post-edit-delete: done
   2-9-notice-board-ssr: done
-  2-10-routing-epic-validation: review
+  2-10-routing-epic-validation: done
   2-11-creative-spec-panel: done
   2-12-recruit-gigs-board: done
   epic-2-retrospective: optional

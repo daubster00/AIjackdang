@@ -1,6 +1,6 @@
 # Story 2.10: 게시판 URL 라우팅 완결 + 에픽 통합 검증
 
-Status: review
+Status: done
 
 ## Story
 
