@@ -24,6 +24,7 @@ const STATUS_TABS = [
   { key: "reviewing", label: "확인중" },
   { key: "resolved", label: "처리완료" },
   { key: "dismissed", label: "반려" },
+  { key: "auto_hidden", label: "자동 숨김" },
 ] as const;
 
 type StatusTab = (typeof STATUS_TABS)[number]["key"];
@@ -198,12 +199,14 @@ function ReportDrawer({
   onReview,
   onHide,
   onReject,
+  onRestoreAutoHide,
 }: {
   report: AdminReportItem;
   onClose: () => void;
   onReview: (id: string) => void;
   onHide: (id: string) => void;
   onReject: (id: string) => void;
+  onRestoreAutoHide: (id: string) => void;
 }) {
   const [sb, sl] = statusBadge(report.status);
   const [tb, tl] = targetBadge(report.targetType);
@@ -349,6 +352,15 @@ function ReportDrawer({
               flexWrap: "wrap",
             }}
           >
+            {report.autoHidden && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => onRestoreAutoHide(report.id)}
+              >
+                <i className="ri-refresh-line" />
+                자동 숨김 복구
+              </button>
+            )}
             {report.status === "pending" && (
               <button
                 className="btn btn-outline btn-sm"
@@ -424,7 +436,12 @@ function AdminReportsPageInner() {
     setError(null);
 
     const params = new URLSearchParams();
-    if (statusParam !== "all") params.set("status", statusParam);
+    // "auto_hidden"은 API status enum에 없는 가상 탭 — autoHidden=true 파라미터로 변환
+    if (statusParam === "auto_hidden") {
+      params.set("autoHidden", "true");
+    } else if (statusParam !== "all") {
+      params.set("status", statusParam);
+    }
     if (targetTypeParam !== "all") params.set("targetType", targetTypeParam);
     if (dateFromParam) params.set("dateFrom", dateFromParam);
     if (dateToParam) params.set("dateTo", dateToParam);
@@ -534,6 +551,22 @@ function AdminReportsPageInner() {
       void fetchReports();
     } catch {
       showToast("처리 중 오류가 발생했습니다.", "error");
+    }
+  };
+
+  // 자동 숨김 복구 (Story 9.11, AC #2)
+  const handleRestoreAutoHide = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports/${id}/restore-auto-hide`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast("콘텐츠가 복구되었습니다.");
+      setSelectedReport(null);
+      void fetchReports();
+    } catch {
+      showToast("복구 중 오류가 발생했습니다.", "error");
     }
   };
 
@@ -702,6 +735,9 @@ function AdminReportsPageInner() {
                           </button>
                           <div className="content-meta">
                             <span className={`badge ${tb}`}>{tl}</span>
+                            {r.autoHidden && (
+                              <span className="badge badge-orange" style={{ marginLeft: 4 }}>자동 숨김</span>
+                            )}
                           </div>
                         </td>
                         <td>{r.reasonCode}</td>
@@ -732,6 +768,12 @@ function AdminReportsPageInner() {
                                 <i className="ri-eye-line" />
                                 상세보기
                               </button>
+                              {r.autoHidden && r.status !== "resolved" && r.status !== "dismissed" && (
+                                <button onClick={() => void handleRestoreAutoHide(r.id)}>
+                                  <i className="ri-refresh-line" />
+                                  자동 숨김 복구
+                                </button>
+                              )}
                               {r.status !== "resolved" && r.status !== "dismissed" && (
                                 <>
                                   {r.status === "pending" && (
@@ -818,6 +860,7 @@ function AdminReportsPageInner() {
           onReview={(id) => void handleReview(id)}
           onHide={(id) => void handleHide(id)}
           onReject={(id) => setRejectTarget(id)}
+          onRestoreAutoHide={(id) => void handleRestoreAutoHide(id)}
         />
       )}
 

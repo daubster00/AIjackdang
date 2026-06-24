@@ -20,9 +20,11 @@ import { z } from "zod";
 import { eq, and, isNull, inArray, sql, desc, asc } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
+import { contentGuard } from "../../middleware/contentGuard.js";
 import { getNotificationsQueue } from "../../lib/queues.js";
 import { userAuth } from "../../auth/user-auth.js";
 import { earnPoints, revokePoints, getTodayCount } from "./gamification/points.service.js";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -32,6 +34,8 @@ const replyItemSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   authorNickname: z.string().nullable(),
+  /** 작성자 프로필 사진 URL. 서버에서 resolve 완료. 탈퇴회원은 null. */
+  authorAvatarUrl: z.string().nullable(),
   targetType: z.enum(["post", "question", "answer", "resource", "comment"]),
   targetId: z.string().uuid(),
   parentId: z.string().uuid().nullable(),
@@ -107,6 +111,9 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
           id: schema.comments.id,
           authorId: schema.comments.authorId,
           authorNickname: schema.users.nickname,
+          authorAvatarUrl: schema.users.avatarUrl,
+          authorImage: schema.users.image,
+          authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
           targetType: schema.comments.targetType,
           targetId: schema.comments.targetId,
           parentId: schema.comments.parentId,
@@ -153,6 +160,9 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
           id: schema.comments.id,
           authorId: schema.comments.authorId,
           authorNickname: schema.users.nickname,
+          authorAvatarUrl: schema.users.avatarUrl,
+          authorImage: schema.users.image,
+          authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
           targetType: schema.comments.targetType,
           targetId: schema.comments.targetId,
           parentId: schema.comments.parentId,
@@ -212,7 +222,7 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
 
       // ── 5. 메모리 조합 ────────────────────────────────────────────────────────
       type ReplyOut = {
-        id: string; authorId: string; authorNickname: string | null;
+        id: string; authorId: string; authorNickname: string | null; authorAvatarUrl: string | null;
         targetType: "post" | "question" | "answer" | "resource" | "comment";
         targetId: string; parentId: string | null;
         content: string | null; status: "visible" | "deleted"; deletedAt: string | null;
@@ -245,6 +255,9 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
           id: row.id,
           authorId: row.authorId,
           authorNickname: row.authorNickname ?? null,
+          authorAvatarUrl: row.authorNickname != null
+            ? (row.authorAvatarUrl || row.authorImage || getDefaultAvatarUrl(row.authorDefaultAvatarIndex ?? 0))
+            : null,
           targetType: row.targetType as "post" | "question" | "answer" | "resource" | "comment",
           targetId: row.targetId,
           parentId: row.parentId ?? null,
@@ -273,7 +286,7 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
   typed.post(
     "/comments",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, contentGuard],
       schema: {
         description: "댓글 또는 대댓글 등록. parentId 있으면 대댓글(2단계 중첩 불가).",
         tags: ["comments"],

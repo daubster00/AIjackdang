@@ -1,11 +1,12 @@
 /**
- * 신고 관리 API 등록 진입점 (Story 9.10).
+ * 신고 관리 API 등록 진입점 (Story 9.10 · 9.11).
  *
- * GET    /api/v1/admin/reports                    — 신고 목록(필터: status/targetType/dateFrom/dateTo/q/page/pageSize)
- * GET    /api/v1/admin/reports/:id                — 신고 상세(대상 콘텐츠 미리보기 포함)
- * PATCH  /api/v1/admin/reports/:id/review         — 접수→확인중 변경
- * PATCH  /api/v1/admin/reports/:id/hide           — 위반 확정+숨김(트랜잭션: resolved + target hidden)
- * PATCH  /api/v1/admin/reports/:id/reject         — 반려(note 필수)
+ * GET    /api/v1/admin/reports                           — 신고 목록(필터: status/targetType/dateFrom/dateTo/q/page/pageSize)
+ * GET    /api/v1/admin/reports/:id                       — 신고 상세(대상 콘텐츠 미리보기 포함)
+ * PATCH  /api/v1/admin/reports/:id/review                — 접수→확인중 변경
+ * PATCH  /api/v1/admin/reports/:id/hide                  — 위반 확정+숨김(트랜잭션: resolved + target hidden)
+ * PATCH  /api/v1/admin/reports/:id/reject                — 반려(note 필수)
+ * PATCH  /api/v1/admin/reports/:id/restore-auto-hide     — 자동 숨김 복구(Story 9.11)
  */
 
 import type { FastifyInstance } from "fastify";
@@ -20,12 +21,14 @@ import {
   markReviewing,
   hideTarget,
   rejectReport,
+  restoreAutoHidden,
 } from "./service.js";
 
 export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/reports ──────────────────────────────────────────────
   app.get("/api/v1/admin/reports", async (request, reply) => {
-    const parsed = adminReportsQuerySchema.safeParse(request.query);
+    const query = request.query as Record<string, unknown>;
+    const parsed = adminReportsQuerySchema.safeParse(query);
     if (!parsed.success) {
       return reply.status(400).send({
         error: {
@@ -36,8 +39,12 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
       });
     }
 
+    // autoHidden=true 서브 필터 (Story 9.11 "자동 숨김" 탭)
+    // adminReportsQuerySchema에 포함되지 않으므로 별도로 추출한다.
+    const autoHiddenFilter = query.autoHidden === "true" ? true : undefined;
+
     try {
-      const result = await listReports(parsed.data);
+      const result = await listReports(parsed.data, autoHiddenFilter);
       return reply.send(result);
     } catch (err) {
       request.log.error(err);
@@ -159,6 +166,34 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
 
     try {
       const result = await rejectReport(id, adminId, parsed.data.note);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+      });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/reports/:id/restore-auto-hide ─────────────────────
+  // 자동 숨김된 콘텐츠 복구: target status='published' + report handled (Story 9.11, AC #2).
+  // 저위험(콘텐츠 복구): 즉시+토스트.
+  app.patch("/api/v1/admin/reports/:id/restore-auto-hide", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const adminId = request.adminSession?.adminUserId;
+
+    if (!adminId) {
+      return reply.status(401).send({
+        error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." },
+      });
+    }
+
+    try {
+      const result = await restoreAutoHidden(id, adminId);
       return reply.send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

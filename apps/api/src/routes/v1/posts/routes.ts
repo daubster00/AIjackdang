@@ -33,6 +33,7 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { contentGuard } from "../../../middleware/contentGuard.js";
 import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { adminAuth } from "../../../auth/admin-auth.js";
@@ -129,7 +130,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
   typed.post(
     "/posts",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, contentGuard],
       schema: {
         description:
           "게시글 작성 또는 임시저장. 인증 필수. status='draft' → 임시저장, 기본='published'. notice 게시판은 관리자 세션(aj_admin_session 쿠키) 필수.",

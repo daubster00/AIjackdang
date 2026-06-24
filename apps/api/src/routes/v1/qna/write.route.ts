@@ -17,6 +17,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createQuestionSchema, updateQuestionSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { contentGuard } from "../../../middleware/contentGuard.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and, isNull } from "drizzle-orm";
@@ -96,7 +97,7 @@ export async function registerQnaWriteRoutes(app: FastifyInstance): Promise<void
   typed.post(
     "/qna/questions",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, contentGuard],
       schema: {
         description:
           "질문 작성(status='published') 또는 임시저장(status='draft'). 인증 필수. 성공 시 201 + { id, slug, status } 반환.",

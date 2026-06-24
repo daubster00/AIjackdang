@@ -45,7 +45,7 @@ type HideableTargetType = keyof typeof TARGET_TABLE_MAP;
 
 // ── 목록 조회 ─────────────────────────────────────────────────────────────────
 
-export async function listReports(query: AdminReportsQuery) {
+export async function listReports(query: AdminReportsQuery, autoHiddenFilter?: boolean) {
   const db = getDb();
   const { status, targetType, dateFrom, dateTo, q, page, pageSize } = query;
 
@@ -64,6 +64,10 @@ export async function listReports(query: AdminReportsQuery) {
     const toDate = new Date(dateTo);
     toDate.setHours(23, 59, 59, 999);
     conditions.push(lte(reports.createdAt, toDate));
+  }
+  // Story 9.11 "자동 숨김" 서브 필터
+  if (autoHiddenFilter === true) {
+    conditions.push(eq(reports.autoHidden, true));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -280,6 +284,58 @@ export async function hideTarget(reportId: string, adminId: string) {
         .set({ status: "hidden" as never, updatedAt: now } as never)
         .where(eq((table as typeof posts).id, targetId));
     }
+
+    return reportRow;
+  });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    reviewedAt: updated.reviewedAt ? updated.reviewedAt.toISOString() : null,
+  };
+}
+
+// ── 자동 숨김 복구 (Story 9.11, AC #2) ───────────────────────────────────────
+// 자동 숨김(autoHidden=true)된 콘텐츠를 'published'로 복구하고 신고를 'resolved' 처리한다.
+
+export async function restoreAutoHidden(reportId: string, adminId: string) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: reports.id,
+      targetType: reports.targetType,
+      targetId: reports.targetId,
+      autoHidden: reports.autoHidden,
+    })
+    .from(reports)
+    .where(eq(reports.id, reportId))
+    .limit(1);
+
+  if (!existing) {
+    throw Object.assign(new Error("신고를 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+  const targetType = existing.targetType as string;
+  const targetId = existing.targetId;
+
+  const updated = await db.transaction(async (tx) => {
+    // 1) 대상 콘텐츠 status='published' 복구 (자동 숨김 가능한 타입만)
+    if (targetType in TARGET_TABLE_MAP) {
+      const table = TARGET_TABLE_MAP[targetType as HideableTargetType];
+      await tx
+        .update(table)
+        .set({ status: "published" as never, updatedAt: now } as never)
+        .where(eq((table as typeof posts).id, targetId));
+    }
+
+    // 2) 신고 상태 resolved + autoHidden=false + 처리자 기록
+    const [reportRow] = await tx
+      .update(reports)
+      .set({ status: "resolved", autoHidden: false, reviewedBy: adminId, reviewedAt: now })
+      .where(eq(reports.id, reportId))
+      .returning({ id: reports.id, status: reports.status, reviewedAt: reports.reviewedAt });
 
     return reportRow;
   });
