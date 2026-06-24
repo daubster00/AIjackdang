@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 8 전체 완료(8.1~8.9): 검색·태그·홈SSR·OGworker·sitemap·검색결과페이지·태그자동완성·OG/GA4·캐싱
+last_updated: 2026-06-24 # Epic 9 기반 레이어 완료(9.1~9.6): 관리자 DB/Auth/시드·로그인UX·AdminShell게이트·운영자관리·대시보드/통계·게시글관리 (9.7~9.18 미착수)
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -109,12 +109,12 @@ development_status:
   epic-8-retrospective: optional
 
   epic-9: in-progress
-  9-1-admin-db-schema-auth-instance-seed: ready-for-dev
-  9-2-admin-login-logout-signup-ux: ready-for-dev
-  9-3-admin-shell-auth-gate-nav: ready-for-dev
-  9-4-admin-account-management: ready-for-dev
-  9-5-dashboard-analytics: ready-for-dev
-  9-6-post-management: ready-for-dev
+  9-1-admin-db-schema-auth-instance-seed: done # 관리자 DB 4테이블·Better Auth admin 인스턴스·super_admin 시드(0015), adminGuard·requireSuperAdmin
+  9-2-admin-login-logout-signup-ux: done # 로그인 status가드·rate limit·가입(승인대기)·로그아웃 API+UI
+  9-3-admin-shell-auth-gate-nav: done # 미들웨어 인증게이트·role 필터·세션표시·off-canvas (쿠키명 aj_admin_session.session_token 정합 수정)
+  9-4-admin-account-management: done # 운영자 승인·반려·정지·재활성·역할변경(자기자신 403) API+UI, grades/permissions 읽기전용
+  9-5-dashboard-analytics: done # KPI·운영알림 실집계+접속통계, createLineChart 재사용(Recharts 미도입)+접근성 테이블
+  9-6-post-management: done # 플래그토글·숨김·복구·삭제(super_admin)·SEO·벌크, posts 플래그컬럼 0016 선행
   9-7-qna-management: ready-for-dev
   9-8-resource-management: ready-for-dev
   9-9-comment-review-management: ready-for-dev
