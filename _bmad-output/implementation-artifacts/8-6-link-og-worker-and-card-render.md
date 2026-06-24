@@ -1,6 +1,6 @@
 # Story 8.6: 링크 OG 자동수집 Worker & 카드 렌더
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -218,10 +218,20 @@ apps/
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `packages/database/src/schema/index.ts`에 link-previews re-export 추가 (직접 경로 import 불가)
+- `packages/contracts/src/index.ts`에 link-preview·sitemap re-export 추가 (타입체크 통과 필요)
+- `node-html-parser` 미설치 확인 → regex 기반 OG 파싱으로 구현
+- `@ai-jakdang/database/src/schema/link-previews.js` 직접 경로 import 불가 → schema barrel 통해 접근
 
 ### Completion Notes List
+- `node-html-parser` 없으므로 regex로 `<meta property="og:*">` 파싱 구현
+- `packages/database/src/schema/index.ts` re-export 추가 (오케스트레이터 지시 범위 내 처리)
+- `packages/contracts/src/index.ts` re-export 추가 (타입체크 통과 필수)
+- `ogLinkCards` CSS 클래스 vibe-coding.module.css, automation.module.css 양쪽에 추가
+- `PostDetail` 타입에 `linkPreviews?: LinkPreviewMap` 필드 추가
 
 ### File List
 - NEW: `packages/database/src/schema/link-previews.ts`

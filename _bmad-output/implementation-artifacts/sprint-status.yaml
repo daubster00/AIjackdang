@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 7 완료(7.1~7.5): 알림 SSE·목록·설정·쪽지DM·1:1문의. typecheck 전체 통과, API 테스트 203 통과
+last_updated: 2026-06-24 # Epic 8 Batch1 완료(8.1~8.7): 검색API·태그랜딩·홈SSR·OGworker·sitemap/robots
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -97,13 +97,13 @@ development_status:
   epic-7-retrospective: optional
 
   epic-8: in-progress
-  8-1-pg-bigm-search-index-and-api: ready-for-dev
+  8-1-pg-bigm-search-index-and-api: done
   8-2-search-results-page: ready-for-dev
-  8-3-tag-api-and-landing-page: ready-for-dev
+  8-3-tag-api-and-landing-page: done
   8-4-tag-autocomplete-api-and-component: ready-for-dev
-  8-5-main-home-page-ssr: ready-for-dev
-  8-6-link-og-worker-and-card-render: ready-for-dev
-  8-7-sitemap-robots: ready-for-dev
+  8-5-main-home-page-ssr: done
+  8-6-link-og-worker-and-card-render: done
+  8-7-sitemap-robots: done
   8-8-og-tags-ga4-gsc-noindex: ready-for-dev
   8-9-public-page-caching: ready-for-dev
   epic-8-retrospective: optional

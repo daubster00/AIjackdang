@@ -33,6 +33,7 @@ export * from "./Modal";
 export * from "./LoginGatingModal";
 export * from "./MessageModal";
 export * from "./ConfirmDialog";
+export * from "./DeleteConfirmModal";
 export * from "./Dropdown";
 export * from "./Popover";
 export * from "./Toast";
@@ -54,3 +55,6 @@ export * from "./TagInput";
 
 // 별점 입력 (Story 4.7)
 export * from "./RatingInput";
+
+// OG 링크 미리보기 카드 (Story 8.6)
+export * from "./OgLinkCard";

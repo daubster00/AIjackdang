@@ -1,0 +1,1 @@
+export { OgLinkCard } from "./OgLinkCard";

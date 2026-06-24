@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { paginatedResponseSchema } from "./common";
+import { linkPreviewMapSchema } from "./link-preview";
 
 // ── 창작 스펙 (Story 2.11) ────────────────────────────────────────────────────
 
@@ -135,6 +136,8 @@ export const postCardSchema = z.object({
   board: z.string(),
   authorNickname: z.string().nullable(), // 탈퇴 회원은 null
   authorGrade: z.string().optional(),
+  /** 작성자 프로필 사진 URL. 서버에서 avatarUrl > image > 기본아바타 순으로 resolve. 탈퇴회원은 null. */
+  authorAvatarUrl: z.string().nullable(),
   createdAt: z.string(), // ISO 8601 UTC
   viewCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),
@@ -168,6 +171,8 @@ export const postDetailSchema = postCardSchema.extend({
   creativeSpec: creativeSpecSchema.nullable().optional(),
   /** Story 2.12: 작당 의뢰소 모집 스펙. board='gigs'이고 스펙이 있을 때만 존재. */
   recruitPost: recruitPostSchema.nullable().optional(),
+  /** Story 8.6: 본문 외부 링크 OG 미리보기 맵. URL → OG 메타. 빈 객체이면 수집 미완료. */
+  linkPreviews: linkPreviewMapSchema.optional(),
 });
 export type PostDetail = z.infer<typeof postDetailSchema>;
 

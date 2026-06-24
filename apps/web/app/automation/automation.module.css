@@ -544,6 +544,16 @@
   margin-top: var(--space-8);
 }
 
+/* [8.6] OG 링크 미리보기 카드 목록 */
+.ogLinkCards {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  background: var(--color-surface);
+}
+
 /*
  * Detail card legacy spacing overrides live below in the original order.
  * Keep them neutral so the white card grouping above remains intact.

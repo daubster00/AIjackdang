@@ -9,6 +9,7 @@ import { gradeUpProcessor } from "./processors/gradeUp.processor.js"; // Story 6
 import { badgeCheckProcessor } from "./processors/badgeCheck.processor.js"; // Story 6.4
 import { rankingComputeProcessor } from "./processors/rankingCompute.processor.js"; // Story 6.5
 import { setupRankingCron } from "./schedules/ranking.cron.js"; // Story 6.5
+import { ogFetchProcessor } from "./processors/og-fetch.js"; // Story 8.6
 
 /**
  * 워커 엔트리.
@@ -219,7 +220,25 @@ function startWorkers(): Worker[] {
   );
   // ── [6.3/6.4] ranking worker END ─────────────────────────────────────────
 
-  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker, rankingWorker];
+  // ── [8.6] og-fetch worker ─────────────────────────────────────────────────
+  // link_previews 테이블에 OG 메타를 upsert한다.
+  const ogFetchConnection = createConnection();
+  const ogFetchWorker = new Worker(
+    QUEUE_NAMES.ogFetch,
+    ogFetchProcessor,
+    { connection: ogFetchConnection, concurrency: 3 },
+  );
+
+  ogFetchWorker.on("ready", () => console.log("[worker] og-fetch 워커 준비 완료"));
+  ogFetchWorker.on("completed", (job) =>
+    console.info(`[og-fetch-worker] job 완료: ${job.id}`),
+  );
+  ogFetchWorker.on("failed", (job, error) =>
+    console.error(`[og-fetch-worker] job 실패 ${job?.id}:`, error.message),
+  );
+  // ── [8.6] og-fetch worker END ─────────────────────────────────────────────
+
+  return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker, rankingWorker, ogFetchWorker];
 }
 
 const workers = startWorkers();

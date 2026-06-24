@@ -8,14 +8,17 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import type { PostCard, PostDetail, CreativeSpec } from "@ai-jakdang/contracts";
+import type { PostCard, PostDetail, CreativeSpec, LinkPreviewMap } from "@ai-jakdang/contracts";
 import type { CreatePostInput, RecruitPost, RecruitMeta } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 import { Redis } from "ioredis";
 import sanitizeHtml from "sanitize-html";
 import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
+import { extractExternalUrls } from "../../../lib/extract-urls.js";
+import { getOgFetchQueue, OG_FETCH_JOB_NAME } from "../../../lib/queues.js";
 
 // ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
 let _redis: Redis | null = null;
@@ -127,6 +130,9 @@ export async function getPosts({
       isPinned: schema.posts.isPinned,
       createdAt: schema.posts.createdAt,
       authorNickname: schema.users.nickname,
+      authorAvatarUrl: schema.users.avatarUrl,
+      authorImage: schema.users.image,
+      authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
       // Story 2.12: 구인·외주 메타 JOIN (board='gigs' 전용)
       recruitPostKind: schema.recruitPost.postKind,
       recruitFields: schema.recruitPost.fields,
@@ -184,6 +190,9 @@ export async function getPosts({
     summary: row.summary ?? null,
     board: row.board,
     authorNickname: row.authorNickname ?? null,
+    authorAvatarUrl: row.authorNickname != null
+      ? (row.authorAvatarUrl || row.authorImage || getDefaultAvatarUrl(row.authorDefaultAvatarIndex ?? 0))
+      : null,
     createdAt: row.createdAt.toISOString(),
     viewCount: row.viewCount,
     commentCount: 0, // Epic 5 이전 고정
@@ -418,6 +427,28 @@ export async function createPost({
       category: post.category ?? null,
       status: post.status as PostStatus,
     };
+  }).then(async (result) => {
+    // ── [8.6] OG 잡 발행 (published 게시글만, fire-and-forget) ──────────────
+    if (input.status !== "draft") {
+      try {
+        const siteUrl = process.env.SITE_URL ?? "";
+        const urls = extractExternalUrls(input.contentJson, siteUrl);
+        if (urls.length > 0) {
+          await getOgFetchQueue().add(OG_FETCH_JOB_NAME, {
+            targetType: "post",
+            targetId: result.id,
+            urls,
+          }, {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 5000 },
+          });
+        }
+      } catch (err) {
+        console.error("[og-fetch] 잡 발행 실패 (무시):", (err as Error).message);
+      }
+    }
+    // ── [8.6] END ─────────────────────────────────────────────────────────────
+    return result;
   });
 }
 
@@ -676,6 +707,28 @@ export async function updatePost({
       board: updated.board,
       category: updated.category ?? null,
     };
+  }).then(async (result) => {
+    // ── [8.6] OG 잡 발행 (contentJson 변경 시, fire-and-forget) ─────────────
+    if (input.contentJson) {
+      try {
+        const siteUrl = process.env.SITE_URL ?? "";
+        const urls = extractExternalUrls(input.contentJson, siteUrl);
+        if (urls.length > 0) {
+          await getOgFetchQueue().add(OG_FETCH_JOB_NAME, {
+            targetType: "post",
+            targetId: postId,
+            urls,
+          }, {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 5000 },
+          });
+        }
+      } catch (err) {
+        console.error("[og-fetch] 잡 발행 실패 (무시):", (err as Error).message);
+      }
+    }
+    // ── [8.6] END ─────────────────────────────────────────────────────────────
+    return result;
   });
 }
 
@@ -790,6 +843,9 @@ export async function getPostBySlug(
       contentJson: schema.posts.contentJson,
       userId: schema.posts.userId,
       authorNickname: schema.users.nickname,
+      authorAvatarUrl: schema.users.avatarUrl,
+      authorImage: schema.users.image,
+      authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
       // Story 2.11: 창작 스펙 JOIN 컬럼
       specMediaType: schema.postCreativeSpec.mediaType,
       specTools: schema.postCreativeSpec.tools,
@@ -898,6 +954,45 @@ export async function getPostBySlug(
       }
     : null;
 
+  // ── [8.6] linkPreviews 조회 ────────────────────────────────────────────────
+  const siteUrl = process.env.SITE_URL ?? "";
+  const externalUrls = extractExternalUrls(row.contentJson, siteUrl);
+  let linkPreviews: LinkPreviewMap = {};
+
+  if (externalUrls.length > 0) {
+    try {
+      const previewRows = await db
+        .select({
+          url: schema.linkPreviews.url,
+          title: schema.linkPreviews.title,
+          description: schema.linkPreviews.description,
+          imageUrl: schema.linkPreviews.imageUrl,
+          siteName: schema.linkPreviews.siteName,
+        })
+        .from(schema.linkPreviews)
+        .where(
+          and(
+            inArray(schema.linkPreviews.url, externalUrls),
+            isNull(schema.linkPreviews.errorAt),
+          ),
+        );
+
+      for (const preview of previewRows) {
+        if (preview.url) {
+          linkPreviews[preview.url] = {
+            title: preview.title ?? null,
+            description: preview.description ?? null,
+            imageUrl: preview.imageUrl ?? null,
+            siteName: preview.siteName ?? null,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[link-previews] 조회 실패 (무시):", (err as Error).message);
+    }
+  }
+  // ── [8.6] END ──────────────────────────────────────────────────────────────
+
   return {
     id: row.id,
     slug: row.slug,
@@ -918,10 +1013,14 @@ export async function getPostBySlug(
     contentJson: row.contentJson as Record<string, unknown>,
     authorId: row.userId ?? null,
     authorNickname: row.authorNickname ?? null,
+    authorAvatarUrl: row.authorNickname != null
+      ? (row.authorAvatarUrl || row.authorImage || getDefaultAvatarUrl(row.authorDefaultAvatarIndex ?? 0))
+      : null,
     isOwner,
     tags,
     creativeSpec,
     recruitPost: recruitPostData,
+    linkPreviews,
   };
 }
 

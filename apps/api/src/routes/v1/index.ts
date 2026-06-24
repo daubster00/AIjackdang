@@ -19,6 +19,14 @@ import { relatedRoutes } from "./related.js";
 import { blocksRoutes } from "./blocks.js";
 import { followsRoutes } from "./follows.js";
 import { gamificationRoutes } from "./gamification/gamification.routes.js";
+import { notificationsRoutes } from "./notifications/index.js";
+import { messagesRoutes } from "./messages/index.js";
+import { inquiriesRoutes } from "./inquiries/index.js";
+import { searchRoutes } from "./search.js";
+import { tagContentRoutes } from "./tagContent.js";
+import { registerHomeQuestionsRoutes } from "./questions/index.js";
+import { registerNoticesRoutes } from "./notices/index.js";
+import { sitemapRoutes } from "./sitemap/routes.js";
 
 /**
  * /api/v1 라우트.
@@ -89,4 +97,29 @@ export async function v1Routes(app: FastifyInstance) {
   // GET /api/v1/gamification/me          — 내 등급 (인증 필요)
   // GET /api/v1/gamification/user/:userId/grade — 공개 등급 조회
   await gamificationRoutes(app);
+
+  // ── 알림 라우트 (Story 7.1: SSE 커넥션; 7.2에서 CRUD 확장) ─────────────────
+  // GET /api/v1/notifications/sse — SSE 연결 (인증 필요)
+  await app.register(notificationsRoutes, { prefix: "/notifications" });
+
+  // ── 쪽지(DM) 라우트 (Story 7.4: 발송/대화목록/스레드/읽음) ─────────────────
+  await app.register(messagesRoutes, { prefix: "/messages" });
+
+  // ── 1:1 문의 라우트 (Story 7.5: 목록/작성/상세스레드) ──────────────────────
+  await app.register(inquiriesRoutes, { prefix: "/inquiries" });
+
+  // ── 통합 검색 라우트 (Story 8.1: GET /search) ────────────────────────────────
+  await app.register(searchRoutes, { prefix: "/search" });
+
+  // ── 태그 콘텐츠 라우트 (Story 8.3: GET /tags/popular · /tags/:tag/content) ──
+  await tagContentRoutes(app);
+
+  // ── 홈 페이지 전용 질문 라우트 (Story 8.5: GET /questions) ──────────────────
+  await registerHomeQuestionsRoutes(app);
+
+  // ── 홈 페이지 전용 핀 공지 라우트 (Story 8.5: GET /notices/pinned) ───────────
+  await registerNoticesRoutes(app);
+
+  // ── 사이트맵 데이터 라우트 (Story 8.7: GET /sitemap/*) ───────────────────────
+  await sitemapRoutes(app);
 }

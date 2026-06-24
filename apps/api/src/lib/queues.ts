@@ -104,6 +104,38 @@ export function getNotificationsQueue(): Queue {
   return _notificationsQueue;
 }
 
+// ── [8.6] og-fetch 큐 ─────────────────────────────────────────────────────────
+/** og-fetch 큐 이름 (Story 8.6) — worker QUEUE_NAMES.ogFetch와 동일해야 함 */
+export const OG_FETCH_QUEUE_NAME = "og-fetch" as const;
+
+/** BullMQ og.fetch 잡 이름 (Story 8.6) */
+export const OG_FETCH_JOB_NAME = "og.fetch" as const;
+
+let _ogFetchQueue: Queue | null = null;
+
+/**
+ * OG 메타 수집 큐 인스턴스를 반환한다(지연 초기화 싱글톤).
+ * 게시글·질문 저장 후 외부 URL 목록과 함께 잡을 발행한다.
+ */
+export function getOgFetchQueue(): Queue {
+  if (!_ogFetchQueue) {
+    _ogFetchQueue = new Queue(OG_FETCH_QUEUE_NAME, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: {
+          type: "fixed",
+          delay: 5000,
+        },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 200 },
+      },
+    });
+  }
+  return _ogFetchQueue;
+}
+// ── [8.6] END ─────────────────────────────────────────────────────────────────
+
 /** ranking 큐 이름 (Story 6.3) — worker QUEUE_NAMES.ranking와 동일해야 함 */
 export const RANKING_QUEUE_NAME = "ranking" as const;
 

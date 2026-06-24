@@ -10,6 +10,8 @@
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, desc, and } from "drizzle-orm";
 import { slugify, generateUniqueSlug } from "@ai-jakdang/utilities";
+import { extractExternalUrls } from "../../../lib/extract-urls.js";
+import { getOgFetchQueue, OG_FETCH_JOB_NAME } from "../../../lib/queues.js";
 
 export type QuestionStatus = "published" | "draft";
 
@@ -137,6 +139,28 @@ export async function createQuestion({
       slug: question.slug,
       status: question.status as QuestionStatus,
     };
+  }).then(async (result) => {
+    // ── [8.6] OG 잡 발행 (published 질문만, fire-and-forget) ────────────────
+    if (status !== "draft") {
+      try {
+        const siteUrl = process.env.SITE_URL ?? "";
+        const urls = extractExternalUrls(contentJson, siteUrl);
+        if (urls.length > 0) {
+          await getOgFetchQueue().add(OG_FETCH_JOB_NAME, {
+            targetType: "question",
+            targetId: result.id,
+            urls,
+          }, {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 5000 },
+          });
+        }
+      } catch (err) {
+        console.error("[og-fetch] QnA 잡 발행 실패 (무시):", (err as Error).message);
+      }
+    }
+    // ── [8.6] END ─────────────────────────────────────────────────────────────
+    return result;
   });
 }
 
@@ -257,6 +281,28 @@ export async function updateQuestion({
       slug: updated.slug,
       updatedAt: updated.updatedAt.toISOString(),
     };
+  }).then(async (result) => {
+    // ── [8.6] OG 잡 발행 (contentJson 변경 시, fire-and-forget) ─────────────
+    if (contentJson) {
+      try {
+        const siteUrl = process.env.SITE_URL ?? "";
+        const urls = extractExternalUrls(contentJson, siteUrl);
+        if (urls.length > 0) {
+          await getOgFetchQueue().add(OG_FETCH_JOB_NAME, {
+            targetType: "question",
+            targetId: questionId,
+            urls,
+          }, {
+            attempts: 2,
+            backoff: { type: "fixed", delay: 5000 },
+          });
+        }
+      } catch (err) {
+        console.error("[og-fetch] QnA 수정 잡 발행 실패 (무시):", (err as Error).message);
+      }
+    }
+    // ── [8.6] END ─────────────────────────────────────────────────────────────
+    return result;
   });
 }
 
