@@ -1,0 +1,310 @@
+/* Story 7.2 — features/notification CSS Modules */
+/* 디자인 토큰만 사용. 하드코딩 색상 금지. */
+
+/* ── 페이지 전체 ── */
+.page {
+  min-height: 100vh;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.page h1,
+.page h2,
+.page p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+/* ── 상단 헤더 영역 ── */
+.head {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.headInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6) var(--space-4);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.title i {
+  color: var(--color-primary);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.unreadBadge {
+  flex: 0 0 auto;
+}
+
+.headActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.markAllButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.markAllButton:not(:disabled):hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.markAllButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.markAllButton i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── 목록 레이아웃 ── */
+.listLayout {
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-6) 96px;
+}
+
+/* ── 알림 1건 ── */
+.item {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 8px 22px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.item:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 10px 28px rgba(23, 24, 39, 0.07);
+}
+
+/* 안 읽은 알림: 좌측 강조 바 + 연한 브랜드 배경 */
+.itemUnread {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  background: linear-gradient(
+      90deg,
+      var(--color-primary-soft) 0,
+      var(--color-primary-soft) 4px,
+      var(--color-surface) 4px
+    )
+    padding-box;
+}
+
+.itemButton {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-5);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ── 타입 아이콘 ── */
+.typeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 19px;
+}
+
+/* 타입별 색 토널 */
+.toneComment {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+
+.toneAnswer {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.toneReaction {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.toneHelpful {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.toneMessage {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.toneSanction {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.toneDefault {
+  background: var(--color-neutral-soft);
+  color: var(--color-text-sub);
+}
+
+/* ── 본문 ── */
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.itemTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+
+.itemBody {
+  overflow: hidden;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: var(--line-height-relaxed);
+}
+
+.itemButton:hover .itemBody {
+  color: var(--color-primary);
+}
+
+.time {
+  color: var(--color-placeholder);
+  font-size: var(--font-size-xs);
+  margin-top: 2px;
+}
+
+/* 안 읽음 점 — 색 + 텍스트 기반 접근성 */
+.unreadIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.unreadDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex: 0 0 auto;
+}
+
+.unreadLabel {
+  /* 시각적으로는 숨기되 스크린리더에는 읽힌다 */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* ── 페이지네이션 영역 ── */
+.pagination {
+  justify-self: center;
+}
+
+/* ── 스켈레톤 ── */
+.skeletonList {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.skeletonItem {
+  height: 80px;
+  border-radius: var(--radius-lg);
+  background: var(--color-neutral-soft);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── 반응형 ── */
+@media (max-width: 768px) {
+  .headInner {
+    padding: var(--space-6) var(--space-4) var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .listLayout {
+    padding: var(--space-5) var(--space-4) 72px;
+    gap: var(--space-5);
+  }
+
+  .itemButton {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+}

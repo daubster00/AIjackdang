@@ -9,6 +9,12 @@ export * from "./qna";
 export * from "./resource";
 export * from "./engagement";
 
+// ── 알림·쪽지·문의 (Epic 7) ───────────────────────────────────────────────────
+export * from "./notification";
+export * from "./notification-settings";
+export * from "./message";
+export * from "./inquiry";
+
 // ── 검색 (Story 8.1) ──────────────────────────────────────────────────────────
 export * from "./search";
 

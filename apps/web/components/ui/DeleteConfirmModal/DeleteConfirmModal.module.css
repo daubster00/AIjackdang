@@ -1,0 +1,83 @@
+/*
+ * 삭제 확인 모달 — 묻고답하기(Q&A)에서 쓰던 모달을 전 게시판 공용으로 추출.
+ * 모든 게시판의 "삭제하시겠습니까?" 알림 창이 동일하게 보이도록 단일 소스로 둔다.
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: min(400px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+/* 취소: 흰 배경 + 회색 테두리 + 검은 글씨 (삭제 버튼과 확실히 구분) */
+.cancel {
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.cancel:hover {
+  background: var(--color-neutral-soft);
+}
+
+/* 삭제: 솔리드 빨강 + 흰 글씨 (취소와 명확히 다른 색) */
+.ok {
+  min-height: 40px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger);
+  padding: 0 var(--space-4);
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.ok:hover {
+  border-color: var(--color-danger-hover, var(--color-danger));
+  background: var(--color-danger-hover, var(--color-danger));
+  filter: brightness(0.95);
+  color: #ffffff;
+}
+
+.ok:disabled,
+.cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

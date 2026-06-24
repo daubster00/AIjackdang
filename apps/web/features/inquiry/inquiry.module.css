@@ -1,0 +1,343 @@
+/* ============================================================================
+ * 1:1 문의 — CSS Modules (Story 7.5)
+ *
+ * 디자인 시스템 토큰만 사용. 임의 색상·폰트 하드코딩 금지.
+ * ============================================================================ */
+
+/* ── 공통 페이지 레이아웃 ──────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.inner {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+/* ── 페이지 상단 헤더 (제목 + 액션 버튼) ───────────────────────────────────── */
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.pageTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* ── 목록 ──────────────────────────────────────────────────────────────────── */
+
+.listStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.itemCard {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.itemCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.itemCardBody {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.itemLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-2) 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  flex-wrap: wrap;
+}
+
+.itemRight {
+  flex-shrink: 0;
+}
+
+/* ── 페이지네이션 ──────────────────────────────────────────────────────────── */
+
+.paginationWrapper {
+  margin-top: var(--space-8);
+  display: flex;
+  justify-content: center;
+}
+
+/* ── 스켈레톤 ──────────────────────────────────────────────────────────────── */
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeletonItem {
+  height: 72px;
+  border-radius: var(--radius-lg);
+}
+
+/* ── 문의 작성 폼 ──────────────────────────────────────────────────────────── */
+
+.formCard {
+  padding: var(--space-6);
+}
+
+.formTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fieldLabel {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
+.fieldRequired {
+  color: var(--color-danger);
+  margin-left: 2px;
+}
+
+.fieldError {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  margin-top: var(--space-1);
+}
+
+.charCount {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+  text-align: right;
+  margin-top: var(--space-1);
+}
+
+.charCountOver {
+  color: var(--color-danger);
+}
+
+.editorWrapper {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-height: 200px;
+  overflow: hidden;
+}
+
+.editorWrapperError {
+  border-color: var(--color-danger);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── 문의 스레드 ────────────────────────────────────────────────────────────── */
+
+.threadBack {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  text-decoration: none;
+  margin-bottom: var(--space-5);
+  padding: var(--space-2) 0;
+}
+
+.threadBack:hover {
+  color: var(--color-text);
+}
+
+.threadHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.threadHeaderTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.originalCard {
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.originalTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.originalMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  margin-bottom: var(--space-4);
+}
+
+.originalBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ── 답변 스레드 영역 ──────────────────────────────────────────────────────── */
+
+.repliesSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.repliesSectionTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+  margin: 0 0 var(--space-2) 0;
+}
+
+/* 운영진 답변 — 좌측 정렬 */
+.adminReply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.adminBubble {
+  background: var(--color-neutral-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  max-width: 85%;
+}
+
+.adminLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+  display: block;
+}
+
+.adminBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+.replyTime {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-sub);
+  padding-left: var(--space-2);
+}
+
+/* 회원 메시지 — 우측 정렬 */
+.userReply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.userBubble {
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  max-width: 85%;
+}
+
+.userBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+.userTimeRight {
+  text-align: right;
+  padding-right: var(--space-2);
+}
+
+/* 빈 답변 상태 */
+.noReplies {
+  background: var(--color-neutral-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 반응형 ── */
+
+@media (max-width: 768px) {
+  .inner {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .itemCardBody {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .adminBubble,
+  .userBubble {
+    max-width: 95%;
+  }
+}

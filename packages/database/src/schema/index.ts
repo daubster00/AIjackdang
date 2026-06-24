@@ -6,6 +6,17 @@ export * from "./qna";
 export * from "./resources";
 export * from "./engagement";
 export * from "./recruit-post";
+
+// ── Epic 7: 알림·쪽지·문의 ──────────────────────────────────────────────────
+export * from "./notifications";
+export * from "./notification-settings";
+export * from "./messages";
+export * from "./inquiries";
+export * from "./inquiry-replies";
+
+// ── Epic 8: OG 링크 미리보기 ──────────────────────────────────────────────────
+export * from "./link-previews";
+
 export {
   pointsLedger,
   grades,

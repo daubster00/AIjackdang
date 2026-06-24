@@ -1,0 +1,1 @@
+ALTER TYPE "public"."report_target_type" ADD VALUE 'message';
