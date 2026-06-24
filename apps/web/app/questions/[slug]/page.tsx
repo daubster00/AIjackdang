@@ -26,6 +26,7 @@ import { AnswerSection } from "./AnswerSection";
 import type { Answer } from "./AnswerItem";
 import { API_URL, SITE_URL } from "./constants";
 import type { AnswerResponse } from "@ai-jakdang/contracts";
+import { buildQAPageJsonLd, stripHtml } from "@/lib/seo";
 
 // ── 타입 ────────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const canonicalUrl = `${SITE_URL}/questions/${question.slug}`;
-  const description = question.title.slice(0, 160);
+  // 본문 HTML에서 태그 제거 후 150자 요약. contentHtml이 없으면 제목 fallback.
+  const description = question.contentHtml
+    ? stripHtml(question.contentHtml, 150)
+    : question.title.slice(0, 150);
+
+  // status 기반 robots 처리 (AC #6)
+  // deleted → 404(페이지에서 notFound()) / hidden → noindex / published → index
+  const isPublished = question.status === "published";
 
   return {
     title: `${question.title} — 묻고답하기 | AI작당`,
@@ -121,6 +129,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: canonicalUrl,
       type: "article",
     },
+    robots: isPublished
+      ? { index: true, follow: true }
+      : { index: false, follow: false },
   };
 }
 
@@ -169,14 +180,45 @@ export default async function QuestionDetailPage({ params }: PageProps) {
     ],
   };
 
+  // JSON-LD: QAPage (AC #1, #2, #7)
+  const publishedAnswers = (question.answers as Answer[]).filter(
+    (a) => a.status === "published",
+  );
+  const qaPageJsonLd = buildQAPageJsonLd(
+    {
+      title: question.title,
+      text: question.contentHtml
+        ? stripHtml(question.contentHtml, 150)
+        : question.title.slice(0, 150),
+      dateCreated: question.createdAt,
+      author: { name: question.author?.nickname ?? "익명" },
+      helpfulAnswerId: question.helpfulAnswerId,
+    },
+    publishedAnswers.map((a) => ({
+      id: a.id,
+      text: a.contentHtml
+        ? stripHtml(a.contentHtml, 150)
+        : typeof (a.contentJson as Record<string, unknown>)?.html === "string"
+          ? stripHtml((a.contentJson as Record<string, unknown>).html as string, 150)
+          : "",
+      dateCreated: a.createdAt,
+      author: { name: a.author?.nickname ?? "익명" },
+    })),
+  );
+
   const answerCount = question.answerCount;
 
   return (
     <main id="main" className={styles.page}>
-      {/* JSON-LD */}
+      {/* JSON-LD: BreadcrumbList */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {/* JSON-LD: QAPage — schema.org 구조화 데이터 (AC #1, #2, #7) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(qaPageJsonLd) }}
       />
 
       {/* 묻고답하기 대메뉴 공통 히어로 */}

@@ -9,3 +9,4 @@ export * from "./metadata";
 export * from "./jsonld";
 export * from "./breadcrumb";
 export * from "./generate-summary";
+export * from "./qna";
