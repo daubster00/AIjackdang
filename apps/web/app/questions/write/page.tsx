@@ -1,59 +1,62 @@
+/**
+ * 질문 작성 페이지 — Story 3.3
+ *
+ * SSR 서버 컴포넌트:
+ * - 비회원: middleware.ts 가 /login?redirectTo=/questions/write 로 이미 리다이렉트.
+ *   클라이언트에서도 API 401 시 /login?redirectTo=/questions/write 처리.
+ * - 회원: draft 조회 → QuestionWriteClient 에 initialDraft 주입.
+ *
+ * ⚠️ SSR 500 방지: process.env 상수는 constants.ts에서만 정의하고 import한다.
+ */
+
 import type { Metadata } from "next";
-import { BoardHero, PostWriteForm, type PostWriteFormConfig } from "@/components/board";
+import { headers } from "next/headers";
+import { BoardHero } from "@/components/board";
 import styles from "@/components/board/PostWriteForm.module.css";
+import { QuestionWriteClient } from "./QuestionWriteClient";
+import { API_URL } from "./constants";
+import type { DraftInitialValue } from "./QuestionWriteClient";
 
 export const metadata: Metadata = {
   title: "질문하기 | 묻고답하기 - AI작당",
   description: "묻고답하기에 새 질문을 작성합니다.",
 };
 
-/** 묻고답하기 글쓰기 설정 (헤더·팁 박스는 질문 게시판 전용) */
-const config: PostWriteFormConfig = {
-  header: {
-    badgeIcon: "question-answer-line",
-    badgeLabel: "묻고답하기",
-    title: "질문하기",
-    description: "막히는 부분을 구체적으로 적을수록 더 빠르고 정확한 답변을 받을 수 있어요.",
-  },
-  tip: {
-    title: "좋은 질문을 위한 체크리스트",
-    items: [
-      "무엇을 하려고 했는지 + 어떤 문제가 생겼는지 함께 적어주세요.",
-      "사용 중인 도구·버전·에러 메시지를 코드블록으로 붙여주세요.",
-      "이미 시도해 본 방법이 있다면 적어주면 중복 답변을 줄일 수 있어요.",
-    ],
-  },
-  titleLabel: "질문 제목",
-  titleInputId: "question-title",
-  titlePlaceholder:
-    "핵심을 한 문장으로 — 예: Claude Code가 PHP 구조를 잘못 이해할 때 컨텍스트 잡는 법?",
-  bodyLabel: "질문 내용",
-  bodyPlaceholder:
-    "질문 내용을 입력하세요. 코드, 에러 메시지, 스크린샷을 함께 올리면 답변받기 쉬워요.",
-  tagPlaceholder: "주제 태그를 입력하세요 (예: ClaudeCode)",
-  suggestedTags: [
-    "ClaudeCode", "Cursor", "n8n", "MCP", "바이브코딩",
-    "자동화", "프롬프트", "수익화", "입문", "React",
-    "PHP", "배포", "외주", "Make", "Zapier",
-  ],
-  dropzoneText: "에러 로그·스크린샷을 끌어다 놓거나 클릭해서 선택하세요",
-  cancelHref: "/questions",
-  submitLabel: "질문 등록",
-  submitIcon: "question-answer-line",
-  // TODO(Epic 3): questions board 슬러그가 contracts/board.ts 에 추가되면 "questions" 로 변경.
-  // 현재 board.ts 에 questions 가 없으므로 임시로 talk 으로 대응.
-  board: "talk",
-  boardHref: "/questions",
-};
+// ── 드래프트 조회 (서버 컴포넌트에서 SSR) ──────────────────────────────────────
 
-export default function QuestionWritePage() {
+async function fetchDraft(cookie?: string): Promise<DraftInitialValue | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/qna/questions/draft`, {
+      headers: cookie ? { cookie } : {},
+      cache: "no-store",
+    });
+    if (res.status === 204 || !res.ok) return null;
+    const data = (await res.json()) as DraftInitialValue & { slug: string };
+    return {
+      id: data.id,
+      title: data.title,
+      contentJson: data.contentJson,
+      tags: data.tags,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export default async function QuestionWritePage() {
+  const headersList = await headers();
+  const cookie = headersList.get("cookie") ?? undefined;
+
+  // 회원이면 기존 draft 복원
+  const initialDraft = await fetchDraft(cookie);
+
   return (
     <main id="main" className={styles.page}>
       {/* 히어로 섹션: 묻고답하기 대메뉴 공통 히어로 */}
       <BoardHero menu="questions" currentSub="묻고답하기" />
 
-      {/* 글쓰기 폼 (모든 게시판 공용) */}
-      <PostWriteForm config={config} />
+      {/* 질문 작성 폼 — questions 전용 엔드포인트 사용 */}
+      <QuestionWriteClient initialDraft={initialDraft} />
     </main>
   );
 }
