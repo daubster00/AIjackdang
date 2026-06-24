@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";
-import { BoardHero, SearchAutocomplete } from "@/components/board";
+import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import styles from "./talk.module.css";
 
 export const metadata: Metadata = {
@@ -128,30 +128,34 @@ export default function LoungeTalkPage() {
             </span>
             <span>최신글 6개</span>
           </div>
-          {/* 글쓰기는 수다방 전용 write 라우트로 이동 */}
-          <Link href="/lounge/talk/write">
-            <Button
-              className={styles.writeButton}
-              leftIcon={
-                <svg
-                  width="17"
-                  height="17"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 5v14M5 12h14"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              }
-            >
-              글쓰기
-            </Button>
-          </Link>
+          {/* 버튼 그룹: [질문하기] + [글쓰기] */}
+          <div className={styles.headerActions}>
+            <AskButton tags={["lounge-talk"]} />
+            {/* 글쓰기는 수다방 전용 write 라우트로 이동 */}
+            <Link href="/lounge/talk/write">
+              <Button
+                className={styles.writeButton}
+                leftIcon={
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 5v14M5 12h14"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                }
+              >
+                글쓰기
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className={styles.mainCol}>

@@ -53,7 +53,11 @@ export function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
   if (isProtected && !hasSession) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
+    // 쿼리스트링(예: ?tags=vibe-coding)을 포함한 전체 경로를 redirectTo에 보존 (Story 3.4)
+    const fullPath = request.nextUrl.search
+      ? `${pathname}${request.nextUrl.search}`
+      : pathname;
+    loginUrl.searchParams.set("redirectTo", fullPath);
     return NextResponse.redirect(loginUrl);
   }
 

@@ -43,12 +43,22 @@ async function fetchDraft(cookie?: string): Promise<DraftInitialValue | null> {
   }
 }
 
-export default async function QuestionWritePage() {
+interface PageProps {
+  searchParams: Promise<{ tags?: string }>;
+}
+
+export default async function QuestionWritePage({ searchParams }: PageProps) {
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? undefined;
 
   // 회원이면 기존 draft 복원
   const initialDraft = await fetchDraft(cookie);
+
+  // URL ?tags=vibe-coding 또는 ?tags=a,b 파라미터를 파싱해 초기 태그 배열로 변환 (Story 3.4)
+  const { tags: tagsParam } = await searchParams;
+  const urlTags: string[] = tagsParam
+    ? tagsParam.split(",").map((t) => t.trim()).filter(Boolean)
+    : [];
 
   return (
     <main id="main" className={styles.page}>
@@ -56,7 +66,7 @@ export default async function QuestionWritePage() {
       <BoardHero menu="questions" currentSub="묻고답하기" />
 
       {/* 질문 작성 폼 — questions 전용 엔드포인트 사용 */}
-      <QuestionWriteClient initialDraft={initialDraft} />
+      <QuestionWriteClient initialDraft={initialDraft} urlTags={urlTags} />
     </main>
   );
 }

@@ -44,7 +44,7 @@ development_status:
   3-1-qna-schema-derive-status-contracts: done
   3-2-qna-list-page-ssr-filter: done
   3-3-question-write-page-tags-draft: done
-  3-4-main-menu-ask-button-auto-tag: ready-for-dev
+  3-4-main-menu-ask-button-auto-tag: done
   3-5-question-detail-ssr-badge-actions: done
   3-6-answer-write-edit-delete: done
   3-7-helpful-answer-toggle: ready-for-dev

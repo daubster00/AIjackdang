@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";
-import { BoardHero, SearchAutocomplete } from "@/components/board";
+import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import styles from "./products.module.css";
 
 export const metadata: Metadata = {
@@ -106,29 +106,32 @@ export default function LoungeProductsPage() {
             </span>
             <span>최신글 4개</span>
           </div>
-          <Link href="/lounge/products/write">
-            <Button
-              className={styles.writeButton}
-              leftIcon={
-                <svg
-                  width="17"
-                  height="17"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 5v14M5 12h14"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              }
-            >
-              글쓰기
-            </Button>
-          </Link>
+          <div className={styles.headerActions}>
+            <AskButton tags={["ai-product"]} />
+            <Link href="/lounge/products/write">
+              <Button
+                className={styles.writeButton}
+                leftIcon={
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 5v14M5 12h14"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                }
+              >
+                글쓰기
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className={styles.mainCol}>

@@ -33,6 +33,12 @@ export interface DraftInitialValue {
 
 interface QuestionWriteClientProps {
   initialDraft?: DraftInitialValue | null;
+  /**
+   * URL ?tags= 쿼리에서 파싱된 초기 태그 배열 (Story 3.4).
+   * draft 태그가 있으면 draft 태그를 우선, 없으면 urlTags를 초기값으로 사용한다.
+   * 사용자가 자유롭게 수정·삭제·추가 가능 (강제 고정 아님).
+   */
+  urlTags?: string[];
 }
 
 /** 인라인 검증 오류 */
@@ -68,13 +74,16 @@ const validateBody = (val: JSONContent | undefined): string | undefined => {
   return hasText ? undefined : "본문을 입력해 주세요.";
 };
 
-export function QuestionWriteClient({ initialDraft }: QuestionWriteClientProps) {
+export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWriteClientProps) {
   const router = useRouter();
   const { toast } = useToast();
 
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [titleTouched, setTitleTouched] = useState(false);
-  const [tags, setTags] = useState<string[]>(initialDraft?.tags ?? []);
+  // draft 태그 우선, draft가 없으면 URL 쿼리 태그를 초기값으로 사용 (Story 3.4)
+  const [tags, setTags] = useState<string[]>(
+    initialDraft?.tags?.length ? initialDraft.tags : urlTags,
+  );
   const [files, setFiles] = useState<AttachedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [contentJson, setContentJson] = useState<JSONContent | undefined>(

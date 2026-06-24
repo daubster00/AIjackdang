@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { Avatar, AuthorName, Button, Icon, Tag, EmptyState } from "@/components/ui";
-import { BoardHero, SearchAutocomplete } from "@/components/board";
+import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
 import styles from "./lounge.module.css";
 
@@ -65,18 +65,21 @@ export default async function LoungePage({ searchParams }: PageProps) {
           <div className={styles.listStats}>
             <span>총 {meta.totalItems}개</span>
           </div>
-          <Link href="/lounge/write">
-            <Button
-              className={styles.writeButton}
-              leftIcon={
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              }
-            >
-              글쓰기
-            </Button>
-          </Link>
+          <div className={styles.headerActions}>
+            <AskButton tags={["ai-creation"]} />
+            <Link href="/lounge/write">
+              <Button
+                className={styles.writeButton}
+                leftIcon={
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                }
+              >
+                글쓰기
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className={styles.mainCol}>

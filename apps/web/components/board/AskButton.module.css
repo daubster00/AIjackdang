@@ -1,0 +1,32 @@
+/**
+ * [질문하기] 버튼 스타일 — Story 3.4
+ * 기존 게시판 목록 헤더의 [글쓰기] 버튼과 동일한 톤, 글쓰기 버튼 옆에 나란히 배치한다.
+ * 색상은 primary 대신 outline 변형으로 구분감을 부여한다.
+ */
+
+.askBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.askBtn:hover {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.askBtn i {
+  font-size: 16px;
+}

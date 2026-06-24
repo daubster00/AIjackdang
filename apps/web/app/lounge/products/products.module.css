@@ -97,6 +97,13 @@
   line-height: 1;
 }
 
+/* [질문하기] + [글쓰기] 버튼 그룹 — Story 3.4 */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .postItem {
   display: flex;
   align-items: stretch;
