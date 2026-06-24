@@ -9,7 +9,7 @@ import { GigWriteGate } from "./GigWriteGate";
 import styles from "../gigs.module.css";
 
 export const metadata: Metadata = {
-  title: "의뢰·구직 글쓰기 | 작당 의뢰소 - AI작당",
+  title: "의뢰·구직 글쓰기 | 작당 의뢰소",
   description: "AI작당 작당 의뢰소에 의뢰 또는 구직 글을 작성합니다.",
 };
 

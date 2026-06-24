@@ -29,7 +29,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   return {
-    title: `글 수정 — ${slug} | AI작당`,
+    title: `글 수정 — ${slug}`,
   };
 }
 

@@ -4,7 +4,7 @@ import styles from "@/components/board/PostWriteForm.module.css";
 import { LoungeWriteClient } from "./LoungeWriteClient";
 
 export const metadata: Metadata = {
-  title: "글쓰기 | 작당 라운지 - AI작당",
+  title: "글쓰기 | 작당 라운지",
   description: "작당 라운지에 새 글을 작성합니다.",
 };
 

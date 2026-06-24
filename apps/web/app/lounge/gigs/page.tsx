@@ -13,7 +13,7 @@ import type { PostCard, RecruitMeta } from "@ai-jakdang/contracts";
 import { postKindToLabel, recruitStatusToLabel } from "./constants";
 
 export const metadata: Metadata = {
-  title: "작당 의뢰소 | 작당 라운지 — AI작당",
+  title: "작당 의뢰소 | 작당 라운지",
   description: "AI 외주·협업 의뢰와 구직 글을 분야·예산·상태 기준으로 찾아보세요.",
 };
 

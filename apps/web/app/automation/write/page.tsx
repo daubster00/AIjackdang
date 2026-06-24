@@ -3,7 +3,7 @@ import { BoardHero, PostWriteForm, type PostWriteFormConfig } from "@/components
 import styles from "@/components/board/PostWriteForm.module.css";
 
 export const metadata: Metadata = {
-  title: "글쓰기 | AI 자동화 - AI작당",
+  title: "글쓰기 | AI 자동화",
   description: "AI 자동화 게시판에 새 글을 작성합니다.",
 };
 

@@ -28,9 +28,9 @@ type Params = Promise<{ slug: string }>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const post = await fetchGigDetail(slug);
-  if (!post) return { title: "작당 의뢰소 | AI작당" };
+  if (!post) return { title: "작당 의뢰소" };
   return {
-    title: `${post.title} | 작당 의뢰소 - AI작당`,
+    title: `${post.title} | 작당 의뢰소`,
     description: post.summary ?? post.title,
     openGraph: {
       title: post.title,

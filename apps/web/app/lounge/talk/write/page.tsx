@@ -3,7 +3,7 @@ import { BoardHero, PostWriteForm, type PostWriteFormConfig } from "@/components
 import styles from "@/components/board/PostWriteForm.module.css";
 
 export const metadata: Metadata = {
-  title: "글쓰기 | 작당 수다방 - AI작당",
+  title: "글쓰기 | 작당 수다방",
   description: "작당 수다방에 새 글을 작성합니다.",
 };
 

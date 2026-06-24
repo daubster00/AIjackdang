@@ -14,7 +14,7 @@ import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
 import styles from "./lounge.module.css";
 
 export const metadata: Metadata = {
-  title: "작당 라운지 | AI작당",
+  title: "작당 라운지",
   description: "AI 작당 멤버들의 자유 대화 공간",
 };
 

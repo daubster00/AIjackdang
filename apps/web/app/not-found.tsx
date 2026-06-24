@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "페이지를 찾을 수 없습니다 | AI작당",
+  title: "페이지를 찾을 수 없습니다",
   robots: {
     index: false,
     follow: false,
