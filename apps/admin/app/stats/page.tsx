@@ -1,25 +1,80 @@
+import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { VisitorTrendChart } from "@/components/stats/VisitorTrendChart";
+import { StatsDateFilter } from "@/components/stats/StatsDateFilter";
+import { AnalyticsOverviewChart } from "@/components/stats/AnalyticsOverviewChart";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SkeletonCard } from "@/components/ui/Skeleton";
+import type { AnalyticsOverviewResponse } from "@ai-jakdang/contracts";
 
 /**
- * 접속 통계 페이지.
- * @ai-jakdang/admin-design-system 의 마크업/토큰으로 구성한다(관리자 전용).
- * 모든 수치는 더미(정적 상수)이며, 이후 단계에서 API(@ai-jakdang/api)·GA 연동으로 대체한다.
+ * 접속 통계 페이지 (Story 9.5 AC#3, AC#4, AC#5).
+ * 기간 선택 UI + URL 파라미터 반영 + analytics/overview API 연동.
+ * @ai-jakdang/admin-design-system 의 마크업/토큰으로 구성한다.
  */
 
-// 핵심 지표 카드(더미). delta: 직전 동일기간 대비 증감. dir: 추세 방향(up=증가, down=감소).
-const STATS = [
-  { label: "방문자수", value: "38,420", icon: "ri-user-3-line", tone: "blue", dir: "up", delta: "12.4%", note: "지난 기간 대비" },
-  { label: "페이지뷰", value: "204,118", icon: "ri-eye-line", tone: "purple", dir: "up", delta: "9.2%", note: "지난 기간 대비" },
-  { label: "세션수", value: "52,910", icon: "ri-window-line", tone: "blue", dir: "up", delta: "7.8%", note: "지난 기간 대비" },
-  { label: "신규 방문자", value: "21,640", icon: "ri-user-add-line", tone: "green", dir: "up", delta: "5.1%", note: "지난 기간 대비" },
-  { label: "재방문자", value: "16,780", icon: "ri-user-follow-line", tone: "purple", dir: "up", delta: "3.6%", note: "지난 기간 대비" },
-  { label: "평균 체류시간", value: "4분 12초", icon: "ri-time-line", tone: "blue", dir: "up", delta: "18초", note: "지난 기간 대비" },
-  { label: "이탈률", value: "41.3%", icon: "ri-logout-box-r-line", tone: "orange", dir: "down", delta: "2.1%p", note: "낮을수록 좋음" },
-  { label: "회원가입 전환수", value: "1,284", icon: "ri-user-star-line", tone: "green", dir: "up", delta: "14.7%", note: "방문 대비 전환" },
-] as const;
+const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
-// 유입 경로 분석(더미). 방문자수 기준 비율. tone: 아이콘 색상 토큰 배경.
+async function getCookieHeader(): Promise<string> {
+  const cookieStore = await cookies();
+  return cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+}
+
+async function fetchAnalyticsOverview(
+  from: string,
+  to: string,
+  cookieHeader: string,
+): Promise<AnalyticsOverviewResponse | null> {
+  try {
+    const url = `${API_BASE}/api/v1/admin/analytics/overview?from=${from}&to=${to}`;
+    const res = await fetch(url, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<AnalyticsOverviewResponse>;
+  } catch {
+    return null;
+  }
+}
+
+/** YYYY-MM-DD 형식 오늘 날짜 */
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** n일 전 YYYY-MM-DD */
+function daysAgoStr(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 이번달 1일 */
+function thisMonthStartStr(): string {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 지난달 시작/끝 */
+function lastMonthRange(): { from: string; to: string } {
+  const d = new Date();
+  const year = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
+  const month = d.getMonth() === 0 ? 12 : d.getMonth();
+  const from = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const to = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
+// 어제
+function yesterdayStr(): string {
+  return daysAgoStr(1);
+}
+
+// 유입 경로 분석(더미) — 이후 GA/로그 연동으로 대체
 const SOURCES = [
   { icon: "ri-search-line", style: { background: "var(--primary-50)", color: "var(--primary-600)" }, title: "검색엔진", desc: "네이버 · 구글 · 다음 자연 유입", visits: "14,210", ratio: "37.0%" },
   { icon: "ri-cursor-line", style: { background: "var(--success-bg)", color: "var(--success)" }, title: "직접 유입", desc: "URL 직접 입력 · 북마크", visits: "8,640", ratio: "22.5%" },
@@ -30,7 +85,7 @@ const SOURCES = [
   { icon: "ri-more-line", style: { background: "var(--gray-100)", color: "var(--gray-500)" }, title: "기타", desc: "분류 불가 · 미식별", visits: "840", ratio: "2.2%" },
 ] as const;
 
-// 검색 키워드 분석(더미): 유입검색어별 방문/PV/가입/다운로드/평균체류.
+// 검색 키워드 분석(더미)
 const KEYWORDS = [
   { kw: "claude code 사용법", visits: "3,420", pv: "11,280", signups: "182", downloads: "640", stay: "5분 48초" },
   { kw: "n8n 자동화 예제", visits: "2,810", pv: "8,940", signups: "146", downloads: "512", stay: "6분 02초" },
@@ -41,7 +96,7 @@ const KEYWORDS = [
   { kw: "php 레거시 리팩토링", visits: "980", pv: "2,640", signups: "29", downloads: "131", stay: "4분 05초" },
 ] as const;
 
-// 게시글별 성과(더미): 조회/체류/댓글/좋아요/신고/검색유입/가입전환.
+// 게시글별 성과(더미)
 const POST_PERF = [
   { title: "Claude Code로 기존 PHP 프로젝트 분석하는 방법", meta: "바이브코딩 가이드", type: ["badge-blue", "게시글"], views: "12,840", stay: "6분 21초", comments: "84", likes: "412", reports: "0", organic: "3,210", signups: "146" },
   { title: "n8n으로 Gmail 문의 자동 분류 워크플로 만들기", meta: "AI 자동화 · 실습", type: ["badge-purple", "묻고답하기"], views: "9,460", stay: "5분 47초", comments: "61", likes: "298", reports: "1", organic: "2,640", signups: "118" },
@@ -49,8 +104,7 @@ const POST_PERF = [
   { title: "GPT API로 월 300 버는 자동화 봇 구조", meta: "AI 수익화 사례", type: ["badge-blue", "게시글"], views: "7,330", stay: "5분 09초", comments: "47", likes: "264", reports: "0", organic: "1,540", signups: "98" },
 ] as const;
 
-// 실전자료별 성과(더미): 조회/다운로드/다운로드전환율/평점/후기/신고.
-// conv(다운로드 전환율) = 다운로드수 / 조회수. tone: 전환율 강조 배지 색상.
+// 실전자료별 성과(더미)
 const RESOURCE_PERF = [
   { title: "PHP Legacy Code Review Skill", meta: "Claude Code Skill", views: "8,420", downloads: "3,180", conv: "37.8%", tone: "badge-green", rating: "4.8", reviews: "212", reports: "1" },
   { title: "n8n 문의 자동분류 워크플로 템플릿", meta: "n8n Template", views: "6,210", downloads: "2,040", conv: "32.8%", tone: "badge-green", rating: "4.7", reviews: "168", reports: "0" },
@@ -58,7 +112,51 @@ const RESOURCE_PERF = [
   { title: "AI 외주 견적·계약서 양식 패키지", meta: "문서 템플릿", views: "4,110", downloads: "624", conv: "15.2%", tone: "badge-orange", rating: "4.2", reviews: "57", reports: "0" },
 ] as const;
 
-export default function AdminStatsPage() {
+interface StatsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
+  const params = await searchParams;
+  const cookieHeader = await getCookieHeader();
+
+  // URL 파라미터에서 기간 결정
+  const range = (typeof params.range === "string" ? params.range : null) ?? "7days";
+  const customFrom = typeof params.from === "string" ? params.from : null;
+  const customTo = typeof params.to === "string" ? params.to : null;
+
+  let from: string;
+  let to: string;
+  const today = todayStr();
+  const yesterday = yesterdayStr();
+  const lastMonth = lastMonthRange();
+
+  switch (range) {
+    case "today":
+      from = today; to = today; break;
+    case "yesterday":
+      from = yesterday; to = yesterday; break;
+    case "30days":
+      from = daysAgoStr(29); to = today; break;
+    case "thismonth":
+      from = thisMonthStartStr(); to = today; break;
+    case "lastmonth":
+      from = lastMonth.from; to = lastMonth.to; break;
+    case "custom":
+      from = customFrom ?? daysAgoStr(6); to = customTo ?? today; break;
+    default: // 7days
+      from = daysAgoStr(6); to = today; break;
+  }
+
+  const overview = await fetchAnalyticsOverview(from, to, cookieHeader);
+  const items = overview?.items ?? [];
+  const hasData = items.length > 0 && items.some((item) => item.newUsers > 0 || item.newPosts > 0 || item.downloads > 0);
+
+  // 기간별 집계 합산
+  const totalNewUsers = items.reduce((sum, item) => sum + item.newUsers, 0);
+  const totalNewPosts = items.reduce((sum, item) => sum + item.newPosts, 0);
+  const totalDownloads = items.reduce((sum, item) => sum + item.downloads, 0);
+
   return (
     <AdminShell breadcrumb={["관리자", "접속 통계"]} activeKey="stats">
       <div className="page-header">
@@ -78,72 +176,79 @@ export default function AdminStatsPage() {
         </div>
       </div>
 
-      {/* 기간 필터: 세그먼트(오늘~지난달) + 사용자지정 날짜 입력 */}
-      <article className="card" style={{ marginBottom: 16 }}>
-        <div className="card-body">
-          <div className="filter-row">
-            <div className="segmented" role="tablist" aria-label="통계 기간">
-              <button className="segment" data-range="today">
-                오늘
-              </button>
-              <button className="segment" data-range="yesterday">
-                어제
-              </button>
-              <button className="segment active" data-range="7days">
-                최근 7일
-              </button>
-              <button className="segment" data-range="30days">
-                최근 30일
-              </button>
-              <button className="segment" data-range="thismonth">
-                이번달
-              </button>
-              <button className="segment" data-range="lastmonth">
-                지난달
-              </button>
-              <button className="segment" data-range="custom">
-                사용자지정
-              </button>
-            </div>
-            <div className="input-icon">
-              <i className="ri-calendar-line" />
-              <input className="control" type="text" defaultValue="2026.06.12 - 2026.06.18" aria-label="사용자지정 기간" />
-            </div>
-            <div className="filter-actions">
-              <button className="btn btn-primary">
-                <i className="ri-search-line" />
-                조회
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
+      {/* 기간 필터 — 클라이언트 컴포넌트 */}
+      <StatsDateFilter currentRange={range} currentFrom={from} currentTo={to} />
 
-      {/* 핵심 지표 카드 */}
-      <section className="grid stats-grid" aria-label="핵심 통계">
-        {STATS.map((s) => (
-          <article className="stat-card" key={s.label}>
+      {/* 핵심 집계 카드 */}
+      <Suspense
+        fallback={
+          <section className="grid stats-grid" aria-label="통계 로딩 중">
+            {[0, 1, 2].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </section>
+        }
+      >
+        <section className="grid stats-grid" aria-label="기간 집계">
+          <article className="stat-card">
             <div className="stat-head">
-              <span className="stat-label">{s.label}</span>
-              <span className={`stat-icon ${s.tone}`}>
-                <i className={s.icon} />
+              <span className="stat-label">신규 가입자</span>
+              <span className="stat-icon green">
+                <i className="ri-user-add-line" />
               </span>
             </div>
-            <div className="stat-value">{s.value}</div>
+            <div className="stat-value">{totalNewUsers.toLocaleString("ko-KR")}</div>
             <div className="stat-foot">
-              <span className={`trend ${s.dir}`}>
-                <i className={s.dir === "up" ? "ri-arrow-up-line" : "ri-arrow-down-line"} />
-                {s.delta}
-              </span>
-              <span>{s.note}</span>
+              <span>선택 기간 합산</span>
             </div>
           </article>
-        ))}
-      </section>
+          <article className="stat-card">
+            <div className="stat-head">
+              <span className="stat-label">신규 게시글</span>
+              <span className="stat-icon blue">
+                <i className="ri-file-text-line" />
+              </span>
+            </div>
+            <div className="stat-value">{totalNewPosts.toLocaleString("ko-KR")}</div>
+            <div className="stat-foot">
+              <span>선택 기간 합산</span>
+            </div>
+          </article>
+          <article className="stat-card">
+            <div className="stat-head">
+              <span className="stat-label">다운로드</span>
+              <span className="stat-icon purple">
+                <i className="ri-folder-download-line" />
+              </span>
+            </div>
+            <div className="stat-value">{totalDownloads.toLocaleString("ko-KR")}</div>
+            <div className="stat-foot">
+              <span>실전자료 누적</span>
+            </div>
+          </article>
+        </section>
+      </Suspense>
 
       {/* 방문자 추이 차트 + 유입 경로 분석 */}
       <section className="grid dashboard-grid">
-        <VisitorTrendChart />
+        {hasData ? (
+          <AnalyticsOverviewChart items={items} />
+        ) : (
+          <article className="card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">기간별 현황</h2>
+                <div className="card-subtitle">신규 가입·게시글·다운로드 추이</div>
+              </div>
+            </div>
+            <div className="card-body">
+              <EmptyState
+                message="선택한 기간에 데이터가 없습니다"
+                description="다른 기간을 선택하거나 조회 기간을 늘려보세요."
+              />
+            </div>
+          </article>
+        )}
 
         <article className="card">
           <div className="card-header">
@@ -171,6 +276,11 @@ export default function AdminStatsPage() {
             </div>
           </div>
         </article>
+      </section>
+
+      {/* 방문자 추이(디자인 시스템 차트) */}
+      <section className="grid dashboard-grid" style={{ marginTop: 0 }}>
+        <VisitorTrendChart />
       </section>
 
       {/* 검색 키워드 분석 테이블 */}
@@ -298,7 +408,7 @@ export default function AdminStatsPage() {
         </article>
       </section>
 
-      {/* 실전자료별 성과 테이블 — 다운로드 전환율 강조 */}
+      {/* 실전자료별 성과 테이블 */}
       <section className="section">
         <div className="section-heading">
           <div>

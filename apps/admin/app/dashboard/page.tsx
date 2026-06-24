@@ -1,46 +1,52 @@
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { TrafficChart } from "@/components/dashboard/TrafficChart";
+import { SkeletonCard, SkeletonTable } from "@/components/ui/Skeleton";
+import type { DashboardKpiResponse, DashboardAlertsResponse } from "@ai-jakdang/contracts";
 
 /**
- * 관리자 대시보드.
- * @ai-jakdang/admin-design-system 의 마크업/토큰으로 구성한다(관리자 전용, 사용자 사이트와 독립).
- * 통계 수치는 현재 더미 값이며, 이후 단계에서 API(@ai-jakdang/api) 와 연동한다.
+ * 관리자 대시보드 (Story 9.5).
+ * 서버 컴포넌트에서 KPI + 운영 알림 API를 fetch하여 실제 수치 표시.
+ * @ai-jakdang/admin-design-system 의 마크업/토큰으로 구성한다.
  */
 
-// 상단 핵심 지표 카드 데이터(더미). trend: 전일 대비 추세.
-const STATS = [
-  { label: "오늘 방문자", value: "1,284", icon: "ri-user-3-line", tone: "blue", dir: "up", delta: "12.4%", note: "전일 대비" },
-  { label: "오늘 페이지뷰", value: "6,842", icon: "ri-eye-line", tone: "purple", dir: "up", delta: "8.1%", note: "전일 대비" },
-  { label: "신규 회원", value: "48", icon: "ri-user-add-line", tone: "green", dir: "up", delta: "5.7%", note: "전일 대비" },
-  { label: "미처리 신고", value: "12", icon: "ri-alarm-warning-line", tone: "orange", dir: "down", delta: "3건", note: "어제보다 증가" },
-] as const;
+const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
-// "운영 확인" 목록(더미): 지금 운영자가 확인해야 하는 항목.
-const OPERATIONS = [
-  {
-    icon: "ri-question-line",
-    style: { background: "var(--warning-bg)", color: "var(--warning)" },
-    title: "답변대기 질문",
-    desc: "24시간 이상 답변이 없습니다.",
-    count: "18",
-  },
-  {
-    icon: "ri-alarm-warning-line",
-    style: { background: "var(--danger-bg)", color: "var(--danger)" },
-    title: "미처리 신고",
-    desc: "운영자 확인이 필요합니다.",
-    count: "12",
-  },
-  {
-    icon: "ri-folder-download-line",
-    style: { background: "var(--primary-50)", color: "var(--primary-600)" },
-    title: "신규 실전자료",
-    desc: "오늘 새로 등록된 자료입니다.",
-    count: "7",
-  },
-] as const;
+/** 쿠키 헤더 문자열 구성 */
+async function getCookieHeader(): Promise<string> {
+  const cookieStore = await cookies();
+  return cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+}
 
-// 최근 콘텐츠 테이블(더미).
+async function fetchKpi(cookieHeader: string): Promise<DashboardKpiResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/admin/dashboard/kpi`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<DashboardKpiResponse>;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAlerts(cookieHeader: string): Promise<DashboardAlertsResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/admin/dashboard/alerts`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<DashboardAlertsResponse>;
+  } catch {
+    return null;
+  }
+}
+
+// 최근 콘텐츠 테이블(더미) — 이후 단계에서 API 연동.
 const RECENT = [
   { title: "Claude Code로 기존 PHP 프로젝트 분석하는 방법", meta: "바이브코딩 가이드", type: ["badge-blue", "게시글"], author: ["김", "김개발"], status: ["badge-green", "공개"], views: "1,284", date: "2026.06.18" },
   { title: "n8n으로 Gmail 문의 자동 분류가 가능한가요?", meta: "묻고답하기 · 답변 3개", type: ["badge-purple", "묻고답하기"], author: ["박", "박자동"], status: ["badge-cyan", "답변있음"], views: "846", date: "2026.06.18" },
@@ -48,9 +54,101 @@ const RECENT = [
   { title: "PHP Legacy Code Review Skill", meta: "Claude Code Skill · 다운로드 320", type: ["badge-cyan", "실전자료"], author: ["이", "이코딩"], status: ["badge-green", "공개"], views: "734", date: "2026.06.16" },
 ] as const;
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  const cookieHeader = await getCookieHeader();
+
+  // 병렬 fetch
+  const [kpi, alerts] = await Promise.all([
+    fetchKpi(cookieHeader),
+    fetchAlerts(cookieHeader),
+  ]);
+
+  // KPI 데이터 구성
+  const totalUsers = kpi?.totalUsers ?? 0;
+  const todayNewUsers = kpi?.todayNewUsers ?? 0;
+  const totalPosts = kpi?.totalPosts ?? 0;
+  const todayNewPosts = kpi?.todayNewPosts ?? 0;
+  const totalDownloads = kpi?.totalDownloads ?? 0;
+  const pendingReports = kpi?.pendingReports ?? 0;
+
+  const STATS = [
+    {
+      label: "전체 회원",
+      value: totalUsers.toLocaleString("ko-KR"),
+      icon: "ri-user-3-line",
+      tone: "blue",
+      dir: "up" as const,
+      delta: `+${todayNewUsers}`,
+      note: "오늘 신규",
+    },
+    {
+      label: "전체 게시글",
+      value: totalPosts.toLocaleString("ko-KR"),
+      icon: "ri-file-text-line",
+      tone: "purple",
+      dir: "up" as const,
+      delta: `+${todayNewPosts}`,
+      note: "오늘 신규",
+    },
+    {
+      label: "전체 다운로드",
+      value: totalDownloads.toLocaleString("ko-KR"),
+      icon: "ri-download-2-line",
+      tone: "green",
+      dir: "up" as const,
+      delta: "",
+      note: "누적 실전자료",
+    },
+    {
+      label: "미처리 신고",
+      value: pendingReports.toLocaleString("ko-KR"),
+      icon: "ri-alarm-warning-line",
+      tone: pendingReports > 0 ? "danger" : "green",
+      dir: pendingReports > 0 ? ("up" as const) : ("down" as const),
+      delta: pendingReports > 0 ? `${pendingReports}건` : "없음",
+      note: pendingReports > 0 ? "확인 필요" : "이상 없음",
+    },
+  ];
+
+  // 운영 알림 데이터
+  const alertReports = alerts?.reports ?? pendingReports;
+  const alertQna = alerts?.pendingQna ?? 0;
+  const alertNewResources = alerts?.newResources ?? 0;
+
+  const OPERATIONS = [
+    {
+      icon: "ri-question-line",
+      style: { background: "var(--warning-bg)", color: "var(--warning)" },
+      title: "답변대기 질문",
+      desc: "미해결 질문이 있습니다.",
+      count: alertQna.toLocaleString("ko-KR"),
+      href: "/qna",
+      isDanger: false,
+    },
+    {
+      icon: "ri-alarm-warning-line",
+      style: alertReports > 0
+        ? { background: "var(--danger-bg)", color: "var(--danger)" }
+        : { background: "var(--success-bg)", color: "var(--success)" },
+      title: "미처리 신고",
+      desc: alertReports > 0 ? "운영자 확인이 필요합니다." : "모든 신고가 처리됐습니다.",
+      count: alertReports.toLocaleString("ko-KR"),
+      href: "/reports",
+      isDanger: alertReports > 0,
+    },
+    {
+      icon: "ri-folder-download-line",
+      style: { background: "var(--primary-50)", color: "var(--primary-600)" },
+      title: "오늘 신규 자료",
+      desc: "오늘 새로 등록된 자료입니다.",
+      count: alertNewResources.toLocaleString("ko-KR"),
+      href: "/resources",
+      isDanger: false,
+    },
+  ];
+
   return (
-    <AdminShell breadcrumb={["관리자", "대시보드"]} activeKey="dashboard">
+    <AdminShell breadcrumb={["관리자", "대시보드"]} activeKey="dashboard" pendingReportsCount={pendingReports}>
       <div className="page-header">
         <div>
           <h1 className="page-title">관리자 대시보드</h1>
@@ -61,33 +159,45 @@ export default function AdminDashboardPage() {
             <i className="ri-download-2-line" />
             리포트 내보내기
           </button>
-          <button className="btn btn-primary">
+          <Link href="/posts/new" className="btn btn-primary">
             <i className="ri-add-line" />
             새 게시글
-          </button>
+          </Link>
         </div>
       </div>
 
-      <section className="grid stats-grid" aria-label="핵심 통계">
-        {STATS.map((s) => (
-          <article className="stat-card" key={s.label}>
-            <div className="stat-head">
-              <span className="stat-label">{s.label}</span>
-              <span className={`stat-icon ${s.tone}`}>
-                <i className={s.icon} />
-              </span>
-            </div>
-            <div className="stat-value">{s.value}</div>
-            <div className="stat-foot">
-              <span className={`trend ${s.dir}`}>
-                <i className={s.dir === "up" ? "ri-arrow-up-line" : "ri-arrow-down-line"} />
-                {s.delta}
-              </span>
-              <span>{s.note}</span>
-            </div>
-          </article>
-        ))}
-      </section>
+      <Suspense
+        fallback={
+          <section className="grid stats-grid" aria-label="핵심 통계 로딩 중">
+            {[0, 1, 2, 3].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </section>
+        }
+      >
+        <section className="grid stats-grid" aria-label="핵심 통계">
+          {STATS.map((s) => (
+            <article className="stat-card" key={s.label}>
+              <div className="stat-head">
+                <span className="stat-label">{s.label}</span>
+                <span className={`stat-icon ${s.tone}`}>
+                  <i className={s.icon} />
+                </span>
+              </div>
+              <div className="stat-value">{s.value}</div>
+              <div className="stat-foot">
+                {s.delta && (
+                  <span className={`trend ${s.dir}`}>
+                    <i className={s.dir === "up" ? "ri-arrow-up-line" : "ri-arrow-down-line"} />
+                    {s.delta}
+                  </span>
+                )}
+                <span>{s.note}</span>
+              </div>
+            </article>
+          ))}
+        </section>
+      </Suspense>
 
       <section className="grid dashboard-grid">
         <TrafficChart />
@@ -98,12 +208,17 @@ export default function AdminDashboardPage() {
               <h2 className="card-title">운영 확인</h2>
               <div className="card-subtitle">지금 확인이 필요한 항목</div>
             </div>
-            <button className="btn btn-ghost btn-sm">전체 보기</button>
+            <Link href="/reports" className="btn btn-ghost btn-sm">전체 보기</Link>
           </div>
           <div className="card-body">
             <div className="operation-list">
               {OPERATIONS.map((op) => (
-                <div className="operation-item" key={op.title}>
+                <Link
+                  key={op.title}
+                  href={op.href}
+                  className="operation-item"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   <span className="operation-icon" style={op.style}>
                     <i className={op.icon} />
                   </span>
@@ -111,8 +226,17 @@ export default function AdminDashboardPage() {
                     <div className="operation-title">{op.title}</div>
                     <div className="operation-desc">{op.desc}</div>
                   </div>
-                  <span className="operation-count">{op.count}</span>
-                </div>
+                  <span
+                    className="operation-count"
+                    style={
+                      op.isDanger
+                        ? { color: "var(--danger)", fontWeight: 700 }
+                        : undefined
+                    }
+                  >
+                    {op.count}
+                  </span>
+                </Link>
               ))}
             </div>
           </div>
@@ -127,46 +251,56 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <article className="card">
-          <div className="table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>콘텐츠</th>
-                  <th>유형</th>
-                  <th>작성자</th>
-                  <th>상태</th>
-                  <th>조회</th>
-                  <th>등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {RECENT.map((r) => (
-                  <tr key={r.title}>
-                    <td>
-                      <div className="content-title">{r.title}</div>
-                      <div className="content-meta">{r.meta}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${r.type[0]}`}>{r.type[1]}</span>
-                    </td>
-                    <td>
-                      <div className="author">
-                        <span className="author-avatar">{r.author[0]}</span>
-                        <span>{r.author[1]}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${r.status[0]}`}>{r.status[1]}</span>
-                    </td>
-                    <td className="num">{r.views}</td>
-                    <td className="num">{r.date}</td>
+        <Suspense
+          fallback={
+            <article className="card">
+              <div className="card-body">
+                <SkeletonTable rows={4} />
+              </div>
+            </article>
+          }
+        >
+          <article className="card">
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>콘텐츠</th>
+                    <th>유형</th>
+                    <th>작성자</th>
+                    <th>상태</th>
+                    <th>조회</th>
+                    <th>등록일</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
+                </thead>
+                <tbody>
+                  {RECENT.map((r) => (
+                    <tr key={r.title}>
+                      <td>
+                        <div className="content-title">{r.title}</div>
+                        <div className="content-meta">{r.meta}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${r.type[0]}`}>{r.type[1]}</span>
+                      </td>
+                      <td>
+                        <div className="author">
+                          <span className="author-avatar">{r.author[0]}</span>
+                          <span>{r.author[1]}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${r.status[0]}`}>{r.status[1]}</span>
+                      </td>
+                      <td className="num">{r.views}</td>
+                      <td className="num">{r.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </Suspense>
       </section>
     </AdminShell>
   );
