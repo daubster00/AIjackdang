@@ -7,6 +7,8 @@ import { viewFlushProcessor } from "./processors/view.flush.js";
 import { processResourceScan } from "./processors/resource-scan.processor.js"; // Story 4.5
 import { gradeUpProcessor } from "./processors/gradeUp.processor.js"; // Story 6.3
 import { badgeCheckProcessor } from "./processors/badgeCheck.processor.js"; // Story 6.4
+import { rankingComputeProcessor } from "./processors/rankingCompute.processor.js"; // Story 6.5
+import { setupRankingCron } from "./schedules/ranking.cron.js"; // Story 6.5
 
 /**
  * 워커 엔트리.
@@ -193,6 +195,10 @@ function startWorkers(): Worker[] {
         return gradeUpProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").GradeUpJobPayload>);
       case "gamification.badge-check":
         return badgeCheckProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").BadgeCheckJobPayload>);
+      // ── [6.5] ranking.compute ────────────────────────────────────────────────
+      case "ranking.compute":
+        return rankingComputeProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").RankingComputeJobPayload>);
+      // ── [6.5] END ─────────────────────────────────────────────────────────────
       default:
         console.warn(`[ranking-worker] 알 수 없는 job.name: ${job.name} (jobId=${job.id})`);
     }
@@ -219,7 +225,7 @@ function startWorkers(): Worker[] {
 const workers = startWorkers();
 console.log("[worker] AI작당 워커가 기동되었습니다. (Redis 연결 대기 중일 수 있음)");
 
-// view-flush 반복 job 등록 (1분마다)
+// view-flush 반복 job 등록 (5분마다)
 // BullMQ repeat job — 이미 등록된 경우 중복 없음
 void (async () => {
   try {
@@ -236,6 +242,19 @@ void (async () => {
     console.warn("[worker] view-flush 반복 job 등록 실패:", (err as Error).message);
   }
 })();
+
+// ── [6.5] ranking cron 등록 ───────────────────────────────────────────────────
+void (async () => {
+  try {
+    const rankingCronQueue = new Queue(QUEUE_NAMES.ranking, {
+      connection: createConnection(),
+    });
+    await setupRankingCron(rankingCronQueue);
+  } catch (err) {
+    console.warn("[worker] ranking cron 등록 실패:", (err as Error).message);
+  }
+})();
+// ── [6.5] ranking cron END ────────────────────────────────────────────────────
 
 // 안전한 종료
 async function shutdown() {

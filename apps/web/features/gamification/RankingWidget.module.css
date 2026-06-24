@@ -1,0 +1,148 @@
+/* RankingWidget.module.css — Story 6.5 */
+
+.widget {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/* ── 헤더 ────────────────────────────────────────────────────────────────── */
+
+.header {
+  padding: var(--space-4) var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.moreLink {
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: color var(--transition-base);
+}
+
+.moreLink:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ── 탭 ─────────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 0;
+}
+
+.tab {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    color var(--transition-base),
+    border-color var(--transition-base);
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.tabActive {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── 목록 ────────────────────────────────────────────────────────────────── */
+
+.list {
+  padding: var(--space-2) 0;
+}
+
+.rankList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rankItem {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  transition: background var(--transition-base);
+}
+
+.rankItem:hover {
+  background: var(--color-neutral-soft);
+}
+
+/* ── 스켈레톤 ────────────────────────────────────────────────────────────── */
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* ── 순위 ────────────────────────────────────────────────────────────────── */
+
+.rank {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.rankTop3 {
+  color: var(--color-primary);
+  font-size: var(--font-size-base);
+}
+
+/* ── 닉네임 ──────────────────────────────────────────────────────────────── */
+
+.nickname {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 등급 ────────────────────────────────────────────────────────────────── */
+
+.grade {
+  display: flex;
+  align-items: center;
+}
+
+/* ── 포인트 ──────────────────────────────────────────────────────────────── */
+
+.points {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  white-space: nowrap;
+}

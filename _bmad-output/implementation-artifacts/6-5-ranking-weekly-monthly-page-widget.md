@@ -1,6 +1,10 @@
+---
+baseline_commit: d264b7835d0b8c532a3b3e5ebde520cd8db22306
+---
+
 # Story 6.5: 랭킹 — 주간/월간 기여자 TOP · 페이지 + 위젯
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -40,73 +44,49 @@ so that 활발한 기여자가 자연스럽게 드러난다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: ranking.compute worker processor (AC: #1)
-  - [ ] `apps/worker/src/processors/rankingCompute.processor.ts` 신규 생성 (NEW)
-  - [ ] payload 타입: `{ period: 'weekly' | 'monthly' }` — `packages/contracts`에 `rankingComputeJobSchema` 추가
-  - [ ] `rankingWindowDates(period, new Date())` 호출로 `{ start, end }` 산출
-  - [ ] DB 쿼리: `SELECT user_id, SUM(delta) as total FROM points_ledger WHERE created_at >= $start AND created_at < $end AND delta > 0 GROUP BY user_id`
-  - [ ] `computeRanking(rows, 10)` 호출로 TOP 10 산출
-  - [ ] userId 배열로 users.nickname + 현재 grade 배치 조회 (단일 `inArray` 쿼리 2개)
-  - [ ] `RankEntry[]` 구성 후 `rankingResponseSchema` 형태로 Redis SET (`ranking:weekly` / `ranking:monthly`, EX 3600)
-  - [ ] `apps/worker/src/index.ts` UPDATE: ranking processor 등록
-  - [ ] 멱등 테스트: 동일 period로 2회 실행 시 결과 동일
+- [x] Task 1: ranking.compute worker processor (AC: #1)
+  - [x] `apps/worker/src/processors/rankingCompute.processor.ts` 신규 생성 (NEW)
+  - [x] payload 타입: `{ period: 'weekly' | 'monthly' }` — `packages/contracts`에 `rankingComputeJobSchema` 추가
+  - [x] `rankingWindowDates(period, new Date())` 호출로 `{ start, end }` 산출
+  - [x] DB 쿼리: `SELECT user_id, SUM(delta) as total FROM points_ledger WHERE created_at >= $start AND created_at < $end AND delta > 0 GROUP BY user_id`
+  - [x] `computeRanking(rows, 10)` 호출로 TOP 10 산출
+  - [x] userId 배열로 users.nickname + 현재 grade 배치 조회 (단일 `inArray` 쿼리 2개)
+  - [x] `RankEntry[]` 구성 후 `rankingResponseSchema` 형태로 Redis SET (`ranking:weekly` / `ranking:monthly`, EX 3600)
+  - [x] `apps/worker/src/index.ts` UPDATE: ranking processor 등록
+  - [x] 멱등 테스트: 동일 period로 2회 실행 시 결과 동일
 
-- [ ] Task 2: cron 스케줄 설정 (AC: #2)
-  - [ ] `apps/worker/src/schedules/ranking.cron.ts` 신규 생성 (NEW)
-  - [ ] BullMQ `QueueScheduler` 또는 `cron` 패키지로 매일 UTC 00:00 `ranking.compute` weekly+monthly enqueue
-  - [ ] 초기 1회 seed: worker 기동 시 Redis에 캐시가 없으면 즉시 enqueue
-  - [ ] `apps/worker/src/index.ts` UPDATE: cron 스케줄 등록
+- [x] Task 2: cron 스케줄 설정 (AC: #2)
+  - [x] `apps/worker/src/schedules/ranking.cron.ts` 신규 생성 (NEW)
+  - [x] BullMQ repeat job으로 매일 UTC 00:00 `ranking.compute` weekly+monthly enqueue
+  - [x] 초기 1회 seed: worker 기동 시 Redis에 캐시가 없으면 즉시 enqueue
+  - [x] `apps/worker/src/index.ts` UPDATE: cron 스케줄 등록
 
-- [ ] Task 3: ranking API 엔드포인트 (AC: #3, #4)
-  - [ ] `apps/api/src/routes/v1/gamification/gamification.routes.ts` UPDATE (6.3 파일에 추가)
-  - [ ] `GET /api/v1/gamification/ranking` 라우트:
-    - Query 파라미터: `period`(`weekly`|`monthly`, 기본 `weekly`), `limit`(number 1~10, 기본 10)
-    - Redis `ranking:{period}` 키 조회
-    - 캐시 hit: 파싱 후 `limit` 적용해 반환
-    - 캐시 miss: DB 즉석 계산 → Redis SET EX 3600 → 반환
-    - `rankingResponseSchema` 응답 Zod 검증
-  - [ ] limit 파라미터: Redis 저장은 항상 10개, 응답 시 slice 처리
+- [x] Task 3: ranking API 엔드포인트 (AC: #3, #4)
+  - [x] `apps/api/src/routes/v1/gamification/gamification.routes.ts` UPDATE (6.3 파일에 추가)
+  - [x] `GET /api/v1/gamification/ranking` 라우트: Query 파라미터, Redis hit/miss, Zod 검증
+  - [x] limit 파라미터: Redis 저장은 항상 10개, 응답 시 slice 처리
 
-- [ ] Task 4: `/ranking` 페이지 신규 생성 (AC: #5)
-  - [ ] `apps/web/app/ranking/page.tsx` 신규 생성 (NEW)
-  - [ ] `apps/web/app/ranking/ranking.module.css` 신규 생성 (NEW)
-  - [ ] SSR 서버 컴포넌트: `fetch('/api/v1/gamification/ranking?period=weekly')` + `?period=monthly` 병렬 호출
-  - [ ] 주간/월간 탭 컨트롤 (클라이언트 상태 또는 searchParams 기반)
-  - [ ] `<table>` 마크업:
-    ```html
-    <table aria-label="주간 기여자 랭킹">
-      <thead>
-        <tr><th>순위</th><th>회원</th><th>등급</th><th>기여 포인트</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td aria-label="1위" class={styles.rank}>1</td>
-          <td>{nickname}</td>
-          <td><RankBadge rank={tier} showLabel /></td>
-          <td class={styles.points}>{totalDelta.toLocaleString()}</td>
-        </tr>
-      </tbody>
-    </table>
-    ```
-  - [ ] `tabular-nums` 폰트 피처: `.rank`, `.points` 클래스에 `font-variant-numeric: tabular-nums` CSS
-  - [ ] `generateMetadata`: `{ title: '기여자 랭킹 | AI작당', description: '...' }` — noindex 없음
-  - [ ] 비회원 열람 가능 (인증 불필요)
-  - [ ] EmptyState: 데이터 없을 때 `EmptyState icon="trophy-line" title="아직 랭킹 데이터가 없습니다"`
-  - [ ] `RankBadge` 컴포넌트 재사용 (gradeLevel → RankTier 매핑 적용, 6.3에서 확립한 매핑 함수 사용)
+- [x] Task 4: `/ranking` 페이지 신규 생성 (AC: #5)
+  - [x] `apps/web/app/ranking/page.tsx` 신규 생성 (NEW)
+  - [x] `apps/web/app/ranking/ranking.module.css` 신규 생성 (NEW)
+  - [x] SSR 서버 컴포넌트: 주간·월간 병렬 패칭
+  - [x] searchParams 기반 탭 전환 (URL 공유 가능, SEO 친화)
+  - [x] `<table>` 마크업: aria-label, tabular-nums, EmptyState
+  - [x] `generateMetadata`: noindex 없음, 검색 색인 허용
+  - [x] 비회원 열람 가능 (인증 불필요)
+  - [x] `RankBadge` 컴포넌트 재사용 (gradeLevel → RankTier 매핑)
 
-- [ ] Task 5: 메인 페이지 랭킹 위젯 (AC: #4)
-  - [ ] `apps/web/app/page.tsx` 또는 메인 섹션 컴포넌트 확인 (현재 구현 확인 필요)
-  - [ ] 기존 메인 6섹션 중 랭킹 위젯 위치 파악
-  - [ ] `apps/web/features/gamification/RankingWidget.tsx` 신규 생성 (NEW)
-  - [ ] `GET /api/v1/gamification/ranking?period=weekly&limit=5` 호출
-  - [ ] TOP 5 닉네임 + 등급 배지 + 기여 포인트 표시
-  - [ ] 주간/월간 탭 스위치 (클라이언트 또는 탭별 fetch)
-  - [ ] 로딩: `Skeleton` (레이아웃 일치)
+- [x] Task 5: 메인 페이지 랭킹 위젯 (AC: #4)
+  - [x] `apps/web/app/page.tsx` 확인 (lounge 섹션 앞에 ranking 섹션 배치)
+  - [x] `apps/web/features/gamification/RankingWidget.tsx` 신규 생성 (NEW)
+  - [x] `GET /api/v1/gamification/ranking?period=weekly|monthly&limit=5` 호출
+  - [x] TOP 5 닉네임 + 등급 배지 + 기여 포인트 표시
+  - [x] 주간/월간 탭 스위치 (클라이언트 상태)
+  - [x] 로딩: `Skeleton` (레이아웃 일치)
 
-- [ ] Task 6: Redis 연결 확인 (AC: #1)
-  - [ ] `apps/api`에서 Redis 연결 설정 확인 (현재 worker는 ioredis 연결 있음, api에도 필요)
-  - [ ] `apps/api/src/redis.ts` 신규 생성 (또는 기존 파일 확인): `ioredis` 인스턴스 singleton
-  - [ ] ranking API 라우트에서 redis 인스턴스 주입
+- [x] Task 6: Redis 연결 확인 (AC: #1)
+  - [x] `apps/api/src/lib/redis.ts` 신규 생성: `ioredis` 인스턴스 singleton
+  - [x] ranking API 라우트에서 redis 인스턴스 주입
 
 ## Dev Notes
 
@@ -174,9 +154,45 @@ await rankingQueue.add('ranking.compute', { period: 'weekly' }, {
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- 타입 오류 수정: `nicknameMap` / `totalPointsMap` 을 `new Map<string, string>()` / `new Map<string, number>()` 으로 명시적 제네릭 지정
+- API 테스트 캐시 hit 케이스: `rankingResponseSchema.safeParse` 파싱 실패 시 DB fallback으로 가는 구조 파악 → 테스트를 DB mock 포함 형태로 수정
+- `rankingComputeProcessor`에서 `pg.Pool.query`와 `pg.Pool.connect` 혼재 방지 — `pool.query` 직접 사용 (connect 미사용)
 
 ### Completion Notes List
+- AC#1: `rankingCompute.processor.ts` — `rankingWindowDates`·`computeRanking` 주입, pg Pool 배치 쿼리(users 1회 + totalPoints 1회 + grades 1회), Redis SET EX 3600, 멱등
+- AC#2: `ranking.cron.ts` — BullMQ `{ repeat: { pattern: '0 0 * * *' } }` weekly+monthly, 기동 시 Redis EXISTS 체크 후 seed
+- AC#3: `GET /api/v1/gamification/ranking` — `// ── [6.5] ...` 블록으로 6.4와 구분, Redis hit→반환/miss→DB 집계→저장→반환, limit slice
+- AC#4: `RankingWidget.tsx` — 클라이언트 탭 전환, TOP5, Skeleton 로딩
+- AC#5: `/ranking` 페이지 — SSR, searchParams 탭, aria-label, tabular-nums, generateMetadata(noindex 없음), EmptyState
+- 게이트: `pnpm typecheck` 통과(오류 0), `pnpm --filter @ai-jakdang/api test` 165/165 통과, `pnpm --filter @ai-jakdang/worker test` 29/29 통과
 
 ### File List
+packages/contracts/src/gamification.ts (수정 — rankingComputeJobSchema, RankingComputeJobPayload 추가)
+packages/contracts/src/index.ts (수정 — 6.5 export 추가)
+apps/worker/src/processors/rankingCompute.processor.ts (신규)
+apps/worker/src/processors/rankingCompute.processor.test.ts (신규)
+apps/worker/src/schedules/ranking.cron.ts (신규)
+apps/worker/src/index.ts (수정 — ranking.compute case, cron 등록 추가)
+apps/api/src/lib/redis.ts (신규)
+apps/api/src/routes/v1/gamification/gamification.service.ts (수정 — getRanking 함수 추가)
+apps/api/src/routes/v1/gamification/gamification.routes.ts (수정 — GET /ranking 엔드포인트 추가)
+apps/api/src/routes/v1/gamification/ranking.service.test.ts (신규)
+apps/web/app/ranking/page.tsx (신규)
+apps/web/app/ranking/ranking.module.css (신규)
+apps/web/features/gamification/RankingWidget.tsx (신규)
+apps/web/features/gamification/RankingWidget.module.css (신규)
+apps/web/app/page.tsx (수정 — RankingWidget 섹션 삽입)
+apps/web/app/page.module.css (수정 — rankingBand/rankingInner/rankingWidgetWrap 스타일 추가)
+
+## Change Log
+
+| 날짜 | 변경 내용 |
+|---|---|
+| 2026-06-24 | Story 6.5 구현 완료 — ranking.compute worker processor, BullMQ cron, GET /api/v1/gamification/ranking, /ranking SSR 페이지, RankingWidget 메인 배치 |
+
+## Status
+
+review

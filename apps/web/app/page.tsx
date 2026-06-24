@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, CardDesc, CardHead, CardMeta, CardTitle, Icon, Tag } from "@/components/ui";
+import { RankingWidget } from "@/features/gamification/RankingWidget";
 import styles from "./page.module.css";
 
 const popularPosts = [
@@ -243,6 +244,27 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── [6.5] 랭킹 섹션 ──────────────────────────────────────────────────── */}
+      <section id="ranking" className={styles.rankingBand} aria-labelledby="ranking-title">
+        <div className={styles.rankingInner}>
+          <div className={styles.sectionHeaderRow}>
+            <div className={styles.sectionHead}>
+              <span className={styles.eyebrow}>Ranking</span>
+              <h2 id="ranking-title">기여자 랭킹</h2>
+              <p>이번 주·이번 달 가장 활발하게 기여한 회원을 확인하세요.</p>
+            </div>
+            <Link href="/ranking" className={styles.moreLink}>
+              전체 랭킹 보기
+              <Icon name="arrow-right-line" />
+            </Link>
+          </div>
+          <div className={styles.rankingWidgetWrap}>
+            <RankingWidget />
+          </div>
+        </div>
+      </section>
+      {/* ── [6.5] END ─────────────────────────────────────────────────────── */}
 
       <section id="lounge" className={styles.loungeBand} aria-labelledby="cta-title">
         <div className={styles.loungeInner}>

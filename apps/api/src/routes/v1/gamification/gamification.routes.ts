@@ -16,7 +16,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getUserGrade, getUserBadges } from "./gamification.service.js";
+import { getUserGrade, getUserBadges, getRanking } from "./gamification.service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -149,4 +149,48 @@ export async function gamificationRoutes(app: FastifyInstance) {
   );
 
   // ── [6.4] END ─────────────────────────────────────────────────────────────
+
+  // ── [6.5] 랭킹 라우트 ────────────────────────────────────────────────────
+
+  // ── GET /api/v1/gamification/ranking ──────────────────────────────────────
+  // 공개 API (비회원 열람 가능). 주간·월간 기여자 TOP 10 랭킹 반환.
+  // Redis 캐시 hit → 반환 / miss → DB 즉석 계산 후 Redis 저장 + 반환.
+  // limit 파라미터: Redis 저장은 항상 10개, 응답 시 slice 처리.
+  typed.get(
+    "/gamification/ranking",
+    {
+      schema: {
+        description: "기여자 랭킹 조회 (주간·월간)",
+        tags: ["gamification"],
+        querystring: z.object({
+          period: z.enum(["weekly", "monthly"]).default("weekly"),
+          limit: z.coerce.number().int().min(1).max(10).default(10),
+        }),
+        response: {
+          200: z.object({
+            period: z.enum(["weekly", "monthly"]),
+            items: z.array(
+              z.object({
+                rank: z.number().int().positive(),
+                userId: z.string().uuid(),
+                nickname: z.string(),
+                gradeLevel: z.number().int().min(1).max(5),
+                gradeName: z.string(),
+                totalDelta: z.number().int(),
+              }),
+            ),
+            generatedAt: z.string().datetime(),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { period, limit } = request.query as { period: "weekly" | "monthly"; limit: number };
+      const db = getDb();
+      const result = await getRanking(db, period, limit);
+      return reply.code(200).send(result);
+    },
+  );
+
+  // ── [6.5] END ─────────────────────────────────────────────────────────────
 }

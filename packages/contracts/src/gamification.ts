@@ -112,3 +112,13 @@ export const badgeCheckJobSchema = z.object({
 export type BadgeCheckJobPayload = z.infer<typeof badgeCheckJobSchema>;
 
 // ── [6.4] END ─────────────────────────────────────────────────────────────────
+
+// ── [6.5] RankingComputeJob ───────────────────────────────────────────────────
+
+/** BullMQ ranking.compute 잡 페이로드 (Story 6.5) */
+export const rankingComputeJobSchema = z.object({
+  period: periodTypeSchema,
+});
+export type RankingComputeJobPayload = z.infer<typeof rankingComputeJobSchema>;
+
+// ── [6.5] END ─────────────────────────────────────────────────────────────────

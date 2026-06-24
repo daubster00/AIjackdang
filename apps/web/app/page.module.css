@@ -378,6 +378,25 @@
   color: var(--color-text-sub);
 }
 
+/* ── [6.5] ranking 섹션 ────────────────────────────────────────────────────── */
+
+.rankingBand {
+  background: var(--color-bg);
+}
+
+.rankingInner {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 100px var(--space-6);
+}
+
+.rankingWidgetWrap {
+  max-width: 480px;
+}
+
+/* ── [6.5] END ──────────────────────────────────────────────────────────────── */
+
 .loungeBand {
   background:
     linear-gradient(180deg, rgba(238, 240, 255, 0.96), rgba(241, 243, 247, 0.9)),
@@ -479,15 +498,21 @@
   .section,
   .resourceBand,
   .splitSection,
-  .loungeInner {
+  .loungeInner,
+  .rankingInner {
     padding-inline: var(--space-4);
   }
 
   .section,
   .resourceBand,
   .splitSection,
-  .loungeInner {
+  .loungeInner,
+  .rankingInner {
     padding-block: 64px;
+  }
+
+  .rankingWidgetWrap {
+    max-width: 100%;
   }
 
   .hero {
