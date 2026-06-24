@@ -8,8 +8,16 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import type { PostCard, PostDetail, CreativeSpec, LinkPreviewMap } from "@ai-jakdang/contracts";
+import type { PostCard, PostDetail, CreativeSpec } from "@ai-jakdang/contracts";
 import type { CreatePostInput, RecruitPost, RecruitMeta } from "@ai-jakdang/contracts";
+
+/** Story 8.6: OG 링크 미리보기 맵 타입 (contracts/index.ts 추가 전 로컬 정의) */
+type LinkPreviewMap = Record<string, {
+  title: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  siteName: string | null;
+}>;
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
@@ -955,35 +963,40 @@ export async function getPostBySlug(
     : null;
 
   // ── [8.6] linkPreviews 조회 ────────────────────────────────────────────────
+  // NOTE: link_previews 테이블은 schema/index.ts 등록 전까지 raw SQL 조회 사용
   const siteUrl = process.env.SITE_URL ?? "";
   const externalUrls = extractExternalUrls(row.contentJson, siteUrl);
   let linkPreviews: LinkPreviewMap = {};
 
   if (externalUrls.length > 0) {
     try {
-      const previewRows = await db
-        .select({
-          url: schema.linkPreviews.url,
-          title: schema.linkPreviews.title,
-          description: schema.linkPreviews.description,
-          imageUrl: schema.linkPreviews.imageUrl,
-          siteName: schema.linkPreviews.siteName,
-        })
-        .from(schema.linkPreviews)
-        .where(
-          and(
-            inArray(schema.linkPreviews.url, externalUrls),
-            isNull(schema.linkPreviews.errorAt),
-          ),
-        );
+      // drizzle-orm sql`` 템플릿으로 raw SQL 실행 (link_previews는 schema 미등록 상태)
+      const inList = sql.join(
+        externalUrls.map((u) => sql`${u}`),
+        sql`, `,
+      );
+      const rawResult = await db.execute(
+        sql`SELECT url, title, description, image_url, site_name
+            FROM link_previews
+            WHERE url IN (${inList})
+              AND error_at IS NULL`,
+      );
 
-      for (const preview of previewRows) {
+      type PreviewRow = {
+        url: string;
+        title: string | null;
+        description: string | null;
+        image_url: string | null;
+        site_name: string | null;
+      };
+
+      for (const preview of (rawResult.rows as PreviewRow[])) {
         if (preview.url) {
           linkPreviews[preview.url] = {
             title: preview.title ?? null,
             description: preview.description ?? null,
-            imageUrl: preview.imageUrl ?? null,
-            siteName: preview.siteName ?? null,
+            imageUrl: preview.image_url ?? null,
+            siteName: preview.site_name ?? null,
           };
         }
       }

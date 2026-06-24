@@ -12,7 +12,8 @@
  */
 
 import type { Job } from "bullmq";
-import { getDb, schema } from "@ai-jakdang/database";
+import { getDb } from "@ai-jakdang/database";
+import { sql } from "drizzle-orm";
 
 export interface OgFetchJobData {
   targetType: "post" | "question";
@@ -144,28 +145,18 @@ export async function ogFetchProcessor(job: Job<OgFetchJobData>): Promise<void> 
       try {
         const meta = await fetchOgMeta(url);
 
-        await db
-          .insert(schema.linkPreviews)
-          .values({
-            url,
-            title: meta.title,
-            description: meta.description,
-            imageUrl: meta.imageUrl,
-            siteName: meta.siteName,
-            fetchedAt: new Date(),
-            errorAt: null,
-          })
-          .onConflictDoUpdate({
-            target: schema.linkPreviews.url,
-            set: {
-              title: meta.title,
-              description: meta.description,
-              imageUrl: meta.imageUrl,
-              siteName: meta.siteName,
-              fetchedAt: new Date(),
-              errorAt: null,
-            },
-          });
+        // NOTE: link_previews는 schema/index.ts 등록 전까지 raw SQL upsert 사용
+        await db.execute(
+          sql`INSERT INTO link_previews (url, title, description, image_url, site_name, fetched_at, error_at)
+              VALUES (${url}, ${meta.title}, ${meta.description}, ${meta.imageUrl}, ${meta.siteName}, now(), NULL)
+              ON CONFLICT (url) DO UPDATE SET
+                title = EXCLUDED.title,
+                description = EXCLUDED.description,
+                image_url = EXCLUDED.image_url,
+                site_name = EXCLUDED.site_name,
+                fetched_at = now(),
+                error_at = NULL`,
+        );
 
         console.info(`[og-fetch] 수집 완료: ${url}`);
       } catch (err) {
@@ -173,18 +164,11 @@ export async function ogFetchProcessor(job: Job<OgFetchJobData>): Promise<void> 
 
         // 실패 기록 (error_at 갱신, 나머지 필드는 기존 값 유지)
         try {
-          await db
-            .insert(schema.linkPreviews)
-            .values({
-              url,
-              errorAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: schema.linkPreviews.url,
-              set: {
-                errorAt: new Date(),
-              },
-            });
+          await db.execute(
+            sql`INSERT INTO link_previews (url, error_at)
+                VALUES (${url}, now())
+                ON CONFLICT (url) DO UPDATE SET error_at = now()`,
+          );
         } catch (dbErr) {
           console.error(`[og-fetch] DB 기록 실패: ${url} —`, (dbErr as Error).message);
         }
