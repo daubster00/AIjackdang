@@ -110,7 +110,7 @@ export default async function GenericDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <BoardHero menu={heroMenu} currentSub={boardLabel} />
+      <BoardHero menu={heroMenu} currentSub={boardLabel} titleAs="h2" />
 
       <div className={styles.detailLayout}>
         <article className={styles.postDetail}>

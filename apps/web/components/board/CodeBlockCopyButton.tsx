@@ -84,7 +84,6 @@ export function CodeBlockCopyButton({ html, className }: CodeBlockCopyButtonProp
       ref={containerRef}
       className={[styles.articleContent, className].filter(Boolean).join(" ")}
       // html 은 서버에서 sanitize-html 로 이미 정제된 값이다.
-      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

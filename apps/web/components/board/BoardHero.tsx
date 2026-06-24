@@ -8,6 +8,12 @@ type BoardHeroProps = {
   menu: BoardHeroKey;
   /** 현재 페이지가 속한 소메뉴(게시판) 라벨. 브레드크럼에서 현재 위치로 표시된다. */
   currentSub: string;
+  /**
+   * 히어로 타이틀의 HTML 태그. 기본값: "h1".
+   * 상세 페이지처럼 페이지 내에 별도 <h1>이 존재하는 경우 "h2"로 강등하여
+   * 페이지당 <h1> 1개 SEO 규칙을 준수한다(Story 2.10 AC #1).
+   */
+  titleAs?: "h1" | "h2";
 };
 
 /**
@@ -15,7 +21,7 @@ type BoardHeroProps = {
  * 목록/상세/글쓰기 등 같은 대메뉴에 속한 모든 페이지가 이 컴포넌트를 불러와 사용한다.
  * 같은 대메뉴라면 모든 페이지에서 완전히 동일하게 렌더된다.
  */
-export function BoardHero({ menu, currentSub }: BoardHeroProps) {
+export function BoardHero({ menu, currentSub, titleAs: TitleTag = "h1" }: BoardHeroProps) {
   const config = boardHeroes[menu];
   // 배경 미디어가 영상(.mp4)이면 자동재생 video로, 이미지면 img로 렌더한다.
   const isVideo = config.media.endsWith(".mp4");
@@ -40,7 +46,7 @@ export function BoardHero({ menu, currentSub }: BoardHeroProps) {
       <div className={styles.heroInner}>
         <div className={styles.heroCopy}>
           <span>{config.eyebrow}</span>
-          <h1 id="board-hero-title">{config.title}</h1>
+          <TitleTag id="board-hero-title">{config.title}</TitleTag>
           <p>{config.description}</p>
           <nav className={styles.breadcrumb} aria-label="현재 위치">
             <Link href="/" className={styles.homeCrumb} aria-label="홈">

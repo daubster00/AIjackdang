@@ -145,11 +145,8 @@ export default async function BoardListPage({ params, searchParams }: PageProps)
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      {/* 히어로 */}
+      {/* 히어로 — BoardHero가 <h1>을 포함하므로 별도 <h1> 없음 (SEO 1개 보장) */}
       <BoardHero menu={heroMenu} currentSub={boardMeta.label} />
-
-      {/* H1 (SEO — 1개 보장) */}
-      <h1 className={styles.srOnly}>{boardMeta.label}</h1>
 
       {/* 정렬 탭 + 검색 */}
       <section className={styles.guideToolbar} aria-label="게시글 검색 및 정렬">
