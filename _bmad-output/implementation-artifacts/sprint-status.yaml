@@ -42,7 +42,7 @@ development_status:
 
   epic-3: in-progress
   3-1-qna-schema-derive-status-contracts: done
-  3-2-qna-list-page-ssr-filter: ready-for-dev
+  3-2-qna-list-page-ssr-filter: done
   3-3-question-write-page-tags-draft: ready-for-dev
   3-4-main-menu-ask-button-auto-tag: ready-for-dev
   3-5-question-detail-ssr-badge-actions: ready-for-dev

@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { paginationQuerySchema } from "./common";
+import { paginationQuerySchema, paginatedResponseSchema } from "./common";
 
 // ── 요청 스키마 ───────────────────────────────────────────────────────────────
 
@@ -168,3 +168,16 @@ export const questionListItemResponseSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 export type QuestionListItemResponse = z.infer<typeof questionListItemResponseSchema>;
+
+/**
+ * 목록 아이템 편의 타입 alias (서비스 레이어에서 사용).
+ * QuestionListItemResponse 와 동일하다.
+ */
+export type QuestionListItem = QuestionListItemResponse;
+
+/**
+ * 질문 목록 응답 페이지네이션 스키마.
+ * GET /api/v1/qna/questions 의 200 응답에 사용.
+ */
+export const paginatedQuestionsSchema = paginatedResponseSchema(questionListItemResponseSchema);
+export type PaginatedQuestions = z.infer<typeof paginatedQuestionsSchema>;

@@ -374,9 +374,14 @@
     color var(--transition-base);
 }
 
-.pagination button:hover {
+.pagination button:hover:not(:disabled) {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .pagination button[aria-current="page"] {
@@ -391,6 +396,34 @@
   justify-content: center;
   font-size: 18px;
   line-height: 1;
+}
+
+/* 페이지 번호 버튼 그룹 (데스크톱) */
+.pageNumbers {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+/* 모바일 축약형: 현재/전체 */
+.pageMobile {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 var(--space-3);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 520px) {
+  .pageNumbers {
+    display: none;
+  }
+
+  .pageMobile {
+    display: inline-flex;
+  }
 }
 
 /* ── 사이드바 ── */

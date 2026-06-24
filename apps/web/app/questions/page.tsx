@@ -1,164 +1,202 @@
+/**
+ * 묻고답하기 목록 페이지 — Story 3.2
+ *
+ * SSR 서버 컴포넌트. searchParams를 받아 API를 호출하고 질문 목록을 렌더한다.
+ * 상태 필터·정렬·페이지는 URL 쿼리 파라미터로 관리한다.
+ *
+ * AC #1: SSR, <h1>묻고답하기, breadcrumb JSON-LD, CollectionPage JSON-LD, generateMetadata
+ * AC #2: 상태 필터 칩 URL 반영 (FilterChips 클라이언트 컴포넌트)
+ * AC #3: GET /api/v1/qna/questions 호출
+ * AC #4: 빈 목록 EmptyState
+ * AC #5: 페이지네이션 URL 기반 (QuestionsPagination)
+ * AC #6: QuestionStatusBadge
+ * AC #7: [질문하기] → /questions/write
+ *
+ * ⚠️ SSR 500 함정 방지:
+ *   STATUS_FILTERS 상수는 FilterChips.tsx(클라이언트 컴포넌트) 안에만 선언.
+ *   서버 컴포넌트가 클라이언트 컴포넌트 파일의 상수를 import 하면 런타임 500.
+ */
+
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
-import { AuthorName, Avatar, Badge, Button, Icon, Tag } from "@/components/ui";
+import { headers } from "next/headers";
+import { Avatar, Button, EmptyState, Icon, Tag } from "@/components/ui";
+import { AuthorName } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
+import { buildBreadcrumbJsonLd } from "@/lib/seo";
+import { QuestionStatusBadge } from "@/components/qna/QuestionStatusBadge";
+import { FilterChips } from "./FilterChips";
+import { QuestionsPagination } from "./QuestionsPagination";
+import type { PaginatedQuestions } from "@ai-jakdang/contracts";
 import styles from "./questions.module.css";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+
+// ── generateMetadata ──────────────────────────────────────────────────────────
+
 export const metadata: Metadata = {
-  title: "묻고답하기",
+  title: "묻고답하기 | AI작당",
   description: "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간",
+  alternates: {
+    canonical: `${SITE_URL}/questions`,
+  },
+  openGraph: {
+    title: "묻고답하기 | AI작당",
+    description: "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간",
+    url: `${SITE_URL}/questions`,
+    siteName: "AI작당",
+    type: "website",
+  },
+  robots: { index: true, follow: true },
 };
 
-/** 상태 필터: 기획 확정값(답변대기 / 답변있음 / 해결됨) + 전체 / 인기질문 */
-const statusFilters = [
-  { value: "all", label: "전체" },
-  { value: "waiting", label: "답변대기" },
-  { value: "answered", label: "답변있음" },
-  { value: "solved", label: "해결됨" },
-  { value: "popular", label: "인기질문" },
-] as const;
+// ── 파라미터 정규화 ───────────────────────────────────────────────────────────
 
-type QuestionStatus = "waiting" | "answered" | "solved";
+type ValidStatus = "all" | "waiting" | "answered" | "resolved" | "popular";
+type ValidSort = "latest" | "popular";
 
-/** 상태값 → 배지 표현 매핑 (색 단독 전달 금지 규칙에 따라 라벨 동반) */
-const statusBadge: Record<
-  QuestionStatus,
-  { label: string; tone: "warning" | "info" | "success" }
-> = {
-  waiting: { label: "답변대기", tone: "warning" },
-  answered: { label: "답변있음", tone: "info" },
-  solved: { label: "해결됨", tone: "success" },
-};
+function resolveStatus(raw?: string): ValidStatus {
+  const valid: ValidStatus[] = ["all", "waiting", "answered", "resolved", "popular"];
+  if (raw && valid.includes(raw as ValidStatus)) return raw as ValidStatus;
+  return "all";
+}
 
-const questions: {
-  slug: string;
-  status: QuestionStatus;
-  title: string;
-  excerpt: string;
-  tags: string[];
-  author: string;
-  date: string;
-  views: string;
-  answers: number;
-  likes: number;
-  isNew?: boolean;
-}[] = [
-  {
-    slug: "claude-code-php-misunderstanding",
-    status: "waiting",
-    title: "Claude Code가 기존 PHP 구조를 계속 잘못 이해합니다",
-    excerpt:
-      "레거시 PHP 프로젝트를 수정하려는데 파일 구조를 매번 다르게 해석해서 엉뚱한 곳을 고칩니다. 컨텍스트를 어떻게 잡아줘야 할까요?",
-    tags: ["ClaudeCode", "PHP", "바이브코딩"],
-    author: "작당입문러",
-    date: "2026.06.18",
-    views: "82",
-    answers: 0,
-    likes: 4,
-    isNew: true,
-  },
-  {
-    slug: "n8n-gmail-auto-classify",
-    status: "solved",
-    title: "n8n으로 Gmail 문의를 자동 분류할 수 있을까요?",
-    excerpt:
-      "하루 수십 건 들어오는 고객 문의를 카테고리별로 나눠서 라벨링하고 싶습니다. n8n만으로 가능한지, 아니면 별도 AI 노드가 필요한지 궁금합니다.",
-    tags: ["n8n", "Gmail", "자동화"],
-    author: "자동화카페",
-    date: "2026.06.15",
-    views: "146",
-    answers: 3,
-    likes: 21,
-  },
-  {
-    slug: "automation-outsourcing-quote",
-    status: "answered",
-    title: "AI 자동화 외주 견적은 얼마가 적당할까요?",
-    excerpt:
-      "소규모 사업장 대상으로 n8n + GPT 자동화를 구축해주는 외주를 시작하려는데, 첫 견적 기준을 어떻게 잡아야 할지 감이 안 옵니다.",
-    tags: ["수익화", "외주", "견적"],
-    author: "프리랜서비",
-    date: "2026.06.14",
-    views: "318",
-    answers: 5,
-    likes: 37,
-  },
-  {
-    slug: "which-ai-tool-for-beginner",
-    status: "answered",
-    title: "비개발자인데 어떤 AI 코딩 툴부터 써야 할까요?",
-    excerpt:
-      "Cursor, Claude Code, Windsurf 중에 고민입니다. 코딩 경험이 거의 없는 기획자가 시작하기에 가장 부담 없는 도구가 궁금합니다.",
-    tags: ["Cursor", "ClaudeCode", "입문"],
-    author: "기획하는사람",
-    date: "2026.06.13",
-    views: "204",
-    answers: 2,
-    likes: 15,
-  },
-  {
-    slug: "prompt-structure-tips",
-    status: "answered",
-    title: "프롬프트를 어떻게 짜야 답변 품질이 올라가나요?",
-    excerpt:
-      "같은 질문을 해도 답변 품질 편차가 큽니다. 특히 코딩 작업을 시킬 때 프롬프트를 더 잘 짜는 일반적인 원칙이 있을까요?",
-    tags: ["프롬프트", "품질", "팁"],
-    author: "작당탐험가",
-    date: "2026.06.16",
-    views: "263",
-    answers: 4,
-    likes: 19,
-  },
-  {
-    slug: "service-direction-review",
-    status: "waiting",
-    title: "제가 만든 서비스 방향, 이대로 괜찮을까요?",
-    excerpt:
-      "AI로 회의록을 요약해주는 서비스를 만들고 있는데 비슷한 게 이미 많아서 방향이 맞는지 모르겠습니다. 차별점에 대한 의견 부탁드립니다.",
-    tags: ["방향성", "기획", "피드백"],
-    author: "사이드프로젝트",
-    date: "2026.06.12",
-    views: "97",
-    answers: 0,
-    likes: 6,
-    isNew: true,
-  },
-];
+function resolveSort(raw?: string): ValidSort {
+  if (raw === "popular") return "popular";
+  return "latest";
+}
 
-/** 사이드바: 최근 본 글 (질문 목록 상위 4개 재사용) */
-const recentPosts = questions.slice(0, 4).map((q) => ({
-  href: `/questions/${q.slug}`,
-  board: "묻고답하기",
-  title: q.title,
-}));
+function resolvePage(raw?: string): number {
+  const n = parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
 
-/** 사이드바: 작당 랭킹 */
+// ── 날짜 포맷 ─────────────────────────────────────────────────────────────────
+
+function formatDate(isoString: string): string {
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
+
+// ── 사이드바 더미 데이터 (Epic 6 이전 고정) ─────────────────────────────────
+
 const userRankings = [
-  { rank: 1, nickname: "자동화카페", tier: "master" },
-  { rank: 2, nickname: "리뷰메이트", tier: "expert" },
-  { rank: 3, nickname: "프론트라인", tier: "practitioner" },
-  { rank: 4, nickname: "코드작당러", tier: "member" },
+  { rank: 1, nickname: "자동화카페", tier: "master" as const },
+  { rank: 2, nickname: "리뷰메이트", tier: "expert" as const },
+  { rank: 3, nickname: "프론트라인", tier: "practitioner" as const },
+  { rank: 4, nickname: "코드작당러", tier: "member" as const },
 ];
 
-export default function QuestionsPage() {
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+interface PageProps {
+  searchParams: Promise<{
+    status?: string;
+    sort?: string;
+    page?: string;
+  }>;
+}
+
+export default async function QuestionsPage({ searchParams }: PageProps) {
+  const { status: rawStatus, sort: rawSort, page: rawPage } = await searchParams;
+
+  const status = resolveStatus(rawStatus);
+  const sort = resolveSort(rawSort);
+  const page = resolvePage(rawPage);
+
+  // ── API 호출 (SSR) ─────────────────────────────────────────────────────────
+  const headersList = await headers();
+  const cookie = headersList.get("cookie") ?? "";
+
+  let questionsData: PaginatedQuestions = {
+    items: [],
+    meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+  };
+
+  const qsParams = new URLSearchParams({
+    status,
+    sort,
+    page: String(page),
+    pageSize: "20",
+  });
+
+  try {
+    const res = await fetch(`${API_URL}/api/v1/qna/questions?${qsParams.toString()}`, {
+      headers: { cookie },
+      cache: "no-store", // 질문 목록은 항상 최신 데이터
+    });
+    if (res.ok) {
+      questionsData = (await res.json()) as PaginatedQuestions;
+    }
+  } catch {
+    // API 연결 실패 시 빈 목록으로 렌더
+  }
+
+  const { items, meta } = questionsData;
+
+  // ── JSON-LD ────────────────────────────────────────────────────────────────
+  const questionsUrl = `${SITE_URL}/questions`;
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "AI작당", url: SITE_URL },
+    { name: "묻고답하기", url: questionsUrl },
+  ]);
+
+  const collectionPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "묻고답하기",
+    description: "AI작당 묻고답하기 — 질문과 답변을 모으는 통합 질문 공간",
+    url: questionsUrl,
+  };
+
+  // ── 사이드바 최근 질문 ─────────────────────────────────────────────────────
+  const recentPosts = items.slice(0, 4).map((q) => ({
+    href: `/questions/${q.slug}`,
+    board: "묻고답하기",
+    title: q.title,
+  }));
+
   return (
     <main id="main" className={styles.page}>
+      {/* JSON-LD: BreadcrumbList */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {/* JSON-LD: CollectionPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageJsonLd) }}
+      />
+
       {/* 묻고답하기 대메뉴 공통 히어로 (대메뉴당 1개, 하위 페이지 공유) */}
       <BoardHero menu="questions" currentSub="묻고답하기" />
 
+      {/* 접근성용 숨김 h1 — BoardHero 내부에 시각적 제목이 있으므로 SR 전용 */}
+      <h1 className="sr-only">묻고답하기</h1>
+
+      {/* 상태 필터 + 검색 툴바 */}
       <section className={styles.toolbar} aria-label="질문 상태 필터 및 검색">
-        <div className={styles.filterGroup} role="group" aria-label="상태 필터">
-          {statusFilters.map((filter, index) => (
-            <button
-              key={filter.value}
-              type="button"
-              className={styles.filterChip}
-              aria-pressed={index === 0}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
+        {/* FilterChips: 클라이언트 컴포넌트 — useSearchParams 사용 */}
+        <Suspense
+          fallback={
+            <div className={styles.filterGroup} role="group" aria-label="상태 필터">
+              {["전체", "답변대기", "답변있음", "해결됨", "인기질문"].map((label) => (
+                <button key={label} type="button" className={styles.filterChip}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <FilterChips currentStatus={status} />
+        </Suspense>
 
         <SearchAutocomplete
           label="질문 검색"
@@ -168,13 +206,25 @@ export default function QuestionsPage() {
       </section>
 
       <div className={styles.listLayout}>
+        {/* 목록 헤더: 통계 + 질문하기 버튼 */}
         <div className={styles.listHeader}>
           <div className={styles.listStats}>
-            <span>총 312개</span>
-            <span className={styles.statDivider} aria-hidden="true">
-              |
-            </span>
-            <span>답변대기 24개</span>
+            <span>총 {meta.totalItems.toLocaleString()}개</span>
+            {status !== "all" && status !== "popular" && (
+              <>
+                <span className={styles.statDivider} aria-hidden="true">
+                  |
+                </span>
+                <span>
+                  현재 필터:{" "}
+                  {status === "waiting"
+                    ? "답변대기"
+                    : status === "answered"
+                      ? "답변있음"
+                      : "해결됨"}
+                </span>
+              </>
+            )}
           </div>
           <Link href="/questions/write">
             <Button
@@ -197,24 +247,41 @@ export default function QuestionsPage() {
 
         <div className={styles.mainCol}>
           <section className={styles.questionList} aria-label="질문 목록">
-            {questions.map((q) => {
-              const badge = statusBadge[q.status];
-              return (
+            {items.length === 0 ? (
+              /* 빈 목록 EmptyState (AC #4) */
+              <EmptyState
+                icon="question-answer-line"
+                title="조건에 맞는 질문이 없어요."
+                description={
+                  status !== "all"
+                    ? "다른 필터를 선택하거나 새 질문을 남겨보세요."
+                    : "아직 질문이 없어요. 첫 번째 질문을 남겨보세요."
+                }
+                actions={
+                  <Link href="/questions/write">
+                    <Button>질문하기</Button>
+                  </Link>
+                }
+              />
+            ) : (
+              items.map((q) => (
                 <article key={q.slug} className={styles.questionItem}>
-                  {/* 답변 수를 강조하는 좌측 카운트 블록 (Q&A 목록은 답변 수 표시가 핵심) */}
+                  {/* 답변 수 강조 블록 — Q&A 목록에서 핵심 지표 */}
                   <div
-                    className={`${styles.answerCount} ${q.answers > 0 ? styles.answerCountActive : ""}`}
-                    aria-label={`답변 ${q.answers}개`}
+                    className={`${styles.answerCount} ${q.answerCount > 0 ? styles.answerCountActive : ""}`}
+                    aria-label={`답변 ${q.answerCount}개`}
                   >
-                    <strong>{q.answers}</strong>
+                    <strong>{q.answerCount}</strong>
                     <span>답변</span>
                   </div>
 
                   <div className={styles.questionBody}>
                     <div className={styles.questionTop}>
-                      <Badge className={styles.statusBadge} tone={badge.tone}>
-                        {badge.label}
-                      </Badge>
+                      {/* AC #6: QuestionStatusBadge — derivedStatus 기반 색상+텍스트 배지 */}
+                      <QuestionStatusBadge
+                        status={q.derivedStatus}
+                        className={styles.statusBadge}
+                      />
                       <div className={styles.tagRow}>
                         {q.tags.map((tag) => (
                           <Tag key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
@@ -225,53 +292,44 @@ export default function QuestionsPage() {
                     </div>
 
                     <h3 className={styles.questionHeading}>
+                      {/* 상세 링크: /questions/{slug} */}
                       <Link href={`/questions/${q.slug}`} className={styles.questionTitle}>
                         {q.title}
                       </Link>
-                      {q.isNew ? (
-                        <span className={styles.newDot} aria-label="새 질문">
-                          N
-                        </span>
-                      ) : null}
                     </h3>
-
-                    <p className={styles.questionExcerpt}>{q.excerpt}</p>
 
                     <div className={styles.questionFooter}>
                       <div className={styles.questionAuthor}>
-                        <Avatar name={q.author} size="sm" />
-                        <AuthorName name={q.author} className={styles.authorName} />
+                        <Avatar name={q.author?.nickname ?? "익명"} size="sm" />
+                        {/* AuthorName: 클릭 시 쪽지/팔로우/계정 메뉴 (규약 준수) */}
+                        <AuthorName
+                          name={q.author?.nickname ?? "익명"}
+                          className={styles.authorName}
+                        />
                         <span className={styles.footerDivider} aria-hidden="true">
                           |
                         </span>
-                        <span className={styles.questionDate}>{q.date}</span>
+                        <span className={styles.questionDate}>{formatDate(q.createdAt)}</span>
                       </div>
                       <div className={styles.questionStats} aria-label="질문 정보">
                         <span>
                           <Icon name="eye-line" />
-                          {q.views}
+                          {q.viewCount.toLocaleString()}
                         </span>
                       </div>
                     </div>
                   </div>
                 </article>
-              );
-            })}
+              ))
+            )}
           </section>
 
-          <nav className={styles.pagination} aria-label="페이지 이동">
-            <button type="button" aria-label="이전 페이지">
-              <Icon name="arrow-left-s-line" />
-            </button>
-            <button type="button" aria-current="page">
-              1
-            </button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <button type="button" aria-label="다음 페이지">
-              <Icon name="arrow-right-s-line" />
-            </button>
-          </nav>
+          {/* 페이지네이션 — AC #5 */}
+          {meta.totalPages > 1 && (
+            <Suspense fallback={null}>
+              <QuestionsPagination page={meta.page} totalPages={meta.totalPages} />
+            </Suspense>
+          )}
         </div>
 
         <BoardSidebar
