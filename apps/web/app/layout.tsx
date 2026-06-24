@@ -13,14 +13,45 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
 const gscToken = process.env.NEXT_PUBLIC_GSC_VERIFICATION_TOKEN || undefined;
 
-export const metadata: Metadata = {
-  title: {
-    default: "AI작당",
-    template: "%s · AI작당",
-  },
-  description: "AI로 만들고, 자동화하고, 돈으로 연결하는 실전 AI 커뮤니티",
-  ...(gscToken ? { verification: { google: gscToken } } : {}),
-};
+/**
+ * 공개 사이트 설정(site_name/seo_title/seo_description)을 API에서 가져온다.
+ * GET /api/v1/settings/public — 인증 불필요, 60초 revalidate 캐시.
+ * API_INTERNAL_URL 은 서버 사이드에서만 사용하는 내부 URL (클라이언트 노출 없음).
+ * 등록 필요: apps/api/src/routes/v1/index.ts 에 registerPublicSiteSettingsRoute 등록.
+ */
+async function getPublicSiteSettings(): Promise<{
+  site_name?: string;
+  seo_title?: string;
+  seo_description?: string;
+}> {
+  const apiBase = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+  try {
+    const res = await fetch(`${apiBase}/api/v1/settings/public`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return {};
+    return (await res.json()) as { site_name?: string; seo_title?: string; seo_description?: string };
+  } catch {
+    return {};
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getPublicSiteSettings();
+  const siteName = s.site_name ?? "AI작당";
+  const description =
+    s.seo_description ?? "AI로 만들고, 자동화하고, 돈으로 연결하는 실전 AI 커뮤니티";
+  const seoTitle = s.seo_title ?? siteName;
+
+  return {
+    title: {
+      default: seoTitle,
+      template: `%s · ${siteName}`,
+    },
+    description,
+    ...(gscToken ? { verification: { google: gscToken } } : {}),
+  };
+}
 
 const ga4Id = process.env.NEXT_PUBLIC_GA4_ID || undefined;
 
