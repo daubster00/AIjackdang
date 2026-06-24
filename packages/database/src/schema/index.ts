@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./admin";
 export * from "./posts";
 export * from "./tags";
 export * from "./post-creative-spec";

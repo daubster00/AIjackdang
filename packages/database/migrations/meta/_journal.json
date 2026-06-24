@@ -106,6 +106,13 @@
       "when": 1782296742389,
       "tag": "0014_confused_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782302499746,
+      "tag": "0015_tiny_clint_barton",
+      "breakpoints": true
     }
   ]
 }

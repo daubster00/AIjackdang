@@ -9,7 +9,12 @@
  *   순수 함수만 제공한다. 실제 세션 검증은 API 서버가 담당한다.
  */
 
-// ── 유저 세션 타입 ─────────────────────────────────────────────────────────────
+// ── 유저 역할 ─────────────────────────────────────────────────────────────────
+
+/** 유저는 역할 없음. 일반 회원만 존재. */
+export type UserRole = "member";
+
+// ── 유저 세션 타입 ─────────────────────────────────────────────────────────────────
 // 유저는 역할 없음 — 인증 여부(세션 존재)만으로 판단.
 
 export interface UserSession {
@@ -29,7 +34,17 @@ export type AdminRole = "staff" | "super_admin";
 /** 관리자 계정 상태. pending = 승인 대기, active = 정상, suspended/disabled = 차단. */
 export type AdminStatus = "pending" | "active" | "suspended" | "disabled";
 
-// ── 관리자 권한 ────────────────────────────────────────────────────────────────
+// ── 관리자 세션 타입 ───────────────────────────────────────────────────────────
+
+/** 관리자 세션 — canAccessAdminSession 에서 사용. */
+export interface AdminSession {
+  id: string;
+  adminUserId: string;
+  role: AdminRole;
+  status: AdminStatus;
+}
+
+// ── 관리자 권한(AdminPermission — 기존 유지) ───────────────────────────────────
 
 /**
  * 관리자 기능 권한 단위.
@@ -67,10 +82,43 @@ const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, ReadonlySet<AdminPermission>> = 
   ]),
 };
 
+// ── 관리자 액션(AdminAction — AC#4 신규) ──────────────────────────────────────
+
+/**
+ * 관리자 기능 단위 액션 (ADR-0003 §3, Story 9.1 AC#4).
+ * hasAdminPermission 에서 사용한다.
+ */
+export type AdminAction =
+  | "content:hide"        // staff 가능 (숨김 상한)
+  | "content:delete"      // super_admin 전용
+  | "report:process"      // staff 가능
+  | "member:sanction"     // staff 가능 (이용제한까지)
+  | "member:role-change"  // super_admin 전용
+  | "site:settings"       // super_admin 전용
+  | "ads:manage"          // super_admin 전용
+  | "admin:approve";      // super_admin 전용
+
+/** staff 가 수행할 수 있는 액션 집합 */
+const STAFF_ACTIONS = new Set<AdminAction>([
+  "content:hide",
+  "report:process",
+  "member:sanction",
+]);
+
+/** super_admin 이 수행할 수 있는 액션 집합 (staff 포함 + 전용 추가) */
+const SUPER_ADMIN_ACTIONS = new Set<AdminAction>([
+  ...STAFF_ACTIONS,
+  "content:delete",
+  "member:role-change",
+  "site:settings",
+  "ads:manage",
+  "admin:approve",
+]);
+
 // ── 유틸리티 함수 ──────────────────────────────────────────────────────────────
 
 /**
- * 관리자가 특정 권한을 가지는지 검사한다.
+ * 관리자가 특정 AdminPermission 을 가지는지 검사한다.
  * API 가드에서 사용 — 클라이언트 사용 금지.
  */
 export function hasPermission(role: AdminRole, permission: AdminPermission): boolean {
@@ -78,11 +126,29 @@ export function hasPermission(role: AdminRole, permission: AdminPermission): boo
 }
 
 /**
- * 관리자 애플리케이션 접근 가능 여부.
+ * 관리자가 특정 AdminAction 을 수행할 수 있는지 검사한다 (AC#4).
+ * hasPermission 의 AdminAction 기반 대안.
+ */
+export function hasAdminPermission(role: AdminRole, action: AdminAction): boolean {
+  if (role === "super_admin") return SUPER_ADMIN_ACTIONS.has(action);
+  if (role === "staff") return STAFF_ACTIONS.has(action);
+  return false;
+}
+
+/**
+ * 관리자 애플리케이션 접근 가능 여부 (기존 시그니처 유지 — 하위 호환).
  * status=active 이어야만 접근 허용.
  */
 export function canAccessAdmin(role: AdminRole, status: AdminStatus): boolean {
   return status === "active" && (role === "staff" || role === "super_admin");
+}
+
+/**
+ * 관리자 세션 객체 기반 접근 가능 여부 (AC#4 세션 오버로드).
+ * adminGuard 에서 세션 객체를 직접 받아 검사할 때 사용.
+ */
+export function canAccessAdminSession(session: AdminSession): boolean {
+  return canAccessAdmin(session.role, session.status);
 }
 
 /**
