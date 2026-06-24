@@ -27,6 +27,7 @@ import { tagContentRoutes } from "./tagContent.js";
 import { registerHomeQuestionsRoutes } from "./questions/index.js";
 import { registerNoticesRoutes } from "./notices/index.js";
 import { sitemapRoutes } from "./sitemap/routes.js";
+import { registerPublicSiteSettingsRoute } from "./site-settings-public.js";
 
 /**
  * /api/v1 라우트.
@@ -122,4 +123,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 사이트맵 데이터 라우트 (Story 8.7: GET /sitemap/*) ───────────────────────
   await sitemapRoutes(app);
+
+  // ── 공개 사이트 설정 라우트 (Story 9.15: GET /settings/public) ───────────────
+  await registerPublicSiteSettingsRoute(app);
 }

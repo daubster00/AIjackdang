@@ -18,6 +18,9 @@ export * from "./inquiry-replies";
 // ── Epic 8: OG 링크 미리보기 ──────────────────────────────────────────────────
 export * from "./link-previews";
 
+// ── Epic 9: 사이트 설정 (9.11 / 9.15) ────────────────────────────────────────
+export * from "./site-settings";
+
 export {
   pointsLedger,
   grades,

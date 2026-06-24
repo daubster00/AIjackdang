@@ -16,6 +16,11 @@ import { registerAdminSignUpRoute } from "./auth/sign-up.js";
 import { registerAdminMembersRoutes } from "./admin-members/index.js";
 import { registerAdminDashboardRoutes } from "./dashboard/index.js";
 import { registerAdminPostsRoutes } from "./posts/index.js";
+import { registerAdminQnaRoutes } from "./qna/index.js";
+import { registerAdminResourcesRoutes } from "./resources/index.js";
+import { registerAdminUserMembersRoutes } from "./members/index.js";
+import { registerAdminInquiriesRoutes } from "./inquiries/index.js";
+import { registerAdminSettingsRoutes } from "./settings/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
@@ -26,4 +31,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminMembersRoutes(app);
   await registerAdminDashboardRoutes(app);
   await registerAdminPostsRoutes(app);
+
+  // Epic 9 Wave A (9.7·9.8·9.12·9.14·9.15) — Q&A·실전자료·회원·문의·사이트설정 관리.
+  await registerAdminQnaRoutes(app);
+  await registerAdminResourcesRoutes(app);
+  await registerAdminUserMembersRoutes(app);
+  await registerAdminInquiriesRoutes(app);
+  await registerAdminSettingsRoutes(app);
 }

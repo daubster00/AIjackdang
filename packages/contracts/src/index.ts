@@ -38,6 +38,13 @@ export * from "./admin/dashboard";
 export * from "./admin/admin-members";
 export * from "./admin/posts";
 
+// ── 관리자 콘텐츠·운영 관리 (Story 9.7·9.8·9.12·9.14·9.15) ────────────────────
+export * from "./admin/qna";
+export * from "./admin/resources";
+export * from "./admin/members";
+export * from "./admin/inquiries";
+export * from "./admin/settings";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

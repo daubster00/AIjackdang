@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./tag": "./src/tag.ts",
-    "./home": "./src/home.ts"
+    "./home": "./src/home.ts",
+    "./admin/resources": "./src/admin/resources.ts",
+    "./admin/qna": "./src/admin/qna.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
