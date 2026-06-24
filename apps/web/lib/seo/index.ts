@@ -10,3 +10,4 @@ export * from "./jsonld";
 export * from "./breadcrumb";
 export * from "./generate-summary";
 export * from "./qna";
+export * from "./sitemap-helpers";

@@ -1,6 +1,6 @@
 # Story 8.7: sitemap.xml·robots.txt 완성
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -220,10 +220,20 @@ apps/
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- 기존 `apps/web/app/sitemap.ts`, `apps/web/app/robots.ts` 존재 확인 → 덮어쓰기(완전 재구현)
+- `@ai-jakdang/contracts` index.ts에 sitemap 모듈 re-export 추가
+- `sitemapQuestionsResponseSchema` 신규 생성 (posts와 별도 slug+updatedAt 구조)
+- `questions` 테이블에 `deletedAt` 컬럼 존재 확인하여 필터 적용
 
 ### Completion Notes List
+- sitemap.ts: 정적 8개 URL + 게시글/질문/자료/태그 동적 URL 조합
+- sitemap/posts API: board='notice' 포함 전체 published 게시글 반환 (필터 없음)
+- sitemap/notices API: board='notice' 한정 별도 엔드포인트 (중복이나 robots.txt 지원용)
+- revalidate=3600 선언으로 ISR 1시간 캐시
+- robots.ts: disallow /mypage, /notifications, /messages, /settings/, /inquiries, /search
 
 ### File List
 - NEW: `packages/contracts/src/sitemap.ts`

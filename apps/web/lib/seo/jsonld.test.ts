@@ -32,6 +32,7 @@ const mockPost: PostDetail = {
   board: "vibe-coding-guide",
   authorNickname: "코드작당러",
   authorGrade: "master",
+  authorAvatarUrl: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
   viewCount: 100,
