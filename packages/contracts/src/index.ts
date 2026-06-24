@@ -33,6 +33,11 @@ export * from "./sitemap";
 // ── 관리자 인증 (Story 9.2) ───────────────────────────────────────────────────
 export * from "./admin/auth";
 
+// ── 관리자 대시보드·운영자·게시글 (Story 9.4·9.5·9.6) ────────────────────────────
+export * from "./admin/dashboard";
+export * from "./admin/admin-members";
+export * from "./admin/posts";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

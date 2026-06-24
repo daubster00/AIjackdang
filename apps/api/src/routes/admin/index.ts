@@ -13,9 +13,17 @@ import type { FastifyInstance } from "fastify";
 import { registerAdminSignInRoute } from "./auth/sign-in.js";
 import { registerAdminSignOutRoute } from "./auth/sign-out.js";
 import { registerAdminSignUpRoute } from "./auth/sign-up.js";
+import { registerAdminMembersRoutes } from "./admin-members/index.js";
+import { registerAdminDashboardRoutes } from "./dashboard/index.js";
+import { registerAdminPostsRoutes } from "./posts/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
   await registerAdminSignUpRoute(app);
   await registerAdminSignOutRoute(app);
+
+  // Epic 9 병렬 단계 (9.4·9.5·9.6) — 각 등록 함수는 해당 폴더에서 구현된다.
+  await registerAdminMembersRoutes(app);
+  await registerAdminDashboardRoutes(app);
+  await registerAdminPostsRoutes(app);
 }
