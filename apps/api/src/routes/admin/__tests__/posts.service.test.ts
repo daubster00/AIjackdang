@@ -13,7 +13,7 @@
  * 7. 계약 Zod 스키마 검증
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   adminPostItemSchema,
   adminPostActionResponseSchema,
