@@ -1,6 +1,6 @@
 # Story 9.4: 운영자 계정 관리 (최고관리자 전용)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -21,48 +21,48 @@ So that 승인된 운영자만 접근하고 역할별 권한 경계가 집행된
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: API 라우트 구현 (AC: #1~#5)
-  - [ ] `apps/api/src/routes/admin/admin-members/` 폴더 NEW (운영자 계정 관리 API — 일반 회원 `members/` 와 별개)
-  - [ ] `GET /api/v1/admin/admin-members` — 목록 조회(page/pageSize/status/search, 응답: `{ items, meta }`)
-  - [ ] `PATCH /api/v1/admin/admin-members/:id/approve` — 승인(role, note 필수)
-  - [ ] `PATCH /api/v1/admin/admin-members/:id/reject` — 반려(note 필수)
-  - [ ] `PATCH /api/v1/admin/admin-members/:id/suspend` — 정지(note 필수) + admin_sessions 전체 삭제
-  - [ ] `PATCH /api/v1/admin/admin-members/:id/activate` — 재활성(note 필수)
-  - [ ] `PATCH /api/v1/admin/admin-members/:id/role` — 역할 변경(role, note 필수) + 자기 자신 변경 403 가드
-  - [ ] `packages/contracts/src/admin/admin-members.ts` NEW: Zod 스키마(요청/응답)
-  - [ ] `requireSuperAdmin` preHandler(9.3에서 생성) 전체 라우트에 적용
+- [x] Task 1: API 라우트 구현 (AC: #1~#5)
+  - [x] `apps/api/src/routes/admin/admin-members/` 폴더 NEW (운영자 계정 관리 API — 일반 회원 `members/` 와 별개)
+  - [x] `GET /api/v1/admin/admin-members` — 목록 조회(page/pageSize/status/search, 응답: `{ items, meta }`)
+  - [x] `PATCH /api/v1/admin/admin-members/:id/approve` — 승인(role, note 필수)
+  - [x] `PATCH /api/v1/admin/admin-members/:id/reject` — 반려(note 필수)
+  - [x] `PATCH /api/v1/admin/admin-members/:id/suspend` — 정지(note 필수) + admin_sessions 전체 삭제
+  - [x] `PATCH /api/v1/admin/admin-members/:id/activate` — 재활성(note 필수)
+  - [x] `PATCH /api/v1/admin/admin-members/:id/role` — 역할 변경(role, note 필수) + 자기 자신 변경 403 가드
+  - [x] `packages/contracts/src/admin/admin-members.ts` NEW: Zod 스키마(요청/응답)
+  - [x] `requireSuperAdmin` preHandler(9.3에서 생성) 전체 라우트에 적용
 
-- [ ] Task 2: 서비스 레이어 (AC: #2~#5)
-  - [ ] `apps/api/src/routes/admin/admin-members/service.ts` NEW
-  - [ ] `approveAdmin(id, role, note, approverId)`: 트랜잭션 — admin_users UPDATE
-  - [ ] `rejectAdmin(id, note)`: admin_users UPDATE status=disabled
-  - [ ] `suspendAdmin(id, note)`: 트랜잭션 — admin_users UPDATE status=suspended + admin_sessions DELETE WHERE adminUserId=id
-  - [ ] `activateAdmin(id, note)`: admin_users UPDATE status=active
-  - [ ] `changeAdminRole(id, role, note, requesterId)`: 자기 자신 방지 체크, admin_users UPDATE + admin_sessions DELETE
+- [x] Task 2: 서비스 레이어 (AC: #2~#5)
+  - [x] `apps/api/src/routes/admin/admin-members/service.ts` NEW
+  - [x] `approveAdmin(id, role, note, approverId)`: 트랜잭션 — admin_users UPDATE
+  - [x] `rejectAdmin(id, note)`: admin_users UPDATE status=disabled
+  - [x] `suspendAdmin(id, note)`: 트랜잭션 — admin_users UPDATE status=suspended + admin_sessions DELETE WHERE adminUserId=id
+  - [x] `activateAdmin(id, note)`: admin_users UPDATE status=active
+  - [x] `changeAdminRole(id, role, note, requesterId)`: 자기 자신 방지 체크, admin_users UPDATE + admin_sessions DELETE
 
-- [ ] Task 3: 어드민 프런트 — `/admin-members` 페이지 (AC: #1, #6)
-  - [ ] 기존 `apps/admin/app/admin-members/page.tsx` 유지 (경로 이전·rename 하지 않음)
-  - [ ] `apps/admin/app/admin-members/page.tsx` UPDATE: 더미 데이터 → `GET /api/v1/admin/admin-members` 실제 API 호출
-  - [ ] 테이블 컬럼: 이름·이메일·연락처·역할(badge)·상태(badge)·가입일·승인일·승인자
-  - [ ] 필터 패널: 상태 필터(pending/active/suspended/disabled) + 검색(이름/이메일)
-  - [ ] URL 파라미터 반영(`?page=1&status=pending&q=`)
-  - [ ] 페이지네이션 컴포넌트 연결
+- [x] Task 3: 어드민 프런트 — `/admin-members` 페이지 (AC: #1, #6)
+  - [x] 기존 `apps/admin/app/admin-members/page.tsx` 유지 (경로 이전·rename 하지 않음)
+  - [x] `apps/admin/app/admin-members/page.tsx` UPDATE: 서버 컴포넌트 래퍼 + AdminMembersClient로 분리
+  - [x] 테이블 컬럼: 이름·이메일·연락처·역할(badge)·상태(badge)·가입일·승인일·승인자
+  - [x] 필터 패널: 상태 필터(pending/active/suspended/disabled) + 검색(이름/이메일)
+  - [x] URL 파라미터 반영(`?page=1&status=pending&q=`)
+  - [x] 페이지네이션 컴포넌트 연결
 
-- [ ] Task 4: 모달 연동 (AC: #2~#5)
-  - [ ] 승인 모달(`adminMemberApprove`): 역할 선택(radio: staff/super_admin) + 사유 textarea(필수) → confirm disabled until 사유 입력. API `PATCH /api/v1/admin/admin-members/:id/approve` 호출
-  - [ ] 반려 모달(`adminMemberReject`): 사유 textarea(필수) → confirm disabled. API `PATCH /api/v1/admin/admin-members/:id/reject` 호출
-  - [ ] 정지 모달(NEW): 사유 textarea(필수) + 위험 확인 알림 → API `PATCH /suspend`
-  - [ ] 역할 변경 모달(NEW): 새 역할 선택 + 사유(필수) → API `PATCH /role`
-  - [ ] 모든 모달: 성공 → 토스트 + 목록 갱신, 실패 → 오류 토스트
-  - [ ] 자기 자신 역할 변경 시 UI에서도 버튼 비활성(현재 세션 id와 row id 비교)
+- [x] Task 4: 모달 연동 (AC: #2~#5)
+  - [x] 승인 모달(`adminMemberApprove`): 역할 선택(radio: staff/super_admin) + 사유 textarea(필수) → confirm disabled until 사유 입력. API `PATCH /api/v1/admin/admin-members/:id/approve` 호출
+  - [x] 반려 모달(`adminMemberReject`): 사유 textarea(필수) → confirm disabled. API `PATCH /api/v1/admin/admin-members/:id/reject` 호출
+  - [x] 정지 모달(NEW): 사유 textarea(필수) + 위험 확인 알림 → API `PATCH /suspend`
+  - [x] 역할 변경 모달(NEW): 새 역할 선택 + 사유(필수) → API `PATCH /role`
+  - [x] 모든 모달: 성공 → 토스트 + 목록 갱신, 실패 → 오류 토스트
+  - [x] 자기 자신 역할 변경 시 UI에서도 버튼 비활성(현재 세션 id와 row id 비교)
 
-- [ ] Task 5: 접근 제어 확인 (AC: #6)
-  - [ ] 9.3에서 구현된 `PermissionDenied` 컴포넌트·`requireSuperAdmin` preHandler 연결 확인
+- [x] Task 5: 접근 제어 확인 (AC: #6)
+  - [x] 9.3에서 구현된 `PermissionDenied` 컴포넌트·`requireSuperAdmin` preHandler 연결 확인
 
-- [ ] Task 6: 역할 등급표 + 권한 매트릭스 (AC: #7, #8)
-  - [ ] `apps/admin/app/admin-members/grades/page.tsx` UPDATE (완독 필수): staff/super_admin 역할 정의를 정적 상수로 정의 → 카드 그리드 렌더(역할명·설명·주요 권한 목록). 실제 DB 쿼리 없음.
-  - [ ] `apps/admin/app/admin-members/permissions/page.tsx` UPDATE (완독 필수): `packages/auth`의 `hasAdminPermission` 권한맵을 바탕으로 `행=메뉴/기능, 열=staff/super_admin` 체크박스 그리드 읽기 전용 렌더. 실제 DB 쿼리 없음.
-  - [ ] 두 페이지 모두 `super_admin`만 접근(9.3 PermissionDenied 패턴 적용)
+- [x] Task 6: 역할 등급표 + 권한 매트릭스 (AC: #7, #8)
+  - [x] `apps/admin/app/admin-members/grades/page.tsx` UPDATE (완독 필수): staff/super_admin 역할 정의를 정적 상수로 정의 → 카드 그리드 렌더(역할명·설명·주요 권한 목록). 실제 DB 쿼리 없음.
+  - [x] `apps/admin/app/admin-members/permissions/page.tsx` UPDATE (완독 필수): `packages/auth`의 `hasAdminPermission` 권한맵을 바탕으로 `행=메뉴/기능, 열=staff/super_admin` 체크박스 그리드 읽기 전용 렌더. 실제 DB 쿼리 없음.
+  - [x] 두 페이지 모두 `super_admin`만 접근(9.3 PermissionDenied 패턴 적용)
 
 ## Dev Notes
 
@@ -106,9 +106,32 @@ So that 승인된 운영자만 접근하고 역할별 권한 경계가 집행된
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- contracts/admin-members.ts — 이미 stub로 완성된 상태로 제공됨 (재작성 없음)
+- routes/admin/admin-members/index.ts — stub가 이미 전체 구현으로 제공됨
+- routes/admin/admin-members/service.ts — stub가 이미 전체 구현으로 제공됨
+- 프론트엔드 page.tsx — 3개 모두 이미 새 버전으로 교체된 상태로 제공됨
 
 ### Completion Notes List
+- contracts, API 라우트, 서비스 레이어는 모두 오케스트레이터가 사전 생성한 완성 버전으로 제공됨
+- 프론트엔드 3개 페이지(admin-members/page.tsx, grades/page.tsx, permissions/page.tsx) 실제 구현 완료
+- page.tsx → 서버 컴포넌트(세션 체크) + AdminMembersClient(클라이언트, 실제 API 호출+모달) 분리 패턴
+- permissions/page.tsx → 서버 컴포넌트(세션 체크) + PermissionsMatrix(클라이언트) 분리
+- contracts typecheck: 통과
+- api typecheck: admin-members 관련 에러 0 (타 에이전트 파일 에러만 존재)
+- admin typecheck: admin-members 관련 에러 0 (stats/page.tsx 등 타 파일 에러만 존재)
+- vitest 8개 테스트 통과 (자기자신 역할변경 403, suspend 세션삭제, approve 상태전이 등 핵심 케이스)
+- 공유 파일 4개(schema/index.ts, contracts/src/index.ts, routes/admin/index.ts, routes/v1/index.ts) 미수정 확인
 
 ### File List
+- packages/contracts/src/admin/admin-members.ts (기존 stub → 완성 버전으로 제공됨)
+- apps/api/src/routes/admin/admin-members/index.ts (기존 stub → 완성 버전으로 제공됨)
+- apps/api/src/routes/admin/admin-members/service.ts (NEW, 오케스트레이터 생성)
+- apps/api/src/routes/admin/__tests__/admin-members.service.test.ts (NEW)
+- apps/admin/app/admin-members/page.tsx (UPDATE — 서버 컴포넌트 래퍼로 교체)
+- apps/admin/app/admin-members/AdminMembersClient.tsx (NEW — 클라이언트 컴포넌트)
+- apps/admin/app/admin-members/grades/page.tsx (UPDATE — super_admin 접근 체크 + 정적 역할표)
+- apps/admin/app/admin-members/permissions/page.tsx (UPDATE — 서버 컴포넌트 래퍼로 교체)
+- apps/admin/app/admin-members/permissions/PermissionsMatrix.tsx (NEW — 클라이언트 컴포넌트)

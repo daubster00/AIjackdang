@@ -1,64 +1,82 @@
 import { AdminShell } from "@/components/layout/AdminShell";
+import { getAdminSession } from "@/lib/adminSession";
+import { PermissionDenied } from "@/components/ui/PermissionDenied";
 
 /**
- * 관리 등급 설정 페이지.
- * 마스터·운영자 등 관리자 등급을 조회하고, 새 등급 추가/편집/삭제(디자인만)를 제공한다.
- * 마스터(masterGrade)는 개발자/최고 권한으로 삭제 불가. 모든 수치는 더미.
+ * 관리 등급 설정 페이지 (Story 9.4 AC#7).
+ * staff/super_admin 역할 정의를 정적으로 렌더 (DB 쿼리 없음).
+ * super_admin만 접근 가능.
  */
 
-// 관리 등급 목록(더미). locked(잠금 여부)=true 이면 삭제 불가.
+// 관리 등급 목록 — DB 쿼리 없이 정적 상수로 렌더링.
+// locked=true 이면 기본 등급(삭제 불가).
 const GRADES = [
   {
-    id: "master",
+    id: "super_admin",
     name: "마스터",
-    description: "개발자/최고 권한 — 마스터 계정으로만 모든 관리 항목에 접근할 수 있습니다.",
-    memberCount: 2,
-    locked: true, // 기본 등급, 삭제 불가
+    description: "최고 관리자. 모든 관리 항목에 대한 전체 권한이 고정 부여됩니다. 다른 관리자 계정 승인·역할 변경·사이트 설정 등 모든 기능에 접근 가능합니다.",
+    locked: true,
     badgeClass: "badge-orange",
+    permissions: [
+      "게시글 중재(숨김·삭제)",
+      "신고 처리",
+      "회원 제재",
+      "관리자 승인·역할 변경",
+      "사이트 설정",
+      "광고 관리",
+      "콘텐츠 삭제",
+    ],
   },
   {
-    id: "operator",
+    id: "staff",
     name: "운영자",
-    description: "일반 운영진. 담당 영역별 접근·작성·수정·삭제 권한을 권한 설정에서 조정합니다.",
-    memberCount: 7,
-    locked: true, // 기본 등급, 삭제 불가(편집만 가능)
+    description: "일반 운영진. 게시글 중재, 신고 처리, 회원 제재 권한을 보유합니다. 관리자 계정 관리·사이트 설정은 접근할 수 없습니다.",
+    locked: true,
     badgeClass: "badge-blue",
-  },
-  {
-    id: "moderator",
-    name: "모더레이터",
-    description: "커뮤니티 중재자. 댓글·신고 처리 권한을 보유합니다.",
-    memberCount: 0,
-    locked: false,
-    badgeClass: "badge-cyan",
+    permissions: [
+      "게시글 중재(숨김)",
+      "신고 처리",
+      "회원 제재",
+    ],
   },
 ] as const;
 
-export default function AdminMembersGradesPage() {
+export default async function AdminMembersGradesPage() {
+  const session = await getAdminSession();
+
+  if (session?.role !== "super_admin") {
+    return (
+      <AdminShell
+        breadcrumb={["관리자", "관리회원 관리", "등급 설정"]}
+        activeKey="admin-members"
+        activeSubKey="grades"
+        adminUser={session}
+      >
+        <PermissionDenied />
+      </AdminShell>
+    );
+  }
+
   return (
     <AdminShell
       breadcrumb={["관리자", "관리회원 관리", "등급 설정"]}
       activeKey="admin-members"
       activeSubKey="grades"
+      adminUser={session}
     >
       <div className="page-header">
         <div>
           <h1 className="page-title">등급 설정</h1>
-          <p className="page-description">관리자 등급을 추가·편집·삭제합니다. 마스터는 기본 등급으로 삭제할 수 없습니다.</p>
-        </div>
-        <div className="page-actions">
-          <button className="btn btn-primary" data-admin-open="adminGradeAdd">
-            <i className="ri-add-line" />
-            새 등급 추가
-          </button>
+          <p className="page-description">관리자 등급(역할)과 각 등급에 고정 부여되는 권한을 확인합니다.</p>
         </div>
       </div>
 
       <div className="alert alert-info" style={{ marginBottom: "16px" }}>
         <i className="ri-shield-keyhole-line" />
         <div>
-          <strong>마스터 등급</strong>은 모든 관리 항목에 대한 전체 권한이 고정 부여됩니다.
-          마스터 계정만 모든 메뉴와 기능에 접근할 수 있으며, 등급을 삭제하거나 권한을 제한할 수 없습니다.
+          <strong>마스터(super_admin)</strong> 등급은 모든 관리 항목에 대한 전체 권한이 고정 부여됩니다.
+          등급은 시스템에서 <code>staff</code>와 <code>super_admin</code> 두 가지만 지원하며,
+          각 관리자의 역할은 관리회원 목록에서 변경할 수 있습니다.
         </div>
       </div>
 
@@ -71,136 +89,44 @@ export default function AdminMembersGradesPage() {
         <div className="component-stack">
           {GRADES.map((g) => (
             <article className="card" key={g.id}>
-              <div className="card-body" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+              <div className="card-body" style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                     <span className={`badge ${g.badgeClass}`}>{g.name}</span>
-                    {g.locked && (
-                      <span className="badge badge-gray" style={{ fontSize: 11 }}>
-                        <i className="ri-lock-line" style={{ marginRight: 2 }} />
-                        기본 등급
-                      </span>
-                    )}
-                    <span style={{ fontSize: 13, color: "var(--gray-500)" }}>
-                      소속 관리자 {g.memberCount}명
+                    <span className="badge badge-gray" style={{ fontSize: 11 }}>
+                      <i className="ri-lock-line" style={{ marginRight: 2 }} />
+                      기본 등급
                     </span>
+                    <code style={{ fontSize: 12, color: "var(--gray-500)", background: "var(--gray-100)", padding: "2px 6px", borderRadius: 4 }}>
+                      {g.id}
+                    </code>
                   </div>
-                  <p style={{ fontSize: 14, color: "var(--gray-500)" }}>{g.description}</p>
-                </div>
+                  <p style={{ fontSize: 14, color: "var(--gray-600)", marginBottom: 12 }}>{g.description}</p>
 
-                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    data-admin-open={`adminGradeEdit-${g.id}`}
-                    disabled={g.id === "master"}
-                    aria-label={`${g.name} 편집`}
-                  >
-                    <i className="ri-pencil-line" />
-                    편집
-                  </button>
-                  {!g.locked && (
-                    <button
-                      className="btn btn-danger btn-sm"
-                      data-admin-open={`adminGradeDelete-${g.id}`}
-                      aria-label={`${g.name} 삭제`}
-                    >
-                      <i className="ri-delete-bin-line" />
-                      삭제
-                    </button>
-                  )}
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--gray-700)", marginBottom: 6 }}>포함된 권한</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {g.permissions.map((perm) => (
+                        <span
+                          key={perm}
+                          style={{
+                            fontSize: 12,
+                            padding: "3px 8px",
+                            borderRadius: 4,
+                            background: "var(--gray-100)",
+                            color: "var(--gray-700)",
+                          }}
+                        >
+                          <i className="ri-check-line" style={{ marginRight: 4, color: "var(--success-500)" }} />
+                          {perm}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </article>
           ))}
-        </div>
-      </section>
-
-      {/* ===== 오버레이 영역 ===== */}
-      <div className="overlay" />
-
-      {/* 새 등급 추가 모달 */}
-      <section className="modal" id="adminGradeAdd" role="dialog" aria-modal="true" aria-labelledby="adminGradeAddTitle">
-        <div className="modal-header">
-          <div className="modal-title" id="adminGradeAddTitle">새 등급 추가</div>
-          <button className="icon-button close-overlay" aria-label="닫기"><i className="ri-close-line" /></button>
-        </div>
-        <div className="modal-body">
-          <div className="component-stack">
-            <div className="field">
-              <label className="field-label" htmlFor="newGradeName">등급명</label>
-              <input className="control" id="newGradeName" type="text" placeholder="예: 모더레이터, 서포터 등" />
-              <div className="field-help">다른 등급과 중복되지 않는 이름을 사용하세요.</div>
-            </div>
-            <div className="field">
-              <label className="field-label" htmlFor="newGradeDesc">설명</label>
-              <textarea
-                className="control"
-                id="newGradeDesc"
-                placeholder="이 등급의 역할과 책임을 설명하세요"
-                rows={3}
-              />
-            </div>
-            <div className="alert alert-info">
-              <i className="ri-information-line" />
-              <div>새 등급의 세부 권한은 생성 후 <strong>권한 설정</strong> 페이지에서 조정할 수 있습니다.</div>
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline close-overlay">취소</button>
-          <button className="btn btn-primary">추가하기</button>
-        </div>
-      </section>
-
-      {/* 등급 편집 모달(운영자 예시) */}
-      <section className="modal" id="adminGradeEdit-operator" role="dialog" aria-modal="true" aria-labelledby="adminGradeEditTitle">
-        <div className="modal-header">
-          <div className="modal-title" id="adminGradeEditTitle">등급 편집 — 운영자</div>
-          <button className="icon-button close-overlay" aria-label="닫기"><i className="ri-close-line" /></button>
-        </div>
-        <div className="modal-body">
-          <div className="component-stack">
-            <div className="field">
-              <label className="field-label" htmlFor="editGradeName">등급명</label>
-              <input className="control" id="editGradeName" type="text" defaultValue="운영자" />
-            </div>
-            <div className="field">
-              <label className="field-label" htmlFor="editGradeDesc">설명</label>
-              <textarea
-                className="control"
-                id="editGradeDesc"
-                defaultValue="일반 운영진. 담당 영역별 접근·작성·수정·삭제 권한을 권한 설정에서 조정합니다."
-                rows={3}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline close-overlay">취소</button>
-          <button className="btn btn-primary">저장하기</button>
-        </div>
-      </section>
-
-      {/* 등급 삭제 확인 모달(모더레이터 예시) */}
-      <section className="modal" id="adminGradeDelete-moderator" role="dialog" aria-modal="true" aria-labelledby="adminGradeDeleteTitle">
-        <div className="modal-header">
-          <div className="modal-title" id="adminGradeDeleteTitle">등급 삭제</div>
-          <button className="icon-button close-overlay" aria-label="닫기"><i className="ri-close-line" /></button>
-        </div>
-        <div className="modal-body">
-          <div className="component-stack">
-            <div className="alert alert-danger">
-              <i className="ri-alarm-warning-line" />
-              <div>
-                <strong>모더레이터</strong> 등급을 삭제합니다.
-                이 등급에 소속된 관리자가 있으면 삭제할 수 없습니다.
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-outline close-overlay">취소</button>
-          <button className="btn btn-danger">삭제하기</button>
         </div>
       </section>
     </AdminShell>
