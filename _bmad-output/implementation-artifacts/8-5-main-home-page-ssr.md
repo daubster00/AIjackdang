@@ -1,6 +1,6 @@
 # Story 8.5: 메인 홈 페이지(/) — 6섹션 SSR
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -255,9 +255,28 @@ packages/
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `packages/contracts/src/index.ts` 편집 금지 규칙으로 `packages/contracts/package.json`에 `"./home": "./src/home.ts"` export를 추가하여 하위 경로 import 가능하게 처리
+- `deriveQuestionStatus` 인터페이스: `acceptedAnswerId` 사용 (isResolved=true 시 non-null 값 전달)
+- 기존 api 에러 (link-preview, sitemap, search): Story 8.5 무관한 사전 존재 에러, 본 스토리에서 수정 불필요
 
 ### Completion Notes List
+- Task 1~7 전부 완료. Task 8(Playwright 검증)은 dev 서버 실행 환경 필요 — 별도 수행 권장
+- `packages/contracts/src/index.ts`는 수정하지 않음; 대신 `package.json` exports에 `./home` 경로 추가
+- 라운지 섹션: 실제 API 데이터에 `thumbnail_url` 없음 → 텍스트 카드로 렌더링(Dev Notes 명시 내용)
 
 ### File List
+- `packages/contracts/src/home.ts` [NEW]
+- `packages/contracts/package.json` [UPDATE] — exports에 `./home` 추가
+- `apps/api/src/lib/cache.ts` [NEW]
+- `apps/api/src/routes/v1/posts/popular.route.ts` [NEW]
+- `apps/api/src/routes/v1/posts/routes.ts` [UPDATE] — popular.route.ts 등록
+- `apps/api/src/routes/v1/questions/index.ts` [NEW]
+- `apps/api/src/routes/v1/resources/popular.route.ts` [NEW]
+- `apps/api/src/routes/v1/resources/routes.ts` [UPDATE] — popular.route.ts 등록
+- `apps/api/src/routes/v1/notices/index.ts` [NEW]
+- `apps/web/lib/home.ts` [NEW]
+- `apps/web/app/page.tsx` [UPDATE] — async SSR, Promise.all, 6섹션 실데이터
+- `apps/web/app/page.module.css` [UPDATE] — 탭 네비게이션·공지 배너·질문 메타 CSS 추가

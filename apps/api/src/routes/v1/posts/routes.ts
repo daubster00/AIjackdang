@@ -35,6 +35,7 @@ import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
 import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
+import { registerPopularPostsRoute } from "./popular.route.js"; // Story 8.5
 
 /** 세션 user 타입 헬퍼 */
 type RequestWithUser = { user?: { id: string } };
@@ -53,6 +54,10 @@ const postsQuerySchema = paginationQuerySchema.extend({
 });
 
 export async function postsRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /posts/popular — 홈 페이지 인기글 (Story 8.5, 비회원 공개) ────────────
+  // NOTE: /posts/popular 는 /posts/:slug 보다 먼저 등록해야 정적 경로가 우선 매칭된다.
+  await registerPopularPostsRoute(app);
+
   const typed = app.withTypeProvider<ZodTypeProvider>();
 
   // ── GET /posts — 게시판 게시글 목록 (비회원 공개) ────────────────────────────

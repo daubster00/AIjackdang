@@ -554,3 +554,88 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── [8.5] 탭 네비게이션 (실전 인기글 섹션) ──────────────────────────────── */
+
+.tabNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.tabLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.tabLink:hover {
+  border-color: rgba(48, 48, 192, 0.34);
+  color: var(--color-primary);
+}
+
+.tabLinkActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+/* ── 공지 배너 ──────────────────────────────────────────────────────────────── */
+
+.noticeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: 14px 18px;
+  border: 1px solid rgba(48, 48, 192, 0.18);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.noticeBannerIcon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.noticeBannerText {
+  flex: 1;
+  line-height: var(--line-height-normal);
+}
+
+.noticeBannerLink {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+}
+
+/* ── 질문 배지 ───────────────────────────────────────────────────────────────── */
+
+.questionMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 6px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+}
+
+/* ── [8.5] END ────────────────────────────────────────────────────────────── */

@@ -6,7 +6,8 @@
   "description": "API 요청·응답 규격과 Zod 검증 스키마 (웹/관리자/API/앱 공유)",
   "exports": {
     ".": "./src/index.ts",
-    "./tag": "./src/tag.ts"
+    "./tag": "./src/tag.ts",
+    "./home": "./src/home.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

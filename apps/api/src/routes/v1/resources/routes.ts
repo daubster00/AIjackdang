@@ -27,9 +27,12 @@ import { registerResourceWriteRoutes } from "./write.route.js"; // Story 4.4
 import { registerResourceDownloadRoutes } from "./download.route.js"; // Story 4.6
 import { registerResourceRatingRoutes } from "./rating.route.js"; // Story 4.7
 import { registerResourceMutateRoutes } from "./mutate.route.js"; // Story 4.8
+import { registerPopularResourcesRoute } from "./popular.route.js"; // Story 8.5
 
 export async function resourcesRoutes(app: FastifyInstance): Promise<void> {
   // ── [STORY-REGISTRATIONS] 각 스토리는 이 아래에 `await register...(app);` 한 줄 추가 ──
+  // NOTE: /resources/popular 는 /resources/:slug 보다 먼저 등록해야 정적 경로가 우선 매칭된다.
+  await registerPopularResourcesRoute(app); // Story 8.5
   await registerResourceListRoutes(app); // Story 4.2
   await registerResourceDetailRoutes(app); // Story 4.3
   await registerResourceUploadRoutes(app); // Story 4.5
