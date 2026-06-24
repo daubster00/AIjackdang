@@ -5,7 +5,7 @@
  */
 
 import { getDb } from "@ai-jakdang/database";
-import { posts, users } from "@ai-jakdang/database/schema";
+import { posts, users, tags as tagsTable, taggable } from "@ai-jakdang/database/schema";
 import { eq, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 
@@ -115,6 +115,181 @@ export async function listPosts(query: AdminPostsQuery) {
       totalItems: Number(totalItems),
       totalPages: Math.ceil(Number(totalItems) / pageSize),
     },
+  };
+}
+
+// ── 공지 게시글 생성 (관리자 전용, Story 9.17) ─────────────────────────────────
+
+export async function createNoticePost(data: {
+  title: string;
+  contentJson: Record<string, unknown>;
+  tags?: string[];
+  status?: "draft" | "published";
+  isPinned?: boolean;
+  isMainFeatured?: boolean;
+}) {
+  const db = getDb();
+
+  // slug: 제목 기반 생성 + 타임스탬프로 유일성 보장
+  const baseSlug = data.title
+    .toLowerCase()
+    .replace(/[^\w\s가-힣]/g, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
+  const slug = `${baseSlug}-${Date.now()}`;
+
+  const postId = await db.transaction(async (tx) => {
+    // posts INSERT (userId=null → 운영자 작성)
+    const [inserted] = await tx
+      .insert(posts)
+      .values({
+        userId: null,
+        board: "notice",
+        category: "system",
+        title: data.title,
+        slug,
+        contentJson: data.contentJson,
+        status: data.status ?? "published",
+        isNotice: true,
+        isPinned: data.isPinned ?? false,
+        isMainFeatured: data.isMainFeatured ?? false,
+      })
+      .returning({ id: posts.id });
+
+    const id = inserted.id;
+
+    // 태그 처리
+    if (data.tags && data.tags.length > 0) {
+      const taggableValues: { targetType: string; targetId: string; tagId: string }[] = [];
+      for (const tagName of data.tags) {
+        const tagSlug = tagName.toLowerCase().replace(/\s+/g, "-");
+
+        let [existing] = await tx
+          .select({ id: tagsTable.id })
+          .from(tagsTable)
+          .where(eq(tagsTable.slug, tagSlug))
+          .limit(1);
+
+        if (!existing) {
+          const ins = await tx
+            .insert(tagsTable)
+            .values({ name: tagName, slug: tagSlug })
+            .onConflictDoNothing()
+            .returning({ id: tagsTable.id });
+
+          if (ins[0]) {
+            existing = ins[0];
+          } else {
+            [existing] = await tx
+              .select({ id: tagsTable.id })
+              .from(tagsTable)
+              .where(eq(tagsTable.slug, tagSlug))
+              .limit(1);
+          }
+        }
+
+        if (existing) {
+          taggableValues.push({ targetType: "post", targetId: id, tagId: existing.id });
+        }
+      }
+
+      if (taggableValues.length > 0) {
+        await tx.insert(taggable).values(taggableValues).onConflictDoNothing();
+      }
+    }
+
+    return id;
+  });
+
+  return { id: postId, slug, board: "notice", status: data.status ?? "published" };
+}
+
+// ── 내용 수정 (관리자 전용) ────────────────────────────────────────────────────
+
+export async function updatePostContent(
+  id: string,
+  data: {
+    title?: string;
+    contentJson?: Record<string, unknown>;
+    tags?: string[];
+  },
+) {
+  const db = getDb();
+
+  const [target] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
+  if (!target) {
+    throw Object.assign(new Error("게시글을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+
+  const updated = await db.transaction(async (tx) => {
+    // 1) posts 본문/제목 업데이트
+    const updateSet: Record<string, unknown> = { updatedAt: now };
+    if (data.title !== undefined) updateSet.title = data.title;
+    if (data.contentJson !== undefined) updateSet.contentJson = data.contentJson;
+
+    const [row] = await tx
+      .update(posts)
+      .set(updateSet)
+      .where(eq(posts.id, id))
+      .returning({ id: posts.id, status: posts.status, updatedAt: posts.updatedAt });
+
+    // 2) 태그 재계산 (taggable 전량 삭제 후 재삽입)
+    if (data.tags !== undefined) {
+      await tx
+        .delete(taggable)
+        .where(and(eq(taggable.targetType, "post"), eq(taggable.targetId, id)));
+
+      if (data.tags.length > 0) {
+        const taggableValues: { targetType: string; targetId: string; tagId: string }[] = [];
+        for (const tagName of data.tags) {
+          const tagSlug = tagName.toLowerCase().replace(/\s+/g, "-");
+
+          // 기존 태그 찾기
+          let [existing] = await tx
+            .select({ id: tagsTable.id })
+            .from(tagsTable)
+            .where(eq(tagsTable.slug, tagSlug))
+            .limit(1);
+
+          // 없으면 삽입
+          if (!existing) {
+            const inserted = await tx
+              .insert(tagsTable)
+              .values({ name: tagName, slug: tagSlug })
+              .onConflictDoNothing()
+              .returning({ id: tagsTable.id });
+
+            if (inserted[0]) {
+              existing = inserted[0];
+            } else {
+              [existing] = await tx
+                .select({ id: tagsTable.id })
+                .from(tagsTable)
+                .where(eq(tagsTable.slug, tagSlug))
+                .limit(1);
+            }
+          }
+
+          if (existing) {
+            taggableValues.push({ targetType: "post", targetId: id, tagId: existing.id });
+          }
+        }
+
+        if (taggableValues.length > 0) {
+          await tx.insert(taggable).values(taggableValues).onConflictDoNothing();
+        }
+      }
+    }
+
+    return row;
+  });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    updatedAt: updated.updatedAt.toISOString(),
   };
 }
 

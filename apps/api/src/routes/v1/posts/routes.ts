@@ -35,6 +35,7 @@ import { z } from "zod";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
 import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { userAuth } from "../../../auth/user-auth.js";
+import { adminAuth } from "../../../auth/admin-auth.js";
 import { registerPopularPostsRoute } from "./popular.route.js"; // Story 8.5
 
 /** 세션 user 타입 헬퍼 */
@@ -162,15 +163,24 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      // notice 게시판 = 관리자 전용 (FR-15.1, Story 2.9)
+      // notice 게시판 = 관리자 전용 (FR-15.1, FR-10.7, Story 2.9, Story 9.17)
+      // adminAuth.api.getSession 으로 aj_admin_session 쿠키를 실제 검증한다.
       if (body.board === "notice") {
-        const cookieHeader = request.headers.cookie ?? "";
-        const hasAdminSession = cookieHeader.includes("aj_admin_session=");
-        if (!hasAdminSession) {
+        let isValidAdmin = false;
+        try {
+          const adminSession = await adminAuth.api.getSession({
+            headers: request.headers as unknown as Headers,
+          });
+          const adminUser = adminSession?.user as ({ status?: string } | undefined);
+          isValidAdmin = !!adminUser && adminUser.status === "active";
+        } catch {
+          isValidAdmin = false;
+        }
+        if (!isValidAdmin) {
           return reply.code(403).send({
             error: {
               code: "FORBIDDEN",
-              message: "공지 작성은 운영자만 가능합니다.",
+              message: "공지 게시판은 운영자만 작성 가능합니다.",
             },
           });
         }

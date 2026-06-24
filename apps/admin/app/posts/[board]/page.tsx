@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense, use } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { findBoard } from "@/lib/boards";
+import { findBoard, boardApiParam } from "@/lib/boards";
 import { API_BASE_URL } from "../../../lib/api";
 import type { AdminPostItem } from "@ai-jakdang/contracts";
 
@@ -255,7 +255,8 @@ function BoardPostsContent({ boardSlug }: { boardSlug: string }) {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("board", boardSlug);
+      // boardApiParam: URL slug(예: 'notices') → API board 파라미터(예: 'notice') 변환
+      params.set("board", boardApiParam(boardSlug));
       params.set("page", String(pageParam));
       params.set("pageSize", "20");
       if (statusParam && statusParam !== "all") params.set("status", statusParam);
