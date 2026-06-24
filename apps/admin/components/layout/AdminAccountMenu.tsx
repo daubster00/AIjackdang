@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "../../lib/api";
 
 /**
  * 상단바 오른쪽 관리자 계정 칩 + 내 정보 수정 모달.
  * - 칩: 아바타 + 이름 + 등급 배지(예: 마스터)를 표기하고, 클릭하면 내 정보 수정 모달을 연다.
  * - 모달: 프로필 사진 / 이메일 / 비밀번호 / 연락처를 수정한다(디자인만, 더미 상태).
+ * - 로그아웃: 모달 하단 "로그아웃" 버튼 → POST /api/v1/admin/auth/sign-out → /login 리다이렉트.
  *
  * 모달은 전역 overlay.js(공통 모달 열기 스크립트)가 페이지의 .overlay 를 가로채지 않도록,
  * .overlay 클래스 대신 자체 React 상태 + inline 스타일 백드롭으로 제어한다.
@@ -22,12 +25,17 @@ const ADMIN_ACCOUNT = {
 };
 
 export function AdminAccountMenu() {
+  const router = useRouter();
+
   // open(내 정보 수정 모달 열림 여부)
   const [open, setOpen] = useState(false);
   // photoPreview(미리보기용 프로필 사진 data URL) — 선택 시에만 채워진다.
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   // mounted(클라이언트 마운트 여부) — 포털 대상 document.body 접근 가드.
   const [mounted, setMounted] = useState(false);
+  // loggingOut(로그아웃 요청 중 여부)
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setMounted(true), []);
@@ -48,6 +56,25 @@ export function AdminAccountMenu() {
     const reader = new FileReader();
     reader.onload = () => setPhotoPreview(typeof reader.result === "string" ? reader.result : null);
     reader.readAsDataURL(file);
+  }
+
+  // ── 로그아웃 ─────────────────────────────────────────────────────────────────
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/admin/auth/sign-out`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // 네트워크 오류 시에도 로그인 페이지로 이동
+    } finally {
+      setLoggingOut(false);
+      setOpen(false);
+      router.push("/login");
+    }
   }
 
   return (
@@ -221,14 +248,39 @@ export function AdminAccountMenu() {
               </div>
             </div>
 
-            <div className="modal-footer">
-              <button type="button" className="btn btn-outline" onClick={() => setOpen(false)}>
-                취소
+            <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+              {/* 로그아웃 버튼 (왼쪽) */}
+              <button
+                type="button"
+                className="btn btn-text"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                aria-busy={loggingOut}
+                style={{ color: "var(--danger-600, #dc2626)" }}
+              >
+                {loggingOut ? (
+                  <>
+                    <i className="ri-loader-4-line" style={{ animation: "spin 0.8s linear infinite" }} aria-hidden="true" />
+                    로그아웃 중…
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-logout-box-line" />
+                    로그아웃
+                  </>
+                )}
               </button>
-              <button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>
-                <i className="ri-save-line" />
-                저장
-              </button>
+
+              {/* 취소 / 저장 (오른쪽) */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="btn btn-outline" onClick={() => setOpen(false)}>
+                  취소
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>
+                  <i className="ri-save-line" />
+                  저장
+                </button>
+              </div>
             </div>
           </section>
         </>,

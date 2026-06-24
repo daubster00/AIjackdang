@@ -1,6 +1,6 @@
 # Story 9.2: 관리자 로그인 · 로그아웃 · 가입(승인 대기) UX
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -20,34 +20,34 @@ So that 독립된 어드민 진입점으로 안전하게 로그인하고 신규 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 로그인 API 연동 (AC: #1, #2, #3)
-  - [ ] `apps/api/src/routes/admin/auth/` 폴더 신규 생성
-  - [ ] `apps/api/src/routes/admin/auth/sign-in.ts` NEW: `POST /api/v1/admin/auth/sign-in` — Better Auth credential 검증, status 확인, 세션 발급
-  - [ ] status별 오류 코드: `PENDING_APPROVAL`, `ACCOUNT_SUSPENDED`, `ACCOUNT_DISABLED`, `INVALID_CREDENTIALS`
-  - [ ] `@fastify/rate-limit` 설치 및 로그인 라우트 적용 (5회/분 limit)
-  - [ ] `apps/admin/app/login/page.tsx` UPDATE: 더미 onSubmit(`router.push('/dashboard')`) → `fetch('/api/v1/admin/auth/sign-in')` 호출로 교체
-  - [ ] 로그인 성공: `/dashboard` 리다이렉트
-  - [ ] 로그인 실패: 상태별 인라인 오류 메시지 표시 (현재 form 아래 오류 영역 없음 → `{styles.error}` div 추가)
-  - [ ] 로딩 중 버튼 disabled + Spinner
+- [x] Task 1: 로그인 API 연동 (AC: #1, #2, #3)
+  - [x] `apps/api/src/routes/admin/auth/` 폴더 신규 생성
+  - [x] `apps/api/src/routes/admin/auth/sign-in.ts` NEW: `POST /api/v1/admin/auth/sign-in` — Better Auth credential 검증, status 확인, 세션 발급
+  - [x] status별 오류 코드: `PENDING_APPROVAL`, `ACCOUNT_SUSPENDED`, `ACCOUNT_DISABLED`, `INVALID_CREDENTIALS`
+  - [x] `@fastify/rate-limit` 로그인 라우트 적용 (5회/분 limit, config.rateLimit)
+  - [x] `apps/admin/app/login/page.tsx` UPDATE: 더미 onSubmit → `fetch('/api/v1/admin/auth/sign-in')` 호출로 교체
+  - [x] 로그인 성공: `/dashboard` 리다이렉트
+  - [x] 로그인 실패: 상태별 인라인 오류 메시지 표시 (fieldError + formError div 추가)
+  - [x] 로딩 중 버튼 disabled + Spinner
 
-- [ ] Task 2: 가입 API 구현 (AC: #4, #5, #7)
-  - [ ] `apps/api/src/routes/admin/auth/sign-up.ts` NEW: `POST /api/v1/admin/auth/sign-up`
-  - [ ] `packages/contracts/src/admin/auth.ts` NEW: `adminSignUpSchema` (name/email/password/phone Zod 스키마), `adminSignInSchema`
-  - [ ] Argon2id 해시 후 admin_accounts 저장 (better-auth 내장 또는 @node-rs/argon2)
-  - [ ] 중복 이메일 → 409 `DUPLICATE_EMAIL`
-  - [ ] `apps/admin/app/signup/page.tsx` UPDATE: 더미 더미 폼 → 실제 API 연동 (현재 파일 먼저 완독 필요)
-  - [ ] 가입 성공: 승인 대기 안내 화면(인라인 성공 상태 또는 별도 `/signup/pending` 페이지)
+- [x] Task 2: 가입 API 구현 (AC: #4, #5, #7)
+  - [x] `apps/api/src/routes/admin/auth/sign-up.ts` NEW: `POST /api/v1/admin/auth/sign-up`
+  - [x] `packages/contracts/src/admin/auth.ts` NEW: `adminSignUpSchema` (name/email/password/phone Zod 스키마), `adminSignInSchema`
+  - [x] Argon2id 해시(@node-rs/argon2, algorithm:2 Argon2id) 후 admin_accounts 저장
+  - [x] 중복 이메일 → 409 `DUPLICATE_EMAIL`
+  - [x] `apps/admin/app/signup/page.tsx` UPDATE: 초대코드 → 이름/이메일/비밀번호/연락처 폼, 실제 API 연동
+  - [x] 가입 성공: 승인 대기 안내 화면(인라인 상태 전환, submitted=true)
 
-- [ ] Task 3: 로그아웃 구현 (AC: #6)
-  - [ ] `apps/api/src/routes/admin/auth/sign-out.ts` NEW: `POST /api/v1/admin/auth/sign-out` — 세션 무효화, 쿠키 제거
-  - [ ] `apps/admin/components/layout/AdminAccountMenu.tsx` UPDATE: 로그아웃 버튼에 API 호출 연결
-  - [ ] 로그아웃 후 `/login` 리다이렉트
+- [x] Task 3: 로그아웃 구현 (AC: #6)
+  - [x] `apps/api/src/routes/admin/auth/sign-out.ts` NEW: `POST /api/v1/admin/auth/sign-out` — 세션 무효화, 쿠키 제거
+  - [x] `apps/admin/components/layout/AdminAccountMenu.tsx` UPDATE: 모달 하단 로그아웃 버튼 API 연동
+  - [x] 로그아웃 후 `/login` 리다이렉트
 
-- [ ] Task 4: 폼 검증 강화 (AC: #7)
-  - [ ] 비밀번호 최소 8자 클라이언트 측 실시간 검증
-  - [ ] 이메일 형식 검증
-  - [ ] blur 시 개별 필드 오류, submit 시 전체 검증
-  - [ ] 오류 메시지는 인라인(색 + 텍스트, 색만으로 상태 전달 금지)
+- [x] Task 4: 폼 검증 강화 (AC: #7)
+  - [x] 비밀번호 최소 8자 클라이언트 측 검증 (blur + submit)
+  - [x] 이메일 형식 검증
+  - [x] blur 시 개별 필드 오류, submit 시 전체 검증
+  - [x] 오류 메시지는 인라인(색 + 텍스트 + 아이콘, 색만으로 상태 전달 금지)
 
 ## Dev Notes
 
@@ -87,9 +87,31 @@ So that 독립된 어드민 진입점으로 안전하게 로그인하고 신규 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `vi.clearAllMocks()` → `vi.resetAllMocks()`로 변경 필요: clearAllMocks는 mockReturnValueOnce 큐를 초기화하지 않음. 이전 케이스에서 소비되지 않은 큐가 다음 케이스에 영향을 줌.
+- Better Auth `signInResult.response`는 존재하지 않음. 쿠키는 `reply.header("Set-Cookie", ...)` 로 직접 설정.
+- `adminAuth.api.revokeSession`은 `body: { token }` 필수. `headers`만으로 호출 불가.
+- signup/page.tsx에서 `useRouter` import 후 `router`를 사용하지 않으면 TS6133 오류.
 
 ### Completion Notes List
+- sign-in: Better Auth 내부 API(`signInEmail`) → status 체크 → 쿠키 직접 설정 방식 채택. pending/suspended/disabled 시 `revokeSession(body:{token})` 으로 세션 폐기.
+- 쿠키 이름: `aj_admin_session.session_token` (cookiePrefix=aj_admin_session + .session_token)
+- app.ts에 `adminRoutes` 등록: `app.register(adminRoutes, { prefix: "/api/v1" })` — adminGuardHook은 전역 preHandler이므로 `/api/v1/admin/auth/*` 경로가 자동 제외됨.
+- contracts/index.ts에 `export * from "./admin/auth"` 추가.
 
 ### File List
+- NEW: `packages/contracts/src/admin/auth.ts`
+- NEW: `apps/api/src/routes/admin/auth/sign-in.ts`
+- NEW: `apps/api/src/routes/admin/auth/sign-up.ts`
+- NEW: `apps/api/src/routes/admin/auth/sign-out.ts`
+- NEW: `apps/api/src/routes/admin/index.ts`
+- NEW: `apps/api/src/routes/admin/__tests__/adminAuth.test.ts`
+- UPDATE: `packages/contracts/src/index.ts`
+- UPDATE: `apps/api/src/app.ts`
+- UPDATE: `apps/admin/app/login/page.tsx`
+- UPDATE: `apps/admin/app/login/login.module.css`
+- UPDATE: `apps/admin/app/signup/page.tsx`
+- UPDATE: `apps/admin/app/signup/signup.module.css`
+- UPDATE: `apps/admin/components/layout/AdminAccountMenu.tsx`

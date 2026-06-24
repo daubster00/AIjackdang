@@ -30,6 +30,9 @@ export * from "./link-preview";
 // ── sitemap API 응답 스키마 (Story 8.7) ──────────────────────────────────────
 export * from "./sitemap";
 
+// ── 관리자 인증 (Story 9.2) ───────────────────────────────────────────────────
+export * from "./admin/auth";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

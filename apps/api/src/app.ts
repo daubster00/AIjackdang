@@ -13,6 +13,7 @@ import {
 import { userAuth } from "./auth/user-auth.js";
 import { healthRoutes } from "./routes/health";
 import { v1Routes } from "./routes/v1/index";
+import { adminRoutes } from "./routes/admin/index.js";
 import { toNodeHandler } from "better-auth/node";
 import { adminAuthPlugin } from "./plugins/adminAuth.js";
 import { adminGuardHook } from "./plugins/adminGuard.js";
@@ -95,6 +96,7 @@ export function buildApp(): FastifyInstance {
 
   app.register(healthRoutes);
   app.register(v1Routes, { prefix: "/api/v1" });
+  app.register(adminRoutes, { prefix: "/api/v1" });
 
   return app;
 }

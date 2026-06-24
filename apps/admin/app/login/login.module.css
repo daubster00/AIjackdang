@@ -170,6 +170,47 @@
   color: var(--gray-400);
 }
 
+/* 필드 단위 오류 메시지 */
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0 0;
+  color: var(--danger-600, #dc2626);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.fieldError i {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* 폼 전체 오류(서버 응답) 메시지 */
+.formError {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--danger-50, #fef2f2);
+  border: 1px solid var(--danger-200, #fecaca);
+  color: var(--danger-700, #b91c1c);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.formError i {
+  font-size: 15px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 479px) {
   .body {
     padding: 26px 20px 22px;
