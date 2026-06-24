@@ -22,8 +22,12 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get("aj_admin_session");
-  const isAuthenticated = !!sessionCookie?.value;
+  // ⚠️ Better Auth(cookiePrefix=aj_admin_session)가 발급하는 실제 세션 쿠키명은
+  //    "aj_admin_session.session_token" 이다. 운영(secure)에서는 "__Secure-" 접두사가 붙는다.
+  //    접두사 없는 "aj_admin_session" 만으로는 절대 매칭되지 않으므로 정확한 토큰 쿠키를 본다.
+  const isAuthenticated =
+    request.cookies.has("aj_admin_session.session_token") ||
+    request.cookies.has("__Secure-aj_admin_session.session_token");
 
   // 루트 접근 — 인증 여부에 따라 dashboard 또는 login으로 리다이렉트
   if (pathname === "/") {

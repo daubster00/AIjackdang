@@ -18,17 +18,23 @@ export interface AdminSessionUser {
  */
 export const getAdminSession = cache(async (): Promise<AdminSessionUser | null> => {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("aj_admin_session");
+  // Better Auth 실제 세션 쿠키명: aj_admin_session.session_token (운영은 __Secure- 접두사).
+  const sessionCookie =
+    cookieStore.get("aj_admin_session.session_token") ??
+    cookieStore.get("__Secure-aj_admin_session.session_token");
   if (!sessionCookie) return null;
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/admin/auth/session`, {
-      headers: { Cookie: `aj_admin_session=${sessionCookie.value}` },
+      headers: { Cookie: `${sessionCookie.name}=${sessionCookie.value}` },
       cache: "no-store",
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return (data?.user as AdminSessionUser) ?? null;
+    const user = (data?.user as AdminSessionUser) ?? null;
+    // status≠active 계정은 미인증으로 취급(가드와 정합).
+    if (!user || user.status !== "active") return null;
+    return user;
   } catch {
     return null;
   }
