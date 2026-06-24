@@ -16,6 +16,8 @@ So that 승인된 운영자만 접근하고 역할별 권한 경계가 집행된
 4. active 운영자 정지: 모달+사유 입력 확정 → `status=suspended`, 기존 `admin_sessions` 즉시 무효화(전체 삭제). 재활성 가능(모달+사유 유지, status=active 복원).
 5. 역할 변경(staff↔super_admin): 모달+사유 입력 확정 → `role` 갱신, 세션 즉시 반영(세션 무효화 후 재발급 유도). 최고관리자 자기 자신의 역할 변경 시도 → 403 반환("자신의 역할을 변경할 수 없습니다.").
 6. `staff`가 `/admin-members` URL 직접 접근 시 화면 거부 + API 403(9.3과 동일 권한 게이트).
+7. `/admin-members/grades` 진입 시 운영자 역할 등급표(staff/super_admin 역할명·설명·접근 가능 메뉴·위험 액션 권한 여부) 읽기 전용 렌더. 실시간 편집 불가(코드 수준 역할 정의를 참조 목적으로 표시). `super_admin`만 접근.
+8. `/admin-members/permissions` 진입 시 메뉴×역할 권한 매트릭스(체크박스 그리드 형태, 읽기 전용) 렌더. `hasAdminPermission` 함수 정의 기반 정적 표시. `super_admin`만 접근.
 
 ## Tasks / Subtasks
 
@@ -57,6 +59,11 @@ So that 승인된 운영자만 접근하고 역할별 권한 경계가 집행된
 - [ ] Task 5: 접근 제어 확인 (AC: #6)
   - [ ] 9.3에서 구현된 `PermissionDenied` 컴포넌트·`requireSuperAdmin` preHandler 연결 확인
 
+- [ ] Task 6: 역할 등급표 + 권한 매트릭스 (AC: #7, #8)
+  - [ ] `apps/admin/app/admin-members/grades/page.tsx` UPDATE (완독 필수): staff/super_admin 역할 정의를 정적 상수로 정의 → 카드 그리드 렌더(역할명·설명·주요 권한 목록). 실제 DB 쿼리 없음.
+  - [ ] `apps/admin/app/admin-members/permissions/page.tsx` UPDATE (완독 필수): `packages/auth`의 `hasAdminPermission` 권한맵을 바탕으로 `행=메뉴/기능, 열=staff/super_admin` 체크박스 그리드 읽기 전용 렌더. 실제 DB 쿼리 없음.
+  - [ ] 두 페이지 모두 `super_admin`만 접근(9.3 PermissionDenied 패턴 적용)
+
 ## Dev Notes
 
 ### 의존성
@@ -67,7 +74,8 @@ So that 승인된 운영자만 접근하고 역할별 권한 경계가 집행된
 ### 기존 파일 현재 상태 (완독 필수)
 - `apps/admin/app/admin-members/page.tsx` (UPDATE or MOVE): 현재 관리회원 목록 더미 페이지. 승인/반려 모달 마크업 포함(id: adminMemberApprove, adminMemberReject). 더미 `ADMIN_MEMBERS` 배열, `ADMIN_GRADE_BADGE`, `STATUS_BADGE` 매핑. 실제 API 연동 없음.
 - `apps/admin/app/admin-members/[id]/page.tsx`: 관리회원 상세 페이지 확인 필요.
-- `apps/admin/app/admin-members/grades/page.tsx`, `apps/admin/app/admin-members/permissions/page.tsx`: 현재 별도 화면 확인 필요.
+- `apps/admin/app/admin-members/grades/page.tsx` (UPDATE): 역할 등급 카드 더미 페이지. DB 쿼리 없이 정적 상수 기반으로 렌더 예정.
+- `apps/admin/app/admin-members/permissions/page.tsx` (UPDATE): 권한 매트릭스 더미 페이지. `hasAdminPermission` 정적 권한맵 참조해 체크박스 그리드 렌더 예정.
 
 ### 경로 정합성 주의
 기존 코드 기준 `/admin-members`가 정식 경로다. UX IA의 `/admin-accounts` 표기는 무시하고 `/admin-members`로 통일한다. AdminShell NAV_GROUPS 및 API 라우트 모두 `admin-members`를 사용(일반 회원 관리 `/members`와 별도 경로로 유지). 경로 이전·rename 작업 없음.

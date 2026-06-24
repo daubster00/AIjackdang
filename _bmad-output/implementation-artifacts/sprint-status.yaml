@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 5 W1: 5.1(스키마·마이그), 5.2(좋아요 API·프론트), 5.3(뷰카운트 확장)
+last_updated: 2026-06-24 # Epic 7 완료(7.1~7.5): 알림 SSE·목록·설정·쪽지DM·1:1문의. typecheck 전체 통과, API 테스트 203 통과
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -88,12 +88,12 @@ development_status:
   6-6-gamification-ui-integration: done # AC#5/#7 목록·상세 실등급 주입은 동시세션 충돌로 보류(후속)
   epic-6-retrospective: optional
 
-  epic-7: in-progress
-  7-1-notification-schema-sse-pipeline: ready-for-dev
-  7-2-notification-list-badge-read: ready-for-dev
-  7-3-notification-settings: ready-for-dev
-  7-4-dm-messages: ready-for-dev
-  7-5-inquiry-user-portal: ready-for-dev
+  epic-7: done
+  7-1-notification-schema-sse-pipeline: done # +inquiry.replied enum 선포함(7.5 2차 마이그 제거), SSE 멀티탭 구독해제 버그 수정
+  7-2-notification-list-badge-read: done
+  7-3-notification-settings: done
+  7-4-dm-messages: done # reports enum에 message 추가(0013 마이그) — 쪽지 신고 지원
+  7-5-inquiry-user-portal: done # 디자인 없음 — 디자인시스템 토큰으로 신규 3화면 구성
   epic-7-retrospective: optional
 
   epic-8: in-progress
@@ -126,6 +126,7 @@ development_status:
   9-15-site-settings: ready-for-dev
   9-16-ads-management: ready-for-dev
   9-17-notice-management: ready-for-dev
+  9-18-dm-messages-management: ready-for-dev
   epic-9-retrospective: optional
 
   epic-10: in-progress

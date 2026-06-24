@@ -84,11 +84,19 @@ if (!hasAdminPermission(session.role, 'ads:manage')) return <PermissionDenied />
 - **UX-DR-A11**: Esc 키로 최상위 오버레이(사이드바 포함) 닫기.
 - active 강조: `primary-50` 배경(`--primary-50`), `primary-700` 글자(`--primary-700`), weight 650. [Source: DESIGN.md#nav-item]
 
-### nav IA 정합성 (UX EXPERIENCE.md 기준 14개 메뉴)
-현재 AdminShell nav 그룹과 UX IA 비교:
-- 현재: Overview(대시보드/접속통계), Content(게시글/묻고답하기/실전자료/댓글후기), Operation(신고/쪽지/회원/관리회원), Community(포인트/등급뱃지), System(광고/설정)
-- UX IA: Overview(대시보드/접속통계), Content(게시글/Q&A/실전자료/댓글후기), Operation(신고/문의), Engagement(회원/포인트/등급/뱃지), Business(광고/설정/운영자계정관리)
-- **조정 필요**: 문의 관리(`/inquiries`) 추가, 쪽지 관리는 UX IA에서 Operation 외 배치 or 제거, Engagement 그룹 재구성, 운영자계정관리 이동
+### nav IA 정합성 (확정)
+프론트엔드 실제 구현 기준으로 아래 그룹·순서를 표준으로 삼는다:
+- **Overview**: 대시보드(`/dashboard`) / 접속통계(`/stats`)
+- **Content**: 게시글(`/posts`) / 묻고답하기(`/qna`) / 실전자료(`/resources`) / 댓글·후기(`/comments`)
+- **Operation**: 신고 관리(`/reports`) / 쪽지 관리(`/messages`, **Story 9.18**) / 문의 관리(`/inquiries`, Story 9.14) / 회원 관리(`/members`) / 운영자 계정 관리(`/admin-members`, super_admin 전용)
+- **Engagement**: 포인트(`/points`) / 등급·뱃지(`/ranks`)
+- **Business**: 광고(`/ads`, super_admin 전용) / 사이트 설정(`/settings`, super_admin 전용)
+
+**쪽지 관리(`/messages`) 포함 확정**: Story 9.18에서 구현. nav에 `{ key: "messages", href: "/messages", icon: "ri-mail-line", label: "쪽지 관리" }` Operation 그룹에 추가(신고 관리 바로 아래). `staff`·`super_admin` 모두 접근 가능(숨김 없음).
+
+**`/admin-members` nav 항목**: super_admin 전용 숨김(UX-DR-A6). Operation 그룹 최하단.
+
+**총 메뉴 수**: 14개 1차 메뉴 + 운영자계정관리 = 15개
 
 ### Project Structure Notes
 - NEW: `apps/admin/middleware.ts`, `apps/admin/components/ui/PermissionDenied.tsx`, `apps/admin/lib/adminSession.ts`
