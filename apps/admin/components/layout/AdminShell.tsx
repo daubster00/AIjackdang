@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { BOARDS } from "@/lib/boards";
+import { getAdminSession } from "@/lib/adminSession";
+import type { AdminSessionUser } from "@/lib/adminSession";
 import { AdminInteractions } from "./AdminInteractions";
 import { NotificationMenu } from "./NotificationMenu";
 import { HelpMenu } from "./HelpMenu";
@@ -9,29 +11,22 @@ import { AdminAccountMenu } from "./AdminAccountMenu";
  * 관리자 기본 레이아웃 — @ai-jakdang/admin-design-system 의 .app-shell 마크업을 사용한다.
  * 사이드바(브랜드/메뉴/프로필) + 상단바(검색/알림) + 본문 .page 컨테이너를 제공한다.
  * 사용자 사이트(apps/web)의 레이아웃/CSS 는 가져오지 않는다(관리자 전용).
+ *
+ * adminUser: 세션 사용자 정보. 미전달 시 getAdminSession()으로 내부 조회(AC#7).
+ * pendingReportsCount: 미처리 신고 수. 0이면 배지 미표시, 1 이상이면 danger pill(UX-DR-A1).
  */
 
-/**
- * 사이드바 메뉴 한 개. activeKey 와 key 가 같으면 현재 메뉴로 강조된다.
- * children(하위 메뉴 목록)이 있으면 부모 항목 아래에 들여쓴 서브 링크들이 펼쳐진다.
- * 하위 항목의 subKey(서브 메뉴 식별 키)는 activeSubKey 와 비교해 활성 강조에 쓰인다.
- */
 type NavItem = {
   key: string;
   href: string;
   icon: string;
   label: string;
   badge?: string;
-  subKey?: string; // 하위 항목일 때 activeSubKey 와 매칭되는 키(예: 게시판 slug)
-  children?: NavItem[]; // 하위 메뉴 목록(있으면 부모 항목이 된다)
+  subKey?: string;
+  children?: NavItem[];
 };
 type NavGroup = { label: string; items: NavItem[] };
 
-/**
- * "게시글 관리" 부모 항목의 하위 메뉴.
- * "전체"(/posts) + 각 게시판(/posts/{slug})을 BOARDS(전체 게시판 목록) 순회로 생성한다.
- * subKey 는 게시판 slug(게시판 영문 키)이며 activeSubKey 와 일치하면 active 강조된다.
- */
 const POSTS_CHILDREN: NavItem[] = [
   { key: "posts-all", href: "/posts", icon: "ri-list-check", label: "전체", subKey: "" },
   ...BOARDS.map((b) => ({
@@ -63,8 +58,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Operation",
     items: [
-      { key: "reports", href: "/reports", icon: "ri-alarm-warning-line", label: "신고 관리", badge: "12" },
+      { key: "reports", href: "/reports", icon: "ri-alarm-warning-line", label: "신고 관리" },
       { key: "messages", href: "/messages", icon: "ri-mail-line", label: "쪽지 관리" },
+      { key: "inquiries", href: "/inquiries", icon: "ri-customer-service-2-line", label: "문의 관리" },
       { key: "members", href: "/members", icon: "ri-user-settings-line", label: "유저 회원 관리" },
       {
         key: "admin-members",
@@ -80,14 +76,14 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Community",
+    label: "Engagement",
     items: [
       { key: "points", href: "/points", icon: "ri-copper-coin-line", label: "포인트 관리" },
       { key: "ranks", href: "/ranks", icon: "ri-medal-line", label: "등급·뱃지 관리" },
     ],
   },
   {
-    label: "System",
+    label: "Business",
     items: [
       { key: "ads", href: "/ads", icon: "ri-advertisement-line", label: "광고 관리" },
       { key: "settings", href: "/settings", icon: "ri-settings-3-line", label: "사이트 설정" },
@@ -95,10 +91,15 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export function AdminShell({
+/** super_admin 전용으로 숨길 메뉴 key 집합(UX-DR-A6: 숨김, disabled 아님) */
+const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members"]);
+
+export async function AdminShell({
   breadcrumb,
   activeKey,
   activeSubKey,
+  adminUser: adminUserProp,
+  pendingReportsCount = 0,
   children,
 }: {
   /** 상단바 경로 표시. 마지막 항목이 현재 위치로 강조된다. */
@@ -110,15 +111,39 @@ export function AdminShell({
    * 예: "/posts/vibe-tip" 페이지면 activeSubKey="vibe-tip", "/posts"(전체)면 activeSubKey=""(빈 문자열).
    */
   activeSubKey?: string;
+  /**
+   * 현재 로그인한 관리자 세션(선택). 미전달 시 getAdminSession()으로 내부 조회(AC#7).
+   * 사이드바 프로필 및 메뉴 필터링에 사용한다.
+   */
+  adminUser?: AdminSessionUser | null;
+  /**
+   * 미처리 신고 수(선택). 0이면 배지 미표시, 1 이상이면 danger pill 표시(UX-DR-A1).
+   * 기본값 0. 9.5/9.6에서 실집계로 교체 예정.
+   */
+  pendingReportsCount?: number;
   children: ReactNode;
 }) {
+  // adminUser prop 미전달 시 서버에서 세션 조회(AC#7)
+  const adminUser = adminUserProp !== undefined ? adminUserProp : await getAdminSession();
+
   const crumbs = breadcrumb.length ? breadcrumb : ["관리자"];
+  const role = adminUser?.role ?? "super_admin"; // 세션 없으면 super_admin으로 간주(미들웨어가 보호)
+
+  /** role에 따라 접근 가능한 그룹/항목만 필터링(UX-DR-A6) */
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !SUPER_ADMIN_ONLY_KEYS.has(item.key) || role === "super_admin"),
+  })).filter((group) => group.items.length > 0);
+
+  /** 사이드바 프로필 표시 정보 */
+  const profileName = adminUser?.name ?? "관리자";
+  const profileRole = role === "super_admin" ? "Super Admin" : "Staff";
+  const profileInitial = profileName.charAt(0) || "관";
 
   return (
     <div className="app-shell" id="appShell">
       <aside className="sidebar" id="sidebar" aria-label="관리자 주 메뉴">
         <div className="sidebar-brand">
-          {/* 프로젝트 로고(심볼 마크). 기존 'AI' 아바타 원형을 대체한다. */}
           <img className="brand-logo" src="/logo-mark.svg" alt="AI작당" width={34} height={34} />
           <div className="brand-copy">
             <strong className="brand-title">AI작당 Admin</strong>
@@ -131,18 +156,28 @@ export function AdminShell({
 
         <div className="sidebar-scroll">
           <nav>
-            {NAV_GROUPS.map((group) => (
+            {visibleGroups.map((group) => (
               <div className="nav-group" key={group.label}>
                 <div className="nav-label">{group.label}</div>
                 {group.items.map((item) => {
-                  // parentActive(부모 메뉴가 현재 활성인지) — 활성이면 하위 메뉴를 펼친다(JS 없이 항상 펼침).
                   const parentActive = item.key === activeKey;
+                  // 신고 관리 배지: pendingReportsCount > 0 이면 danger pill(UX-DR-A1)
+                  const reportsCount = item.key === "reports" ? pendingReportsCount : 0;
+                  const badgeText = reportsCount > 0 ? String(reportsCount) : (item.badge ?? null);
+                  const isDanger = item.key === "reports" && reportsCount > 0;
                   return (
                     <div key={item.key}>
                       <a className={`nav-item${parentActive ? " active" : ""}`} href={item.href}>
                         <i className={item.icon} />
                         <span>{item.label}</span>
-                        {item.badge ? <span className="nav-badge">{item.badge}</span> : null}
+                        {badgeText ? (
+                          <span
+                            className="nav-badge"
+                            style={isDanger ? { background: "var(--danger)", color: "#fff" } : undefined}
+                          >
+                            {badgeText}
+                          </span>
+                        ) : null}
                         {item.children ? (
                           <i
                             className={parentActive ? "ri-arrow-down-s-line" : "ri-arrow-right-s-line"}
@@ -152,11 +187,9 @@ export function AdminShell({
                         ) : null}
                       </a>
 
-                      {/* 하위 메뉴: 부모가 활성일 때만 펼친다(서버 컴포넌트, 들여쓰기/작은 폰트는 인라인 style). */}
                       {item.children && parentActive ? (
                         <div style={{ marginTop: 3, paddingLeft: 16 }}>
                           {item.children.map((child) => {
-                            // childActive(이 하위 항목이 현재 활성인지) — subKey 와 activeSubKey 가 일치하면 강조.
                             const childActive = child.subKey === (activeSubKey ?? "");
                             return (
                               <a
@@ -182,10 +215,10 @@ export function AdminShell({
 
         <div className="sidebar-footer">
           <div className="admin-profile">
-            <div className="avatar">관리</div>
+            <div className="avatar">{profileInitial}</div>
             <div className="profile-copy">
-              <span className="profile-name">최고관리자</span>
-              <span className="profile-role">Super Admin</span>
+              <span className="profile-name">{profileName}</span>
+              <span className="profile-role">{profileRole}</span>
             </div>
             <button className="icon-button" aria-label="프로필 메뉴">
               <i className="ri-more-2-fill" />

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { getAdminSession } from "@/lib/adminSession";
+import { PermissionDenied } from "@/components/ui/PermissionDenied";
 
 /**
  * 관리회원 관리 목록 페이지.
@@ -122,12 +124,26 @@ const ADMIN_MEMBERS = [
   },
 ] as const;
 
-export default function AdminMembersListPage() {
+export default async function AdminMembersListPage() {
+  const session = await getAdminSession();
+  if (session?.role !== "super_admin") {
+    return (
+      <AdminShell
+        breadcrumb={["관리자", "관리회원 관리", "관리회원"]}
+        activeKey="admin-members"
+        activeSubKey=""
+        adminUser={session}
+      >
+        <PermissionDenied />
+      </AdminShell>
+    );
+  }
   return (
     <AdminShell
       breadcrumb={["관리자", "관리회원 관리", "관리회원"]}
       activeKey="admin-members"
       activeSubKey=""
+      adminUser={session}
     >
       <div className="page-header">
         <div>

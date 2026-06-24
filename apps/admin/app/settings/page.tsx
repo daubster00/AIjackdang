@@ -1,5 +1,7 @@
 import { AdminShell } from "@/components/layout/AdminShell";
 import { SettingsTabPanels } from "./_components/SettingsTabPanels";
+import { getAdminSession } from "@/lib/adminSession";
+import { PermissionDenied } from "@/components/ui/PermissionDenied";
 
 /**
  * 사이트 설정.
@@ -33,9 +35,17 @@ const REPORT_REASONS = [
   "기타",
 ] as const;
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+  const session = await getAdminSession();
+  if (session?.role !== "super_admin") {
+    return (
+      <AdminShell breadcrumb={["관리자", "사이트 설정"]} activeKey="settings" adminUser={session}>
+        <PermissionDenied />
+      </AdminShell>
+    );
+  }
   return (
-    <AdminShell breadcrumb={["관리자", "사이트 설정"]} activeKey="settings">
+    <AdminShell breadcrumb={["관리자", "사이트 설정"]} activeKey="settings" adminUser={session}>
       <div className="page-header">
         <div>
           <h1 className="page-title">사이트 설정</h1>

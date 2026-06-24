@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { getAdminSession } from "@/lib/adminSession";
+import { PermissionDenied } from "@/components/ui/PermissionDenied";
 
 /**
  * 광고 관리 페이지.
  * @ai-jakdang/admin-design-system 의 마크업/토큰으로 구성한다(관리자 전용).
- * 노출/클릭/CTR 등 성과 수치는 현재 더미 값이며, 이후 단계에서 API(@ai-jakdang/api) 와 연동한다.
+ * super_admin 전용 페이지: staff 접근 시 PermissionDenied 렌더(AC#4).
  */
 
-// 상단 성과 요약 카드(더미). trend 는 전주 대비 추세.
-// CTR(클릭률 = 클릭 수 / 노출 수)
 const STATS = [
   { label: "총 노출 수", value: "1,284,920", icon: "ri-eye-line", tone: "blue", dir: "up", delta: "9.3%", note: "전주 대비" },
   { label: "총 클릭 수", value: "18,472", icon: "ri-cursor-line", tone: "purple", dir: "up", delta: "4.6%", note: "전주 대비" },
@@ -16,8 +16,6 @@ const STATS = [
   { label: "활성 광고 수", value: "9", icon: "ri-megaphone-line", tone: "orange", dir: "down", delta: "1건", note: "종료된 광고 발생" },
 ] as const;
 
-// 광고 위치 선택지(기획 명세 그대로). 필터 셀렉트와 등록 드로어에서 공용으로 쓴다.
-// value 는 화면 표시용 한국어 라벨을 그대로 사용한다.
 const PLACEMENTS = [
   "메인 상단",
   "메인 중간",
@@ -30,8 +28,6 @@ const PLACEMENTS = [
   "모바일 하단",
 ] as const;
 
-// 광고 유형(기획 명세 그대로) → 배지 색 매핑.
-// 애드센스/직접배너/텍스트/제휴링크/내부홍보
 const TYPE_BADGE: Record<string, string> = {
   애드센스: "badge-green",
   직접배너: "badge-blue",
@@ -40,7 +36,6 @@ const TYPE_BADGE: Record<string, string> = {
   내부홍보: "badge-cyan",
 };
 
-// 노출 상태 → 배지 색 매핑.
 const STATUS_BADGE: Record<string, string> = {
   노출중: "badge-green",
   예약: "badge-cyan",
@@ -48,8 +43,6 @@ const STATUS_BADGE: Record<string, string> = {
   종료: "badge-gray",
 };
 
-// 광고 목록(더미). 기획의 테이블 컬럼을 모두 채운다.
-// device: PC/모바일 노출 대상. impressions/clicks 는 수치, ctr 은 계산된 클릭률.
 const ADS = [
   {
     name: "Claude Pro 제휴 프로모션",
@@ -137,9 +130,17 @@ const ADS = [
   },
 ] as const;
 
-export default function AdminAdsPage() {
+export default async function AdminAdsPage() {
+  const session = await getAdminSession();
+  if (session?.role !== "super_admin") {
+    return (
+      <AdminShell breadcrumb={["관리자", "광고 관리"]} activeKey="ads" adminUser={session}>
+        <PermissionDenied />
+      </AdminShell>
+    );
+  }
   return (
-    <AdminShell breadcrumb={["관리자", "광고 관리"]} activeKey="ads">
+    <AdminShell breadcrumb={["관리자", "광고 관리"]} activeKey="ads" adminUser={session}>
       <div className="page-header">
         <div>
           <h1 className="page-title">광고 관리</h1>
@@ -157,7 +158,6 @@ export default function AdminAdsPage() {
         </div>
       </div>
 
-      {/* 1. 성과 요약 카드 */}
       <section className="grid stats-grid" aria-label="광고 성과 요약">
         {STATS.map((s) => (
           <article className="stat-card" key={s.label}>
@@ -179,7 +179,6 @@ export default function AdminAdsPage() {
         ))}
       </section>
 
-      {/* 5. 신뢰도 우선 안내 */}
       <div className="alert alert-warning" style={{ marginBottom: "18px" }}>
         <i className="ri-alert-line" />
         <div>
@@ -199,7 +198,6 @@ export default function AdminAdsPage() {
         </div>
 
         <article className="card">
-          {/* 3. 광고 위치 필터 + 부가 필터 */}
           <div className="filter-panel">
             <div className="filter-row">
               <div className="input-icon">
@@ -278,7 +276,6 @@ export default function AdminAdsPage() {
             </div>
           </div>
 
-          {/* 일괄 처리 툴바 */}
           <div className="table-toolbar">
             <div className="toolbar-left">
               <span className="selection-info">총 {ADS.length}개의 광고</span>
@@ -298,7 +295,6 @@ export default function AdminAdsPage() {
             </div>
           </div>
 
-          {/* 2. 광고 목록 테이블 */}
           <div className="table-wrap">
             <table className="admin-table">
               <thead>
@@ -326,7 +322,6 @@ export default function AdminAdsPage() {
                       <input className="check row-check" type="checkbox" aria-label={`${ad.name} 선택`} />
                     </td>
                     <td>
-                      {/* 광고명 클릭 시 광고 상세(성과) 페이지로 이동(드로어/모달 대신) */}
                       <Link className="content-title" href={`/ads/${encodeURIComponent(ad.name)}`}>
                         {ad.name}
                       </Link>
@@ -351,7 +346,6 @@ export default function AdminAdsPage() {
                           <i className="ri-more-2-fill" />
                         </button>
                         <div className="action-menu">
-                          {/* 성과 보기 → 광고 상세 페이지로 이동(드로어/모달 제거) */}
                           <Link href={`/ads/${encodeURIComponent(ad.name)}`}>
                             <i className="ri-bar-chart-line" />
                             성과 보기
@@ -388,8 +382,6 @@ export default function AdminAdsPage() {
         </article>
       </section>
 
-      {/* 오버레이 + 4. 광고 등록/편집 드로어 */}
-      {/* .overlay 는 공통 뒷배경(id 없음). data-admin-open="adForm" 은 아래 드로어 id 로 해석된다. */}
       <div className="overlay" />
       <aside className="drawer" id="adForm" aria-label="광고 등록 패널">
         <div className="drawer-header">
@@ -518,7 +510,6 @@ export default function AdminAdsPage() {
 
             <div className="field">
               <span className="field-label">배너 이미지</span>
-              {/* 배너 이미지 업로드 자리(드롭존). 실제 업로드는 이후 단계에서 연동. */}
               <div className="empty-state" style={{ padding: "26px" }}>
                 <span className="empty-icon">
                   <i className="ri-image-add-line" />
