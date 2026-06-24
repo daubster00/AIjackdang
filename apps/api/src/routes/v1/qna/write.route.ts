@@ -15,16 +15,25 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createQuestionSchema, errorResponseSchema } from "@ai-jakdang/contracts";
+import { createQuestionSchema, updateQuestionSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
 import { userAuth } from "../../../auth/user-auth.js";
-import { createQuestion, getDraftQuestion } from "./write.service.js";
+import { getDb, schema } from "@ai-jakdang/database";
+import { eq, and, isNull } from "drizzle-orm";
+import { createQuestion, getDraftQuestion, updateQuestion } from "./write.service.js";
 
 /** POST /qna/questions 성공 응답 */
 const createQuestionResponseSchema = z.object({
   id: z.string().uuid(),
   slug: z.string(),
   status: z.enum(["published", "draft"]),
+});
+
+/** PATCH /qna/questions/:id 성공 응답 */
+const updateQuestionResponseSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  updatedAt: z.string(),
 });
 
 /** POST /qna/questions body에 status 추가 */
@@ -123,6 +132,84 @@ export async function registerQnaWriteRoutes(app: FastifyInstance): Promise<void
       });
 
       return reply.status(201).send(result);
+    },
+  );
+
+  // ── PATCH /qna/questions/:id — 질문 수정 (Story 3.8) ────────────────────────
+  typed.patch(
+    "/qna/questions/:id",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description:
+          "질문 제목·본문·태그를 수정한다. 인증 필수(401). 작성자 본인만 가능(403). slug는 불변(NFR-8). 성공 시 200 + { id, slug, updatedAt }.",
+        tags: ["qna"],
+        params: z.object({ id: z.string().uuid() }),
+        body: updateQuestionSchema,
+        response: {
+          200: updateQuestionResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      // ── 인증 필수 ────────────────────────────────────────────────────────────
+      const session = await userAuth.api.getSession({
+        headers: request.headers as unknown as Headers,
+      });
+      const userId = session?.user?.id;
+      if (!userId) {
+        return reply
+          .status(401)
+          .send({ error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." } });
+      }
+
+      const { id } = request.params;
+      const db = getDb();
+
+      // ── 질문 존재 확인 ───────────────────────────────────────────────────────
+      const [question] = await db
+        .select({
+          id: schema.questions.id,
+          userId: schema.questions.userId,
+          status: schema.questions.status,
+          deletedAt: schema.questions.deletedAt,
+        })
+        .from(schema.questions)
+        .where(
+          and(
+            eq(schema.questions.id, id),
+            isNull(schema.questions.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!question || question.status === "deleted") {
+        return reply.status(404).send({
+          error: { code: "QUESTION_NOT_FOUND", message: "질문을 찾을 수 없습니다." },
+        });
+      }
+
+      // ── 작성자 본인 확인 (403) ───────────────────────────────────────────────
+      if (question.userId !== userId) {
+        return reply.status(403).send({
+          error: { code: "FORBIDDEN", message: "질문 작성자만 수정할 수 있습니다." },
+        });
+      }
+
+      const { title, contentJson, tags } = request.body;
+
+      const result = await updateQuestion({
+        questionId: id,
+        title,
+        contentJson,
+        tags,
+      });
+
+      return reply.status(200).send(result);
     },
   );
 }

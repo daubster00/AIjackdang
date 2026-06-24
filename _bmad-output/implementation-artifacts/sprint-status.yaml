@@ -48,7 +48,7 @@ development_status:
   3-5-question-detail-ssr-badge-actions: done
   3-6-answer-write-edit-delete: done
   3-7-helpful-answer-toggle: ready-for-dev
-  3-8-question-edit-tags: ready-for-dev
+  3-8-question-edit-tags: done
   3-9-qa-page-json-ld-seo: ready-for-dev
   epic-3-retrospective: optional
 

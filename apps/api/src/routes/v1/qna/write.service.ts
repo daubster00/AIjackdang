@@ -140,6 +140,126 @@ export async function createQuestion({
   });
 }
 
+// ── 질문 수정 ──────────────────────────────────────────────────────────────────
+
+export interface UpdateQuestionParams {
+  questionId: string;
+  title?: string;
+  contentJson?: Record<string, unknown>;
+  tags?: string[];
+}
+
+export interface UpdateQuestionResult {
+  id: string;
+  slug: string;
+  updatedAt: string;
+}
+
+/**
+ * 질문 제목·본문·태그를 수정한다 (Story 3.8).
+ *
+ * - db.transaction() 안에서:
+ *   1) questions UPDATE(title, content_json, updated_at) — 보낸 필드만
+ *   2) tags 갱신: taggable DELETE(target_type='question', target_id) + INSERT 재연결
+ * - slug 는 불변 (NFR-8): title 이 바뀌어도 slug 변경 없음.
+ *
+ * @returns { id, slug, updatedAt }
+ */
+export async function updateQuestion({
+  questionId,
+  title,
+  contentJson,
+  tags,
+}: UpdateQuestionParams): Promise<UpdateQuestionResult> {
+  const db = getDb();
+
+  return await db.transaction(async (tx) => {
+    // 1) questions UPDATE — 보낸 필드만 갱신, slug 는 건드리지 않는다
+    const setValues: Record<string, unknown> = { updatedAt: new Date() };
+    if (title !== undefined) setValues["title"] = title;
+    if (contentJson !== undefined) setValues["contentJson"] = contentJson;
+
+    const [updated] = await tx
+      .update(schema.questions)
+      .set(setValues)
+      .where(eq(schema.questions.id, questionId))
+      .returning({
+        id: schema.questions.id,
+        slug: schema.questions.slug,
+        updatedAt: schema.questions.updatedAt,
+      });
+
+    if (!updated) {
+      throw new Error("질문 UPDATE 실패");
+    }
+
+    // 2) 태그 갱신 (tags 가 undefined 면 태그는 수정하지 않는다)
+    if (tags !== undefined) {
+      // 기존 taggable 삭제 (교체 방식, AR-6)
+      await tx
+        .delete(schema.taggable)
+        .where(
+          and(
+            eq(schema.taggable.targetType, "question"),
+            eq(schema.taggable.targetId, questionId),
+          ),
+        );
+
+      // 새 태그 upsert + taggable INSERT
+      if (tags.length > 0) {
+        const tagIds: string[] = [];
+
+        for (const tagName of tags) {
+          const tagSlug = slugify(tagName) || tagName.toLowerCase();
+
+          const existing = await tx
+            .select({ id: schema.tags.id })
+            .from(schema.tags)
+            .where(eq(schema.tags.slug, tagSlug))
+            .limit(1);
+
+          if (existing.length > 0 && existing[0]) {
+            tagIds.push(existing[0].id);
+          } else {
+            const [created] = await tx
+              .insert(schema.tags)
+              .values({ name: tagName, slug: tagSlug })
+              .onConflictDoNothing()
+              .returning({ id: schema.tags.id });
+
+            if (created) {
+              tagIds.push(created.id);
+            } else {
+              const retry = await tx
+                .select({ id: schema.tags.id })
+                .from(schema.tags)
+                .where(eq(schema.tags.slug, tagSlug))
+                .limit(1);
+              if (retry[0]) tagIds.push(retry[0].id);
+            }
+          }
+        }
+
+        if (tagIds.length > 0) {
+          await tx.insert(schema.taggable).values(
+            tagIds.map((tagId) => ({
+              targetType: "question" as const,
+              targetId: questionId,
+              tagId,
+            })),
+          );
+        }
+      }
+    }
+
+    return {
+      id: updated.id,
+      slug: updated.slug,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  });
+}
+
 // ── 임시저장 조회 ──────────────────────────────────────────────────────────────
 
 export interface GetDraftQuestionResult {
