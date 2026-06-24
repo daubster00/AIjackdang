@@ -28,6 +28,7 @@ import { registerHomeQuestionsRoutes } from "./questions/index.js";
 import { registerNoticesRoutes } from "./notices/index.js";
 import { sitemapRoutes } from "./sitemap/routes.js";
 import { registerPublicSiteSettingsRoute } from "./site-settings-public.js";
+import { registerPublicAdsRoute } from "./ads.js";
 
 /**
  * /api/v1 라우트.
@@ -126,4 +127,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 공개 사이트 설정 라우트 (Story 9.15: GET /settings/public) ───────────────
   await registerPublicSiteSettingsRoute(app);
+
+  // ── 공개 광고 슬롯 라우트 (Story 9.16: GET /ads/:placement) ──────────────────
+  await registerPublicAdsRoute(app);
 }

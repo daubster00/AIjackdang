@@ -45,6 +45,12 @@ export * from "./admin/members";
 export * from "./admin/inquiries";
 export * from "./admin/settings";
 
+// ── 관리자 Wave B (9.9 댓글·9.13 게이미피케이션·9.16 광고·9.18 쪽지) ───────────
+export * from "./admin/comments";
+export * from "./admin/ads";
+export * from "./admin/gamification";
+export * from "./admin/messages";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

@@ -21,6 +21,10 @@ export * from "./link-previews";
 // ── Epic 9: 사이트 설정 (9.11 / 9.15) ────────────────────────────────────────
 export * from "./site-settings";
 
+// ── Epic 9 Wave B: 포인트 규칙(9.13)·광고(9.16) ──────────────────────────────
+export * from "./point-rules";
+export * from "./ads";
+
 export {
   pointsLedger,
   grades,

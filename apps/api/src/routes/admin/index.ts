@@ -21,6 +21,12 @@ import { registerAdminResourcesRoutes } from "./resources/index.js";
 import { registerAdminUserMembersRoutes } from "./members/index.js";
 import { registerAdminInquiriesRoutes } from "./inquiries/index.js";
 import { registerAdminSettingsRoutes } from "./settings/index.js";
+import { registerAdminCommentsRoutes } from "./comments/index.js";
+import { registerAdminPointsRoutes } from "./points/index.js";
+import { registerAdminGradesRoutes } from "./grades/index.js";
+import { registerAdminBadgesRoutes } from "./badges/index.js";
+import { registerAdminAdsRoutes } from "./ads/index.js";
+import { registerAdminMessagesRoutes } from "./messages/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
@@ -38,4 +44,12 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminUserMembersRoutes(app);
   await registerAdminInquiriesRoutes(app);
   await registerAdminSettingsRoutes(app);
+
+  // Epic 9 Wave B (9.9·9.13·9.16·9.18) — 댓글·포인트/등급/뱃지·광고·쪽지 모더레이션.
+  await registerAdminCommentsRoutes(app);
+  await registerAdminPointsRoutes(app);
+  await registerAdminGradesRoutes(app);
+  await registerAdminBadgesRoutes(app);
+  await registerAdminAdsRoutes(app);
+  await registerAdminMessagesRoutes(app);
 }

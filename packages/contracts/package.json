@@ -9,7 +9,9 @@
     "./tag": "./src/tag.ts",
     "./home": "./src/home.ts",
     "./admin/resources": "./src/admin/resources.ts",
-    "./admin/qna": "./src/admin/qna.ts"
+    "./admin/qna": "./src/admin/qna.ts",
+    "./admin/comments": "./src/admin/comments.ts",
+    "./admin/messages": "./src/admin/messages.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
