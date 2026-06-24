@@ -46,7 +46,7 @@ development_status:
   3-3-question-write-page-tags-draft: done
   3-4-main-menu-ask-button-auto-tag: ready-for-dev
   3-5-question-detail-ssr-badge-actions: done
-  3-6-answer-write-edit-delete: ready-for-dev
+  3-6-answer-write-edit-delete: done
   3-7-helpful-answer-toggle: ready-for-dev
   3-8-question-edit-tags: ready-for-dev
   3-9-qa-page-json-ld-seo: ready-for-dev

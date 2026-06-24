@@ -21,8 +21,9 @@ import { AuthorName, Avatar, Icon } from "@/components/ui";
 import { BoardHero, AttachmentList } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
-import { AnswerForm } from "./AnswerForm";
 import { QuestionDetailClient } from "./QuestionDetailClient";
+import { AnswerSection } from "./AnswerSection";
+import type { Answer } from "./AnswerItem";
 import { API_URL, SITE_URL } from "./constants";
 import type { AnswerResponse } from "@ai-jakdang/contracts";
 
@@ -240,80 +241,14 @@ export default async function QuestionDetailPage({ params }: PageProps) {
           <QuestionActions questionId={question.slug} />
         </article>
 
-        {/* ── 답변 영역 (읽기 전용 렌더 — 작성/수정/삭제는 Story 3.6 소유) ── */}
-        <section className={styles.answerSection} aria-labelledby="answer-title">
-          <div className={styles.answerSectionHead}>
-            <h2 id="answer-title">
-              답변 <strong>{answerCount}</strong>
-            </h2>
-            {answerCount > 1 && (
-              <div className={styles.answerSort} role="group" aria-label="답변 정렬">
-                <button type="button" aria-pressed="true">추천순</button>
-                <button type="button" aria-pressed="false">최신순</button>
-              </div>
-            )}
-          </div>
-
-          {answerCount === 0 ? (
-            <div className={styles.answerEmpty}>
-              <Icon name="chat-smile-2-line" />
-              <p>아직 답변이 없습니다.</p>
-              <span>첫 번째 답변을 남겨 질문자에게 도움을 줘보세요.</span>
-            </div>
-          ) : (
-            <div className={styles.answerList}>
-              {question.answers.map((answer) => (
-                <article
-                  key={answer.id}
-                  className={styles.answerItem}
-                  aria-label="답변"
-                >
-                  <div className={styles.answerMain}>
-                    <div className={styles.answerHead}>
-                      <div className={styles.answerAvatar} aria-hidden="true">
-                        {(answer.author?.nickname ?? "익명").slice(0, 1)}
-                      </div>
-                      <div className={styles.answerAuthorInfo}>
-                        <strong>
-                          <AuthorName name={answer.author?.nickname ?? "익명"} />
-                        </strong>
-                        <span>
-                          {new Date(answer.createdAt).toLocaleDateString("ko-KR", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                    {/* 답변 본문: Story 3.6에서 contentHtml 변환 추가 예정 */}
-                    <div className={styles.answerBody}>
-                      <p>[답변 본문 — Story 3.6에서 에디터 렌더 연결]</p>
-                    </div>
-                    {/* 좋아요·신고 슬롯 — Epic 5 예약 */}
-                    <div className={styles.answerToolbar}>
-                      <div className={styles.answerToolbarLeft}>
-                        <button type="button" aria-disabled="true" disabled>
-                          <Icon name="thumb-up-line" />
-                          도움이 됐어요
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── 답변 작성 (3.6 소유 — 슬롯 유지) ── */}
-        <section className={styles.answerWriteSection} aria-labelledby="answer-write-title">
-          <h2 id="answer-write-title" className={styles.answerWriteTitle}>
-            <Icon name="quill-pen-line" />
-            답변 작성하기
-          </h2>
-          <AnswerForm />
-        </section>
+        {/* ── 답변 영역 + 작성 폼 (Story 3.6 소유) ── */}
+        <AnswerSection
+          questionId={question.id}
+          initialAnswers={question.answers as Answer[]}
+          currentUserId={session?.userId ?? null}
+          isAsker={isAsker}
+          helpfulAnswerId={question.helpfulAnswerId}
+        />
 
         {/* ── 하단 동선 ── */}
         <footer className={styles.detailFooter}>
