@@ -20,23 +20,6 @@ const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockSelect = vi.fn();
 
-// drizzle-orm 체인 빌더를 위한 Proxy
-function makeChain(finalValue: unknown): unknown {
-  const chain = new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === "then") {
-          return (resolve: (v: unknown) => unknown) => Promise.resolve(finalValue).then(resolve);
-        }
-        // select/update/delete 의 체인 메서드들 (.from, .where, .set, .returning, .limit, .offset 등)
-        return () => chain;
-      },
-    },
-  );
-  return chain;
-}
-
 vi.mock("@ai-jakdang/database", () => ({
   getDb: () => ({
     select: mockSelect,
