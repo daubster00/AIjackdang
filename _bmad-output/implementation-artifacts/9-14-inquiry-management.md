@@ -1,6 +1,6 @@
 # Story 9.14: 문의 관리 (FR-10.6)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

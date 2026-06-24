@@ -1,6 +1,6 @@
 # Story 9.9: 댓글 · 후기 통합 관리
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 9.7: Q&A 관리
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

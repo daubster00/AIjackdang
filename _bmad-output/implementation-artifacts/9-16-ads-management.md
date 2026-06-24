@@ -1,6 +1,6 @@
 # Story 9.16: 광고 관리 (최고관리자 전용)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

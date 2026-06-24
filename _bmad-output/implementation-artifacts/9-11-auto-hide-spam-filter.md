@@ -1,6 +1,6 @@
 # Story 9.11: 자동 숨김 · 금칙어/스팸 필터
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

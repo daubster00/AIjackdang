@@ -1,6 +1,6 @@
 # Story 9.18: 쪽지(DM) 모더레이션 관리
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

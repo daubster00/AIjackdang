@@ -1,6 +1,6 @@
 # Story 9.15: 사이트 설정 (최고관리자 전용)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

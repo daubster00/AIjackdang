@@ -1,6 +1,6 @@
 # Story 9.10: 신고 관리 — 통합 큐 · 처리 · 반려 · cleanup worker
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 9.12: 회원 관리 — 제재·포인트·등급·뱃지 수동 조작
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

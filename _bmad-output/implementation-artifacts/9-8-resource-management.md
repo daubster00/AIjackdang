@@ -1,6 +1,6 @@
 # Story 9.8: 실전자료 관리
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

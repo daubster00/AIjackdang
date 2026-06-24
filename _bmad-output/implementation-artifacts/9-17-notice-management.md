@@ -1,6 +1,6 @@
 # Story 9.17: 공지 관리 (FR-10.7)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

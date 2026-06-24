@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 9 기반 레이어 완료(9.1~9.6): 관리자 DB/Auth/시드·로그인UX·AdminShell게이트·운영자관리·대시보드/통계·게시글관리 (9.7~9.18 미착수)
+last_updated: 2026-06-24 # Epic 9 전체 완료(9.1~9.18): Wave A(QnA·자료·회원·문의·설정·공지)·Wave B(댓글·게이미·광고·쪽지)·Wave C(신고큐+cleanup·자동숨김/금칙어) 구현·typecheck green
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -115,18 +115,18 @@ development_status:
   9-4-admin-account-management: done # 운영자 승인·반려·정지·재활성·역할변경(자기자신 403) API+UI, grades/permissions 읽기전용
   9-5-dashboard-analytics: done # KPI·운영알림 실집계+접속통계, createLineChart 재사용(Recharts 미도입)+접근성 테이블
   9-6-post-management: done # 플래그토글·숨김·복구·삭제(super_admin)·SEO·벌크, posts 플래그컬럼 0016 선행
-  9-7-qna-management: ready-for-dev
-  9-8-resource-management: ready-for-dev
-  9-9-comment-review-management: ready-for-dev
-  9-10-report-queue-processing-cleanup-worker: ready-for-dev
-  9-11-auto-hide-spam-filter: ready-for-dev
-  9-12-member-management-sanctions: ready-for-dev
-  9-13-points-grades-badges-management: ready-for-dev
-  9-14-inquiry-management: ready-for-dev
-  9-15-site-settings: ready-for-dev
-  9-16-ads-management: ready-for-dev
-  9-17-notice-management: ready-for-dev
-  9-18-dm-messages-management: ready-for-dev
+  9-7-qna-management: done
+  9-8-resource-management: done
+  9-9-comment-review-management: done
+  9-10-report-queue-processing-cleanup-worker: done
+  9-11-auto-hide-spam-filter: done
+  9-12-member-management-sanctions: done
+  9-13-points-grades-badges-management: done
+  9-14-inquiry-management: done
+  9-15-site-settings: done
+  9-16-ads-management: done
+  9-17-notice-management: done
+  9-18-dm-messages-management: done
   epic-9-retrospective: optional
 
   epic-10: in-progress

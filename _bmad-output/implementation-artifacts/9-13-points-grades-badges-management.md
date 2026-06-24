@@ -1,6 +1,6 @@
 # Story 9.13: 포인트 · 등급 · 뱃지 관리 화면 (기본형)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
