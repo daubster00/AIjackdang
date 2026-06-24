@@ -6,6 +6,7 @@ import { sendMail, isSmtpConfigured } from "./mailer.js";
 import { viewFlushProcessor } from "./processors/view.flush.js";
 import { processResourceScan } from "./processors/resource-scan.processor.js"; // Story 4.5
 import { gradeUpProcessor } from "./processors/gradeUp.processor.js"; // Story 6.3
+import { badgeCheckProcessor } from "./processors/badgeCheck.processor.js"; // Story 6.4
 
 /**
  * 워커 엔트리.
@@ -176,11 +177,30 @@ function startWorkers(): Worker[] {
 
   // ── [6.3] ranking worker ─────────────────────────────────────────────────
   // gamification.grade-up 잡 처리: 등급 변동 감지 → notifications 큐에 grade.level-up 발행
-  // 향후 6.4 badge-check, 6.5 ranking.compute 잡도 이 ranking 큐에서 처리
+  // ── [6.4] job.name 디스패처로 리팩터:
+  //    - gamification.grade-up  → gradeUpProcessor
+  //    - gamification.badge-check → badgeCheckProcessor
+  //    6.5에서 ranking.compute 잡이 이 라우터에 추가될 예정
   const rankingConnection = createConnection();
+
+  /**
+   * ranking 큐 잡 이름 기반 디스패처.
+   * 새 잡 추가 시 case 분기만 추가하면 됨.
+   */
+  async function rankingProcessor(job: import("bullmq").Job): Promise<void> {
+    switch (job.name) {
+      case "gamification.grade-up":
+        return gradeUpProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").GradeUpJobPayload>);
+      case "gamification.badge-check":
+        return badgeCheckProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").BadgeCheckJobPayload>);
+      default:
+        console.warn(`[ranking-worker] 알 수 없는 job.name: ${job.name} (jobId=${job.id})`);
+    }
+  }
+
   const rankingWorker = new Worker(
     QUEUE_NAMES.ranking,
-    gradeUpProcessor,
+    rankingProcessor,
     { connection: rankingConnection },
   );
 
@@ -191,7 +211,7 @@ function startWorkers(): Worker[] {
   rankingWorker.on("failed", (job, error) =>
     console.error(`[ranking-worker] job 실패 ${job?.id}:`, error.message),
   );
-  // ── [6.3] ranking worker END ──────────────────────────────────────────────
+  // ── [6.3/6.4] ranking worker END ─────────────────────────────────────────
 
   return [imageWorker, emailWorker, viewFlushWorker, resourceScanWorker, statsWorker, notificationsWorker, rankingWorker];
 }

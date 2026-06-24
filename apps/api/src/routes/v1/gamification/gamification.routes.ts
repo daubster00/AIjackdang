@@ -16,7 +16,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getUserGrade } from "./gamification.service.js";
+import { getUserGrade, getUserBadges } from "./gamification.service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -27,6 +27,23 @@ const gradeInfoSchema = z.object({
   level: z.number().int().min(1).max(5),
   name: z.string().min(1),
 });
+
+// ── [6.4] 뱃지 응답 스키마 ───────────────────────────────────────────────────
+
+/** 보유 뱃지 단건 항목 (AC#4, AC#7: 미보유·달성조건 노출 금지) */
+const myBadgeItemSchema = z.object({
+  badgeSlug: z.string().min(1),
+  badgeName: z.string().min(1),
+  iconUrl: z.string(),
+  grantedAt: z.string().datetime(),
+});
+
+/** GET /gamification/my-badges 응답 스키마 (AC#4) */
+const myBadgesResponseSchema = z.object({
+  items: z.array(myBadgeItemSchema),
+});
+
+// ── [6.4] END ─────────────────────────────────────────────────────────────────
 
 /** GET /gamification/me 응답 스키마 */
 const userGradeResponseSchema = z.object({
@@ -84,4 +101,52 @@ export async function gamificationRoutes(app: FastifyInstance) {
       return reply.code(200).send(result);
     },
   );
+
+  // ── [6.4] 뱃지 라우트 ────────────────────────────────────────────────────
+
+  // ── GET /api/v1/gamification/my-badges ─────────────────────────────────────
+  // 인증 필수. 본인의 보유 뱃지 목록 반환 (미보유·달성조건 노출 없음 — AC#7).
+  typed.get(
+    "/gamification/my-badges",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "내 보유 뱃지 목록 조회",
+        tags: ["gamification"],
+        response: {
+          200: myBadgesResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const db = getDb();
+      const result = await getUserBadges(db, user.id);
+      return reply.code(200).send(result);
+    },
+  );
+
+  // ── GET /api/v1/gamification/user/:userId/badges ────────────────────────────
+  // 공개 API. 공개 프로필 SSR에서 비인증으로 호출 (비회원 열람 가능 — AC#5).
+  typed.get(
+    "/gamification/user/:userId/badges",
+    {
+      schema: {
+        description: "사용자 보유 뱃지 공개 조회",
+        tags: ["gamification"],
+        params: z.object({ userId: z.string().uuid() }),
+        response: {
+          200: myBadgesResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { userId } = request.params as { userId: string };
+      const db = getDb();
+      const result = await getUserBadges(db, userId);
+      return reply.code(200).send(result);
+    },
+  );
+
+  // ── [6.4] END ─────────────────────────────────────────────────────────────
 }

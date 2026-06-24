@@ -102,3 +102,13 @@ export const gradeUpJobSchema = z.object({
   newGradeName: z.string().min(1),
 });
 export type GradeUpJobPayload = z.infer<typeof gradeUpJobSchema>;
+
+// ── [6.4] BadgeCheckJob ───────────────────────────────────────────────────────
+
+/** BullMQ gamification.badge-check 잡 페이로드 (Story 6.4) */
+export const badgeCheckJobSchema = z.object({
+  userId: z.string().uuid(),
+});
+export type BadgeCheckJobPayload = z.infer<typeof badgeCheckJobSchema>;
+
+// ── [6.4] END ─────────────────────────────────────────────────────────────────

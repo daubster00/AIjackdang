@@ -42,7 +42,8 @@ type ProfileView = {
   createdAt: string;
 };
 
-type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers" | "resources";
+// ── [6.4] 뱃지 탭 타입 ───────────────────────────────────────────────────────
+type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers" | "resources" | "badges";
 
 const tabs: { key: TabKey; label: string; icon: string }[] = [
   { key: "posts", label: "내가 쓴 글", icon: "article-line" },
@@ -54,7 +55,10 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
   { key: "followers", label: "팔로워", icon: "user-heart-line" },
   // 내 자료 탭 (Story 4.9 — 별도 라우트 없음, /mypage 탭 확장)
   { key: "resources", label: "내 자료", icon: "file-download-line" },
+  // 뱃지 탭 (Story 6.4 — 별도 라우트 없음, /mypage 탭 확장)
+  { key: "badges", label: "뱃지", icon: "award-line" },
 ];
+// ── [6.4] END ─────────────────────────────────────────────────────────────────
 
 /* ── "내가 쓴 글" 탭 전용 데이터 모델 ──
    다른 탭(댓글/북마크/좋아요)은 단순 활동 피드지만,
@@ -320,6 +324,22 @@ export default function MyPage() {
   const followingCount = followingList.length;
   const followersCount = followerList.length;
 
+  // ── [6.4] 뱃지 탭 상태 ──────────────────────────────────────────────────────
+  const [badgeList, setBadgeList] = useState<{ badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[]>([]);
+  const [badgeLoaded, setBadgeLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user || activeTab !== "badges" || badgeLoaded) return;
+    void fetch("/api/v1/gamification/my-badges", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { items: { badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[] } | null) => {
+        if (data) setBadgeList(data.items);
+        setBadgeLoaded(true);
+      })
+      .catch(() => { setBadgeLoaded(true); });
+  }, [user, activeTab, badgeLoaded]);
+  // ── [6.4] END ─────────────────────────────────────────────────────────────────
+
   // 패널 카운트
   const panelCount =
     activeTab === "posts"
@@ -332,7 +352,9 @@ export default function MyPage() {
             ? bookmarkList.length
             : activeTab === "resources"
               ? 0 // MyResourceList 내부에서 집계
-              : 0;
+              : activeTab === "badges"
+                ? badgeList.length
+                : 0;
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
 
@@ -479,8 +501,40 @@ export default function MyPage() {
               <span className={styles.panelCount}>총 {panelCount}개</span>
             </div>
 
-            {/* 내 자료 탭 — Story 4.9 */}
-            {activeTab === "resources" ? (
+            {/* ── [6.4] 뱃지 탭 — Story 6.4 ── */}
+            {activeTab === "badges" ? (
+              badgeList.length === 0 ? (
+                <EmptyState
+                  icon="award-line"
+                  title="아직 획득한 뱃지가 없어요"
+                  description="활동을 이어가면 뱃지가 자동으로 수여됩니다."
+                />
+              ) : (
+                <ul className={styles.badgeGrid} aria-label="보유 뱃지 목록">
+                  {badgeList.map((badge) => (
+                    <li key={badge.badgeSlug} className={styles.badgeCard}>
+                      {badge.iconUrl ? (
+                        <img
+                          src={badge.iconUrl}
+                          alt={badge.badgeName}
+                          className={styles.badgeIcon}
+                          width={48}
+                          height={48}
+                        />
+                      ) : (
+                        <span className={styles.badgeIconFallback} aria-label={badge.badgeName}>
+                          <Icon name="award-line" />
+                        </span>
+                      )}
+                      <span className={styles.badgeName}>{badge.badgeName}</span>
+                      <span className={styles.badgeDate}>
+                        {new Date(badge.grantedAt).toLocaleDateString("ko-KR")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : /* ── [6.4] END ── */ activeTab === "resources" ? (
               <MyResourceList />
             ) : activeTab === "following" ? (
               followingList.length === 0 ? (

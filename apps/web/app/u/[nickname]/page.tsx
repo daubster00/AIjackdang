@@ -26,6 +26,30 @@ const LEVEL_TO_RANK_TIER: Record<number, RankTier> = {
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
+// ── [6.4] 보유 뱃지 타입 ─────────────────────────────────────────────────────
+interface UserBadgeItem {
+  badgeSlug: string;
+  badgeName: string;
+  iconUrl: string;
+  grantedAt: string;
+}
+
+/** 사용자 보유 뱃지 API fetch (서버 컴포넌트 전용, 공개 — AC#5). */
+async function fetchUserBadges(userId: string): Promise<UserBadgeItem[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/gamification/user/${encodeURIComponent(userId)}/badges`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items: UserBadgeItem[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+// ── [6.4] END ─────────────────────────────────────────────────────────────────
+
 /** 사용자 등급 API fetch (서버 컴포넌트 전용, 공개). */
 async function fetchUserGrade(userId: string): Promise<{ level: number; name: string } | null> {
   try {
@@ -115,6 +139,10 @@ export default async function UserProfilePage({
   const rankTier: RankTier = gradeInfo
     ? (LEVEL_TO_RANK_TIER[gradeInfo.level] ?? "rookie")
     : "rookie";
+
+  // ── [6.4] 보유 뱃지 조회 (공개, 비회원 열람 가능 — AC#5) ─────────────────
+  const userBadges = await fetchUserBadges(profile.id);
+  // ── [6.4] END ─────────────────────────────────────────────────────────────
 
   const cookieStore = cookies();
   const cookie = cookieStore.toString();
@@ -210,6 +238,32 @@ export default async function UserProfilePage({
           />
         </div>
       </div>
+
+      {/* ── [6.4] 보유 뱃지 row (비회원 열람 가능, 보유 뱃지만 표시 — AC#5, AC#7) ── */}
+      {userBadges.length > 0 && (
+        <div className={styles.badgeRow}>
+          <ul className={styles.badgeList} aria-label={`${profile.nickname} 님의 보유 뱃지`}>
+            {userBadges.map((badge) => (
+              <li key={badge.badgeSlug} className={styles.badgeItem} title={badge.badgeName}>
+                {badge.iconUrl ? (
+                  <img
+                    src={badge.iconUrl}
+                    alt={badge.badgeName}
+                    className={styles.badgeIcon}
+                    width={32}
+                    height={32}
+                  />
+                ) : (
+                  <span className={styles.badgeIconFallback} aria-label={badge.badgeName}>
+                    <Icon name="award-line" />
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {/* ── [6.4] END ── */}
 
       {/* ── 본문: 작성 글 목록 (Epic 3~4에서 집계 채워짐) ── */}
       <div className={styles.contentWrap}>
