@@ -13,13 +13,12 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, CodeBlockCopyButton } from "@/components/board";
+import { AttachmentList, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
 import {
   buildNoticeMeta,
   buildBreadcrumbJsonLd,
   buildArticleJsonLd,
 } from "@/lib/seo";
-import { ShareButton } from "@/app/(content)/[category]/[board]/[slug]/ShareButton";
 import styles from "./notice-detail.module.css";
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -35,8 +34,8 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
+      cache: "no-store",
     });
     if (!res.ok) return {};
     const post = (await res.json()) as PostDetail;
@@ -54,9 +53,9 @@ export default async function NoticeDetailPage({ params }: PageProps) {
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? "";
 
-  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
+  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
     headers: { cookie },
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) notFound();
@@ -98,6 +97,12 @@ export default async function NoticeDetailPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/notice/${post.slug}`}
+        board="공지사항"
+        title={post.title}
+      />
 
       <div className={styles.detailLayout}>
         <article className={styles.postDetail}>
@@ -124,7 +129,7 @@ export default async function NoticeDetailPage({ params }: PageProps) {
             <h1>{post.title}</h1>
 
             <div className={styles.detailMeta}>
-              <AuthorName name={post.authorNickname ?? "운영자"} />
+              <AuthorName name={post.authorNickname ?? "운영자"} authorId={post.authorId ?? undefined} />
               <span>{formattedDate}</span>
               <span>조회 {post.viewCount.toLocaleString()}</span>
             </div>
@@ -161,7 +166,6 @@ export default async function NoticeDetailPage({ params }: PageProps) {
                 <Icon name="list-check" />
                 목록으로
               </Link>
-              <ShareButton url={postUrl} />
             </div>
           </footer>
         </article>

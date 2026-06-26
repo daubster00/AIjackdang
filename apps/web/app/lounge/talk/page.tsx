@@ -134,7 +134,7 @@ export default async function LoungeTalkPage({ searchParams }: { searchParams: S
                   <div className={styles.postFooter}>
                     <div className={styles.postAuthor}>
                       <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-                      <AuthorName name={post.authorNickname ?? "탈퇴 회원"} className={styles.authorName} />
+                      <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} className={styles.authorName} />
                       <span className={styles.footerDivider} aria-hidden="true">|</span>
                       <span className={styles.postDate}>
                         {new Date(post.createdAt).toLocaleDateString("ko-KR")}

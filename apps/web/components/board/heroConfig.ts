@@ -23,8 +23,8 @@ export const mainMenus: CrumbLink[] = [
   { label: "AI 자동화", href: "/automation" },
   { label: "AI 수익화", href: "/monetize" },
   { label: "묻고답하기", href: "/questions" },
-  { label: "실전자료", href: "/resources/mcp-skills" },
-  { label: "작당 라운지", href: "/lounge" },
+  { label: "실전자료", href: "/resources/prompts" },
+  { label: "작당 라운지", href: "/notice" },
 ];
 
 /**
@@ -122,6 +122,7 @@ export const boardHeroes = {
       // "내가 만든 AI 제품"은 리스트형 별도 라우트(/lounge/products),
       // "작당 수다방"(/lounge/talk, 구 자유 게시판)·"작당 의뢰소"(/lounge/gigs, 구인·외주)는
       // 공통 게시판 구조를 재사용하는 별도 라우트로 분리.
+      { label: "공지사항", href: "/notice" },
       { label: "AI 창작마당", href: "/lounge" },
       { label: "내가 만든 AI 제품", href: "/lounge/products" },
       { label: "작당 수다방", href: "/lounge/talk" },
@@ -131,3 +132,29 @@ export const boardHeroes = {
 } satisfies Record<string, BoardHeroConfig>;
 
 export type BoardHeroKey = keyof typeof boardHeroes;
+
+/**
+ * BOARDS 상수의 `category` 값(예: "ai-automation")을 히어로 키(예: "automation")로 변환한다.
+ * BOARDS.category 와 boardHeroes 키 체계가 다르기 때문에(ai-* / system 접두) 매핑이 필요하다.
+ * 제너릭 라우트(목록/상세/수정)에서 board → 히어로를 안전하게 결정할 때 사용한다.
+ */
+const CATEGORY_TO_HERO: Record<string, BoardHeroKey> = {
+  "vibe-coding": "vibe-coding",
+  "ai-automation": "automation",
+  "ai-monetization": "monetize",
+  "ai-creation": "lounge",
+  lounge: "lounge",
+  system: "lounge",
+  questions: "questions",
+  resources: "resources",
+};
+
+/**
+ * 임의의 카테고리/키 문자열을 유효한 BoardHeroKey 로 안전하게 변환한다.
+ * 매핑에 없으면 작당 라운지("lounge") 히어로로 폴백하여 크래시를 막는다.
+ */
+export function resolveHeroKey(category: string | undefined): BoardHeroKey {
+  if (!category) return "lounge";
+  if (category in boardHeroes) return category as BoardHeroKey;
+  return CATEGORY_TO_HERO[category] ?? "lounge";
+}

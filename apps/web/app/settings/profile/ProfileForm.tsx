@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
-import { Avatar, Button, Icon, Input, Textarea } from "@/components/ui";
+import { Avatar, Button, Icon, Textarea } from "@/components/ui";
+import { Input } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl, getDefaultAvatarUrl, DEFAULT_AVATAR_COUNT } from "@/lib/avatar";
@@ -30,7 +31,7 @@ export function ProfileForm() {
   const { user, refresh } = useAuth();
   const { toast } = useToast();
 
-  // 제어 입력 상태
+  // ── 공개 프로필 필드 ──
   const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
 
@@ -57,7 +58,7 @@ export function ProfileForm() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 실제 사용자 정보 로드: 닉네임은 세션, bio·links 는 GET /users/me 로 보강.
+  // 사용자 정보 로드: 세션 닉네임 + GET /users/me 로 프로필 정보 보강.
   useEffect(() => {
     if (!user) return;
     setNickname(user.nickname);
@@ -77,7 +78,7 @@ export function ProfileForm() {
         },
       )
       .catch(() => {
-        /* bio·banner·links 로드 실패 시 무시 */
+        /* 로드 실패 시 무시 */
       });
   }, [user]);
 
@@ -175,6 +176,7 @@ export function ProfileForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (nicknameError) return;
+
     setIsSubmitting(true);
 
     try {
@@ -239,7 +241,8 @@ export function ProfileForm() {
   const displayName = nickname || user?.nickname || "";
 
   return (
-    <form className={shell.form} onSubmit={handleSubmit}>
+    <form className={shell.form} onSubmit={handleSubmit} noValidate>
+
       {/* ── 배너 이미지 ── */}
       <div className={styles.bannerSection}>
         <span className={styles.fieldLabel} id="banner-label">배너 이미지</span>
@@ -396,15 +399,6 @@ export function ProfileForm() {
             링크 추가
           </Button>
         )}
-      </div>
-
-      {/* 이메일(읽기전용) */}
-      <div className={styles.readonlyField}>
-        <span className={styles.readonlyLabel} id="email-readonly-label">이메일</span>
-        <div className={styles.readonlyValue} aria-labelledby="email-readonly-label" aria-readonly="true">
-          <Icon name="mail-line" />
-          {user?.email ?? ""}
-        </div>
       </div>
 
       <div className={shell.actions}>

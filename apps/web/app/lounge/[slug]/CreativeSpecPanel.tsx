@@ -78,46 +78,14 @@ export function CreativeSpecPanel({ spec }: Props) {
         </Section>
       )}
 
-      {/* 주요 파라미터 */}
-      {spec.params && Object.keys(spec.params).length > 0 && (
-        <Section label="주요 파라미터">
-          <dl className={styles.paramList}>
-            {Object.entries(spec.params).map(([k, v]) => (
-              <div key={k} className={styles.paramRow}>
-                <dt className={styles.paramKey}>{k}</dt>
-                <dd className={styles.paramValue}>{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </Section>
-      )}
-
-      {/* 후처리·워크플로 */}
-      {spec.postProcess && (
-        <Section label="후처리·워크플로">
-          <p className={styles.plainText}>{spec.postProcess}</p>
-        </Section>
-      )}
-
-      {/* 비용 (costType: "free"|"paid" → 한국어 표기 변환) */}
-      {(spec.costType || spec.timeSpent) && (
-        <Section label="비용">
+      {/* 제작 소요 시간 (item 14: params · postProcess · costType 표시 제거, timeSpent만 유지) */}
+      {spec.timeSpent && (
+        <Section label="제작 소요 시간">
           <div className={styles.metaRow}>
-            {spec.costType && (
-              <span
-                className={`${styles.costBadge} ${
-                  spec.costType === "paid" ? styles.costPaid : styles.costFree
-                }`}
-              >
-                {spec.costType === "paid" ? "유료" : "무료"}
-              </span>
-            )}
-            {spec.timeSpent && (
-              <span className={styles.metaItem}>
-                <Icon name="time-line" aria-hidden="true" />
-                {spec.timeSpent}
-              </span>
-            )}
+            <span className={styles.metaItem}>
+              <Icon name="time-line" aria-hidden="true" />
+              {spec.timeSpent}
+            </span>
           </div>
         </Section>
       )}

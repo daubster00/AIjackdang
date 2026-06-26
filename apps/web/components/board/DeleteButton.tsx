@@ -12,7 +12,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { useToast } from "@/components/ui/Toast/Toast";
 
 interface DeleteButtonProps {
@@ -87,21 +87,14 @@ export function DeleteButton({ postId, listUrl, className }: DeleteButtonProps) 
         삭제
       </button>
 
-      <ConfirmDialog
+      <DeleteConfirmModal
         open={open}
         onClose={() => setOpen(false)}
         onConfirm={handleConfirm}
-        title="게시글 삭제"
-        tone="danger"
-        confirmLabel="삭제"
-        cancelLabel="취소"
+        title="게시글을 삭제하시겠습니까?"
+        description="삭제된 게시글은 복구할 수 없습니다."
         loading={isDeleting}
-      >
-        <p>게시글을 삭제하시겠습니까?</p>
-        <p style={{ marginTop: "var(--space-2)", color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)" }}>
-          삭제된 게시글은 복구할 수 없습니다.
-        </p>
-      </ConfirmDialog>
+      />
     </>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthorName, Icon } from "@/components/ui";
+import { AuthorName, Avatar, Icon } from "@/components/ui";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGating } from "@/hooks/useGating";
 import { useToast } from "@/components/ui/Toast/Toast";
@@ -16,6 +17,7 @@ export type ApiComment = {
   id: string;
   authorId: string;
   authorNickname: string | null;
+  authorAvatarUrl: string | null;
   targetType: string;
   targetId: string;
   parentId: string | null;
@@ -39,6 +41,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editValue, setEditValue] = useState(comment.content ?? "");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -88,6 +91,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
     try {
       const res = await fetch(`/api/v1/comments/${comment.id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: editValue.trim() }),
       });
@@ -106,9 +110,8 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
   }
 
   async function handleDelete() {
-    if (!confirm("댓글을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`/api/v1/comments/${comment.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/comments/${comment.id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) {
         const data = (await res.json()) as { error?: { message?: string } };
         toast({ tone: "danger", title: data.error?.message ?? "삭제에 실패했습니다." });
@@ -117,6 +120,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
       setLocalStatus("deleted");
       setDeleted(false);
       setMenuOpen(false);
+      setDeleteOpen(false);
     } catch {
       toast({ tone: "danger", title: "삭제에 실패했습니다." });
     }
@@ -148,16 +152,17 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
 
     try {
       if (isCancel && prevId) {
-        const res = await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE" });
+        const res = await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE", credentials: "include" });
         if (!res.ok) throw new Error("delete failed");
         setMyReactionId(null);
       } else {
         // 기존 반응 먼저 삭제 (반응 전환 시)
         if (prevId) {
-          await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE" });
+          await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE", credentials: "include" });
         }
         const res = await fetch("/api/v1/reactions", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetType: "comment", targetId: comment.id, reactionType: v }),
         });
@@ -176,7 +181,6 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
   }
 
   const editRemaining = MAX_LENGTH - editValue.length;
-  const authorInitial = (comment.authorNickname ?? "?").slice(0, 1);
 
   if (isDeleted && comment.replies.length === 0) {
     return (
@@ -189,14 +193,16 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
   return (
     <article className={styles.commentItem}>
       <div className={styles.commentMeta}>
-        <div className={styles.commentAvatar} aria-hidden="true">
-          {isDeleted ? "?" : authorInitial}
-        </div>
+        <Avatar
+          name={comment.authorNickname ?? "?"}
+          src={!isDeleted && comment.authorAvatarUrl ? comment.authorAvatarUrl : undefined}
+          size="sm"
+        />
         <div className={styles.commentAuthorInfo}>
           {isDeleted ? (
             <strong>삭제된 댓글</strong>
           ) : (
-            <strong><AuthorName name={comment.authorNickname ?? "익명"} /></strong>
+            <strong><AuthorName name={comment.authorNickname ?? "익명"} authorId={comment.authorId} /></strong>
           )}
           <span>{new Date(comment.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -221,7 +227,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
                   type="button"
                   role="menuitem"
                   aria-label="댓글 삭제"
-                  onClick={handleDelete}
+                  onClick={() => { setMenuOpen(false); setDeleteOpen(true); }}
                 >
                   <Icon name="delete-bin-line" />삭제
                 </button>
@@ -386,6 +392,13 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
         </>
       )}
 
+      <DeleteConfirmModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="댓글을 삭제하시겠습니까?"
+        description="삭제된 댓글은 복구할 수 없습니다."
+      />
       <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="comment" targetId={comment.id} />
     </article>
   );
@@ -399,6 +412,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editValue, setEditValue] = useState(reply.content ?? "");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -438,6 +452,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
     try {
       const res = await fetch(`/api/v1/comments/${reply.id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: editValue.trim() }),
       });
@@ -456,9 +471,8 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
   }
 
   async function handleDelete() {
-    if (!confirm("답글을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`/api/v1/comments/${reply.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/comments/${reply.id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) {
         const data = (await res.json()) as { error?: { message?: string } };
         toast({ tone: "danger", title: data.error?.message ?? "삭제에 실패했습니다." });
@@ -466,6 +480,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
       }
       setLocalStatus("deleted");
       setMenuOpen(false);
+      setDeleteOpen(false);
       router.refresh();
     } catch {
       toast({ tone: "danger", title: "삭제에 실패했습니다." });
@@ -497,15 +512,16 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
 
     try {
       if (isCancel && prevId) {
-        const res = await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE" });
+        const res = await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE", credentials: "include" });
         if (!res.ok) throw new Error("delete failed");
         setMyReactionId(null);
       } else {
         if (prevId) {
-          await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE" });
+          await fetch(`/api/v1/reactions/${prevId}`, { method: "DELETE", credentials: "include" });
         }
         const res = await fetch("/api/v1/reactions", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetType: "comment", targetId: reply.id, reactionType: v }),
         });
@@ -523,19 +539,20 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
   }
 
   const editRemaining = MAX_LENGTH - editValue.length;
-  const authorInitial = (reply.authorNickname ?? "?").slice(0, 1);
 
   return (
     <li className={styles.replyItem}>
       <div className={styles.replyItemMeta}>
-        <div className={styles.replyAvatar} aria-hidden="true">
-          {isDeleted ? "?" : authorInitial}
-        </div>
+        <Avatar
+          name={reply.authorNickname ?? "?"}
+          src={!isDeleted && reply.authorAvatarUrl ? reply.authorAvatarUrl : undefined}
+          size="sm"
+        />
         <div className={styles.commentAuthorInfo}>
           {isDeleted ? (
             <span>삭제된 답글</span>
           ) : (
-            <strong><AuthorName name={reply.authorNickname ?? "익명"} /></strong>
+            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} /></strong>
           )}
           <span>{new Date(reply.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -562,7 +579,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
                       type="button"
                       role="menuitem"
                       aria-label="댓글 삭제"
-                      onClick={handleDelete}
+                      onClick={() => { setMenuOpen(false); setDeleteOpen(true); }}
                     >
                       <Icon name="delete-bin-line" />삭제
                     </button>
@@ -653,6 +670,13 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
         </div>
       )}
 
+      <DeleteConfirmModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="답글을 삭제하시겠습니까?"
+        description="삭제된 답글은 복구할 수 없습니다."
+      />
       <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} targetType="comment" targetId={reply.id} />
     </li>
   );

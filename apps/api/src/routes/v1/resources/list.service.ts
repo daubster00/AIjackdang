@@ -11,7 +11,7 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { ResourceCard, ListResourcesQuery, ResourceType } from "@ai-jakdang/contracts";
-import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
+import { eq, and, isNull, desc, count, inArray, or, ilike } from "drizzle-orm";
 
 export interface ListResourcesResult {
   items: ResourceCard[];
@@ -33,7 +33,7 @@ export interface ListResourcesResult {
  * - commentCount: Epic 5 이전 0 고정
  */
 export async function listResources(query: ListResourcesQuery): Promise<ListResourcesResult> {
-  const { type, types, environment, difficulty, sort = "latest", page = 1, pageSize = 20 } = query;
+  const { type, types, environment, difficulty, sort = "latest", page = 1, pageSize = 20, q } = query;
 
   const db = getDb();
   const offset = (page - 1) * pageSize;
@@ -68,6 +68,14 @@ export async function listResources(query: ListResourcesQuery): Promise<ListReso
     conditions.push(
       sql`${schema.resources.environment} @> ARRAY[${environment}]::text[]`,
     );
+  }
+
+  // 검색어(q) 필터: title ILIKE '%q%' OR summary ILIKE '%q%'
+  // or()은 타입상 SQL | undefined를 반환하므로 명시적 단언 처리
+  if (q && q.trim().length > 0) {
+    const term = `%${q.trim()}%`;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    conditions.push(or(ilike(schema.resources.title, term), ilike(schema.resources.summary, term))!);
   }
 
   const whereCondition = and(...conditions);
@@ -123,6 +131,7 @@ export async function listResources(query: ListResourcesQuery): Promise<ListReso
       authorId: schema.resources.userId,
       authorNickname: schema.users.nickname,
       authorAvatarIndex: schema.users.defaultAvatarIndex,
+      thumbnailUrl: schema.resources.thumbnailUrl,
     })
     .from(schema.resources)
     .leftJoin(schema.users, eq(schema.resources.userId, schema.users.id))
@@ -182,6 +191,7 @@ export async function listResources(query: ListResourcesQuery): Promise<ListReso
     tagNames: tagMap.get(row.id) ?? [],
     updatedAt: row.updatedAt.toISOString(),
     status: row.status,
+    thumbnailUrl: row.thumbnailUrl ?? null,
   }));
 
   return {

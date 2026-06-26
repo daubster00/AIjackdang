@@ -18,13 +18,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { LoginGatingModal } from "@/components/ui/LoginGatingModal";
 import { RatingInput } from "@/components/ui/RatingInput";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { useGatingContext } from "@/contexts/GatingContext";
+import { ReviewForm } from "./ReviewForm";
+import { ReviewItem, type ApiReview } from "./ReviewItem";
 import styles from "./resource-detail.module.css";
 
 export type ScanStatus = "pending" | "clean" | "infected" | "error";
@@ -143,9 +145,8 @@ export function ResourceDetailClient({
   attachmentFiles,
   avgRating: initialAvgRating,
   ratingCount: initialRatingCount,
-  userIsOwner,
+  userIsOwner: _userIsOwner,
 }: ResourceDetailClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -161,6 +162,11 @@ export function ResourceDetailClient({
   const [ratingCount, setRatingCount] = useState(initialRatingCount);
   const [myRating, setMyRating] = useState<number>(0);
   const [ratingLoading, setRatingLoading] = useState(false);
+
+  // ── 후기 목록 상태 (#16) ────────────────────────────────────────────────────
+  const [reviews, setReviews] = useState<ApiReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
 
   // ── 대표 파일 다운로드 핸들러 ─────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
@@ -247,6 +253,23 @@ export function ResourceDetailClient({
     void fetchMyRating();
   }, [resourceId, user]);
 
+  // ── 후기 목록 fetch (#16) ──────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setReviewsLoading(true);
+    void fetch(`/api/v1/resources/${resourceId}/reviews?pageSize=50`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { items: ApiReview[] } | null) => {
+        if (!cancelled && data) setReviews(data.items);
+      })
+      .catch(() => null)
+      .finally(() => { if (!cancelled) setReviewsLoading(false); });
+    return () => { cancelled = true; };
+  }, [resourceId, reviewRefreshKey]);
+
   // ── 별점 클릭 핸들러 ──────────────────────────────────────────────────────────
   const handleRatingChange = useCallback(
     async (score: number) => {
@@ -304,46 +327,6 @@ export function ResourceDetailClient({
     },
     [requireAuth, myRating, avgRating, ratingCount, resourceId, toast],
   );
-
-  // ── 삭제 핸들러 (Story 4.8) ─────────────────────────────────────────────────
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDelete = useCallback(async () => {
-    // 확인 다이얼로그 (AC #4)
-    const confirmed = window.confirm(
-      "자료를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
-    );
-    if (!confirmed) return;
-
-    setIsDeleting(true);
-    try {
-      const res = await fetch(`/api/v1/resources/${resourceId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const message =
-          (data as { error?: { message?: string } }).error?.message ??
-          "삭제 중 오류가 발생했습니다.";
-        toast({ tone: "danger", title: message });
-        return;
-      }
-
-      // 삭제 성공: 해당 자료유형 독립 목록 페이지로 이동 (규칙⑧, AC #4)
-      toast({ tone: "success", title: "자료가 삭제되었습니다." });
-
-      // resourceSlug에서 유형 경로를 추론할 수 없으므로 /resources로 이동
-      // (실제로는 ResourceDetailPage에서 pageType을 prop으로 내려받는 것이 이상적이나,
-      //  기존 인터페이스 변경 최소화 원칙에 따라 /resources로 fallback)
-      router.push("/resources");
-    } catch {
-      toast({ tone: "danger", title: "삭제 중 오류가 발생했습니다." });
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [resourceId, toast, router]);
 
   // ── 비회원 게이팅 모달 (redirectTo: /resources/{slug}?download=true) ──────────
   // LoginGatingModal의 intendedAction을 사용하면 ?action=download 로 리다이렉트되므로
@@ -432,68 +415,42 @@ export function ResourceDetailClient({
           후기 {ratingCount}
         </h2>
 
-        {/* TODO: Epic 5 — 후기 댓글 목록 */}
-        {/* Story 4.7 슬롯: 후기 댓글 목록 */}
-        <div
-          data-slot="review-comments"
-          aria-label="후기 댓글 (Story 4.7 / Epic 5에서 활성화)"
-          aria-disabled="true"
+        {/* 후기 작성 폼 (#16) */}
+        <ReviewForm
+          resourceId={resourceId}
+          placeholder="이 자료를 사용해보셨나요? 후기를 남겨주세요."
+          onSuccess={(newAvg, newCount) => {
+            setAvgRating(newAvg);
+            setRatingCount(newCount);
+            setReviewRefreshKey((k) => k + 1);
+          }}
         />
+
+        {/* 후기 목록 (#16) */}
+        {reviewsLoading ? (
+          <p style={{ color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)", padding: "var(--space-4) 0" }}>
+            후기를 불러오는 중...
+          </p>
+        ) : reviews.length === 0 ? (
+          <p style={{ color: "var(--color-text-sub)", fontSize: "var(--font-size-sm)", padding: "var(--space-4) 0" }}>
+            아직 후기가 없습니다. 첫 후기를 작성해보세요!
+          </p>
+        ) : (
+          <div>
+            {reviews.map((review) => (
+              <ReviewItem
+                key={review.id}
+                review={review}
+                onDeleted={(newAvg, newCount) => {
+                  setAvgRating(newAvg);
+                  setRatingCount(newCount);
+                  setReviewRefreshKey((k) => k + 1);
+                }}
+              />
+            ))}
+          </div>
+        )}
       </section>
-
-      {/* ── ⑧ 후기 댓글 슬롯 (Epic 5) ─────────────────────────────────────── */}
-      {/* TODO: Epic 5 — 댓글 컴포넌트 */}
-      <div
-        data-slot="comments"
-        aria-label="댓글 (Epic 5에서 활성화)"
-        aria-disabled="true"
-        style={{ display: "none" }}
-      />
-
-      {/* ── ⑨ 좋아요·신고·북마크 슬롯 (Epic 5) ──────────────────────────── */}
-      <div className={styles.detailActions}>
-        {/* TODO: Epic 5 — 북마크 토글 */}
-        <button type="button" className={styles.detailActionBtn} aria-disabled="true">
-          <Icon name="bookmark-line" />
-          북마크
-        </button>
-        {/* TODO: Epic 5 — 공유 버튼 */}
-        <button type="button" className={styles.detailActionBtn}>
-          <Icon name="share-line" />
-          공유
-        </button>
-        {/* TODO: Epic 5 — 신고 */}
-        <button
-          type="button"
-          className={`${styles.detailActionBtn} ${styles.detailActionReport}`}
-          aria-disabled="true"
-        >
-          <Icon name="flag-line" />
-          신고
-        </button>
-      </div>
-
-      {/* ── 작성자 버튼 (본인만) ────────────────────────────────────────────── */}
-      {userIsOwner && (
-        <div className={styles.ownerActions}>
-          <button
-            type="button"
-            onClick={() => router.push(`/resources/${resourceSlug}/edit`)}
-          >
-            <Icon name="edit-2-line" />
-            수정하기
-          </button>
-              <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            aria-disabled={isDeleting}
-          >
-            <Icon name={isDeleting ? "loader-4-line" : "delete-bin-line"} />
-            {isDeleting ? "삭제 중..." : "삭제하기"}
-          </button>
-        </div>
-      )}
 
       {/* ── 모바일 다운로드 고정 바 ────────────────────────────────────────── */}
       {primaryFile && (

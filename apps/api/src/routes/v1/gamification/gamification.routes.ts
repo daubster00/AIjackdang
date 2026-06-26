@@ -15,8 +15,15 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { FastifyRequest } from "fastify";
+import { pointsHistoryResponseSchema, gradesListResponseSchema } from "@ai-jakdang/contracts";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
-import { getUserGrade, getUserBadges, getRanking } from "./gamification.service.js";
+import {
+  getUserGrade,
+  getUserBadges,
+  getRanking,
+  getPointsHistory,
+  getGradesList,
+} from "./gamification.service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -216,4 +223,53 @@ export async function gamificationRoutes(app: FastifyInstance) {
   );
 
   // ── [6.5] END ─────────────────────────────────────────────────────────────
+
+  // ── [수정요청 G] GET /api/v1/gamification/me/points-history ──────────────────
+  // 인증 필수. 본인의 포인트 적립/회수 내역(최신순, 페이지네이션) + 누적 포인트.
+  typed.get(
+    "/gamification/me/points-history",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "내 포인트 적립/회수 내역 조회",
+        tags: ["gamification"],
+        querystring: z.object({
+          page: z.coerce.number().int().min(1).default(1),
+          pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        }),
+        response: {
+          200: pointsHistoryResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { page, pageSize } = request.query as { page: number; pageSize: number };
+      const db = getDb();
+      const result = await getPointsHistory(db, user.id, page, pageSize);
+      return reply.code(200).send(result);
+    },
+  );
+
+  // ── [수정요청 G] GET /api/v1/gamification/grades ─────────────────────────────
+  // 공개 API. 등급 안내 페이지용 전체 등급 목록(레벨 오름차순).
+  typed.get(
+    "/gamification/grades",
+    {
+      schema: {
+        description: "전체 등급 목록 조회 (등급 안내)",
+        tags: ["gamification"],
+        response: {
+          200: gradesListResponseSchema,
+        },
+      },
+    },
+    async (_request, reply) => {
+      const db = getDb();
+      const result = await getGradesList(db);
+      return reply.code(200).send(result);
+    },
+  );
+
+  // ── [수정요청 G] END ─────────────────────────────────────────────────────────
 }

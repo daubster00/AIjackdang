@@ -32,6 +32,7 @@ const mockPost: PostDetail = {
   contentHtml: "<p>본문</p>",
   contentJson: { type: "doc", content: [] },
   authorId: "00000000-0000-0000-0000-000000000099",
+  userId: "00000000-0000-0000-0000-000000000099",
   isOwner: false,
   status: "published",
 };

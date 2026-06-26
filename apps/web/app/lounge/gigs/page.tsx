@@ -217,7 +217,7 @@ function GigCard({ post }: { post: PostCard }) {
         <div className={styles.gigMetaAuthor}>
           <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
           <div className={styles.gigMetaAuthorText}>
-            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} className={styles.authorName} />
+            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} className={styles.authorName} />
             <span className={styles.gigMetaDate}>
               {new Date(post.createdAt).toLocaleDateString("ko-KR")}
             </span>

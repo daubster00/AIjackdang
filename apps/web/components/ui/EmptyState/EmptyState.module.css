@@ -1,5 +1,8 @@
 /* EmptyState — 출처: 디자인 시스템 .empty */
 .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 38px 24px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -23,7 +26,9 @@
   font-weight: var(--font-weight-bold);
 }
 .desc {
-  margin: 0 auto 16px;
+  /* "첫 글을 작성해 보세요" 안내 문구와 아래 글쓰기 버튼 사이 여백.
+     다른 규칙에 덮이지 않도록 !important 로 강제 적용한다. */
+  margin: 0 auto 40px !important;
   max-width: 380px;
   color: var(--color-text-sub);
   font-size: 14px;

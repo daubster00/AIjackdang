@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, Dropdown, DropdownDivider, DropdownItem, Icon, RankBadge } from "@/components/ui";
-import { SearchAutocomplete } from "@/components/board/SearchAutocomplete";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
@@ -110,12 +109,6 @@ export function SiteHeader() {
             </div>
           ))}
         </nav>
-
-        <SearchAutocomplete
-          label="전체 검색"
-          placeholder="검색어 입력"
-          className={styles.headerSearch}
-        />
 
         <div className={styles.authActions}>
           {user ? (
@@ -258,11 +251,14 @@ function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       <DropdownItem href="/mypage">
         <Icon name="user-line" /> 마이페이지
       </DropdownItem>
-      <DropdownItem href="/mypage">
-        <Icon name="article-line" /> 내가 쓴 글
+      <DropdownItem href="/settings/membership">
+        <Icon name="user-settings-line" /> 회원정보
       </DropdownItem>
-      <DropdownItem href="/mypage">
-        <Icon name="bookmark-line" /> 북마크
+      <DropdownItem href="/inquiries">
+        <Icon name="question-answer-line" /> 1:1문의
+      </DropdownItem>
+      <DropdownItem href="/points">
+        <Icon name="coin-line" /> 포인트
       </DropdownItem>
       <DropdownDivider />
       <DropdownItem danger onClick={onLogout}>

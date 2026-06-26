@@ -21,7 +21,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { AuthorName, Avatar, Icon } from "@/components/ui";
-import { BoardHero, AttachmentList } from "@/components/board";
+import { BoardHero, AttachmentList, RecentViewedTracker } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
 import { QuestionDetailClient } from "./QuestionDetailClient";
@@ -235,6 +235,12 @@ export default async function QuestionDetailPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(qaPageJsonLd) }}
       />
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/questions/${question.slug}`}
+        board="묻고답하기"
+        title={question.title}
+      />
 
       {/* 묻고답하기 대메뉴 공통 히어로 */}
       <BoardHero menu="questions" currentSub="묻고답하기" />
@@ -267,7 +273,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
             <div className={styles.detailMeta}>
               <span className={styles.detailAuthor}>
                 <Avatar name={question.author?.nickname ?? "익명"} src={question.author?.avatarUrl ?? undefined} size="sm" />
-                <AuthorName name={question.author?.nickname ?? "익명"} />
+                <AuthorName name={question.author?.nickname ?? "익명"} authorId={question.author?.id} />
               </span>
               <span className={styles.metaDivider} aria-hidden="true">|</span>
               <span>{formattedDate}</span>

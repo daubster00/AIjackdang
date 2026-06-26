@@ -116,11 +116,12 @@ export default async function LoungeProductsPage({ searchParams }: { searchParam
                 <article key={post.id} className={styles.postItem}>
                   <Link href={`/lounge/products/${post.slug}`} className={styles.postThumb}>
                     <Image
-                      src="/default-thumbnail.png"
+                      src={post.thumbnailUrl ?? "/empty_thumbnail.png"}
                       alt=""
                       fill
                       sizes="(max-width: 768px) 100vw, 132px"
                       className={styles.thumbImage}
+                      unoptimized={!!post.thumbnailUrl}
                     />
                   </Link>
                   <div className={styles.postBody}>
@@ -145,7 +146,7 @@ export default async function LoungeProductsPage({ searchParams }: { searchParam
                     <div className={styles.postFooter}>
                       <div className={styles.postAuthor}>
                         <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-                        <AuthorName name={post.authorNickname ?? "탈퇴 회원"} className={styles.authorName} />
+                        <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} className={styles.authorName} />
                         <span className={styles.footerDivider} aria-hidden="true">|</span>
                         <span className={styles.postDate}>
                           {new Date(post.createdAt).toLocaleDateString("ko-KR")}

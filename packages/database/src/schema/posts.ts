@@ -51,6 +51,9 @@ export const posts = pgTable(
     // 요약 (Story 2.2 generateSummary()가 자동 생성 — 현재 nullable)
     summary: varchar("summary", { length: 500 }),
 
+    // 썸네일 URL — 본문(Tiptap) 첫 이미지에서 자동 생성(크롭). 없으면 기본 이미지 사용(웹 폴백).
+    thumbnailUrl: text("thumbnail_url"),
+
     // 운영 상태 (AR-7 soft-delete)
     status: postStatus("status").notNull().default("draft"),
 

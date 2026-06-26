@@ -159,10 +159,18 @@ function PostCard({ post }: { post: PostCard }) {
 
   return (
     <article className={styles.card}>
+      <Link href={postHref} className={styles.cardThumb} aria-hidden="true" tabIndex={-1}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={post.thumbnailUrl ?? "/empty_thumbnail.png"}
+          alt=""
+          className={styles.thumbImage}
+        />
+      </Link>
       <div className={styles.cardBody}>
         <div className={styles.cardAuthor}>
           <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-          <AuthorName name={post.authorNickname ?? "익명"} className={styles.authorName} />
+          <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} className={styles.authorName} />
         </div>
 
         <h3 className={styles.cardHeading}>

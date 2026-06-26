@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, EmptyState, Icon } from "@/components/ui";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { useToast } from "@/components/ui/Toast/Toast";
 import type { MyResourceCard } from "@ai-jakdang/contracts";
 import styles from "./mypage.module.css";
 import resourceStyles from "./MyResourceList.module.css";
@@ -45,11 +47,13 @@ function formatRating(avg: number, count: number): string {
 }
 
 export function MyResourceList() {
+  const { toast } = useToast();
   const [items, setItems] = useState<MyResourceCard[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({ page: 1, pageSize: 20, totalItems: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MyResourceCard | null>(null);
 
   const fetchMyResources = useCallback(async (page = 1) => {
     setLoading(true);
@@ -80,34 +84,28 @@ export function MyResourceList() {
     void fetchMyResources(1);
   }, [fetchMyResources]);
 
-  const handleDelete = useCallback(
-    async (item: MyResourceCard) => {
-      const confirmed = window.confirm(
-        `"${item.title}" 자료를 삭제하시겠습니까?\n삭제된 자료는 복구할 수 없습니다.`,
-      );
-      if (!confirmed) return;
-
-      setDeletingId(item.id);
-      try {
-        const res = await fetch(`/api/v1/resources/${item.id}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (res.ok) {
-          // 삭제 후 목록 갱신
-          await fetchMyResources(meta.page);
-        } else {
-          const data = (await res.json()) as { error?: { message?: string } };
-          alert(data?.error?.message ?? "삭제에 실패했습니다.");
-        }
-      } catch {
-        alert("삭제 중 오류가 발생했습니다.");
-      } finally {
-        setDeletingId(null);
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const item = deleteTarget;
+    setDeleteTarget(null);
+    setDeletingId(item.id);
+    try {
+      const res = await fetch(`/api/v1/resources/${item.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        await fetchMyResources(meta.page);
+      } else {
+        const data = (await res.json()) as { error?: { message?: string } };
+        toast({ tone: "danger", title: data?.error?.message ?? "삭제에 실패했습니다." });
       }
-    },
-    [fetchMyResources, meta.page],
-  );
+    } catch {
+      toast({ tone: "danger", title: "삭제 중 오류가 발생했습니다." });
+    } finally {
+      setDeletingId(null);
+    }
+  }, [deleteTarget, fetchMyResources, meta.page, toast]);
 
   if (loading) {
     return (
@@ -150,6 +148,13 @@ export function MyResourceList() {
 
   return (
     <div className={resourceStyles.resourceListWrap}>
+      <DeleteConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDeleteConfirm()}
+        title="자료를 삭제하시겠습니까?"
+        description={deleteTarget ? `"${deleteTarget.title}" 자료를 삭제하면 복구할 수 없습니다.` : "삭제된 자료는 복구할 수 없습니다."}
+      />
       <ul className={styles.activityList}>
         {items.map((item) => (
           <li key={item.id} className={styles.activityItem}>
@@ -191,7 +196,7 @@ export function MyResourceList() {
                 <button
                   type="button"
                   className={`${resourceStyles.actionBtn} ${resourceStyles.actionBtnDanger}`}
-                  onClick={() => void handleDelete(item)}
+                  onClick={() => setDeleteTarget(item)}
                   disabled={deletingId === item.id}
                   aria-label={`${item.title} 삭제`}
                 >

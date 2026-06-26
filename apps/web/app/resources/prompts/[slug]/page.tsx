@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero } from "@/components/board";
+import { AttachmentList, BoardHero, RecentViewedTracker } from "@/components/board";
 import styles from "../prompts.module.css";
 
 type ResourceType = "prompt" | "pack";
@@ -244,6 +244,12 @@ export default async function PromptsDetailPage({
 
   return (
     <main id="main" className={styles.page}>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/resources/prompts/${slug}`}
+        board="프롬프트"
+        title={resource.title}
+      />
       <BoardHero menu="resources" currentSub="프롬프트" />
 
       <div className={styles.detailLayout}>

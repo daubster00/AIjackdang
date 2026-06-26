@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
-import { Badge, Button, Card, Skeleton } from "@/components/ui";
+import { Badge, Card, Icon, Skeleton } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
 import { TiptapRenderer } from "./TiptapRenderer";
 import styles from "./inquiry.module.css";
@@ -209,10 +209,18 @@ export function InquiryThread({ inquiryId }: InquiryThreadProps) {
             </div>
 
             {/* 하단 목록 버튼 */}
-            <div style={{ marginTop: "var(--space-8)" }}>
-              <Button variant="ghost" onClick={() => router.push("/inquiries")}>
+            <div className={styles.threadFooter}>
+              <a
+                href="/inquiries"
+                className={styles.listButton}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push("/inquiries");
+                }}
+              >
+                <Icon name="list-check" />
                 목록으로
-              </Button>
+              </a>
             </div>
           </>
         ) : null}

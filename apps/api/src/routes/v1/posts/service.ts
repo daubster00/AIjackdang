@@ -26,6 +26,7 @@ import { Redis } from "ioredis";
 import sanitizeHtml from "sanitize-html";
 import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
 import { extractExternalUrls } from "../../../lib/extract-urls.js";
+import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 import { getOgFetchQueue, OG_FETCH_JOB_NAME } from "../../../lib/queues.js";
 
 // ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
@@ -137,6 +138,8 @@ export async function getPosts({
       viewCount: schema.posts.viewCount,
       isPinned: schema.posts.isPinned,
       createdAt: schema.posts.createdAt,
+      userId: schema.posts.userId,
+      thumbnailUrl: schema.posts.thumbnailUrl,
       authorNickname: schema.users.nickname,
       authorAvatarUrl: schema.users.avatarUrl,
       authorImage: schema.users.image,
@@ -208,6 +211,8 @@ export async function getPosts({
     hasAttachment: false, // Epic 4 이전 고정 (첨부파일 테이블 미존재)
     isPinned: row.isPinned, // Story 2.9: 공지 핀 고정 여부
     tags: tagMap.get(row.id) ?? [],
+    userId: row.userId ?? null,
+    thumbnailUrl: row.thumbnailUrl ?? null,
     // Story 2.12: gigs 전용 recruitMeta
     recruitMeta: row.recruitPostKind != null
       ? {
@@ -293,6 +298,9 @@ export async function createPost({
     generateSummary(contentJson) ||
     null;
 
+  // ── 썸네일 URL: 본문 첫 번째 이미지 src 추출 ────────────────────────────────
+  const thumbnailUrl = extractFirstImageUrl(contentJson);
+
   // ── 트랜잭션: posts INSERT + tags upsert + taggable INSERT ─────────────────
   return await db.transaction(async (tx) => {
     // 1) posts INSERT
@@ -307,6 +315,7 @@ export async function createPost({
         contentJson,
         summary: summary ?? undefined,
         status,
+        thumbnailUrl: thumbnailUrl ?? null,
       })
       .returning({
         id: schema.posts.id,
@@ -630,7 +639,11 @@ export async function updatePost({
       summary: summary ?? undefined,
     };
     if (input.title !== undefined) updateValues.title = input.title;
-    if (input.contentJson !== undefined) updateValues.contentJson = input.contentJson;
+    if (input.contentJson !== undefined) {
+      updateValues.contentJson = input.contentJson;
+      // contentJson 변경 시 썸네일 URL 재추출
+      updateValues.thumbnailUrl = extractFirstImageUrl(input.contentJson);
+    }
     if (input.status !== undefined) updateValues.status = input.status;
     if (input.board !== undefined) updateValues.board = input.board;
     if (input.category !== undefined) updateValues.category = input.category;
@@ -1025,6 +1038,7 @@ export async function getPostBySlug(
     contentHtml,
     contentJson: row.contentJson as Record<string, unknown>,
     authorId: row.userId ?? null,
+    userId: row.userId ?? null,
     authorNickname: row.authorNickname ?? null,
     authorAvatarUrl: row.authorNickname != null
       ? (row.authorAvatarUrl || row.authorImage || getDefaultAvatarUrl(row.authorDefaultAvatarIndex ?? 0))

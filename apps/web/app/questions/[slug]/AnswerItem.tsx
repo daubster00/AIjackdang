@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthorName, Icon } from "@/components/ui";
+import { AuthorName, Avatar, Icon } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { ReportModal } from "../../vibe-coding/[slug]/ReportModal";
 import styles from "../questions.module.css";
@@ -195,7 +195,7 @@ export function AnswerItem({
 
   /** 작성자 닉네임 표시용 */
   const nickname = answer.author?.nickname ?? "익명";
-  const initial = nickname.slice(0, 1);
+  const avatarUrl = answer.author?.avatarUrl ?? undefined;
 
   const editNearLimit = MAX_LENGTH - editValue.length <= 200;
 
@@ -224,13 +224,11 @@ export function AnswerItem({
 
       <div className={styles.answerMain}>
         <div className={styles.answerHead}>
-          <div className={styles.answerAvatar} aria-hidden="true">
-            {initial}
-          </div>
+          <Avatar name={nickname} src={avatarUrl} size="sm" />
           <div className={styles.answerAuthorInfo}>
             <strong>
               {/* AuthorName: 닉네임 링크 + 등급 뱃지 */}
-              <AuthorName name={nickname} />
+              <AuthorName name={nickname} authorId={answer.author?.id} />
             </strong>
             <span>
               {new Date(answer.createdAt).toLocaleDateString("ko-KR", {

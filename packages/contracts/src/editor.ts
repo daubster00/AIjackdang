@@ -25,14 +25,15 @@ export type AllowedNode = {
  */
 export const FULL_ALLOWED_NODES: AllowedNode[] = [
   { type: "doc" },
-  { type: "paragraph" },
+  // 문단/제목에 좌·가운데·우 정렬(textAlign) 허용 — text-align style 로 렌더됨
+  { type: "paragraph", attrs: ["textAlign"] },
   { type: "text" },
   { type: "hardBreak" },
   // 인라인 서식
   { type: "bold" },
   { type: "italic" },
   // 제목 (H2, H3만 허용 — H1·H4 이하 제외)
-  { type: "heading", attrs: ["level"] },
+  { type: "heading", attrs: ["level", "textAlign"] },
   // 목록
   { type: "bulletList" },
   { type: "orderedList" },
@@ -46,11 +47,13 @@ export const FULL_ALLOWED_NODES: AllowedNode[] = [
   { type: "code" },
   // 인용
   { type: "blockquote" },
-  // 색상 — 제한 팔레트만 (자유 색상 금지)
-  { type: "textStyle", attrs: ["color"] },
+  // 색상·글자크기 — textStyle 확장이 두 속성을 함께 처리한다
+  { type: "textStyle", attrs: ["color", "fontSize"] },
   { type: "color" },
-  // 형광펜 — 제한 팔레트만
+  // 형광펜 — 버튼은 제거됐으나 기존 콘텐츠 렌더 위해 화이트리스트는 유지
   { type: "highlight", attrs: ["color"] },
+  // 동영상 — YouTube 임베드 (iframe). src 호스트는 서버 sanitize 에서 youtube 도메인만 허용.
+  { type: "youtube", attrs: ["src", "start", "width", "height"] },
 ];
 
 /**

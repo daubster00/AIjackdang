@@ -98,6 +98,9 @@ export const resources = pgTable(
       sql`title || ' ' || coalesce(description_json::text, '')`,
     ),
 
+    // 썸네일 URL — 본문(Tiptap) 첫 이미지에서 자동 생성(크롭). 없으면 기본 이미지 사용(웹 폴백).
+    thumbnailUrl: text("thumbnail_url"),
+
     // 메타
     version: text("version"),
     /** [{label: string, url: string}] 형식 */

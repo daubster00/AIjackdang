@@ -6,7 +6,7 @@ export const revalidate = 300;
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BoardHero } from "@/components/board";
+import { BoardHero, RecentViewedTracker } from "@/components/board";
 import { GigDetailClient } from "./GigDetailClient";
 import type { PostDetail } from "@ai-jakdang/contracts";
 
@@ -52,6 +52,12 @@ export default async function GigDetailPage({ params }: { params: Params }) {
 
   return (
     <>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/lounge/gigs/${post.slug}`}
+        board="작당 의뢰소"
+        title={post.title}
+      />
       {/* 히어로: 작당 라운지 대메뉴 공통 히어로 */}
       <BoardHero menu="lounge" currentSub="작당 의뢰소" />
 

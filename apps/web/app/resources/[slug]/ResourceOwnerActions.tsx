@@ -16,12 +16,32 @@ import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { useToast } from "@/components/ui/Toast/Toast";
 import styles from "./resource-detail.module.css";
 
+type ResourceType =
+  | "prompt"
+  | "claude-code-skill"
+  | "mcp"
+  | "rules-config"
+  | "template-checklist";
+
+/** resourceType → 해당 유형 목록 페이지 URL */
+function typeToListUrl(resourceType: ResourceType): string {
+  const map: Record<ResourceType, string> = {
+    prompt: "/resources/prompts",
+    "claude-code-skill": "/resources/mcp-skills",
+    mcp: "/resources/mcp-skills",
+    "rules-config": "/resources/rules",
+    "template-checklist": "/resources/templates",
+  };
+  return map[resourceType] ?? "/resources/prompts";
+}
+
 interface ResourceOwnerActionsProps {
   resourceId: string;
   resourceSlug: string;
+  resourceType: ResourceType;
 }
 
-export function ResourceOwnerActions({ resourceId, resourceSlug }: ResourceOwnerActionsProps) {
+export function ResourceOwnerActions({ resourceId, resourceSlug, resourceType }: ResourceOwnerActionsProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,7 +65,7 @@ export function ResourceOwnerActions({ resourceId, resourceSlug }: ResourceOwner
       }
 
       toast({ tone: "success", title: "자료가 삭제되었습니다." });
-      router.push("/resources");
+      router.push(typeToListUrl(resourceType));
     } catch {
       toast({ tone: "danger", title: "삭제 중 오류가 발생했습니다." });
     } finally {

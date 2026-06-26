@@ -7,7 +7,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Icon } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
 import { RecruitForm } from "./RecruitForm";
 import styles from "../gigs.module.css";
@@ -23,50 +24,21 @@ export function GigWriteGate() {
   if (!user) {
     return (
       <div className={styles.writeContainer}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "var(--space-5)",
-            padding: "80px var(--space-6)",
-            textAlign: "center",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "var(--color-primary-soft)",
-              color: "var(--color-primary)",
-              fontSize: 28,
-            }}
-            aria-hidden="true"
-          >
-            <Icon name="lock-line" />
-          </span>
-          <div style={{ display: "grid", gap: "var(--space-2)" }}>
-            <p style={{ fontWeight: "var(--font-weight-bold)", fontSize: "var(--font-size-xl)" }}>
-              로그인이 필요합니다
-            </p>
-            <p style={{ color: "var(--color-text-sub)", lineHeight: "var(--line-height-relaxed)" }}>
-              의뢰·구직 글을 작성하려면 로그인하세요.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
-              <Button>로그인</Button>
-            </Link>
-            <Link href="/lounge/gigs">
-              <Button variant="ghost">목록으로</Button>
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          icon="lock-line"
+          title="로그인 후 이용해 주세요"
+          description="의뢰·구직 글을 작성하려면 로그인이 필요합니다."
+          actions={
+            <>
+              <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
+                <Button variant="primary">로그인하기</Button>
+              </Link>
+              <Link href="/lounge/gigs">
+                <Button variant="ghost">목록으로</Button>
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }

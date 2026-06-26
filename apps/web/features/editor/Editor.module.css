@@ -11,6 +11,18 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+/*
+ * 포커스 표시는 바깥쪽 컨테이너 1곳에만 둔다(답변 작성 LightEditor와 동일한 동작).
+ * 안쪽 텍스트 영역(.ProseMirror)에는 어떤 테두리·아웃라인도 그리지 않는다.
+ */
+.editorContainer:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 /* ─── 툴바 ───────────────────────────────────────────────────────────────── */
@@ -55,13 +67,37 @@
 }
 
 .toolbarBtnActive {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .toolbarBtnActive:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
+  color: #fff;
+}
+
+/* 폰트 크기 드롭다운 (H2/H3 버튼 대체) */
+.fontSizeSelect {
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.fontSizeSelect:hover,
+.fontSizeSelect:focus {
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 /* 툴바 구분선 */
@@ -72,6 +108,26 @@
   background: var(--color-border);
   margin: 0 var(--space-1);
   flex-shrink: 0;
+}
+
+/* 글자 색상 'A' 버튼 — 'A' 글자 + 그 밑 3px 작대기(현재 선택색) */
+.colorBtn {
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1;
+}
+
+.colorLetter {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+}
+
+/* 'A' 밑 작대기: 두께 3px, 배경색은 인라인 style 로 선택색 주입 */
+.colorBar {
+  display: block;
+  width: 16px;
+  height: 3px;
+  border-radius: 1px;
 }
 
 /* 색상 스워치 버튼 (툴바 내 색상 팔레트) */
@@ -109,7 +165,8 @@
   top: calc(100% + var(--space-1));
   left: 0;
   z-index: 50;
-  min-width: 120px;
+  /* 12개 스워치: 4열 × 3행 */
+  width: 116px;
 }
 
 .colorPickerWrap {
@@ -214,6 +271,18 @@
   box-shadow: var(--shadow-focus-ring);
 }
 
+.imageModalError {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.imageModalUploading {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  margin: 0;
+}
+
 /* ─── 에디터 본문 영역 ────────────────────────────────────────────────────── */
 .editorContent {
   padding: var(--space-4);
@@ -232,14 +301,10 @@
   font-size: var(--font-size-base);
 }
 
+.editorContent :global(.ProseMirror):focus,
 .editorContent :global(.ProseMirror):focus-visible {
   outline: none;
-}
-
-/* 컨테이너 포커스 링 (ProseMirror 가 포커스되면 컨테이너에 링 표시) */
-.editorContainer:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-focus-ring);
+  box-shadow: none;
 }
 
 /* 빈 에디터 placeholder */
@@ -270,10 +335,29 @@
   margin: 0 0 var(--space-3);
 }
 
-.editorContent :global(.ProseMirror ul),
-.editorContent :global(.ProseMirror ol) {
+/*
+ * reset.css 가 ul, ol { list-style: none; padding: 0; } 으로 마커를 전체 초기화한다.
+ * ProseMirror 에디터 영역은 충분한 specificity 로 마커와 들여쓰기를 복원한다.
+ */
+.editorContent :global(.ProseMirror ul) {
+  list-style: disc;
   padding-left: var(--space-6);
   margin: 0 0 var(--space-3);
+}
+
+.editorContent :global(.ProseMirror ol) {
+  list-style: decimal;
+  padding-left: var(--space-6);
+  margin: 0 0 var(--space-3);
+}
+
+/* 중첩 목록 마커 */
+.editorContent :global(.ProseMirror ul ul) {
+  list-style: circle;
+}
+
+.editorContent :global(.ProseMirror ul ul ul) {
+  list-style: square;
 }
 
 .editorContent :global(.ProseMirror li) {
@@ -288,9 +372,9 @@
   font-style: italic;
 }
 
-/* 코드 블록 — --color-neutral-soft 를 배경으로 사용(surface-raised 대체) */
+/* 코드 블록 — 어두운 배경(#1e1e1e)에 밝은 코드 텍스트 */
 .editorContent :global(.ProseMirror pre) {
-  background: var(--color-neutral-soft);
+  background: #1e1e1e;
   border-radius: var(--radius-sm);
   padding: var(--space-4);
   margin: 0 0 var(--space-3);
@@ -298,11 +382,11 @@
 }
 
 .editorContent :global(.ProseMirror pre code) {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   background: none;
   padding: 0;
-  color: var(--color-text);
+  color: #d4d4d4;
 }
 
 /* 인라인 코드 */
@@ -310,7 +394,7 @@
   background: var(--color-neutral-soft);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
 }
 
@@ -328,5 +412,19 @@
 .editorContent :global(.ProseMirror img) {
   max-width: 100%;
   height: auto;
+  border-radius: var(--radius-sm);
+}
+
+/* 동영상(YouTube) 임베드 — 16:9 반응형 */
+.editorContent :global(.ProseMirror div[data-youtube-video]) {
+  margin: 0 0 var(--space-3);
+}
+
+.editorContent :global(.ProseMirror div[data-youtube-video] iframe) {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
   border-radius: var(--radius-sm);
 }

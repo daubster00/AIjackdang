@@ -24,6 +24,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { UpdateResourceInput } from "@ai-jakdang/contracts";
 import { revokePoints } from "../gamification/points.service.js";
+import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 
 // ── 에러 타입 ──────────────────────────────────────────────────────────────────
 
@@ -99,7 +100,11 @@ export async function updateResource(
     if (input.resourceType !== undefined) updateValues.resourceType = input.resourceType;
     if (input.environment !== undefined) updateValues.environment = input.environment;
     if (input.difficulty !== undefined) updateValues.difficulty = input.difficulty;
-    if (input.descriptionJson !== undefined) updateValues.descriptionJson = input.descriptionJson;
+    if (input.descriptionJson !== undefined) {
+      updateValues.descriptionJson = input.descriptionJson;
+      // descriptionJson 변경 시 썸네일 URL 재추출
+      updateValues.thumbnailUrl = extractFirstImageUrl(input.descriptionJson);
+    }
     if (input.usageJson !== undefined) updateValues.usageJson = input.usageJson;
     if (input.cautionJson !== undefined) updateValues.cautionJson = input.cautionJson;
     if (input.version !== undefined) updateValues.version = input.version;

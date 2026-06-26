@@ -83,6 +83,49 @@
   margin-top: var(--space-2);
 }
 
+/* ── 설정 탭 내비게이션 (프로필 ↔ 회원정보) ── */
+
+.settingsNav {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.settingsNavItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    color var(--transition-base),
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.settingsNavItem:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.settingsNavItem i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.settingsNavItemActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}
+
 @media (max-width: 767px) {
   .card {
     border-radius: var(--radius-lg);

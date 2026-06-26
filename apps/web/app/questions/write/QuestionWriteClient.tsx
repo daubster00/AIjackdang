@@ -15,12 +15,16 @@
  */
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import { Icon } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "@/components/board/PostWriteForm.module.css";
 
 /** 드래프트 초기값 (서버에서 주입) */
@@ -76,6 +80,8 @@ const validateBody = (val: JSONContent | undefined): string | undefined => {
 
 export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWriteClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, ready } = useAuth();
   const { toast } = useToast();
 
   const [title, setTitle] = useState(initialDraft?.title ?? "");
@@ -129,7 +135,7 @@ export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWrit
         });
 
         if (res.status === 401) {
-          toast({ tone: "danger", title: "로그인이 필요합니다." });
+          toast({ tone: "danger", title: "로그인 후 이용해 주세요." });
           router.push(`/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
           return;
         }
@@ -214,6 +220,24 @@ export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWrit
   const handleDraftSave = useCallback(() => {
     void submitQuestion("draft");
   }, [submitQuestion]);
+
+  // 비로그인 게이트 — ready=true이고 세션 없음이 확인된 경우만 차단
+  if (ready && !user) {
+    return (
+      <div className={styles.writeLayout}>
+        <EmptyState
+          icon="lock-line"
+          title="로그인 후 이용해 주세요"
+          description="질문을 등록하려면 로그인이 필요합니다."
+          actions={
+            <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
+              <Button variant="primary">로그인하기</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.writeLayout}>

@@ -110,6 +110,8 @@ export const resourceCardSchema = z.object({
   tagNames: z.array(z.string()),
   updatedAt: z.string(), // ISO 8601 UTC
   status: resourceStatusSchema,
+  /** descriptionJson 의 첫 번째 이미지 URL (thumbnail_url 컬럼). 이미지 없으면 null. */
+  thumbnailUrl: z.string().nullable().optional(),
 });
 export type ResourceCard = z.infer<typeof resourceCardSchema>;
 

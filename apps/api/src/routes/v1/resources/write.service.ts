@@ -15,6 +15,7 @@ import type { CreateResourceInput } from "@ai-jakdang/contracts";
 import { eq } from "drizzle-orm";
 import { slugify, generateUniqueSlug } from "@ai-jakdang/utilities";
 import { earnPoints, getTodayCount } from "../gamification/points.service.js";
+import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 
 export interface CreateResourceParams {
   input: CreateResourceInput & { status?: "published" | "draft" };
@@ -67,6 +68,9 @@ export async function createResource({
     return rows.length > 0;
   });
 
+  // ── 썸네일 URL: descriptionJson 첫 번째 이미지 src 추출 ─────────────────────
+  const thumbnailUrl = extractFirstImageUrl(descriptionJson);
+
   // ── 트랜잭션: resources INSERT + tags upsert + taggable INSERT ─────────────
   return await db.transaction(async (tx) => {
     // 1) resources INSERT
@@ -87,6 +91,7 @@ export async function createResource({
         referenceLinks: referenceLinks ?? null,
         copyrightAgreed,
         status,
+        thumbnailUrl: thumbnailUrl ?? null,
       })
       .returning({
         id: schema.resources.id,

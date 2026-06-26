@@ -24,7 +24,7 @@ import type { PostCard, PaginatedPosts } from "@ai-jakdang/contracts";
 import { buildPageMeta, buildCollectionPageJsonLd, buildBreadcrumbJsonLd, buildBoardBreadcrumb } from "@/lib/seo";
 import { AuthorName, Avatar, Icon, Tag, EmptyState } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
-import type { BoardHeroKey } from "@/components/board";
+import { resolveHeroKey } from "@/components/board";
 import { SortTabs } from "./SortTabs";
 import type { SortValue } from "./SortTabs";
 import { BoardPagination } from "./BoardPagination";
@@ -90,8 +90,8 @@ export default async function BoardListPage({ params, searchParams }: PageProps)
       `${API_URL}/api/v1/posts?board=${encodeURIComponent(boardSlug)}&sort=${sort}&page=${page}&pageSize=20`,
       {
         headers: { cookie },
-        // 캐시 옵션: 목록 페이지는 revalidate 30초 (SSR + 스태일 허용)
-        next: { revalidate: 30 },
+        // 목록은 항상 최신: 글 작성 직후 목록으로 돌아왔을 때 새 글이 바로 보이도록 no-store.
+        cache: "no-store",
       },
     );
 
@@ -129,9 +129,8 @@ export default async function BoardListPage({ params, searchParams }: PageProps)
   // 글쓰기 경로 — board urlPath 기반
   const writePath = `${boardMeta.urlPath}/write`;
 
-  // category는 동적 파라미터(string) — BoardHeroKey 중 하나이거나 알 수 없는 값일 수 있음.
-  // 알 수 없는 카테고리는 boardMeta.category(BOARDS 상수에서 온 신뢰할 수 있는 값)를 사용.
-  const heroMenu = (boardMeta.category as BoardHeroKey) ?? (category as BoardHeroKey);
+  // category는 동적 파라미터(string) — BOARDS.category("ai-automation" 등)를 히어로 키로 매핑.
+  const heroMenu = resolveHeroKey(boardMeta.category ?? category);
 
   return (
     <main id="main" className={styles.page}>
@@ -214,6 +213,14 @@ function PostCard({ post, boardUrlPath }: PostCardProps) {
 
   return (
     <article className={styles.postItem}>
+      <Link href={postHref} className={styles.postThumb} aria-hidden="true" tabIndex={-1}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={post.thumbnailUrl ?? "/empty_thumbnail.png"}
+          alt=""
+          className={styles.thumbImage}
+        />
+      </Link>
       <div className={styles.postBody}>
         {post.tags.length > 0 && (
           <div className={styles.tagRow}>
@@ -242,9 +249,10 @@ function PostCard({ post, boardUrlPath }: PostCardProps) {
 
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
-            <Avatar name={post.authorNickname ?? "익명"} size="sm" />
+            <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
             <AuthorName
               name={post.authorNickname ?? "익명"}
+              authorId={post.userId ?? undefined}
               className={styles.authorName}
             />
             <span className={styles.footerDivider} aria-hidden="true">|</span>

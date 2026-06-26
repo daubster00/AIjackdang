@@ -1,0 +1,491 @@
+/**
+ * 실전자료 후기(review) 전용 CSS — 댓글 컴포넌트 스타일
+ * ReviewForm / ReviewItem / ReviewList 에서 공유.
+ */
+
+/* ── 후기 폼 ── */
+
+.commentForm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.commentInputBox {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-4);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.commentInputBox:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.commentInputBox textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  color: var(--color-text);
+  font: inherit;
+  line-height: var(--line-height-relaxed);
+}
+
+.commentInputBox textarea:focus,
+.commentInputBox textarea:focus-visible {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.commentCharCount {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--color-text-sub);
+  line-height: 1;
+}
+
+.commentCharNearLimit {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.commentCharMax {
+  color: var(--color-text-sub);
+}
+
+.commentFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── 별점 선택기 ── */
+
+.reviewStarPicker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.reviewStarPickerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 22px;
+  transition: transform var(--transition-base);
+}
+
+.reviewStarPickerBtn:hover {
+  transform: scale(1.15);
+}
+
+.reviewStarPickerLabel {
+  margin-left: var(--space-2);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── 별점 아이콘 색상 ── */
+
+.starOn {
+  color: var(--color-warning);
+}
+
+.starOff {
+  color: var(--color-border-strong);
+}
+
+/* ── 후기 항목 ── */
+
+.commentItem {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-5) 0;
+}
+
+.commentItem:last-child {
+  border-bottom: 0;
+}
+
+.commentMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.commentAuthorInfo {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.commentAuthorInfo strong {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.commentAuthorInfo span {
+  color: var(--color-text-sub);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.reviewRatingRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 52px;
+  margin-top: 2px;
+  font-size: 15px;
+}
+
+.reviewRatingRow .starOn {
+  color: var(--color-warning);
+}
+
+.reviewRatingRow .starOff {
+  color: var(--color-border-strong);
+}
+
+.reviewRatingScore {
+  margin-left: 4px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── 메뉴 ── */
+
+.commentMenuWrapper {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.commentMenuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: 18px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.commentMenuButton:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.commentMenuDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: 6px;
+  box-shadow: var(--shadow-dropdown);
+}
+
+.commentMenuDropdown button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  padding: 0 14px;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.commentMenuDropdown button:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.menuDivider {
+  margin: 4px 8px;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.menuItemDanger {
+  color: var(--color-danger) !important;
+}
+
+.menuItemDanger:hover {
+  background: var(--color-danger-soft) !important;
+  color: var(--color-danger) !important;
+}
+
+/* ── 본문 ── */
+
+.commentItem p {
+  padding-left: 52px;
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+.commentDeleted {
+  padding-left: 52px;
+  color: var(--color-text-sub);
+  font-style: italic;
+}
+
+/* ── 수정 인라인 폼 ── */
+
+.inlineForm {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.inlineFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.inlineFormCancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.inlineFormCancel:hover {
+  border-color: var(--color-text-sub);
+  background: var(--color-bg);
+}
+
+.inlineFormSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  padding: 0 var(--space-4);
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity var(--transition-base);
+}
+
+.inlineFormSubmit:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+.inlineFormSubmit:not(:disabled):hover {
+  opacity: 0.86;
+}
+
+/* ── 좋아요/싫어요 ── */
+
+.commentVote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-left: 52px;
+}
+
+.commentVoteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: 18px;
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.commentVoteBtn:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.commentVoteLike {
+  color: var(--color-primary);
+}
+
+.commentVoteDislike {
+  color: var(--color-danger);
+}
+
+.commentVoteDislike:hover {
+  background: var(--color-danger-soft) !important;
+  color: var(--color-danger) !important;
+}
+
+.commentVoteCount {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  min-width: 12px;
+  text-align: left;
+}
+
+/* ── 대댓글 ── */
+
+.replyToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 52px;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: opacity var(--transition-base);
+}
+
+.replyToggleBtn:hover {
+  opacity: 0.72;
+}
+
+.replyList {
+  display: grid;
+  margin: 0;
+  padding-left: 52px;
+  list-style: none;
+}
+
+.replyItem {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: var(--space-3) 0;
+}
+
+.replyItem::before {
+  content: "";
+  position: absolute;
+  left: -32px;
+  top: 0;
+  width: 28px;
+  height: 22px;
+  border-left: 2px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
+  border-bottom-left-radius: 10px;
+}
+
+.replyItem + .replyItem {
+  padding-top: var(--space-4);
+}
+
+.replyItem + .replyItem::before {
+  height: 38px;
+}
+
+.replyItemMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.replyItemText {
+  padding-left: 52px;
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ── 로드 상태 ── */
+
+.reviewEmpty {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.reviewLoadMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 0 var(--space-4);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base),
+    background var(--transition-base);
+}
+
+.reviewLoadMore:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}

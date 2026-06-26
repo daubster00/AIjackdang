@@ -8,7 +8,7 @@ import { ResourceFilterClient } from "../ResourceFilterClient";
 import { ResourcePagination } from "../ResourcePagination";
 import styles from "./mcp-skills.module.css";
 
-export const revalidate = 60; // 목록은 1분 캐시 (AR-17)
+export const dynamic = "force-dynamic"; // 등록·삭제 즉시 반영 (no-store)
 
 /** generateMetadata — 고유 title·description·canonical (FR-11.1, AC #5) */
 export async function generateMetadata({
@@ -103,7 +103,6 @@ async function fetchResources(query: ListResourcesQuery) {
   if (query.types) params.set("types", query.types);
   else if (query.type) params.set("type", query.type);
   if (query.sort) params.set("sort", query.sort);
-  if (query.difficulty) params.set("difficulty", query.difficulty);
   if (query.q) params.set("q", query.q);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
@@ -113,7 +112,7 @@ async function fetchResources(query: ListResourcesQuery) {
 
   try {
     const res = await fetch(apiUrl, {
-      next: { revalidate: 60 },
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
     });
     if (!res.ok) return null;
@@ -151,7 +150,6 @@ export default async function McpSkillsPage({
   const query: ListResourcesQuery = {
     types: "claude-code-skill,mcp",
     sort: (sp.sort as ListResourcesQuery["sort"]) ?? "latest",
-    difficulty: (sp.difficulty as ListResourcesQuery["difficulty"]) ?? undefined,
     environment: typeof sp.environment === "string" ? sp.environment : undefined,
     q: typeof sp.q === "string" ? sp.q : undefined,
     page: sp.page ? Number(sp.page) : 1,
@@ -197,7 +195,7 @@ export default async function McpSkillsPage({
               </>
             )}
           </div>
-          <Link href="/resources/new">
+          <Link href="/resources/mcp-skills/write">
             <Button
               className={styles.writeButton}
               leftIcon={
@@ -224,7 +222,7 @@ export default async function McpSkillsPage({
               title="등록된 MCP·Skill 자료가 없습니다"
               description="첫 번째 MCP·Skill 자료를 공유해 보세요."
               actions={
-                <Link href="/resources/new">
+                <Link href="/resources/mcp-skills/write">
                   <Button>등록하기</Button>
                 </Link>
               }

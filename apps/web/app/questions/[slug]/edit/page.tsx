@@ -39,7 +39,7 @@ async function fetchQuestionForEdit(
 ): Promise<QuestionForEdit | null> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/qna/questions/${encodeURIComponent(slug)}`,
+      `${API_URL}/api/v1/qna/questions/${encodeURIComponent(decodeURIComponent(slug))}`,
       {
         headers: cookie ? { cookie } : {},
         cache: "no-store",

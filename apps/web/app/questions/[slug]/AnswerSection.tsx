@@ -163,7 +163,10 @@ export function AnswerSection({
           <Icon name="quill-pen-line" />
           답변 작성하기
         </h2>
-        <AnswerForm questionId={questionId} />
+        <AnswerForm
+          questionId={questionId}
+          onSuccess={(answer) => setAnswers((prev) => [...prev, answer])}
+        />
       </section>
     </>
   );

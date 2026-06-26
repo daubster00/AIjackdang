@@ -7,11 +7,13 @@ import styles from "./CreativeSpecFields.module.css";
 
 /**
  * AI 창작마당 전용 창작 스펙 입력 섹션.
- * PostWriteForm 안에 침습적으로 삽입하지 않고, 글쓰기 페이지에서
- * PostWriteForm 바로 아래에 별도 섹션으로 렌더한다.
+ * PostWriteForm 안 "파일 첨부" 다음에 afterAttachment prop으로 주입된다.
  *
  * 전 항목 선택 입력이므로 스펙 섹션 자체도 접을 수 있다.
  * onSpecChange: 부모 컴포넌트에 spec 데이터를 전달하는 콜백 (Story 2.11 연동).
+ *
+ * item 14: params(주요 파라미터) · postProcess(후처리) · costType(비용) 입력 제거.
+ * 나머지 mediaType · tools · prompt · negPrompt · timeSpent · licenseNote 유지.
  */
 
 /** 창작물 유형 옵션 */
@@ -23,13 +25,6 @@ interface AiToolRow {
   name: string;
   model: string;
   role: string;
-}
-
-/** 파라미터 행 1개(key-value) */
-interface ParamRow {
-  id: number;
-  key: string;
-  value: string;
 }
 
 let _uid = 0;
@@ -58,16 +53,7 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
   const [prompt, setPrompt] = useState("");
   const [negPrompt, setNegPrompt] = useState("");
 
-  // 주요 파라미터 key-value 행 추가형
-  const [params, setParams] = useState<ParamRow[]>([
-    { id: uid(), key: "", value: "" },
-  ]);
-
-  // 후처리·워크플로 자유 텍스트
-  const [postProcess, setPostProcess] = useState("");
-
-  // 비용 정보
-  const [costType, setCostType] = useState<"유료" | "무료" | "">("");
+  // 제작 소요 시간
   const [duration, setDuration] = useState("");
 
   // 라이선스·상업적 사용
@@ -83,17 +69,6 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
   }
   function updateToolRow(id: number, field: keyof Omit<AiToolRow, "id">, value: string) {
     setToolRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
-  }
-
-  /* ── 파라미터 행 조작 ── */
-  function addParamRow() {
-    setParams((prev) => [...prev, { id: uid(), key: "", value: "" }]);
-  }
-  function removeParamRow(id: number) {
-    setParams((prev) => prev.filter((r) => r.id !== id));
-  }
-  function updateParam(id: number, field: "key" | "value", value: string) {
-    setParams((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   }
 
   /* ── 창작물 유형 토글 ── */
@@ -122,13 +97,6 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
         role: r.role.trim() || undefined,
       }));
 
-    const filteredParams: Record<string, string> = {};
-    for (const row of params) {
-      if (row.key.trim()) {
-        filteredParams[row.key.trim()] = row.value.trim();
-      }
-    }
-
     // license + commercial → licenseNote 병합
     let licenseNote: string | undefined;
     if (license.trim() || commercial) {
@@ -138,20 +106,18 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
       licenseNote = parts.join(" / ");
     }
 
+    // item 14: params · postProcess · costType 전송 제거
     const spec: CreativeSpec = {
       mediaType: types.length > 0 ? types : undefined,
       tools: filteredTools.length > 0 ? filteredTools : undefined,
       prompt: prompt.trim() || undefined,
       negPrompt: negPrompt.trim() || undefined,
-      params: Object.keys(filteredParams).length > 0 ? filteredParams : undefined,
-      postProcess: postProcess.trim() || undefined,
-      costType: costType === "유료" ? "paid" : costType === "무료" ? "free" : undefined,
       timeSpent: duration.trim() || undefined,
       licenseNote: licenseNote || undefined,
     };
 
     onSpecChange(spec);
-  }, [open, types, toolRows, prompt, negPrompt, params, postProcess, costType, duration, license, commercial, onSpecChange]);
+  }, [open, types, toolRows, prompt, negPrompt, duration, license, commercial, onSpecChange]);
 
   return (
     <section className={styles.specSection} aria-label="창작 스펙 섹션">
@@ -166,7 +132,7 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
           <Icon name="magic-line" className={styles.toggleIcon} aria-hidden="true" />
           창작 스펙 추가
           <span className={styles.toggleHint}>
-            (선택 · AI 툴·프롬프트·파라미터 등)
+            (선택 · AI 툴·프롬프트 등)
           </span>
         </span>
         <Icon
@@ -285,105 +251,25 @@ export function CreativeSpecFields({ onSpecChange }: CreativeSpecFieldsProps) {
             </div>
           </fieldset>
 
-          {/* ── 4. 주요 파라미터 (key-value 행 추가형) ── */}
+          {/* ── 4. 제작 소요 시간 ── */}
           <fieldset className={styles.fieldset}>
-            <legend className={styles.legend}>주요 파라미터</legend>
-            <p className={styles.fieldHint}>
-              시드·화면비·해상도·steps·CFG·sampler 등을 자유롭게 추가하세요.
-            </p>
-            <div className={styles.rowList}>
-              {params.map((row, idx) => (
-                <div key={row.id} className={styles.paramRow}>
-                  <input
-                    className={styles.paramKey}
-                    type="text"
-                    placeholder="파라미터 이름"
-                    value={row.key}
-                    onChange={(e) => updateParam(row.id, "key", e.target.value)}
-                    aria-label={`${idx + 1}번째 파라미터 이름`}
-                  />
-                  <span className={styles.paramSep}>:</span>
-                  <input
-                    className={styles.paramValue}
-                    type="text"
-                    placeholder="값"
-                    value={row.value}
-                    onChange={(e) => updateParam(row.id, "value", e.target.value)}
-                    aria-label={`${idx + 1}번째 파라미터 값`}
-                  />
-                  {params.length > 1 && (
-                    <button
-                      type="button"
-                      className={styles.removeBtn}
-                      onClick={() => removeParamRow(row.id)}
-                      aria-label={`${idx + 1}번째 파라미터 삭제`}
-                    >
-                      <Icon name="close-line" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button type="button" className={styles.addRowBtn} onClick={addParamRow}>
-              <Icon name="add-line" />
-              파라미터 추가
-            </button>
-          </fieldset>
-
-          {/* ── 5. 후처리·워크플로 ── */}
-          <fieldset className={styles.fieldset}>
-            <legend className={styles.legend}>후처리·워크플로</legend>
-            <p className={styles.fieldHint}>
-              업스케일·인페인팅·ControlNet/LoRA·img2img 등 사용한 후처리 과정을 자유롭게 적어주세요.
-            </p>
-            <textarea
-              className={styles.plainTextarea}
-              rows={3}
-              placeholder="예: Real-ESRGAN으로 4× 업스케일 후 Adobe Lightroom으로 색보정"
-              value={postProcess}
-              onChange={(e) => setPostProcess(e.target.value)}
-              aria-label="후처리·워크플로"
-            />
-          </fieldset>
-
-          {/* ── 6. 비용 ── */}
-          <fieldset className={styles.fieldset}>
-            <legend className={styles.legend}>비용</legend>
-            <div className={styles.inlineGroup}>
-              {/* 유료/무료 라디오 */}
-              <div className={styles.radioGroup} role="radiogroup" aria-label="유료/무료">
-                {(["유료", "무료"] as const).map((v) => (
-                  <label key={v} className={styles.radioLabel}>
-                    <input
-                      type="radio"
-                      name="spec-cost"
-                      value={v}
-                      checked={costType === v}
-                      onChange={() => setCostType(v)}
-                      className={styles.radioInput}
-                    />
-                    {v}
-                  </label>
-                ))}
-              </div>
-              {/* 제작 소요 시간 */}
-              <div className={styles.durationField}>
-                <label htmlFor="spec-duration" className={styles.inlineLabel}>
-                  제작 소요 시간
-                </label>
-                <input
-                  id="spec-duration"
-                  className={styles.inlineInput}
-                  type="text"
-                  placeholder="예: 2시간 30분"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                />
-              </div>
+            <legend className={styles.legend}>제작 소요 시간</legend>
+            <div className={styles.durationField}>
+              <label htmlFor="spec-duration" className={styles.inlineLabel}>
+                소요 시간
+              </label>
+              <input
+                id="spec-duration"
+                className={styles.inlineInput}
+                type="text"
+                placeholder="예: 2시간 30분"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
             </div>
           </fieldset>
 
-          {/* ── 7. 라이선스·상업적 사용 ── */}
+          {/* ── 5. 라이선스·상업적 사용 ── */}
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>라이선스·상업적 사용</legend>
             <div className={styles.inlineGroup}>

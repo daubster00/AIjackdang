@@ -146,11 +146,24 @@ describe("단일 소스 원칙 — FULL_ALLOWED_NODES 동기화 (AC #2, #6)", ()
     expect(options.allowedTags).toContain("code");
   });
 
-  it("buildSanitizeOptions(FULL_ALLOWED_NODES) 의 allowedTags 에 script·iframe·object 가 없다", () => {
+  it("buildSanitizeOptions(FULL_ALLOWED_NODES) 의 allowedTags 에 script·object 가 없다", () => {
     const options = buildSanitizeOptions(FULL_ALLOWED_NODES);
     expect(options.allowedTags).not.toContain("script");
-    expect(options.allowedTags).not.toContain("iframe");
     expect(options.allowedTags).not.toContain("object");
+  });
+
+  it("youtube 지원: iframe 은 허용하되 youtube 도메인으로만 제한한다", () => {
+    const options = buildSanitizeOptions(FULL_ALLOWED_NODES);
+    // youtube 임베드용 iframe 은 허용 태그에 포함되지만
+    expect(options.allowedTags).toContain("iframe");
+    // src 호스트는 youtube 도메인만 화이트리스트
+    expect(options.allowedIframeHostnames).toContain("www.youtube.com");
+    expect(options.allowedIframeHostnames).toContain("www.youtube-nocookie.com");
+  });
+
+  it("youtube 가 아닌 호스트의 iframe 은 제거한다", () => {
+    const result = sanitizeHtml('<iframe src="https://evil.com/x"></iframe>');
+    expect(result).not.toContain("evil.com");
   });
 
   it("FULL_ALLOWED_NODES 에 codeBlock 이 있으면 allowedTags 에 pre 가 포함된다", () => {

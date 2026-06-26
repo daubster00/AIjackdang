@@ -1,0 +1,454 @@
+/* points.module.css — /points 페이지 (내 포인트 + 등급 안내) */
+
+/* ── 페이지 레이아웃 ── */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 60px var(--space-6) 100px;
+}
+
+/* ── 헤더 ── */
+
+.header {
+  margin-bottom: var(--space-8);
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0;
+}
+
+/* ── 탭 ── */
+
+.tabBar {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-7);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    color var(--transition-base),
+    border-color var(--transition-base);
+  /* 탭 하단 테두리를 tabBar 아래 선과 겹쳐 활성 인디케이터 표현 */
+  margin-bottom: -1px;
+}
+
+.tab i {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.tab:hover {
+  color: var(--color-primary);
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── 패널 공통 ── */
+
+.panel {
+  display: grid;
+  gap: var(--space-6);
+}
+
+/* hidden 속성 적용 시 숨김 */
+.panel[hidden] {
+  display: none;
+}
+
+/* ── 포인트 요약 카드 ── */
+
+.summaryCard {
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  padding: var(--space-8) var(--space-7);
+  color: #ffffff;
+  box-shadow: 0 14px 40px rgba(23, 24, 39, 0.14);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.pointsDisplay {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.pointsNumber {
+  font-size: clamp(40px, 6vw, 64px);
+  font-weight: var(--font-weight-extrabold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pointsUnit {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  opacity: 0.8;
+}
+
+/* 등급 뱃지: 흰 반투명 칩으로 감싸 어두운 그라디언트 배경 위 가독성 확보 */
+.summaryBadge {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px 6px 8px;
+}
+
+/* RankBadge 내부 라벨 스팬: 흰 배경 위 텍스트를 흰색으로 덮어쓰기 */
+.summaryBadge :global(span) {
+  color: #ffffff !important;
+  font-weight: var(--font-weight-bold);
+}
+
+.progressTrack {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  margin-bottom: var(--space-3);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.88);
+  transition: width 0.4s ease;
+}
+
+.progressText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+.progressText strong {
+  font-weight: var(--font-weight-bold);
+  opacity: 1;
+}
+
+/* ── 로딩 플레이스홀더 ── */
+
+.loadingPlaceholder {
+  height: 120px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.2);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loading {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--color-text-sub);
+}
+
+.loading i {
+  font-size: 32px;
+  color: var(--color-primary);
+  opacity: 0.6;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 섹션 공통 ── */
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.sectionDesc {
+  margin: calc(-1 * var(--space-3)) 0 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ── 적립·회수 내역 섹션 ── */
+
+.historySection {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.historyList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+  box-shadow: 0 4px 16px rgba(23, 24, 39, 0.04);
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  transition: background var(--transition-base);
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyItem:hover {
+  background: var(--color-neutral-soft);
+}
+
+.historyReason {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.historyLabel {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyDate {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* delta(변동 포인트): 양수=녹색 적립, 음수=회색 회수 */
+.deltaPositive {
+  flex: 0 0 auto;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-success);
+  white-space: nowrap;
+}
+
+.deltaNegative {
+  flex: 0 0 auto;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-sub);
+  white-space: nowrap;
+}
+
+.pagination {
+  justify-content: center;
+}
+
+/* ── 등급 안내 목록 ── */
+
+.gradeList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gradeCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: 0 4px 16px rgba(23, 24, 39, 0.04);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.gradeCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+/* 현재 내 등급 카드: 브랜드 컬러 강조 */
+.gradeCardCurrent {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 4px 20px rgba(48, 48, 192, 0.1);
+}
+
+.currentBadge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+
+.gradeCardLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.gradeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gradeName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.gradeRange {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 로그인 유도 버튼 ── */
+
+.loginBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  padding: 10px 24px;
+  color: #ffffff;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: background var(--transition-base);
+}
+
+.loginBtn:hover {
+  background: var(--color-primary-hover);
+}
+
+/* ── 반응형 ── */
+
+@media (max-width: 767px) {
+  .container {
+    padding-inline: var(--space-4);
+    padding-block: 40px 64px;
+  }
+
+  .title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .summaryCard {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .pointsNumber {
+    font-size: clamp(32px, 10vw, 48px);
+  }
+
+  .historyItem {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .gradeCard {
+    padding: var(--space-4) var(--space-4);
+  }
+
+  /* 탭: 가로 스크롤 허용 */
+  .tabBar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tabBar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    white-space: nowrap;
+  }
+}

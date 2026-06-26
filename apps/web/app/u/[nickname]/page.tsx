@@ -5,44 +5,21 @@
 // - JSON-LD ProfilePage 스크립트 삽입.
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { Avatar, EmptyState, Icon, RankBadge } from "@/components/ui";
+import { Avatar, Badge, EmptyState, Icon, RankBadge } from "@/components/ui";
 import type { PublicProfile } from "@ai-jakdang/contracts";
+import { BOARDS } from "@ai-jakdang/contracts";
 import { rankTierFromGradeLevel } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
 import { ProfileInteraction } from "./ProfileInteraction";
+import { FeaturedPostsPanel } from "./FeaturedPostsPanel";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import styles from "./profile.module.css";
 
-// ── 레벨 → RankTier 정식 함수 사용 (Story 6.6) ───────────────────────────────
-
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
-
-// ── [6.4] 보유 뱃지 타입 ─────────────────────────────────────────────────────
-interface UserBadgeItem {
-  badgeSlug: string;
-  badgeName: string;
-  iconUrl: string;
-  grantedAt: string;
-}
-
-/** 사용자 보유 뱃지 API fetch (서버 컴포넌트 전용, 공개 — AC#5). */
-async function fetchUserBadges(userId: string): Promise<UserBadgeItem[]> {
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/v1/gamification/user/${encodeURIComponent(userId)}/badges`,
-      { cache: "no-store" },
-    );
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items: UserBadgeItem[] };
-    return data.items ?? [];
-  } catch {
-    return [];
-  }
-}
-// ── [6.4] END ─────────────────────────────────────────────────────────────────
 
 /** 사용자 등급 API fetch (서버 컴포넌트 전용, 공개). */
 async function fetchUserGrade(userId: string): Promise<{ level: number; name: string } | null> {
@@ -74,6 +51,33 @@ async function fetchPublicProfile(nickname: string): Promise<PublicProfile | nul
   }
 }
 
+/** 피처드 글 데이터 fetch (서버 컴포넌트 전용, 공개). */
+interface FeaturedPostItem {
+  id: string;
+  kind: "post" | "resource";
+  board: string;
+  boardLabel: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  createdAt: string;
+  viewCount: number;
+}
+
+async function fetchFeaturedPosts(nickname: string): Promise<FeaturedPostItem[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/users/profile/${encodeURIComponent(nickname)}/featured-posts`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items: FeaturedPostItem[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** generateStaticParams: 완전 동적 렌더 — 빈 배열 유지 */
 export function generateStaticParams() {
   return [];
@@ -100,8 +104,7 @@ export async function generateMetadata({
   const title = `${profile.nickname}의 프로필 | AI작당`;
   const description = profile.bio ?? `${profile.nickname} 님의 AI작당 공개 프로필`;
   const canonical = `https://aijakdang.com/u/${profile.nickname}`;
-  const avatarUrl =
-    resolveAvatarUrl(profile);
+  const avatarUrl = resolveAvatarUrl(profile);
 
   return {
     title,
@@ -134,24 +137,44 @@ export default async function UserProfilePage({
     ? rankTierFromGradeLevel(gradeInfo.level)
     : "rookie";
 
-  // ── [6.4] 보유 뱃지 조회 (공개, 비회원 열람 가능 — AC#5) ─────────────────
-  const userBadges = await fetchUserBadges(profile.id);
-  // ── [6.4] END ─────────────────────────────────────────────────────────────
-
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const cookie = cookieStore.toString();
 
-  // 로그인 유저의 팔로우 여부 + 차단 여부 조회 (SSR)
-  const followStatusRes = await fetch(
-    `${API_BASE}/api/v1/users/${encodeURIComponent(decoded)}/follow-status`,
-    { headers: { cookie }, cache: "no-store" },
-  );
-  const followStatus = followStatusRes.ok
-    ? ((await followStatusRes.json()) as { isFollowing: boolean; isBlocked: boolean; followersCount: number; followingCount: number })
+  // 로그인 유저 정보 조회 (isOwner 판별 + 팔로우 상태)
+  const [meRes, followStatusRes] = await Promise.all([
+    fetch(`${API_BASE}/api/v1/users/me`, {
+      headers: { cookie },
+      cache: "no-store",
+    }),
+    fetch(
+      `${API_BASE}/api/v1/users/${encodeURIComponent(decoded)}/follow-status`,
+      { headers: { cookie }, cache: "no-store" },
+    ),
+  ]);
+
+  const meUser = meRes.ok
+    ? ((await meRes.json()) as { id: string; nickname?: string })
     : null;
 
-  const avatarUrl =
-    resolveAvatarUrl(profile);
+  const followStatus = followStatusRes.ok
+    ? ((await followStatusRes.json()) as {
+        isFollowing: boolean;
+        isBlocked: boolean;
+        followersCount: number;
+        followingCount: number;
+      })
+    : null;
+
+  /** 현재 로그인 유저가 이 프로필의 주인인지 (서버 사이드 판별) */
+  const isOwner = !!meUser && meUser.id === profile.id;
+
+  // 피처드 글 목록 — featuredPostIds 가 있을 때만 API 호출
+  const featuredPosts: FeaturedPostItem[] =
+    (profile.featuredPostIds?.length ?? 0) > 0
+      ? await fetchFeaturedPosts(decoded)
+      : [];
+
+  const avatarUrl = resolveAvatarUrl(profile);
 
   // ProfilePage JSON-LD 스키마 (schema.org)
   const jsonLd = {
@@ -234,48 +257,75 @@ export default async function UserProfilePage({
         </div>
       </div>
 
-      {/* ── [6.4] 보유 뱃지 row (비회원 열람 가능, 보유 뱃지만 표시 — AC#5, AC#7) ── */}
-      {userBadges.length > 0 && (
-        <div className={styles.badgeRow}>
-          <ul className={styles.badgeList} aria-label={`${profile.nickname} 님의 보유 뱃지`}>
-            {userBadges.map((badge) => (
-              <li key={badge.badgeSlug} className={styles.badgeItem} title={badge.badgeName}>
-                {badge.iconUrl ? (
-                  <img
-                    src={badge.iconUrl}
-                    alt={badge.badgeName}
-                    className={styles.badgeIcon}
-                    width={32}
-                    height={32}
-                  />
-                ) : (
-                  <span className={styles.badgeIconFallback} aria-label={badge.badgeName}>
-                    <Icon name="award-line" />
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {/* ── [6.4] END ── */}
-
-      {/* ── 본문: 작성 글 목록 (Epic 3~4에서 집계 채워짐) ── */}
+      {/* ── 본문: 작성 글 목록 + 오너 전용 노출 설정 패널 ── */}
       <div className={styles.contentWrap}>
-        <section aria-label={`${profile.nickname} 님의 작성 글`}>
-          <h2 className={styles.sectionTitle}>
-            <Icon name="article-line" />
-            작성 글
-            <span className={styles.sectionCount}>0</span>
-          </h2>
+        <div className={styles.contentLayout}>
+          {/* ── 왼쪽: 피처드 글 목록 ── */}
+          <section className={styles.mainContent} aria-label={`${profile.nickname} 님의 작성 글`}>
+            <h2 className={styles.sectionTitle}>
+              <Icon name="article-line" />
+              작성 글
+              <span className={styles.sectionCount}>{featuredPosts.length}</span>
+            </h2>
 
-          {/* 작성 글 목록: Epic 3~4에서 실데이터로 교체 */}
-          <EmptyState
-            icon="quill-pen-line"
-            title="아직 공개된 작성물이 없어요"
-            description="이 멤버가 작성한 글이 공개되면 여기에 표시됩니다."
-          />
-        </section>
+            {featuredPosts.length > 0 ? (
+              <ul className={styles.postList}>
+                {featuredPosts.map((post) => (
+                  <li key={post.id} className={styles.postItem}>
+                    <div className={styles.postTop}>
+                      <Badge variant="outline" className={styles.boardBadge}>
+                        {post.boardLabel}
+                      </Badge>
+                    </div>
+                    <Link
+                      href={(() => {
+                        const meta = BOARDS[post.board];
+                        const base = meta ? meta.urlPath.split("?")[0] : `/${post.board}`;
+                        return `${base}/${post.slug}`;
+                      })()}
+                      className={styles.postTitle}
+                    >
+                      {post.title}
+                    </Link>
+                    {post.excerpt && (
+                      <p className={styles.postExcerpt}>{post.excerpt}</p>
+                    )}
+                    <div className={styles.postFooter}>
+                      <span className={styles.postDate}>
+                        {new Date(post.createdAt).toLocaleDateString("ko-KR", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
+                      </span>
+                      <span className={styles.postStats}>
+                        <span>
+                          <Icon name="eye-line" />
+                          {post.viewCount.toLocaleString()}
+                        </span>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                icon="quill-pen-line"
+                title="아직 공개된 작성물이 없어요"
+                description={
+                  isOwner
+                    ? "오른쪽 패널에서 소개할 글을 선택해 주세요."
+                    : "이 멤버가 선택한 글이 공개되면 여기에 표시됩니다."
+                }
+              />
+            )}
+          </section>
+
+          {/* ── 오른쪽: 오너 전용 노출 글 선택 패널 ── */}
+          {isOwner && (
+            <FeaturedPostsPanel initialFeaturedIds={profile.featuredPostIds ?? []} />
+          )}
+        </div>
       </div>
     </main>
   );

@@ -3,6 +3,7 @@ export const revalidate = 60;
 
 import Link from "next/link";
 import type { Metadata } from "next";
+import { BOARDS } from "@ai-jakdang/contracts";
 import { Badge, Card, CardDesc, CardHead, CardMeta, CardTitle, Icon, Tag, EmptyState } from "@/components/ui";
 import { RankingWidget } from "@/features/gamification/RankingWidget";
 import {
@@ -88,6 +89,24 @@ function HomeJsonLd() {
       />
     </>
   );
+}
+
+// ── 게시글 상세 URL 빌더 ──────────────────────────────────────────────────────
+// board 슬러그로 BOARDS 상수를 찾고, urlPath 에서 쿼리스트링을 제거한 뒤
+// slug 를 붙인다. BOARDS 에 없는 게시판(예: "free")은 category/board/slug 폴백.
+function getPostDetailHref(
+  board: string,
+  slug: string,
+  category?: string | null,
+): string {
+  const boardMeta = BOARDS[board];
+  if (boardMeta) {
+    // urlPath 가 "/vibe-coding?board=vibe-coding-tips" 형태일 수 있으므로 쿼리 제거
+    const baseUrl = boardMeta.urlPath.split("?")[0];
+    return `${baseUrl}/${slug}`;
+  }
+  // 알 수 없는 게시판 → /{category}/{board}/{slug} 제너릭 라우트
+  return `/${category ?? board}/${board}/${slug}`;
 }
 
 // ── 탭 정의 ────────────────────────────────────────────────────────────────────
@@ -229,7 +248,7 @@ export default async function HomePage({
               {popularPosts.map((post, index) => (
                 <Link
                   key={post.id}
-                  href={`/${post.board}/${post.id}`}
+                  href={getPostDetailHref(post.board, post.slug, post.category)}
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
                   <Card
@@ -417,7 +436,7 @@ export default async function HomePage({
               {monetizationPosts.map((post, index) => (
                 <Link
                   key={post.id}
-                  href={`/${post.board}/${post.id}`}
+                  href={getPostDetailHref(post.board, post.slug, post.category)}
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
                   <Card
@@ -497,7 +516,7 @@ export default async function HomePage({
               {loungePosts.map((item) => (
                 <Link
                   key={item.id}
-                  href={`/lounge/${item.board}/${item.id}`}
+                  href={getPostDetailHref(item.board, item.slug, item.category)}
                   className={styles.creativeCard}
                 >
                   {/* 실제 API 데이터에는 thumbnail_url이 없어 텍스트 카드로 렌더링 */}

@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero } from "@/components/board";
+import { AttachmentList, BoardHero, RecentViewedTracker } from "@/components/board";
 import styles from "../mcp-skills.module.css";
 
 type ResourceType = "skill" | "mcp";
@@ -243,6 +243,12 @@ export default async function McpSkillsDetailPage({
 
   return (
     <main id="main" className={styles.page}>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/resources/mcp-skills/${slug}`}
+        board="MCP·Skills"
+        title={resource.title}
+      />
       <BoardHero menu="resources" currentSub="MCP·Skills" />
 
       <div className={styles.detailLayout}>

@@ -14,8 +14,40 @@ import { Image } from "@tiptap/extension-image";
 import { Highlight } from "@tiptap/extension-highlight";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import { TextAlign } from "@tiptap/extension-text-align";
+import { Youtube } from "@tiptap/extension-youtube";
+import { Extension } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { sanitizeHtml } from "./sanitize.js";
+
+/**
+ * FontSize 서버 사이드 렌더 확장.
+ * 클라이언트의 apps/web/features/editor/extensions/FontSize.ts 와 동일한 renderHTML 로직.
+ * generateHTML 이 font-size 를 span[style] 로 출력하기 위해 필요하다.
+ */
+const FontSizeRenderer = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            // 서버 렌더(generateHTML)에서는 parseHTML 이 호출되지 않지만 타입 정합을 위해 유지.
+            // API tsconfig 에는 DOM lib 가 없으므로 HTMLElement 대신 구조적 타입을 쓴다.
+            parseHTML: (element: { style?: { fontSize?: string } }) =>
+              element.style?.fontSize?.replace(/['"]+/g, "") || null,
+            renderHTML: (attributes: Record<string, unknown>) => {
+              if (!attributes["fontSize"]) return {};
+              return { style: `font-size: ${attributes["fontSize"]}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
 
 /**
  * FULL_ALLOWED_NODES 에 대응하는 Tiptap 확장 목록.
@@ -29,6 +61,12 @@ const EXTENSIONS = [
   Highlight.configure({ multicolor: true }),
   TextStyle,
   Color,
+  // 폰트 크기 — font-size 인라인 스타일 렌더
+  FontSizeRenderer,
+  // 좌/가운데/우 정렬 — text-align style 로 렌더
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
+  // 동영상 — YouTube iframe 으로 렌더 (sanitize 에서 youtube 도메인만 허용)
+  Youtube.configure({ nocookie: true }),
 ];
 
 /**

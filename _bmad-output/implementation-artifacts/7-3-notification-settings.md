@@ -1,6 +1,10 @@
 # Story 7.3: 알림 설정 (`/settings/notifications`)
 
-Status: ready-for-dev
+---
+baseline_commit: d88898e
+---
+
+Status: review
 
 ## Story
 
@@ -20,17 +24,17 @@ so that 관심 없는 알림은 끄고 중요한 것만 받는다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: API 엔드포인트 구현 (AC: #1, #3, #5)
-  - [ ] `apps/api/src/routes/v1/notifications/routes.ts` (UPDATE — Story 7.2에서 생성):
+- [x] Task 1: API 엔드포인트 구현 (AC: #1, #3, #5)
+  - [x] `apps/api/src/routes/v1/notifications/routes.ts` (UPDATE — Story 7.2에서 생성):
     - `GET /settings`: 인증 필수 → `notificationSettings` WHERE `user_id=?` → 없으면 기본값 반환(all true) → `notificationSettingsSchema` 응답
     - `PATCH /settings`: 인증 필수 → `updateNotificationSettingsSchema` 검증(partial, 단 `sanction.applied`는 서버에서 강제 `true` 덮어쓰기) → upsert → 200 응답
-  - [ ] `apps/api/src/routes/v1/notifications/service.ts` (UPDATE):
+  - [x] `apps/api/src/routes/v1/notifications/service.ts` (UPDATE):
     - `getSettings(userId)`: 조회 + 없으면 기본값 반환
     - `updateSettings(userId, patch)`: upsert, `sanction.applied` 강제 true
-  - [ ] Zod 스키마 (이미 Story 7.1에서 정의): `updateNotificationSettingsSchema = z.object({ settings: notificationSettingsSchema.partial() })`
+  - [x] Zod 스키마 (이미 Story 7.1에서 정의): `updateNotificationSettingsSchema = z.object({ settings: notificationSettingsSchema.partial() })`
 
-- [ ] Task 2: 기존 `NotificationsForm` 교체 (AC: #1, #2, #3, #6)
-  - [ ] `apps/web/app/settings/notifications/NotificationsForm.tsx` (UPDATE):
+- [x] Task 2: 기존 `NotificationsForm` 교체 (AC: #1, #2, #3, #6)
+  - [x] `apps/web/app/settings/notifications/NotificationsForm.tsx` (UPDATE):
     - 현재: 5종 목업, `DEFAULT_STATE` 하드코딩, `handleSubmit`에 `alert()` — 전부 교체
     - 마운트 시 `GET /api/v1/notifications/settings` 호출 → `prefs` state 초기화
     - `prefs` loading 중: Switch 비활성 + Skeleton 또는 `Spinner` 표시
@@ -40,17 +44,17 @@ so that 관심 없는 알림은 끄고 중요한 것만 받는다.
     - 저장 버튼 제거 (자동저장 UX) — 취소 링크도 제거 또는 [마이페이지로] 링크로 변경
     - **보존**: `shell.form`, `styles.list`, `styles.item`, `styles.itemText`, `styles.itemTitle`, `styles.itemDesc`, `Switch` 컴포넌트 사용 패턴 — UI 계약 불변
 
-- [ ] Task 3: page.tsx 보완 (AC: #1)
-  - [ ] `apps/web/app/settings/notifications/page.tsx` (UPDATE):
+- [x] Task 3: page.tsx 보완 (AC: #1)
+  - [x] `apps/web/app/settings/notifications/page.tsx` (UPDATE):
     - 현재: 정적 metadata(title, description) + `NotificationsForm` 렌더 — 구조 보존
     - `generateMetadata` 또는 기존 metadata export에 `robots: { index: false }` 추가 (settings는 로그인 전용 noindex)
     - 서버 컴포넌트에서 인증 체크 추가: 미인증 → `redirect('/login?redirectTo=/settings/notifications')`
     - **보존**: `shell.page`, `shell.wrap`, `shell.card`, `shell.head`, 링크 구조 — 기존 레이아웃 완전 보존
 
-- [ ] Task 4: 통합 검증 (AC: #4)
-  - [ ] Story 7.1의 `publishNotification`이 settings.type이 false일 때 Redis PUBLISH를 실제 생략하는지 단위 테스트 확인
-  - [ ] `pnpm typecheck` 전 워크스페이스 통과
-  - [ ] 수동 검증: 토글 off → Epic 2~6 이벤트(목업으로 직접 publishNotification 호출) → SSE 수신 없음 확인
+- [x] Task 4: 통합 검증 (AC: #4)
+  - [x] Story 7.1의 `publishNotification`이 settings.type이 false일 때 Redis PUBLISH를 실제 생략하는지 단위 테스트 확인 (4/4 통과)
+  - [x] `pnpm typecheck` 전 워크스페이스 통과
+  - [x] 수동 검증: 토글 off → Epic 2~6 이벤트(목업으로 직접 publishNotification 호출) → SSE 수신 없음 확인 (단위 테스트로 대체 검증)
 
 ## Dev Notes
 
@@ -148,9 +152,24 @@ async function toggle(key: NotificationKey) {
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `DEFAULT_NOTIFICATION_SETTINGS`가 `@ai-jakdang/database` 최상위에서 직접 export되지 않아 service.ts에 로컬 상수로 재정의함 (schema/index.ts의 `export *`는 `export * as schema` 구조로 wrapping돼 직접 임포트 불가).
+- `NotificationsForm.tsx`에서 `<form>`을 `<div>`로 변경하여 저장 버튼 없는 자동저장 UX 구현. `shell.actions` 클래스는 "마이페이지로" back 링크 배치에 재활용.
 
 ### Completion Notes List
+- **Task 1** (`apps/api`): `service.ts`에 `getSettings(userId)` / `updateSettings(userId, patch)` 추가. `getSettings`는 레코드 없으면 기본값 7종 all true 반환(DB insert 없이). `updateSettings`는 `onConflictDoUpdate` upsert + `sanction.applied` 강제 true 덮어씌움. `routes.ts`에 `GET /settings` · `PATCH /settings` 추가 — 기존 4개 라우트 보존.
+- **Task 2** (`apps/web`): `NotificationsForm.tsx`를 5종 목업에서 7종 실API 연동으로 전면 교체. 마운트 시 GET 호출 → 로딩 중 Switch disabled → 낙관적 업데이트 → 실패 시 롤백 + danger 토스트. 기존 `styles.list` / `styles.item` / `Switch` 패턴 완전 보존.
+- **Task 3** (`apps/web`): `page.tsx`에 `robots: { index: false, follow: false }` 추가 + 서버 쿠키 기반 인증 게이팅(`redirect('/login?redirectTo=/settings/notifications')`). 기존 레이아웃 셸 완전 보존.
+- **Task 4**: `pnpm typecheck` 전체 워크스페이스 통과. `routes.test.ts` 19개 테스트 통과(기존 9개 + 신규 10개). `notifications.test.ts` 4개 통과(AC #4 검증).
 
 ### File List
+- `apps/api/src/routes/v1/notifications/routes.ts` — GET /settings, PATCH /settings 추가
+- `apps/api/src/routes/v1/notifications/service.ts` — getSettings, updateSettings 추가
+- `apps/api/src/routes/v1/notifications/routes.test.ts` — Story 7.3 테스트 추가
+- `apps/web/app/settings/notifications/NotificationsForm.tsx` — 전면 교체 (7종 실API 연동)
+- `apps/web/app/settings/notifications/page.tsx` — robots noindex, 인증 게이팅 추가
+
+### Change Log
+- 2026-06-24: Story 7.3 구현 완료 — API 설정 엔드포인트(GET/PATCH /settings), NotificationsForm 7종 실연동, page.tsx noindex+인증 게이팅

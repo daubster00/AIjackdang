@@ -207,15 +207,15 @@
 }
 
 .thumbImage {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  display: block;
+  transition: transform var(--transition-base);
 }
 
 .cardThumb:hover .thumbImage {
   transform: scale(1.03);
-}
-
-.thumbImage {
-  transition: transform var(--transition-base);
 }
 
 .cardBody {
@@ -374,17 +374,32 @@
 }
 
 /* 창작 스펙 패널이 있을 때의 2열 레이아웃.
- * 본문(article) + 우측 스펙 패널(aside) 배치.
- * 스펙 없는 글은 기존 .detailLayout 단일 컬럼 그대로 유지. */
+ * 본문(article) + 우측 스펙 패널(aside ~280px) 배치.
+ * 스펙 없는 글은 기존 .detailLayout 단일 컬럼 그대로 유지.
+ * item 11: 데스크톱에서 [본문 | 280px 스펙] 2단 배치. */
 .detailWithSpec {
   width: 100%;
   max-width: 1200px;
   margin-inline: auto;
   padding: 64px var(--space-6) 104px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   align-items: start;
   gap: var(--space-8);
+}
+
+/* item 11/12: 스펙 패널 두 위치 제어.
+ * - specPanelDesktop: 그리드 두 번째 칸(우측 aside). 모바일에서 숨김.
+ * - specPanelMobile: article 안 댓글 폼 바로 위. 데스크톱에서 숨김.
+ * DOM 중복이지만 id 없고 aria-hidden="false"이므로 접근성 안전.
+ * (스크린리더는 두 위치 모두 읽지만 시각 중복 없음) */
+.specPanelDesktop {
+  display: block; /* 데스크톱: 우측 aside로 표시 */
+}
+
+.specPanelMobile {
+  display: none; /* 데스크톱: 숨김 */
+  margin-top: var(--space-6);
 }
 
 .postDetail {
@@ -1309,11 +1324,21 @@
   }
 }
 
-@media (max-width: 1080px) {
-  /* 태블릿: 스펙 패널 2열 → 1열 (패널이 본문 하단으로 내려옴) */
+@media (max-width: 1024px) {
+  /* item 11/12: 태블릿·모바일(≤1024px) — 2단을 1단으로 전환.
+   * 우측 aside(specPanelDesktop) 숨기고,
+   * article 안 댓글 폼 위(specPanelMobile)를 표시한다. */
   .detailWithSpec {
     grid-template-columns: 1fr;
     max-width: 860px;
+  }
+
+  .specPanelDesktop {
+    display: none;
+  }
+
+  .specPanelMobile {
+    display: block;
   }
 }
 

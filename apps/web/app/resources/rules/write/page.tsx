@@ -1,12 +1,27 @@
 /**
- * /resources/rules/write → /resources/new 리다이렉트 (Story 4.4)
+ * /resources/rules/write — Rules·설정 자료 등록 페이지
  *
- * 단일 7-Step 등록 폼(/resources/new)으로 통합됨.
- * 기존 링크 유입 시 깨진 링크 없이 새 등록 폼으로 이동한다.
+ * 게시판별 고정 유형 등록: resourceType="rules-config" 고정 전달.
+ * 유형 선택 UI는 ResourceWriteForm 내부에서 숨긴다.
  */
 
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { BoardHero } from "@/components/board";
+import { ResourceWriteGate } from "../../new/ResourceWriteGate";
+import styles from "../../new/resource-new.module.css";
 
-export default function RulesWriteRedirect() {
-  redirect("/resources/new");
+export const metadata: Metadata = {
+  title: "Rules·설정 자료 등록 — AI작당",
+  description: "Rules·설정 자료를 한 화면에서 작성해 등록하세요.",
+};
+
+export default function RulesWritePage() {
+  return (
+    <main id="main" className={styles.page}>
+      <BoardHero menu="resources" currentSub="자료 등록" />
+      <div className={styles.layout}>
+        <ResourceWriteGate fixedResourceType="rules-config" />
+      </div>
+    </main>
+  );
 }

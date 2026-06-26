@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/cn";
 import { Icon } from "../Icon";
 import styles from "./Toast.module.css";
 
@@ -34,13 +33,6 @@ interface ToastContextValue {
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
-
-const TONE_ICON: Record<ToastTone, string> = {
-  success: "checkbox-circle-line",
-  warning: "alert-line",
-  danger: "error-warning-line",
-  info: "information-line",
-};
 
 /** 토스트 컨텍스트. 앱 루트에서 한 번 감싼다. */
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -66,11 +58,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {mounted &&
+        toasts.length > 0 &&
         createPortal(
-          <div className={styles.stack} role="region" aria-label="알림">
-            {toasts.map((item) => (
-              <ToastView key={item.id} item={item} onClose={() => remove(item.id)} />
-            ))}
+          // 모든 알림은 반투명 검은 배경막(overlay) 위에 띄운다. 배경 클릭 시 모두 닫힌다.
+          <div className={styles.overlay} onClick={() => setToasts([])}>
+            <div
+              className={styles.stack}
+              role="region"
+              aria-label="알림"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {toasts.map((item) => (
+                <ToastView key={item.id} item={item} onClose={() => remove(item.id)} />
+              ))}
+            </div>
           </div>,
           document.body,
         )}
@@ -85,18 +86,32 @@ function ToastView({ item, onClose }: { item: ToastItem; onClose: () => void }) 
     return () => clearTimeout(timer);
   }, [item.duration, onClose]);
 
-  const tone = item.tone ?? "info";
-
   return (
-    <div className={cn(styles.toast, styles[tone])} role="status">
-      <Icon name={TONE_ICON[tone]} className={styles.icon} />
-      <div className={styles.content}>
-        <strong>{item.title}</strong>
-        {item.description && <span>{item.description}</span>}
-      </div>
+    <div className={styles.toast} role="status">
+      {/* X 닫기 버튼 — 우상단 절대 배치 */}
       <button type="button" className={styles.close} aria-label="알림 닫기" onClick={onClose}>
         <Icon name="close-line" />
       </button>
+
+      {/* 제목 — 왼쪽 정렬 */}
+      <strong className={styles.title}>{item.title}</strong>
+
+      {/* 설명 — 가운데 정렬 (선택) */}
+      {item.description && (
+        <p className={styles.description}>{item.description}</p>
+      )}
+
+      {/* 확인 버튼 — 항상 표시, 클릭 시 닫힘 */}
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.confirmBtn}
+          aria-label="알림 확인 후 닫기"
+          onClick={onClose}
+        >
+          확인
+        </button>
+      </div>
     </div>
   );
 }

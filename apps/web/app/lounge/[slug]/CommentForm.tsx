@@ -51,6 +51,7 @@ export function CommentForm({
     try {
       const res = await fetch("/api/v1/comments", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetType, targetId, content: value.trim(), parentId }),
       });
@@ -109,6 +110,7 @@ export function CommentForm({
           </button>
         )}
         <Button
+          type="submit"
           leftIcon={<Icon name="chat-3-line" />}
           disabled={submitting || value.trim().length === 0}
         >

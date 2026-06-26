@@ -58,8 +58,15 @@ export function GigDetailClient({ post }: Props) {
   // 작성자 본인 여부: API isOwner 필드
   const isOwner = post.isOwner;
 
+  // 자기 자신 여부 — 게시글 작성자가 본인이면 쪽지 불가
+  const isSelf = isOwner;
+
   function handleDmClick() {
     if (!requireAuth("message")) return;
+    if (isSelf) {
+      toast({ tone: "warning", title: "자기 자신에게는 쪽지를 보낼 수 없습니다." });
+      return;
+    }
     setDmOpen(true);
   }
 
@@ -214,9 +221,9 @@ export function GigDetailClient({ post }: Props) {
           <h2>{post.title}</h2>
           <div className={styles.detailMeta}>
             <span>
-              <Avatar name={post.authorNickname ?? "익명"} size="sm" />
+              <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
             </span>
-            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} />
+            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.authorId ?? undefined} />
             <span>{new Date(post.createdAt).toLocaleDateString("ko-KR")}</span>
             <span>조회 {post.viewCount}</span>
             <span>댓글 {post.commentCount}</span>

@@ -1,27 +1,24 @@
 "use client";
 
 /**
- * 질문 상세 클라이언트 컴포넌트 — Story 3.5
+ * 질문 상세 클라이언트 컴포넌트 — Story 3.5 / 수정요청 반영
  *
- * SSR 서버 컴포넌트(page.tsx)에서 낙관적 상태 변경이 필요한 부분을 위임받는다.
+ * 상단(헤더)에서는 상태 배지와 [해결됨으로 표시] 액션만 소유한다.
+ * 질문자의 [수정]·[삭제] 버튼은 다른 게시판과 동일한 위치(하단 footer)로 옮겼다
+ *   → QuestionFooterOwnerActions 가 담당.
  *
- * 이 컴포넌트 하나가 상태를 소유하고 두 가지를 렌더한다:
- *   1. 상태 배지 (detailTopRow 내부 — QuestionStatusBadge)
- *   2. 질문자 액션 버튼 (QuestionOwnerActions, isAsker=true 시만)
- *
- * isResolved가 변하면 배지와 [해결됨으로 표시] 버튼 모두 반영된다.
+ * isResolved 상태를 이 컴포넌트가 소유하여 배지와 [해결됨으로 표시] 버튼을 함께 반영한다.
  */
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { QuestionStatusBadge } from "@/components/qna/QuestionStatusBadge";
 import type { QuestionDerivedStatus } from "@/components/qna/QuestionStatusBadge";
-import { Tag } from "@/components/ui";
-import { QuestionOwnerActions } from "./QuestionOwnerActions";
+import { Icon, Tag } from "@/components/ui";
 import styles from "../questions.module.css";
 
 interface QuestionDetailClientProps {
   questionId: string;
-  questionSlug: string;
   initialDerivedStatus: QuestionDerivedStatus;
   isResolved: boolean;
   isAsker: boolean;
@@ -30,18 +27,33 @@ interface QuestionDetailClientProps {
 
 export function QuestionDetailClient({
   questionId,
-  questionSlug,
   initialDerivedStatus,
   isResolved: initialIsResolved,
   isAsker,
   tags,
 }: QuestionDetailClientProps) {
+  const router = useRouter();
   const [derivedStatus, setDerivedStatus] = useState<QuestionDerivedStatus>(initialDerivedStatus);
   const [isResolved, setIsResolved] = useState(initialIsResolved);
+  const [resolving, setResolving] = useState(false);
 
-  function handleResolved() {
+  async function handleResolve() {
+    if (resolving || isResolved) return;
+    setResolving(true);
+    // 낙관적 UI 선반영
     setDerivedStatus("resolved");
     setIsResolved(true);
+    try {
+      const res = await fetch(`/api/v1/qna/questions/${questionId}/resolve`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) router.refresh();
+    } catch {
+      router.refresh();
+    } finally {
+      setResolving(false);
+    }
   }
 
   return (
@@ -60,14 +72,19 @@ export function QuestionDetailClient({
         </div>
       </div>
 
-      {/* ── 질문자 액션 버튼 (수정·삭제·해결됨) — isAsker=true 시만 렌더 ── */}
-      {isAsker && (
-        <QuestionOwnerActions
-          questionId={questionId}
-          questionSlug={questionSlug}
-          isResolved={isResolved}
-          onResolved={handleResolved}
-        />
+      {/* ── [해결됨으로 표시] — 질문자이며 아직 미해결일 때만 ── */}
+      {isAsker && !isResolved && (
+        <div className={styles.resolveActionRow}>
+          <button
+            type="button"
+            className={styles.ownerResolveBtn}
+            onClick={handleResolve}
+            disabled={resolving}
+          >
+            <Icon name="checkbox-circle-line" />
+            {resolving ? "처리 중..." : "해결됨으로 표시"}
+          </button>
+        </div>
       )}
     </>
   );

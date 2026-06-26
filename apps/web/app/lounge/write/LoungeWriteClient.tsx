@@ -5,7 +5,6 @@ import type { PostWriteFormConfig } from "@/components/board";
 import { PostWriteForm } from "@/components/board";
 import type { CreativeSpec } from "@ai-jakdang/contracts";
 import { CreativeSpecFields } from "./CreativeSpecFields";
-import specStyles from "./write.module.css";
 
 /** 정적 config (서버 컴포넌트에서 넘겨줄 값) */
 const config: PostWriteFormConfig = {
@@ -29,6 +28,8 @@ const config: PostWriteFormConfig = {
 /**
  * AI 창작마당 글쓰기 — 클라이언트 컴포넌트 래퍼.
  * Story 2.11: CreativeSpecFields에서 수집한 spec을 PostWriteForm에 주입.
+ * item 13: CreativeSpecFields를 PostWriteForm 카드 안 afterAttachment 슬롯에 주입.
+ *   기존처럼 폼 바깥에 별도 카드로 렌더하지 않는다.
  */
 export function LoungeWriteClient() {
   const [creativeSpec, setCreativeSpec] = useState<CreativeSpec | null>(null);
@@ -39,10 +40,11 @@ export function LoungeWriteClient() {
   };
 
   return (
-    <div className={specStyles.writeContainer}>
-      <PostWriteForm config={configWithSpec} />
-      {/* AI 창작마당 전용 창작 스펙 입력 섹션 (선택) */}
-      <CreativeSpecFields onSpecChange={setCreativeSpec} />
-    </div>
+    <PostWriteForm
+      config={configWithSpec}
+      afterAttachment={
+        <CreativeSpecFields onSpecChange={setCreativeSpec} />
+      }
+    />
   );
 }

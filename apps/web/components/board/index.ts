@@ -7,5 +7,7 @@ export * from "./CodeBlockCopyButton";
 export * from "./DeleteButton";
 export * from "./LightEditor";
 export * from "./PostWriteForm";
+export * from "./RecentViewedPanel";
+export * from "./RecentViewedTracker";
 export * from "./SearchAutocomplete";
 export * from "./heroConfig";

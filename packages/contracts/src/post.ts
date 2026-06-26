@@ -146,6 +146,10 @@ export const postCardSchema = z.object({
   isPinned: z.boolean(),
   tags: z.array(z.string()),
   recruitMeta: recruitMetaSchema.nullable().optional(),
+  /** 게시글 작성자 ID. 탈퇴 회원은 null. 쪽지·팔로우 대상 식별용. */
+  userId: z.string().nullable(),
+  /** 본문 첫 번째 이미지 URL (thumbnail_url 컬럼). 이미지 없는 글은 null. */
+  thumbnailUrl: z.string().nullable().optional(),
 });
 export type PostCard = z.infer<typeof postCardSchema>;
 

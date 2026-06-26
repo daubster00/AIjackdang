@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import styles from "./BoardHero.module.css";
-import { boardHeroes, mainMenus, type BoardHeroKey } from "./heroConfig";
+import { boardHeroes, mainMenus, resolveHeroKey, type BoardHeroKey } from "./heroConfig";
 
 type BoardHeroProps = {
   /** 어느 대메뉴의 히어로를 불러올지 (예: "vibe-coding") */
@@ -22,7 +22,9 @@ type BoardHeroProps = {
  * 같은 대메뉴라면 모든 페이지에서 완전히 동일하게 렌더된다.
  */
 export function BoardHero({ menu, currentSub, titleAs: TitleTag = "h1" }: BoardHeroProps) {
-  const config = boardHeroes[menu];
+  // menu 가 boardHeroes 에 없는 값(예: BOARDS.category "ai-automation")으로 들어오면
+  // config 가 undefined 가 되어 크래시했다(item6). resolveHeroKey 로 항상 유효 키로 정규화한다.
+  const config = boardHeroes[menu] ?? boardHeroes[resolveHeroKey(menu as string)];
   // 배경 미디어가 영상(.mp4)이면 자동재생 video로, 이미지면 img로 렌더한다.
   const isVideo = config.media.endsWith(".mp4");
 

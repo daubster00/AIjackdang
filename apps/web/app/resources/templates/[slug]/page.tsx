@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero } from "@/components/board";
+import { AttachmentList, BoardHero, RecentViewedTracker } from "@/components/board";
 import styles from "../templates.module.css";
 
 type ResourceType = "template" | "checklist";
@@ -236,6 +236,12 @@ export default async function TemplatesDetailPage({
 
   return (
     <main id="main" className={styles.page}>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/resources/templates/${slug}`}
+        board="템플릿·체크리스트"
+        title={resource.title}
+      />
       <BoardHero menu="resources" currentSub="템플릿·체크리스트" />
 
       <div className={styles.detailLayout}>

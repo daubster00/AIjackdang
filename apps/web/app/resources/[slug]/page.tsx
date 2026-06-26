@@ -17,9 +17,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
-import { BoardHero } from "@/components/board";
+import { BoardHero, RecentViewedTracker } from "@/components/board";
 import { ResourceDetailClient } from "./ResourceDetailClient";
 import { ResourceOwnerActions } from "./ResourceOwnerActions";
+import { ReactionBar } from "./ReactionBar";
 import styles from "./resource-detail.module.css";
 import type { ResourceFile } from "./ResourceDetailClient";
 import { getDefaultAvatarUrl } from "@ai-jakdang/core";
@@ -68,6 +69,18 @@ interface ResourceDetailResponse {
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+
+/** resourceType → 해당 유형 목록 페이지 URL */
+function typeToListUrl(resourceType: ResourceType): string {
+  const map: Record<ResourceType, string> = {
+    prompt: "/resources/prompts",
+    "claude-code-skill": "/resources/mcp-skills",
+    mcp: "/resources/mcp-skills",
+    "rules-config": "/resources/rules",
+    "template-checklist": "/resources/templates",
+  };
+  return map[resourceType] ?? "/resources/prompts";
+}
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://aijakdang.com").replace(/\/$/, "");
 
 /** resourceType별 JSON-LD 타입 매핑 */
@@ -232,6 +245,12 @@ export default async function ResourceDetailPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/resources/${resource.slug}`}
+        board={typeMeta.label}
+        title={resource.title}
+      />
 
       <BoardHero menu="resources" currentSub={typeMeta.label} />
 
@@ -350,6 +369,14 @@ export default async function ResourceDetailPage({ params }: PageProps) {
                 ))}
               </div>
             )}
+
+            {/* ── ⑨ 좋아요·북마크·공유·신고 — ReactionBar */}
+            <ReactionBar
+              likes={0}
+              bookmarks={0}
+              resourceId={resource.id}
+              authorId={resource.authorId}
+            />
           </section>
 
           {/* ── ② 다운로드 영역 + ⑦ 평점 + ⑧⑨ Epic5 슬롯 (클라이언트) ── */}
@@ -365,7 +392,7 @@ export default async function ResourceDetailPage({ params }: PageProps) {
 
           {/* ── ⑩ 하단 푸터: 목록으로 (left) · 수정/삭제 (right, 소유자만) ── */}
           <footer className={styles.detailFooter}>
-            <Link href="/resources" className={styles.listButton}>
+            <Link href={typeToListUrl(resource.resourceType)} className={styles.listButton}>
               <Icon name="list-check" />
               목록으로
             </Link>
@@ -373,6 +400,7 @@ export default async function ResourceDetailPage({ params }: PageProps) {
               <ResourceOwnerActions
                 resourceId={resource.id}
                 resourceSlug={resource.slug}
+                resourceType={resource.resourceType}
               />
             )}
           </footer>

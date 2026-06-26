@@ -71,6 +71,10 @@ export {
   rankingComputeJobSchema,
   // ── [6.6] ──
   meResponseSchema,
+  // ── [수정요청 G] 포인트 내역·등급 안내 ──
+  pointsHistoryItemSchema,
+  pointsHistoryResponseSchema,
+  gradesListResponseSchema,
 } from "./gamification";
 export type {
   Grade,
@@ -88,4 +92,8 @@ export type {
   RankingComputeJobPayload,
   // ── [6.6] ──
   MeResponse,
+  // ── [수정요청 G] ──
+  PointsHistoryItem,
+  PointsHistoryResponse,
+  GradesListResponse,
 } from "./gamification";

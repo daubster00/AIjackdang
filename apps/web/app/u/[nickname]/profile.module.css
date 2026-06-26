@@ -248,7 +248,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   본문 콘텐츠 (작성 글 목록)
+   본문 콘텐츠 (작성 글 목록 + 오너 패널)
    ══════════════════════════════════════════════════════════ */
 
 .contentWrap {
@@ -256,6 +256,18 @@
   max-width: var(--container-max);
   margin-inline: auto;
   padding: var(--space-7) var(--space-6) 96px;
+}
+
+/* 왼쪽 글 목록 + 오른쪽 280px 패널 수평 레이아웃 */
+.contentLayout {
+  display: flex;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+.mainContent {
+  flex: 1;
+  min-width: 0;
 }
 
 /* .page h2 { margin: 0 } 리셋(specificity 0,1,1)을 이기도록 .page 를 함께 지정 */
@@ -413,46 +425,9 @@
     width: 100%;
     padding-top: 0;
   }
-}
 
-/* ══════════════════════════════════════════════════════════
-   [6.4] 보유 뱃지 row
-   ══════════════════════════════════════════════════════════ */
-
-.badgeRow {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: var(--space-2) var(--space-6);
-}
-
-.badgeList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.badgeItem {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.badgeIcon {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  border-radius: var(--radius-sm);
-}
-
-.badgeIconFallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: var(--color-primary);
-  font-size: 20px;
+  /* 모바일: 패널을 본문 하단으로 */
+  .contentLayout {
+    flex-direction: column;
+  }
 }

@@ -100,7 +100,7 @@ export function buildSanitizeOptions(
     attrMap[tag] = merged;
   }
 
-  // span(textStyle/color) 에 style 허용 (tiptap 이 인라인 색상을 style 로 출력)
+  // span(textStyle/color/fontSize) 에 style 허용 (tiptap 이 인라인 색상·폰트크기를 style 로 출력)
   const hasTextStyle = nodes.some(
     (n) => n.type === "textStyle" || n.type === "color",
   );
@@ -108,9 +108,62 @@ export function buildSanitizeOptions(
     attrMap["span"] = ["style"];
   }
 
+  // textAlign: tiptap 이 문단·제목 정렬을 style="text-align:..." 로 출력하므로
+  // 해당 태그에 style 속성 + text-align 값(left/center/right/justify)만 허용한다.
+  const hasTextAlign = nodes.some((n) => n.attrs?.includes("textAlign"));
+  const allowedStyles: _sanitizeHtml.IOptions["allowedStyles"] = {};
+  if (hasTextAlign) {
+    for (const tag of ["p", "h2", "h3"]) {
+      attrMap[tag] = Array.from(new Set([...(attrMap[tag] ?? []), "style"]));
+      allowedStyles[tag] = { "text-align": [/^(left|center|right|justify)$/] };
+    }
+  }
+
+  // fontSize: TextStyle 확장이 font-size 를 span style 로 출력한다.
+  // 허용 크기: 10px ~ 40px (정수 픽셀값만 허용)
+  if (hasTextStyle) {
+    allowedStyles["span"] = {
+      // 색상: #hex / rgb(...) / rgba(...)
+      color: [/^(#[0-9a-fA-F]{3,8}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|rgba\(\d{1,3},\s*\d{1,3},\s*\d{1,3},\s*[\d.]+\))$/],
+      // 글자크기: 10px~40px 정수
+      "font-size": [/^([1-3]\d|40)px$/],
+    };
+  }
+
+  // youtube: 동영상은 iframe(+wrapper div) 으로 렌더된다.
+  // src 호스트는 allowedIframeHostnames 로 youtube 도메인만 허용해 XSS 를 막는다.
+  const hasYoutube = nodes.some((n) => n.type === "youtube");
+  if (hasYoutube) {
+    tagSet.add("iframe");
+    tagSet.add("div");
+    attrMap["iframe"] = [
+      "src",
+      "width",
+      "height",
+      "allow",
+      "allowfullscreen",
+      "frameborder",
+      "referrerpolicy",
+      "title",
+    ];
+    attrMap["div"] = Array.from(
+      new Set([...(attrMap["div"] ?? []), "data-youtube-video"]),
+    );
+  }
+
   return {
     allowedTags: Array.from(tagSet),
     allowedAttributes: attrMap,
+    ...((hasTextAlign || hasTextStyle) ? { allowedStyles } : {}),
+    ...(hasYoutube
+      ? {
+          allowedIframeHostnames: [
+            "www.youtube.com",
+            "youtube.com",
+            "www.youtube-nocookie.com",
+          ],
+        }
+      : {}),
     // code 태그 내 class="language-xxx" 만 허용 (정규식)
     allowedClasses: {
       code: [CODE_CLASS_PATTERN],
@@ -125,6 +178,14 @@ export function buildSanitizeOptions(
           lower.startsWith("vbscript:") ||
           lower.startsWith("data:")
         );
+      }
+      // iframe: allowedIframeHostnames 가 youtube 외 src 를 제거하면 src 없는 빈
+      // iframe 만 남는다. youtube src 가 없는 iframe 은 통째로 제거한다.
+      if (frame.tag === "iframe") {
+        const src = (frame.attribs?.["src"] ?? "").toLowerCase();
+        const isYoutube =
+          src.includes("youtube.com/") || src.includes("youtube-nocookie.com/");
+        return !isYoutube;
       }
       return false;
     },

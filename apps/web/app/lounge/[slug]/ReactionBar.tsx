@@ -84,7 +84,10 @@ export function ReactionBar({
 
   async function toggleLike() {
     if (!requireAuth("like")) return;
-    if (isSelf) return;
+    if (isSelf) {
+      toast({ tone: "warning", title: "내 글에는 좋아요를 누를 수 없습니다." });
+      return;
+    }
     const prevLiked = liked;
     const prevCount = likeCount;
     const prevReactionId = reactionId;
@@ -173,7 +176,6 @@ export function ReactionBar({
           onClick={() => void toggleLike()}
           aria-pressed={liked}
           aria-label={isSelf ? "내 글은 좋아요할 수 없습니다" : `좋아요 ${likeCount}개`}
-          disabled={isSelf}
         >
           <Icon name={liked ? "heart-3-fill" : "heart-3-line"} />
           좋아요 {likeCount}

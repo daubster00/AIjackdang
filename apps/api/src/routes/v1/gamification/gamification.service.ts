@@ -321,3 +321,111 @@ export async function getUserBadges(db: DbLike, userId: string): Promise<UserBad
 }
 
 // ── [6.4] END ─────────────────────────────────────────────────────────────────
+
+// ── [수정요청 G] 포인트 적립 내역 + 등급 안내 ──────────────────────────────────
+
+/** points_ledger.reason 코드 → 한국어 설명. 미정의 코드는 fallback 처리. */
+const REASON_LABELS: Record<string, string> = {
+  "post.created": "게시글 작성",
+  "answer.created": "답변 작성",
+  "comment.created": "댓글 작성",
+  "resource.created": "실전자료 등록",
+  "reaction.received": "좋아요 받음",
+  "download.given": "자료 다운로드 제공",
+};
+
+/** reason 코드를 사람이 읽는 라벨로 변환. '.revoked' 접미사는 '(회수)' 처리. */
+function labelForReason(reason: string): string {
+  const isRevoked = reason.endsWith(".revoked");
+  const base = isRevoked ? reason.slice(0, -".revoked".length) : reason;
+  const label = REASON_LABELS[base] ?? base;
+  return isRevoked ? `${label} (회수)` : label;
+}
+
+export interface PointsHistoryItemResult {
+  id: string;
+  delta: number;
+  reason: string;
+  reasonLabel: string;
+  createdAt: string;
+}
+
+export interface PointsHistoryResult {
+  totalPoints: number;
+  items: PointsHistoryItemResult[];
+  meta: { page: number; pageSize: number; totalItems: number; totalPages: number };
+}
+
+/**
+ * 사용자의 포인트 적립/회수 내역을 페이지네이션으로 반환한다.
+ * - 현재 누적 포인트(totalPoints) + 최신순 내역 페이지.
+ */
+export async function getPointsHistory(
+  db: DbLike,
+  userId: string,
+  page: number,
+  pageSize: number,
+): Promise<PointsHistoryResult> {
+  const [sumRows, countRows] = await Promise.all([
+    db
+      .select({ total: sql<number>`coalesce(cast(sum(${schema.pointsLedger.delta}) as int), 0)` })
+      .from(schema.pointsLedger)
+      .where(eq(schema.pointsLedger.userId, userId)),
+    db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(schema.pointsLedger)
+      .where(eq(schema.pointsLedger.userId, userId)),
+  ]);
+
+  const totalPoints = sumRows[0]?.total ?? 0;
+  const totalItems = countRows[0]?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  const rows = await db
+    .select({
+      id: schema.pointsLedger.id,
+      delta: schema.pointsLedger.delta,
+      reason: schema.pointsLedger.reason,
+      createdAt: schema.pointsLedger.createdAt,
+    })
+    .from(schema.pointsLedger)
+    .where(eq(schema.pointsLedger.userId, userId))
+    .orderBy(sql`${schema.pointsLedger.createdAt} desc`)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  return {
+    totalPoints,
+    items: rows.map((r: { id: string; delta: number; reason: string; createdAt: Date | string }) => ({
+      id: r.id,
+      delta: r.delta,
+      reason: r.reason,
+      reasonLabel: labelForReason(r.reason),
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    })),
+    meta: { page, pageSize, totalItems, totalPages },
+  };
+}
+
+export interface GradesListItem {
+  level: number;
+  name: string;
+  minPoints: number;
+  maxPoints: number | null;
+}
+
+/** 전체 등급 목록(레벨 오름차순). 등급 안내 페이지용. */
+export async function getGradesList(db: DbLike): Promise<{ items: GradesListItem[] }> {
+  const rows = await fetchGrades(db);
+  const items = rows
+    .map((g) => ({
+      level: g.level,
+      name: g.name,
+      minPoints: g.minPoints,
+      maxPoints: g.maxPoints,
+    }))
+    .sort((a, b) => a.level - b.level);
+  return { items };
+}
+
+// ── [수정요청 G] END ────────────────────────────────────────────────────────────

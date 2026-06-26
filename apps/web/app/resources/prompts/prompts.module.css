@@ -74,7 +74,7 @@
 
 .sortGroup {
   flex: 0 0 auto;
-  width: fit-content;
+  min-width: 140px;
 }
 
 /* ── 레이아웃 ── */

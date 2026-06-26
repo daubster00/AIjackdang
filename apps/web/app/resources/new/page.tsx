@@ -12,7 +12,7 @@ import styles from "./resource-new.module.css";
 
 export const metadata: Metadata = {
   title: "자료 등록 — AI작당",
-  description: "7단계 폼으로 실전 AI 자료를 등록하세요.",
+  description: "실전 AI 자료를 한 화면에서 작성해 등록하세요.",
 };
 
 export default function ResourceNewPage() {

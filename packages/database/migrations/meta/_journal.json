@@ -127,6 +127,20 @@
       "when": 1782335251839,
       "tag": "0017_cheerful_tony_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782435391159,
+      "tag": "0018_hesitant_blizzard",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782444484178,
+      "tag": "0019_cultured_iron_patriot",
+      "breakpoints": true
     }
   ]
 }

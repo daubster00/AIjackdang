@@ -342,8 +342,7 @@
   }
 
   .nav,
-  .authActions,
-  .headerSearch {
+  .authActions {
     display: none;
   }
 

@@ -13,6 +13,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -78,6 +79,8 @@ export const comments = pgTable(
     targetId: uuid("target_id").notNull(),
     parentId: uuid("parent_id"),
     content: text("content").notNull(),
+    /** 실전자료 후기 전용 별점(1~5). 최상위 후기에만 설정, 대댓글/일반 댓글은 null. */
+    rating: smallint("rating"),
     status: commentStatus("status").notNull().default("visible"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

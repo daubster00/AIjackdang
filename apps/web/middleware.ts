@@ -19,6 +19,7 @@ import { type NextRequest, NextResponse } from "next/server";
 /** 로그인 필요 경로 패턴 */
 const PROTECTED_PATHS = [
   "/mypage",
+  "/points",
   "/settings",
   "/messages",
   "/notifications",
@@ -42,12 +43,16 @@ const AUTH_ONLY_PATHS = ["/login", "/signup"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // aj_session 쿠키 존재 여부 확인 (Better Auth cookiePrefix=aj_session)
-  // 실제 세션 쿠키명은 "aj_session.session_token" 등 Better Auth 내부 명명 규칙 따름
-  const hasSession = request.cookies.has("aj_session.session_token") ||
-    request.cookies.has("aj_session") ||
-    // Better Auth가 사용하는 실제 쿠키명 패턴 확인
-    Array.from(request.cookies.getAll()).some((c) => c.name.startsWith("aj_session"));
+  // 세션 토큰 쿠키 존재 여부만 확인 (Better Auth cookiePrefix=aj_session).
+  // ⚠️ 반드시 "세션 토큰" 쿠키(aj_session.session_token)만 봐야 한다.
+  //    aj_session.state / aj_session.pkce 등은 소셜 로그인을 시작했다가 중단하면
+  //    남는 OAuth 임시 쿠키일 뿐 "로그인됨"이 아니다. 과거 startsWith("aj_session")로
+  //    이들까지 세션으로 오인해, 소셜 로그인 중단 후 /login 이 홈으로 튕기는 버그가 있었다.
+  //    (운영 https 환경에서는 __Secure- 접두사가 붙는다.)
+  // 실제 세션 유효성은 API 서버가 최종 판단한다.
+  const hasSession =
+    request.cookies.has("aj_session.session_token") ||
+    request.cookies.has("__Secure-aj_session.session_token");
 
   // 보호 경로: 로그인 필요
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));

@@ -5,8 +5,8 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, AttachmentList, CodeBlockCopyButton } from "@/components/board";
-import type { BoardHeroKey } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
+import { resolveHeroKey } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -14,7 +14,6 @@ import {
   buildDiscussionJsonLd,
   buildArticleJsonLd,
 } from "@/lib/seo";
-import { ShareButton } from "./ShareButton";
 import { DeleteButton } from "@/components/board";
 import styles from "./detail.module.css";
 
@@ -30,8 +29,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
 
   try {
-    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
+      cache: "no-store",
     });
     if (!res.ok) return {};
     const post = (await res.json()) as PostDetail;
@@ -49,9 +48,9 @@ export default async function GenericDetailPage({ params }: PageProps) {
   const headersList = await headers();
   const cookie = headersList.get("cookie") ?? "";
 
-  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
+  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
     headers: { cookie },
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) notFound();
@@ -83,7 +82,7 @@ export default async function GenericDetailPage({ params }: PageProps) {
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems);
 
   // Hero menu key — use boardCategory mapped to BoardHeroKey
-  const heroMenu = (boardCategory as BoardHeroKey);
+  const heroMenu = resolveHeroKey(boardCategory);
 
   // Format date
   const formattedDate = new Date(post.createdAt).toLocaleDateString("ko-KR", {
@@ -109,6 +108,12 @@ export default async function GenericDetailPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/${category}/${boardSlug}/${post.slug}`}
+        board={boardLabel}
+        title={post.title}
+      />
 
       <BoardHero menu={heroMenu} currentSub={boardLabel} titleAs="h2" />
 
@@ -128,7 +133,7 @@ export default async function GenericDetailPage({ params }: PageProps) {
             </div>
             <h1>{post.title}</h1>
             <div className={styles.detailMeta}>
-              <AuthorName name={post.authorNickname ?? "익명"} />
+              <AuthorName name={post.authorNickname ?? "익명"} authorId={post.authorId ?? undefined} />
               <span>{formattedDate}</span>
               <span>조회 {post.viewCount.toLocaleString()}</span>
               <span>댓글 {post.commentCount}</span>
@@ -173,7 +178,6 @@ export default async function GenericDetailPage({ params }: PageProps) {
                 <Icon name="list-check" />
                 목록으로
               </Link>
-              <ShareButton url={postUrl} />
             </div>
             {post.isOwner && (
               <div className={styles.ownerActions}>

@@ -13,6 +13,7 @@
  * - DELETE /users/me              : 회원 탈퇴 (인증 필요)
  * - POST  /users/uploads/avatar   : 아바타 이미지 업로드 (인증 필요)
  * - POST  /users/uploads/banner   : 배너 이미지 업로드 (인증 필요)
+ * - POST  /users/uploads/editor-image : 에디터 인라인 이미지 업로드 (인증 필요)
  *
  * 인증 권위는 API 서버(project-context §보안). 인증 필요 라우트는 requireAuthHook 으로 게이팅한다.
  */
@@ -29,7 +30,7 @@ import {
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { eq, and, ne, sql } from "drizzle-orm";
+import { eq, and, ne, sql, desc, isNull, inArray } from "drizzle-orm";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { uploadImage, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../services/storage/index.js";
@@ -53,6 +54,31 @@ type RequestWithUser = { user?: { id: string; email?: string } };
 function getSessionUserId(request: Parameters<typeof requireAuthHook>[0]): string {
   const u = (request as typeof request & RequestWithUser).user;
   return u?.id ?? "";
+}
+
+/** users 행 → publicUserSchema 응답 객체. GET·PATCH 공용. */
+function toPublicUser(user: typeof schema.users.$inferSelect) {
+  return {
+    id: user.id,
+    email: user.email,
+    nickname: user.nickname,
+    status: user.status,
+    emailVerified: user.emailVerified,
+    defaultAvatarIndex: user.defaultAvatarIndex,
+    avatarUrl: user.avatarUrl,
+    image: user.image,
+    bio: user.bio,
+    bannerUrl: user.bannerUrl,
+    links: (user.links as { label: string; url: string }[] | null) ?? null,
+    name: user.name ?? null,
+    phone: user.phone ?? null,
+    gender: user.gender ?? null,
+    // date 컬럼은 drizzle 에서 'YYYY-MM-DD' 문자열로 반환됨
+    birthDate: (user.birthDate as string | null) ?? null,
+    marketingAgreed: user.marketingAgreedAt != null,
+    termsAgreedAt: user.termsAgreedAt ? user.termsAgreedAt.toISOString() : null,
+    createdAt: user.createdAt.toISOString(),
+  };
 }
 
 export async function usersRoutes(app: FastifyInstance): Promise<void> {
@@ -94,20 +120,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      return reply.code(200).send({
-        id: user.id,
-        email: user.email,
-        nickname: user.nickname,
-        status: user.status,
-        emailVerified: user.emailVerified,
-        defaultAvatarIndex: user.defaultAvatarIndex,
-        avatarUrl: user.avatarUrl,
-        image: user.image,
-        bio: user.bio,
-        bannerUrl: user.bannerUrl,
-        links: (user.links as { label: string; url: string }[] | null) ?? null,
-        createdAt: user.createdAt.toISOString(),
-      });
+      return reply.code(200).send(toPublicUser(user));
     },
   );
 
@@ -164,6 +177,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         updatedAt: user.updatedAt ? user.updatedAt.toISOString() : null,
         followersCount: followersResult[0]?.count ?? 0,
         followingCount: followingResult[0]?.count ?? 0,
+        featuredPostIds: (user.featuredPostIds as string[] | null) ?? [],
       });
     },
   );
@@ -211,7 +225,19 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      const { nickname, bio, links, avatarUrl, bannerUrl, defaultAvatarIndex } = request.body;
+      const {
+        nickname,
+        bio,
+        links,
+        avatarUrl,
+        bannerUrl,
+        defaultAvatarIndex,
+        name,
+        phone,
+        gender,
+        birthDate,
+        marketingAgreed,
+      } = request.body;
 
       // 닉네임 변경 시 중복 체크
       if (nickname !== undefined && nickname !== existingUser.nickname) {
@@ -244,6 +270,14 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       if (avatarUrl !== undefined) updatePayload.avatarUrl = avatarUrl;
       if (bannerUrl !== undefined) updatePayload.bannerUrl = bannerUrl;
       if (defaultAvatarIndex !== undefined) updatePayload.defaultAvatarIndex = defaultAvatarIndex;
+      // 회원정보 (수정요청 F)
+      if (name !== undefined) updatePayload.name = name;
+      if (phone !== undefined) updatePayload.phone = phone;
+      if (gender !== undefined) updatePayload.gender = gender;
+      if (birthDate !== undefined) updatePayload.birthDate = birthDate;
+      if (marketingAgreed !== undefined) {
+        updatePayload.marketingAgreedAt = marketingAgreed ? new Date() : null;
+      }
 
       const [updatedUser] = await db
         .update(schema.users)
@@ -257,20 +291,7 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      return reply.code(200).send({
-        id: updatedUser.id,
-        email: updatedUser.email,
-        nickname: updatedUser.nickname,
-        status: updatedUser.status,
-        emailVerified: updatedUser.emailVerified,
-        defaultAvatarIndex: updatedUser.defaultAvatarIndex,
-        avatarUrl: updatedUser.avatarUrl,
-        image: updatedUser.image,
-        bio: updatedUser.bio,
-        bannerUrl: updatedUser.bannerUrl,
-        links: (updatedUser.links as { label: string; url: string }[] | null) ?? null,
-        createdAt: updatedUser.createdAt.toISOString(),
-      });
+      return reply.code(200).send(toPublicUser(updatedUser));
     },
   );
 
@@ -509,6 +530,406 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return handleImageUpload(request, reply, userId, "banners", "bannerUrl");
+    },
+  );
+
+  // ── [에디터] POST /users/uploads/editor-image — 에디터 인라인 이미지 업로드 ──────
+  app.post(
+    "/users/uploads/editor-image",
+    { preHandler: [requireAuthHook] },
+    async (request, reply) => {
+      const userId = getSessionUserId(request);
+      if (!userId) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const reqWithFile = request as typeof request & {
+        isMultipart?: () => boolean;
+        file?: () => Promise<
+          | {
+              filename: string;
+              mimetype: string;
+              file: { truncated: boolean };
+              toBuffer: () => Promise<Buffer>;
+            }
+          | undefined
+        >;
+      };
+
+      if (!reqWithFile.isMultipart?.()) {
+        return reply.code(400).send({
+          error: { code: "INVALID_CONTENT_TYPE", message: "multipart/form-data 형식으로 전송해주세요." },
+        });
+      }
+
+      const part = await reqWithFile.file?.();
+      if (!part) {
+        return reply.code(400).send({
+          error: { code: "NO_FILE", message: "업로드할 파일이 없습니다." },
+        });
+      }
+
+      if (!ALLOWED_IMAGE_TYPES.has(part.mimetype)) {
+        return reply.code(400).send({
+          error: { code: "INVALID_FILE_TYPE", message: "jpg·png·webp·gif 형식만 허용됩니다." },
+        });
+      }
+
+      const buffer = await part.toBuffer();
+      if (part.file.truncated || buffer.length > MAX_UPLOAD_BYTES) {
+        return reply.code(400).send({
+          error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
+        });
+      }
+
+      const result = await uploadImage(
+        { filename: part.filename, mimetype: part.mimetype, data: buffer },
+        "editor-images",
+      );
+
+      return reply.code(200).send({ url: result.url });
+    },
+  );
+
+  // ── GET /users/me/posts — 내가 쓴 글 + 실전자료 통합 목록 ─────────────────────
+  // 마이페이지 "내가 쓴 글" 탭: posts(published) + resources(published/draft/hidden)
+  // 두 결과를 createdAt DESC 로 머지하여 반환.
+  // board 슬러그가 BOARDS 상수 키와 동일하므로 urlPath 조합은 웹에서 처리.
+  typed.get(
+    "/users/me/posts",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description:
+          "현재 로그인 사용자가 작성한 게시글(published) + 실전자료(draft 포함) 통합 목록. 최신순 반환.",
+        tags: ["users"],
+        querystring: z.object({
+          pageSize: z.coerce.number().int().positive().max(200).default(100),
+        }),
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string(),
+                kind: z.enum(["post", "resource"]),
+                board: z.string(),
+                boardLabel: z.string(),
+                slug: z.string(),
+                title: z.string(),
+                excerpt: z.string().nullable(),
+                createdAt: z.string(),
+                likeCount: z.number(),
+                commentCount: z.number(),
+                viewCount: z.number(),
+              }),
+            ),
+          }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = getSessionUserId(request);
+      if (!userId) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+      const { pageSize } = request.query;
+      const db = getDb();
+
+      // ── 게시글 (status=published, deletedAt IS NULL) ──────────────────────────
+      const postRows = await db
+        .select({
+          id: schema.posts.id,
+          slug: schema.posts.slug,
+          title: schema.posts.title,
+          summary: schema.posts.summary,
+          board: schema.posts.board,
+          viewCount: schema.posts.viewCount,
+          createdAt: schema.posts.createdAt,
+        })
+        .from(schema.posts)
+        .where(
+          and(
+            eq(schema.posts.userId, userId),
+            eq(schema.posts.status, "published"),
+            isNull(schema.posts.deletedAt),
+          ),
+        )
+        .orderBy(desc(schema.posts.createdAt))
+        .limit(pageSize);
+
+      // ── 실전자료 (status != deleted, deletedAt IS NULL) ──────────────────────
+      const resourceRows = await db
+        .select({
+          id: schema.resources.id,
+          slug: schema.resources.slug,
+          title: schema.resources.title,
+          summary: schema.resources.summary,
+          createdAt: schema.resources.createdAt,
+        })
+        .from(schema.resources)
+        .where(
+          and(
+            eq(schema.resources.userId, userId),
+            ne(schema.resources.status, "deleted"),
+            isNull(schema.resources.deletedAt),
+          ),
+        )
+        .orderBy(desc(schema.resources.createdAt))
+        .limit(pageSize);
+
+      // ── 두 결과 머지 + createdAt DESC 정렬 + pageSize 제한 ──────────────────
+      type MergedItem = {
+        id: string;
+        kind: "post" | "resource";
+        board: string;
+        boardLabel: string;
+        slug: string;
+        title: string;
+        excerpt: string | null;
+        createdAt: string;
+        likeCount: number;
+        commentCount: number;
+        viewCount: number;
+        _ts: number;
+      };
+
+      // board 슬러그 → 라벨 매핑 (contracts/board.ts 기반, 웹 BOARDS와 동일 값)
+      const boardLabelMap: Record<string, string> = {
+        "vibe-coding-guide": "바이브 코딩 가이드",
+        "vibe-coding-tips": "바이브 코딩 팁",
+        "automation-guide": "자동화 가이드",
+        "automation-cases": "자동화 사례",
+        "automation-tips": "자동화 팁",
+        "monetization-tips": "수익화 팁",
+        "monetization-cases": "수익화 사례",
+        "ai-creation": "AI 창작물",
+        "ai-products": "AI 제품 · 서비스",
+        talk: "작당 라운지",
+        gigs: "구인구직",
+        notice: "공지사항",
+      };
+
+      const merged: MergedItem[] = [
+        ...postRows.map((p) => ({
+          id: p.id,
+          kind: "post" as const,
+          board: p.board,
+          boardLabel: boardLabelMap[p.board] ?? p.board,
+          slug: p.slug,
+          title: p.title,
+          excerpt: p.summary ?? null,
+          createdAt: p.createdAt.toISOString(),
+          likeCount: 0,
+          commentCount: 0,
+          viewCount: p.viewCount,
+          _ts: p.createdAt.getTime(),
+        })),
+        ...resourceRows.map((r) => ({
+          id: r.id,
+          kind: "resource" as const,
+          board: "resources",
+          boardLabel: "실전자료",
+          slug: r.slug,
+          title: r.title,
+          excerpt: r.summary ?? null,
+          createdAt: r.createdAt.toISOString(),
+          likeCount: 0,
+          commentCount: 0,
+          viewCount: 0,
+          _ts: r.createdAt.getTime(),
+        })),
+      ];
+
+      merged.sort((a, b) => b._ts - a._ts);
+      const items = merged.slice(0, pageSize).map(({ _ts: _, ...rest }) => rest);
+
+      return reply.code(200).send({ items });
+    },
+  );
+
+  // ── GET /users/profile/:nickname/featured-posts — 공개 피처드 글 목록 ─────────
+  // 해당 사용자의 featuredPostIds 에 해당하는 게시글 데이터를 공개로 반환한다.
+  typed.get(
+    "/users/profile/:nickname/featured-posts",
+    {
+      schema: {
+        description: "사용자가 계정 페이지에 노출로 설정한 글 목록 (공개).",
+        tags: ["users"],
+        params: z.object({ nickname: z.string() }),
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string(),
+                kind: z.enum(["post", "resource"]),
+                board: z.string(),
+                boardLabel: z.string(),
+                slug: z.string(),
+                title: z.string(),
+                excerpt: z.string().nullable(),
+                createdAt: z.string(),
+                viewCount: z.number(),
+              }),
+            ),
+          }),
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { nickname } = request.params;
+      const db = getDb();
+
+      const [user] = await db
+        .select({ id: schema.users.id, featuredPostIds: schema.users.featuredPostIds })
+        .from(schema.users)
+        .where(eq(schema.users.nickname, nickname))
+        .limit(1);
+
+      if (!user || !user.id) {
+        return reply.code(404).send({
+          error: { code: "USER_NOT_FOUND", message: "사용자를 찾을 수 없어요." },
+        });
+      }
+
+      const ids = (user.featuredPostIds as string[] | null) ?? [];
+      if (ids.length === 0) {
+        return reply.code(200).send({ items: [] });
+      }
+
+      // board 슬러그 → 라벨 매핑
+      const boardLabelMap: Record<string, string> = {
+        "vibe-coding-guide": "바이브 코딩 가이드",
+        "vibe-coding-tips": "바이브 코딩 팁",
+        "automation-guide": "자동화 가이드",
+        "automation-cases": "자동화 사례",
+        "automation-tips": "자동화 팁",
+        "monetization-tips": "수익화 팁",
+        "monetization-cases": "수익화 사례",
+        "ai-creation": "AI 창작물",
+        "ai-products": "AI 제품 · 서비스",
+        talk: "작당 라운지",
+        gigs: "구인구직",
+        notice: "공지사항",
+      };
+
+      const postRows = await db
+        .select({
+          id: schema.posts.id,
+          slug: schema.posts.slug,
+          title: schema.posts.title,
+          summary: schema.posts.summary,
+          board: schema.posts.board,
+          viewCount: schema.posts.viewCount,
+          createdAt: schema.posts.createdAt,
+        })
+        .from(schema.posts)
+        .where(
+          and(
+            inArray(schema.posts.id, ids),
+            eq(schema.posts.status, "published"),
+            isNull(schema.posts.deletedAt),
+          ),
+        );
+
+      // featured 순서를 featuredPostIds 배열 순서에 맞춰 정렬
+      const rowMap = new Map(postRows.map((r) => [r.id, r]));
+      const items = ids
+        .filter((id) => rowMap.has(id))
+        .map((id) => {
+          const p = rowMap.get(id)!;
+          return {
+            id: p.id,
+            kind: "post" as const,
+            board: p.board,
+            boardLabel: boardLabelMap[p.board] ?? p.board,
+            slug: p.slug,
+            title: p.title,
+            excerpt: p.summary ?? null,
+            createdAt: p.createdAt.toISOString(),
+            viewCount: p.viewCount,
+          };
+        });
+
+      return reply.code(200).send({ items });
+    },
+  );
+
+  // ── PATCH /users/me/featured-posts — 피처드 글 설정 (인증 필요) ────────────────
+  // 본인 글(post, published) 중 최대 5개를 featuredPostIds 로 등록한다.
+  typed.patch(
+    "/users/me/featured-posts",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "계정 페이지에 노출할 글 id 목록을 설정한다. 최대 5개, 본인 글만 허용.",
+        tags: ["users"],
+        body: z.object({
+          postIds: z
+            .array(z.string().uuid("올바른 게시글 id 형식이 아닙니다"))
+            .max(5, "최대 5개까지 선택할 수 있습니다"),
+        }),
+        response: {
+          200: z.object({ ok: z.literal(true) }),
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = getSessionUserId(request);
+      if (!userId) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const { postIds } = request.body;
+
+      if (postIds.length > 0) {
+        const db = getDb();
+        // 모든 id 가 본인 글(published)인지 검증
+        const ownedPosts = await db
+          .select({ id: schema.posts.id })
+          .from(schema.posts)
+          .where(
+            and(
+              inArray(schema.posts.id, postIds),
+              eq(schema.posts.userId, userId),
+              eq(schema.posts.status, "published"),
+              isNull(schema.posts.deletedAt),
+            ),
+          );
+
+        if (ownedPosts.length !== postIds.length) {
+          return reply.code(403).send({
+            error: {
+              code: "POST_NOT_OWNED",
+              message: "선택한 글 중 본인 글이 아니거나 공개되지 않은 글이 포함되어 있습니다.",
+            },
+          });
+        }
+
+        await db
+          .update(schema.users)
+          .set({ featuredPostIds: postIds, updatedAt: new Date() })
+          .where(eq(schema.users.id, userId));
+      } else {
+        // 빈 배열: 피처드 글 전부 해제
+        const db = getDb();
+        await db
+          .update(schema.users)
+          .set({ featuredPostIds: [], updatedAt: new Date() })
+          .where(eq(schema.users.id, userId));
+      }
+
+      return reply.code(200).send({ ok: true });
     },
   );
 

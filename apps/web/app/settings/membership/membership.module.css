@@ -1,0 +1,89 @@
+/* 회원정보 수정 화면 전용 스타일 (공통 레이아웃은 settings.module.css) */
+
+/* 공통 필드 라벨 */
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* 필드 설명 보조 텍스트 */
+.fieldDesc {
+  margin: 0;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+/* 읽기전용 이메일·약관 표시 */
+.readonlyField {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.readonlyLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.readonlyValue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  padding: 0 var(--space-3);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+}
+
+/* 마케팅 수신 동의 스위치 행 */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 비밀번호 변경 행 */
+.passwordRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.passwordText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 480px) {
+  .passwordRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .switchRow {
+    flex-wrap: wrap;
+  }
+}

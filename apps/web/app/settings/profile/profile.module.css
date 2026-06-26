@@ -235,7 +235,7 @@
   border-style: dashed;
 }
 
-/* 읽기전용 이메일 표시 */
+/* 읽기전용 이메일/약관 표시 */
 .readonlyField {
   display: grid;
   gap: var(--space-2);
@@ -258,4 +258,87 @@
   padding: 0 var(--space-3);
   color: var(--color-text-sub);
   font-size: var(--font-size-sm);
+}
+
+/* 약관 동의 시 강조 텍스트 */
+.termsAgreed {
+  color: var(--color-success, #16a34a);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── 섹션 구분 타이틀 ── */
+.sectionDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* 첫 번째 sectionDivider는 상단 여백 없어도 되므로 자식 + 선택자로만 처리 */
+}
+
+.sectionDivider + .sectionDivider,
+.sectionDivider ~ * + .sectionDivider {
+  margin-top: var(--space-2);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* 타이틀 오른쪽 구분선 */
+.sectionDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* ── 마케팅 수신 동의 스위치 행 ── */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── 비밀번호 변경 행 ── */
+.passwordRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.passwordText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 480px) {
+  .passwordRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .switchRow {
+    flex-wrap: wrap;
+  }
 }

@@ -23,6 +23,16 @@ export interface UpdateProfileInput {
   bannerUrl?: string | null;
   /** 기본 아바타 선택 시 인덱스 (커스텀 업로드 해제는 avatarUrl:null 동반). */
   defaultAvatarIndex?: number;
+  /** 실명(이름). null 이면 삭제. */
+  name?: string | null;
+  /** 휴대폰 번호 (숫자·하이픈). null 이면 삭제. */
+  phone?: string | null;
+  /** 성별. null 이면 선택안함. */
+  gender?: "male" | "female" | "other" | null;
+  /** 생년월일 (YYYY-MM-DD). null 이면 삭제. */
+  birthDate?: string | null;
+  /** 마케팅 수신 동의 여부. */
+  marketingAgreed?: boolean;
 }
 
 export interface UpdateProfileResult {

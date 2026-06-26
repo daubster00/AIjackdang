@@ -18,7 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import { RANK_LIST, resolveRank, rankTierFromGradeLevel } from "@/lib/ranks";
 import type { RankTier } from "@/lib/ranks";
-import { MyResourceList } from "./MyResourceList";
 import styles from "./mypage.module.css";
 
 /**
@@ -42,8 +41,8 @@ type ProfileView = {
   createdAt: string;
 };
 
-// ── [6.4] 뱃지 탭 타입 ───────────────────────────────────────────────────────
-type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers" | "resources" | "badges";
+// [item19] resources 탭 제거: 실전자료는 "내가 쓴 글" 탭에 kind="resource"로 통합
+type TabKey = "posts" | "comments" | "bookmarks" | "likes" | "following" | "followers";
 
 const tabs: { key: TabKey; label: string; icon: string }[] = [
   { key: "posts", label: "내가 쓴 글", icon: "article-line" },
@@ -53,12 +52,7 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
   // 팔로잉/팔로워 탭 (단일 /mypage 내 탭으로 확장 — 별도 라우트 없음)
   { key: "following", label: "팔로잉", icon: "user-follow-line" },
   { key: "followers", label: "팔로워", icon: "user-heart-line" },
-  // 내 자료 탭 (Story 4.9 — 별도 라우트 없음, /mypage 탭 확장)
-  { key: "resources", label: "내 자료", icon: "file-download-line" },
-  // 뱃지 탭 (Story 6.4 — 별도 라우트 없음, /mypage 탭 확장)
-  { key: "badges", label: "뱃지", icon: "award-line" },
 ];
-// ── [6.4] END ─────────────────────────────────────────────────────────────────
 
 /* ── "내가 쓴 글" 탭 전용 데이터 모델 ──
    다른 탭(댓글/북마크/좋아요)은 단순 활동 피드지만,
@@ -66,6 +60,7 @@ const tabs: { key: TabKey; label: string; icon: string }[] = [
    별도 모델(MyPost)로 분리한다. */
 
 /** 글이 속한 게시판 종류 (서브 필터 + 배지 + 작성/수정 경로 매핑 키) */
+// "resources": API가 반환하는 kind="resource" 항목의 board 값
 type BoardKey = "questions" | "vibe" | "automation" | "monetize" | "resources" | "lounge";
 
 /** 게시판 메타: 라벨 / 배지 색 / 경로 prefix */
@@ -77,7 +72,7 @@ const BOARDS: Record<
   vibe: { label: "바이브 코딩", tone: "success", base: "/vibe-coding" },
   automation: { label: "AI 자동화", tone: "warning", base: "/automation" },
   monetize: { label: "AI 수익화", tone: "primary", base: "/monetize" },
-  resources: { label: "실전자료", tone: "neutral", base: "/resources/mcp-skills" },
+  resources: { label: "실전자료", tone: "neutral", base: "/resources" },
   lounge: { label: "작당 라운지", tone: "neutral", base: "/lounge" },
 };
 
@@ -91,12 +86,14 @@ type PostSortKey = (typeof postSorts)[number]["value"];
 
 type MyPost = {
   id: string;
+  /** "post" = 게시글, "resource" = 실전자료 */
+  kind: "post" | "resource";
   board: BoardKey;
   slug: string;
   title: string;
   excerpt: string;
   tags: string[];
-  /** 정렬용 타임스탬프(YYYYMMDD). 화면에는 dateLabel 표시 */
+  /** 정렬용 타임스탬프. 화면에는 dateLabel 표시 */
   createdAt: number;
   dateLabel: string;
   likes: number;
@@ -105,6 +102,31 @@ type MyPost = {
   /** 임시저장 여부 — true면 "임시저장" 배지 + 보기 대신 이어쓰기 동선 */
   draft?: boolean;
 };
+
+/** API 반환 board 슬러그 → mypage BoardKey 변환 */
+function toBoardKey(board: string): BoardKey {
+  if (board === "resources") return "resources";
+  if (board.startsWith("vibe-coding")) return "vibe";
+  if (board.startsWith("automation")) return "automation";
+  if (board.startsWith("monetization")) return "monetize";
+  if (board === "ai-creation" || board === "ai-products" || board === "talk" || board === "gigs") return "lounge";
+  if (board === "notice") return "lounge";
+  // questions 는 별도 라우트 (/questions) 이므로 그대로
+  return "lounge";
+}
+
+/** ISO 날짜 문자열 → "YYYY.MM.DD" */
+function isoToDateLabel(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}.${m}.${day}`;
+  } catch {
+    return "";
+  }
+}
 
 /** 계정 관리 사이드바 메뉴 */
 const accountLinks = [
@@ -187,9 +209,52 @@ export default function MyPage() {
     [user],
   );
 
-  // 내가 쓴 글: Epic 2에서 실제 API 연동 전까지 빈 배열
-  // useMemo로 안정적인 배열 참조 유지
-  const myPosts = useMemo<MyPost[]>(() => [], []); // Epic 2에서 활성화
+  // [item15] 내가 쓴 글: GET /api/v1/users/me/posts (posts + resources 통합)
+  const [myPosts, setMyPosts] = useState<MyPost[]>([]);
+  const [myPostsLoading, setMyPostsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setMyPostsLoading(true);
+    void fetch("/api/v1/users/me/posts?pageSize=100", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (data: {
+          items: {
+            id: string;
+            kind: "post" | "resource";
+            board: string;
+            boardLabel: string;
+            slug: string;
+            title: string;
+            excerpt: string | null;
+            createdAt: string;
+            likeCount: number;
+            commentCount: number;
+            viewCount: number;
+          }[];
+        } | null) => {
+          if (!data) return;
+          const mapped: MyPost[] = data.items.map((item) => ({
+            id: item.id,
+            kind: item.kind,
+            board: toBoardKey(item.board),
+            slug: item.slug,
+            title: item.title,
+            excerpt: item.excerpt ?? "",
+            tags: [],
+            createdAt: new Date(item.createdAt).getTime(),
+            dateLabel: isoToDateLabel(item.createdAt),
+            likes: item.likeCount,
+            comments: item.commentCount,
+            views: item.viewCount,
+          }));
+          setMyPosts(mapped);
+        },
+      )
+      .catch(() => { /* 실패 시 빈 목록 유지 */ })
+      .finally(() => { setMyPostsLoading(false); });
+  }, [user]);
 
   // 내가 쓴 글에 실제로 존재하는 게시판만 필터 칩으로 노출
   const postBoardFilters = useMemo(() => {
@@ -319,30 +384,6 @@ export default function MyPage() {
   const followingCount = followingList.length;
   const followersCount = followerList.length;
 
-  // ── [6.4/6.6] 뱃지 탭 상태 ─────────────────────────────────────────────────
-  // Story 6.6: 통합 GET /me 응답의 badges 배열을 우선 사용.
-  // gradeData 미로드 시 탭 진입 시점에 /my-badges 폴백 fetch.
-  const [badgeList, setBadgeList] = useState<{ badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[]>([]);
-  const [badgeLoaded, setBadgeLoaded] = useState(false);
-
-  useEffect(() => {
-    // 통합 API에서 이미 뱃지를 받았으면 별도 fetch 생략
-    if (gradeData?.badges) {
-      setBadgeList(gradeData.badges);
-      setBadgeLoaded(true);
-      return;
-    }
-    if (!user || activeTab !== "badges" || badgeLoaded) return;
-    void fetch("/api/v1/gamification/my-badges", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { items: { badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: string }[] } | null) => {
-        if (data) setBadgeList(data.items);
-        setBadgeLoaded(true);
-      })
-      .catch(() => { setBadgeLoaded(true); });
-  }, [user, activeTab, badgeLoaded, gradeData]);
-  // ── [6.4/6.6] END ─────────────────────────────────────────────────────────────
-
   // 패널 카운트
   const panelCount =
     activeTab === "posts"
@@ -353,11 +394,7 @@ export default function MyPage() {
           ? followersCount
           : activeTab === "bookmarks"
             ? bookmarkList.length
-            : activeTab === "resources"
-              ? 0 // MyResourceList 내부에서 집계
-              : activeTab === "badges"
-                ? badgeList.length
-                : 0;
+            : 0;
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
 
@@ -504,42 +541,7 @@ export default function MyPage() {
               <span className={styles.panelCount}>총 {panelCount}개</span>
             </div>
 
-            {/* ── [6.4] 뱃지 탭 — Story 6.4 ── */}
-            {activeTab === "badges" ? (
-              badgeList.length === 0 ? (
-                <EmptyState
-                  icon="award-line"
-                  title="아직 획득한 뱃지가 없어요"
-                  description="활동을 이어가면 뱃지가 자동으로 수여됩니다."
-                />
-              ) : (
-                <ul className={styles.badgeGrid} aria-label="보유 뱃지 목록">
-                  {badgeList.map((badge) => (
-                    <li key={badge.badgeSlug} className={styles.badgeCard}>
-                      {badge.iconUrl ? (
-                        <img
-                          src={badge.iconUrl}
-                          alt={badge.badgeName}
-                          className={styles.badgeIcon}
-                          width={48}
-                          height={48}
-                        />
-                      ) : (
-                        <span className={styles.badgeIconFallback} aria-label={badge.badgeName}>
-                          <Icon name="award-line" />
-                        </span>
-                      )}
-                      <span className={styles.badgeName}>{badge.badgeName}</span>
-                      <span className={styles.badgeDate}>
-                        {new Date(badge.grantedAt).toLocaleDateString("ko-KR")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )
-            ) : /* ── [6.4] END ── */ activeTab === "resources" ? (
-              <MyResourceList />
-            ) : activeTab === "following" ? (
+            {activeTab === "following" ? (
               followingList.length === 0 ? (
                 <EmptyState icon="user-follow-line" title="팔로잉하는 멤버가 없습니다" description="관심 있는 멤버의 프로필에서 팔로우해 보세요." />
               ) : (
@@ -573,11 +575,22 @@ export default function MyPage() {
               bookmarkList.length === 0 ? (
                 <EmptyState icon="bookmark-line" title="저장한 글이 없습니다" description="마음에 드는 글을 북마크해 보세요." />
               ) : (
-                <ul className={styles.bookmarkList}>
+                /* [item16] 북마크 항목 디자인 = "내가 쓴 글" activityItem 과 동일 */
+                <ul className={styles.activityList}>
                   {bookmarkList.map((bm) => (
-                    <li key={bm.id} className={styles.bookmarkItem}>
-                      <a href={bm.href} className={styles.bookmarkLink}>{bm.title}</a>
-                      <span className={styles.bookmarkDate}>{new Date(bm.savedAt).toLocaleDateString("ko-KR")}</span>
+                    <li key={bm.id} className={styles.activityItem}>
+                      <div className={styles.activityTop}>
+                        <Badge tone="neutral" variant="soft" className={styles.boardBadge}>
+                          <Icon name="bookmark-line" />
+                          북마크
+                        </Badge>
+                      </div>
+                      <a href={bm.href} className={styles.activityTitle}>{bm.title}</a>
+                      <div className={styles.activityFooter}>
+                        <span className={styles.activityDate}>
+                          {new Date(bm.savedAt).toLocaleDateString("ko-KR")}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -627,7 +640,12 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {filteredPosts.length === 0 ? (
+                {myPostsLoading ? (
+                  <div className={styles.empty}>
+                    <Icon name="loader-4-line" />
+                    <p>글 목록을 불러오는 중...</p>
+                  </div>
+                ) : filteredPosts.length === 0 ? (
                   <div className={styles.empty}>
                     <Icon name="quill-pen-line" />
                     <p>{postKeyword || postBoard !== "all" ? "조건에 맞는 글이 없어요." : "아직 작성한 글이 없어요."}</p>
@@ -652,9 +670,15 @@ export default function MyPage() {
                   <ul className={styles.activityList}>
                     {filteredPosts.map((post) => {
                       const board = BOARDS[post.board];
-                      const isHashBase = board.base.startsWith("#");
-                      const viewHref = isHashBase ? board.base : `${board.base}/${post.slug}`;
-                      const editHref = isHashBase ? board.base : `${board.base}/write`;
+                      const isResource = post.kind === "resource";
+                      const isHashBase = !isResource && board.base.startsWith("#");
+                      // 실전자료: /resources/{slug}, 게시글: {base}/{slug}
+                      const viewHref = isResource
+                        ? `/resources/${post.slug}`
+                        : isHashBase ? board.base : `${board.base}/${post.slug}`;
+                      const editHref = isResource
+                        ? `/resources/${post.id}/edit`
+                        : isHashBase ? board.base : `${board.base}/write`;
                       return (
                         <li key={post.id} className={styles.activityItem}>
                           <div className={styles.activityTop}>

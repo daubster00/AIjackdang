@@ -41,29 +41,20 @@ function PostList({ items }: { items: RelatedItem[] }) {
   );
 }
 
-export function RelatedPosts({ relatedPosts, authorPosts }: RelatedPostsProps) {
-  if (relatedPosts.length === 0 && authorPosts.length === 0) return null;
+// authorPosts("작성자의 다른 글")는 노출하지 않는다 — 상세 페이지 요청으로 제거됨.
+// 호출부 호환을 위해 prop 시그니처는 유지하되 관련 글만 렌더한다.
+export function RelatedPosts({ relatedPosts }: RelatedPostsProps) {
+  if (relatedPosts.length === 0) return null;
 
   return (
     <aside className={styles.root}>
-      {relatedPosts.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.heading}>
-            <Icon name="links-line" />
-            관련 글
-          </h2>
-          <PostList items={relatedPosts} />
-        </section>
-      )}
-      {authorPosts.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.heading}>
-            <Icon name="quill-pen-line" />
-            작성자의 다른 글
-          </h2>
-          <PostList items={authorPosts} />
-        </section>
-      )}
+      <section className={styles.section}>
+        <h2 className={styles.heading}>
+          <Icon name="links-line" />
+          관련 글
+        </h2>
+        <PostList items={relatedPosts} />
+      </section>
     </aside>
   );
 }

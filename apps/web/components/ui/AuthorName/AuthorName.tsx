@@ -5,15 +5,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { resolveRank, rankTierFromGradeLevel, type RankTier } from "@/lib/ranks";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/Toast/Toast";
 import { RankBadge } from "../RankBadge";
 import { MessageModal } from "../MessageModal";
 import { Icon } from "../Icon";
 import styles from "./AuthorName.module.css";
 
-// 디자인 단계 공용 샘플 프로필 경로.
-// 실제 서비스에서는 각 유저의 닉네임으로 /u/[nickname] 에 연결되지만,
-// 지금은 디자인 확인용이라 모든 닉네임을 하나의 샘플 프로필로 보낸다.
-const SAMPLE_PROFILE_HREF = `/u/${encodeURIComponent("작당탐험가")}`;
 
 const TIER_ORDER: RankTier[] = ["rookie", "member", "practitioner", "expert", "master"];
 
@@ -27,6 +25,11 @@ function rankFromName(name: string): RankTier {
 export interface AuthorNameProps {
   /** 표시할 닉네임 */
   name: string;
+  /**
+   * 작성자 userId. 쪽지 보내기 모달의 recipientId에 전달된다.
+   * 미지정이면 쪽지 발송 API 호출이 비활성화된다.
+   */
+  authorId?: string;
   /** 등급(키 또는 한국어 라벨). 미지정 시 닉네임으로부터 결정적으로 도출 */
   rank?: RankTier | string;
   /** gradeLevel(1~5) — API 응답의 숫자 레벨을 직접 전달할 때 사용 (AC#5, Story 6.6).
@@ -47,7 +50,15 @@ export interface AuthorNameProps {
  * - 닉네임 옆에 항상 등급 뱃지를 함께 표기한다(lib/ranks + RankBadge 사용).
  * - 메뉴는 카드의 overflow:hidden 에 잘리지 않도록 body 포털에 fixed 로 렌더한다.
  */
-export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
+export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  // 본인 여부 — 닉네임 일치(항상 사용 가능) 또는 userId 일치(authorId 전달 시) 중 하나라도 맞으면 본인.
+  // authorId 없이 name만 넘기는 호출부도 닉네임 비교로 커버한다.
+  const isSelf = !!user && (
+    (!!user.nickname && user.nickname === name) ||
+    (!!authorId && user.id === authorId)
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -131,6 +142,10 @@ export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel =
               className={styles.menuItem}
               onClick={() => {
                 setMenuOpen(false);
+                if (isSelf) {
+                  toast({ tone: "warning", title: "자기 자신에게는 쪽지를 보낼 수 없습니다." });
+                  return;
+                }
                 setDmOpen(true);
               }}
             >
@@ -142,8 +157,48 @@ export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel =
               role="menuitem"
               className={styles.menuItem}
               onClick={() => {
-                setFollowing((v) => !v);
                 setMenuOpen(false);
+                if (isSelf) {
+                  toast({ tone: "warning", title: "자기 자신은 팔로우할 수 없습니다." });
+                  return;
+                }
+                if (!authorId) {
+                  toast({ tone: "warning", title: "팔로우 대상 정보를 찾을 수 없습니다." });
+                  return;
+                }
+                if (following) {
+                  // 언팔로우: DELETE /api/v1/follows/:targetNickname
+                  void fetch(`/api/v1/follows/${encodeURIComponent(name)}`, {
+                    method: "DELETE",
+                    credentials: "include",
+                  })
+                    .then((res) => {
+                      if (res.ok || res.status === 204) {
+                        setFollowing(false);
+                        toast({ tone: "success", title: "팔로우를 취소했습니다." });
+                      } else {
+                        toast({ tone: "danger", title: "언팔로우에 실패했습니다." });
+                      }
+                    })
+                    .catch(() => toast({ tone: "danger", title: "언팔로우 중 오류가 발생했습니다." }));
+                } else {
+                  // 팔로우: POST /api/v1/follows
+                  void fetch("/api/v1/follows", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ followingId: authorId }),
+                  })
+                    .then((res) => {
+                      if (res.ok || res.status === 201) {
+                        setFollowing(true);
+                        toast({ tone: "success", title: "팔로우했습니다." });
+                      } else {
+                        toast({ tone: "danger", title: "팔로우에 실패했습니다." });
+                      }
+                    })
+                    .catch(() => toast({ tone: "danger", title: "팔로우 중 오류가 발생했습니다." }));
+                }
               }}
             >
               <Icon name={following ? "user-follow-line" : "user-add-line"} />
@@ -155,6 +210,10 @@ export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel =
               className={styles.menuItem}
               disabled={blocking}
               onClick={() => {
+                if (isSelf) {
+                  toast({ tone: "warning", title: "자기 자신은 차단할 수 없습니다." });
+                  return;
+                }
                 if (!window.confirm(`${name} 님을 차단하시겠습니까?`)) return;
                 setBlocking(true);
                 void fetch("/api/v1/blocks", {
@@ -177,7 +236,7 @@ export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel =
               {blocking ? "처리 중..." : "차단하기"}
             </button>
             <Link
-              href={SAMPLE_PROFILE_HREF}
+              href={`/u/${encodeURIComponent(name)}`}
               role="menuitem"
               className={styles.menuItem}
               onClick={() => setMenuOpen(false)}
@@ -189,7 +248,12 @@ export function AuthorName({ name, rank, gradeLevel, badgeSize = 16, showLabel =
           document.body,
         )}
 
-      <MessageModal open={dmOpen} onClose={() => setDmOpen(false)} recipient={name} />
+      <MessageModal
+        open={dmOpen}
+        onClose={() => setDmOpen(false)}
+        recipient={name}
+        recipientId={authorId ?? ""}
+      />
     </span>
   );
 }

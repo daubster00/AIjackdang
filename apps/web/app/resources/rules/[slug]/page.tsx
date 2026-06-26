@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero } from "@/components/board";
+import { AttachmentList, BoardHero, RecentViewedTracker } from "@/components/board";
 import styles from "../rules.module.css";
 
 type ResourceType = "rule" | "config";
@@ -241,6 +241,12 @@ export default async function RulesDetailPage({
 
   return (
     <main id="main" className={styles.page}>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/resources/rules/${slug}`}
+        board="Rules·설정"
+        title={resource.title}
+      />
       <BoardHero menu="resources" currentSub="Rules·설정" />
 
       <div className={styles.detailLayout}>

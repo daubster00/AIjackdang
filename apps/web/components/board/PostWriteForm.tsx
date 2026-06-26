@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import type { JSONContent } from "@tiptap/react";
 import type { CreativeSpec } from "@ai-jakdang/contracts";
 import { Icon } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./PostWriteForm.module.css";
 
 /**
@@ -87,8 +91,20 @@ interface FormErrors {
   body?: string;
 }
 
-export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
+interface PostWriteFormProps {
+  config: PostWriteFormConfig;
+  /**
+   * item 13: "파일 첨부" fieldGroup 다음, "액션 버튼" 앞에 렌더되는 선택적 노드.
+   * AI 창작마당에서 CreativeSpecFields 를 주입할 때 사용한다.
+   * 미지정 시 기존과 동일 (다른 게시판 영향 없음).
+   */
+  afterAttachment?: React.ReactNode;
+}
+
+export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, ready } = useAuth();
   const { toast } = useToast();
 
   const titleInputId = config.titleInputId ?? "post-title";
@@ -133,6 +149,8 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
         setErrors({ title: titleErr, body: bodyErr });
         setTitleTouched(true);
         if (!isDraft) setContentTouched(true);
+        // 필수 입력 누락 시 정확한 안내 문구를 토스트로도 노출 (인라인 에러 보강)
+        toast({ tone: "warning", title: titleErr ?? bodyErr ?? "입력 내용을 확인해 주세요." });
         return;
       }
 
@@ -161,7 +179,7 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
         });
 
         if (res.status === 401) {
-          toast({ tone: "danger", title: "로그인이 필요합니다." });
+          toast({ tone: "danger", title: "로그인 후 이용해 주세요." });
           router.push(`/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
           return;
         }
@@ -169,11 +187,14 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as {
             error?: { message?: string };
+            message?: string;
           } | null;
           toast({
             tone: "danger",
             title: isDraft ? "임시저장 실패" : "등록 실패",
-            description: data?.error?.message ?? "잠시 후 다시 시도해 주세요.",
+            // 서버 에러 메시지(우리 포맷 { error: { message } } 또는 Fastify { message })를 우선 노출
+            description:
+              data?.error?.message ?? data?.message ?? "입력 내용을 다시 확인해 주세요.",
           });
           return;
         }
@@ -247,6 +268,24 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
   const handleDraftSave = useCallback(() => {
     void submitPost("draft");
   }, [submitPost]);
+
+  // 비로그인 게이트 — ready=true이고 세션 없음이 확인된 경우만 차단
+  if (ready && !user) {
+    return (
+      <div className={styles.writeLayout}>
+        <EmptyState
+          icon="lock-line"
+          title="로그인 후 이용해 주세요"
+          description="글을 작성하려면 로그인이 필요합니다."
+          actions={
+            <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
+              <Button variant="primary">로그인하기</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.writeLayout}>
@@ -413,6 +452,9 @@ export function PostWriteForm({ config }: { config: PostWriteFormConfig }) {
             </ul>
           )}
         </div>
+
+        {/* item 13: 파일 첨부 다음 슬롯 (AI 창작마당 창작 스펙 등) */}
+        {afterAttachment}
 
         {/* 액션 버튼 */}
         <div className={styles.formActions}>

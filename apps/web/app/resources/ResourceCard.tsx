@@ -14,6 +14,7 @@ import { AuthorName } from "@/components/ui/AuthorName";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tag } from "@/components/ui/Tag";
 import { Icon } from "@/components/ui/Icon";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 /** 각 페이지의 styles 모듈을 외부에서 전달받는 타입 */
 export interface ResourceCardStyles {
@@ -86,7 +87,7 @@ function RatingStars({
  * [상세보기] = 제목 Link (/resources/{pagePath}/{slug}).
  * [다운로드] = button (Story 4.6에서 연결, 현재 게이팅 플레이스홀더).
  */
-export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardProps) {
+export function ResourceCard({ item, typeMeta, styles }: ResourceCardProps) {
   const formattedDate = new Date(item.updatedAt).toLocaleDateString("ko-KR", {
     year: "numeric",
     month: "2-digit",
@@ -97,6 +98,29 @@ export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardP
 
   return (
     <article className={styles.card}>
+      {/* 썸네일: descriptionJson 첫 번째 이미지 또는 기본 빈 이미지 */}
+      <Link
+        href={`/resources/${item.slug}`}
+        style={{
+          display: "block",
+          position: "relative",
+          width: "100%",
+          aspectRatio: "4 / 3",
+          overflow: "hidden",
+          background: "linear-gradient(155deg, #1b1c2e 0%, #11121d 100%)",
+          borderRadius: "var(--radius-md) var(--radius-md) 0 0",
+          flexShrink: 0,
+        }}
+        aria-hidden="true"
+        tabIndex={-1}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={item.thumbnailUrl ?? "/empty_thumbnail.png"}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      </Link>
       <div className={styles.cardTop}>
         <span className={`${styles.typeBadge} ${typeMeta.className}`}>
           <Icon name={typeMeta.icon} />
@@ -110,7 +134,7 @@ export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardP
       </div>
 
       <h3 className={styles.cardHeading}>
-        <Link href={`${pagePath}/${item.slug}`} className={styles.cardTitle}>
+        <Link href={`/resources/${item.slug}`} className={styles.cardTitle}>
           {item.title}
         </Link>
       </h3>
@@ -129,8 +153,12 @@ export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardP
 
       <div className={styles.cardMeta}>
         <span className={styles.metaAuthor}>
-          <Avatar name={item.authorNickname ?? "알 수 없음"} size="sm" />
-          <AuthorName name={item.authorNickname ?? "알 수 없음"} className={styles.authorName} />
+          <Avatar
+            name={item.authorNickname ?? "알 수 없음"}
+            src={item.authorNickname != null ? getDefaultAvatarUrl(item.authorAvatarIndex) : undefined}
+            size="sm"
+          />
+          <AuthorName name={item.authorNickname ?? "알 수 없음"} authorId={item.authorId ?? undefined} className={styles.authorName} />
         </span>
         <span className={styles.metaDate}>{formattedDate}</span>
       </div>
@@ -163,7 +191,7 @@ export function ResourceCard({ item, pagePath, typeMeta, styles }: ResourceCardP
             {item.downloadCount.toLocaleString()}
           </span>
           {/* 다운로드 버튼: 상세 페이지로 이동 + ?download=true → 자동 다운로드 시작 (Story 4.6) */}
-          <Link href={`${pagePath}/${item.slug}?download=true`} className={styles.downloadBtn}>
+          <Link href={`/resources/${item.slug}?download=true`} className={styles.downloadBtn}>
             <Icon name="download-cloud-2-line" />
             다운로드
           </Link>

@@ -16,7 +16,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { BoardHero } from "@/components/board";
-import type { BoardHeroKey } from "@/components/board";
+import { resolveHeroKey } from "@/components/board";
 import { PostEditForm } from "./PostEditForm";
 import styles from "@/components/board/PostWriteForm.module.css";
 
@@ -45,7 +45,7 @@ export default async function EditPostPage({ params }: PageProps) {
   }
 
   // 게시글 상세 조회 (쿠키 포함 — isOwner 판단)
-  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(slug)}`, {
+  const res = await fetch(`${API_URL}/api/v1/posts/${encodeURIComponent(decodeURIComponent(slug))}`, {
     headers: { cookie },
     cache: "no-store",
   });
@@ -63,7 +63,7 @@ export default async function EditPostPage({ params }: PageProps) {
   }
 
   const boardMeta = BOARDS[post.board] ?? BOARDS[boardSlug];
-  const heroMenu = (boardMeta?.category ?? category) as BoardHeroKey;
+  const heroMenu = resolveHeroKey(boardMeta?.category ?? category);
   const boardLabel = boardMeta?.label ?? post.board;
 
   // 수정 완료 후 이동할 상세 페이지 경로

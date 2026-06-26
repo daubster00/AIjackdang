@@ -32,5 +32,7 @@ export const publicProfileSchema = z.object({
   updatedAt: z.string().nullable(),
   followersCount: z.number().int().nonnegative().default(0),
   followingCount: z.number().int().nonnegative().default(0),
+  /** 계정 페이지에 노출할 사용자가 직접 선택한 글 id 배열 (최대 5개). */
+  featuredPostIds: z.array(z.string()).default([]),
 });
 export type PublicProfile = z.infer<typeof publicProfileSchema>;

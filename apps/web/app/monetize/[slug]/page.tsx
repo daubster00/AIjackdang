@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RelatedPosts } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RelatedPosts, RecentViewedTracker } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -100,6 +100,12 @@ export default async function MonetizeDetailPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`${listUrl}/${post.slug}`}
+        board={boardLabel}
+        title={post.title}
+      />
 
       <BoardHero menu="monetize" currentSub={boardLabel} />
 
@@ -119,7 +125,7 @@ export default async function MonetizeDetailPage({ params }: PageProps) {
             </div>
             <h1>{post.title}</h1>
             <div className={styles.detailMeta}>
-              <AuthorName name={post.authorNickname ?? "익명"} />
+              <AuthorName name={post.authorNickname ?? "익명"} authorId={post.authorId ?? undefined} />
               <span>{formattedDate}</span>
               <span>조회 {post.viewCount.toLocaleString()}</span>
               <span>댓글 {post.commentCount}</span>

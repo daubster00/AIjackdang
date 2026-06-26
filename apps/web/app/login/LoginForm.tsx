@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Checkbox, Icon, Input, Spinner } from "@/components/ui";
 import { signIn } from "@/lib/auth-api";
@@ -56,7 +56,6 @@ async function startSocialLogin(
  * - 로그인 성공: router.push(redirectTo ?? '/')
  */
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") ?? "/";
 
@@ -98,9 +97,10 @@ export function LoginForm() {
       const result = await signIn(email, password);
 
       if (result.ok) {
-        // 로그인 성공 → redirectTo 로 이동 (AC #2)
-        router.push(redirectTo);
-        router.refresh(); // 서버 컴포넌트 세션 재조회
+        // 로그인 성공 → redirectTo 로 이동 (AC #2).
+        // 전체 페이지 이동(assign)으로 헤더의 useAuth가 새 세션을 즉시 반영하게 한다.
+        // (router.push는 클라이언트 이동이라 헤더가 리마운트되지 않아 로그아웃 상태로 남는다.)
+        window.location.assign(redirectTo);
         return;
       }
 

@@ -17,6 +17,7 @@ export const popularPostItemSchema = z.object({
   description: z.string().nullable(),
   category: z.string().nullable(),
   board: z.string(),
+  slug: z.string(),
   viewCount: z.number().int(),
   likeCount: z.number().int(),
   commentCount: z.number().int(),

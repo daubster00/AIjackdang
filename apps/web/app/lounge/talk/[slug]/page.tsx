@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero, CodeBlockCopyButton } from "@/components/board";
+import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
 import styles from "../../lounge.module.css";
 import { CommentForm } from "./CommentForm";
 import { CommentItem, type ApiComment } from "./CommentItem";
@@ -66,6 +66,12 @@ export default async function LoungeTalkDetailPage({ params }: { params: Params 
 
   return (
     <main id="main" className={styles.page}>
+      {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <RecentViewedTracker
+        href={`/lounge/talk/${post.slug}`}
+        board="작당 수다방"
+        title={post.title}
+      />
       <BoardHero menu="lounge" currentSub="작당 수다방" />
 
       <div className={styles.detailLayout}>
@@ -84,7 +90,7 @@ export default async function LoungeTalkDetailPage({ params }: { params: Params 
             </div>
             <h1>{post.title}</h1>
             <div className={styles.detailMeta}>
-              <AuthorName name={post.authorNickname ?? "익명"} />
+              <AuthorName name={post.authorNickname ?? "익명"} authorId={post.authorId ?? undefined} />
               <span>{formattedDate}</span>
               <span>조회 {post.viewCount.toLocaleString()}</span>
               <span>댓글 {post.commentCount}</span>

@@ -79,13 +79,13 @@ function publicBaseUrl(): string {
   return `${(env.S3_ENDPOINT ?? "").replace(/\/$/, "")}/${env.S3_BUCKET_PUBLIC}`;
 }
 
-function buildKey(file: ParsedFile, subdir: "avatars" | "banners"): string {
+function buildKey(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): string {
   const ext = MIME_TO_EXT[file.mimetype] ?? extname(file.filename) ?? ".bin";
   return `${subdir}/${randomUUID()}${ext}`;
 }
 
 /** S3(MinIO/R2) 공개 버킷에 업로드하고 외부 접근 URL 을 반환한다. */
-async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners"): Promise<UploadResult> {
+async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): Promise<UploadResult> {
   const key = buildKey(file, subdir);
   await getS3().send(
     new PutObjectCommand({
@@ -100,7 +100,7 @@ async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners"): Prom
 }
 
 /** 로컬 파일시스템 폴백 저장(S3 미설정 개발 환경). */
-function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners"): UploadResult {
+function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): UploadResult {
   const dirUrl = fileURLToPath(new URL(".", import.meta.url));
   const uploadDir = join(dirUrl, "../../../../uploads", subdir);
   mkdirSync(uploadDir, { recursive: true });
@@ -118,7 +118,7 @@ function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners"): UploadR
  */
 export async function uploadImage(
   file: ParsedFile,
-  subdir: "avatars" | "banners",
+  subdir: "avatars" | "banners" | "editor-images",
 ): Promise<UploadResult> {
   if (isS3Configured()) {
     return uploadToS3(file, subdir);

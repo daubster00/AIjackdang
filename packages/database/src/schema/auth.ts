@@ -6,8 +6,10 @@
  * 관리자 테이블(admin_users 등)은 packages/database/src/schema/admin.ts 에 별도 분리(ADR-0003).
  */
 
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -22,6 +24,9 @@ import {
 // ── Enum ──────────────────────────────────────────────────────────────────────
 
 export const userStatus = pgEnum("user_status", ["active", "suspended", "withdrawn"]);
+
+/** 성별 (회원정보 — 선택 입력). 'male'|'female'|'other'. */
+export const userGender = pgEnum("user_gender", ["male", "female", "other"]);
 
 export const sanctionType = pgEnum("sanction_type", [
   "warning",
@@ -55,14 +60,26 @@ export const users = pgTable(
     links: jsonb("links"),
     /** 기본 아바타 인덱스 (0~N). avatarUrl 이 없을 때 사용. */
     defaultAvatarIndex: integer("default_avatar_index").notNull().default(0),
+    /** 계정 페이지에 노출할 사용자가 직접 선택한 글 id 배열(본인 글 중에서). jsonb: string[] */
+    featuredPostIds: jsonb("featured_post_ids").notNull().default(sql`'[]'::jsonb`),
 
     // 상태
     status: userStatus("status").notNull().default("active"),
     suspendedUntil: timestamp("suspended_until", { withTimezone: true }),
 
+    // 회원정보 (수정요청 F — 휴대폰 필수, 성별·생년월일 선택)
+    /** 휴대폰 번호. 회원정보 화면에서 필수 입력(기존 사용자는 null 가능). */
+    phone: text("phone"),
+    /** 성별 (선택). */
+    gender: userGender("gender"),
+    /** 생년월일 (선택). 'YYYY-MM-DD'. */
+    birthDate: date("birth_date"),
+
     // 약관 동의
     termsAgreedAt: timestamp("terms_agreed_at", { withTimezone: true }),
     termsVersion: text("terms_version"),
+    /** 마케팅 수신 동의 시각 (선택). null 이면 미동의. */
+    marketingAgreedAt: timestamp("marketing_agreed_at", { withTimezone: true }),
 
     // 공통 타임스탬프
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

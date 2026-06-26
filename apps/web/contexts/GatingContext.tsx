@@ -37,7 +37,7 @@ export interface GatingContextValue {
 const GatingContext = createContext<GatingContextValue | null>(null);
 
 export function GatingProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [intendedAction, setIntendedAction] = useState<string | undefined>(undefined);
 
@@ -53,11 +53,13 @@ export function GatingProvider({ children }: { children: ReactNode }) {
 
   const requireAuth = useCallback(
     (action?: string): boolean => {
+      // 세션 조회 중(ready=false)이면 낙관적으로 통과 — 실제 인증은 API 서버가 처리
+      if (!ready) return true;
       if (user) return true;
       openModal(action);
       return false;
     },
-    [user, openModal],
+    [user, ready, openModal],
   );
 
   const value = useMemo<GatingContextValue>(

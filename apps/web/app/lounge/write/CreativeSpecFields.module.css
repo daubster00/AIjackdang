@@ -1,19 +1,14 @@
 /* ── 창작 스펙 섹션 래퍼 ──
- * PostWriteForm(.writeCard) 와 톤을 맞추면서 독립된 카드처럼 보인다.
- * 글쓰기 페이지 .writeLayout 안에서 form 바로 아래에 배치된다.
+ * item 13: PostWriteForm(.writeCard) 카드 안 afterAttachment 슬롯에 주입된다.
+ * 부모 카드가 이미 흰 박스이므로 자체 배경·border·shadow 제거 → 한 박스처럼 보임.
+ * 대신 위쪽에 구분선만 넣어 시각 분리를 유지한다.
  */
 .specSection {
   width: 100%;
-  /* 위쪽 글작성 카드(PostWriteForm .writeLayout)는 max-width 860px에 좌우 var(--space-6) 패딩이
-     있어 실제 카드 폭은 860px - 2*var(--space-6)다. 스펙 카드는 좌우 패딩이 없으므로 동일한
-     유효 폭이 되도록 max-width에서 같은 패딩을 빼준다. (반응형은 아래 미디어쿼리에서 맞춤) */
-  max-width: calc(860px - 2 * var(--space-6));
-  margin-inline: auto;
-  /* writeLayout의 padding과 맞추기 위해 수평 패딩 제거 후 상위에서 제어 */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  box-shadow: 0 10px 40px rgba(23, 24, 39, 0.07);
+  /* PostWriteForm .writeCard 의 gap(var(--space-7)) 안에서 자연스럽게 배치됨 */
+  border-top: 1px solid var(--color-border);
+  /* fieldGroup 들과 동일한 상단 패딩 확보 */
+  padding-top: var(--space-6);
   overflow: hidden;
 }
 
@@ -23,20 +18,22 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 58px;
+  min-height: 52px;
   border: 0;
+  /* 카드 안에 위치하므로 배경 없이 호버만 */
   background: transparent;
-  padding: var(--space-5) var(--space-8);
+  /* 좌우 패딩 제거: PostWriteForm .writeCard 의 padding(var(--space-8))에 맞춤 */
+  padding: var(--space-3) 0;
   color: var(--color-text);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-base);
+  transition: color var(--transition-base);
 }
 
 .toggleBtn:hover {
-  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .toggleLeft {
@@ -67,7 +64,8 @@
   display: grid;
   gap: var(--space-7);
   border-top: 1px solid var(--color-border);
-  padding: var(--space-8);
+  /* 카드 안에 위치하므로 좌우 패딩 없음. 위 구분선 아래 상단 패딩만 부여 */
+  padding-top: var(--space-6);
 }
 
 /* ── 공통 fieldset ── */
@@ -438,19 +436,6 @@
 
 /* ── 반응형 ── */
 @media (max-width: 768px) {
-  /* PostWriteForm .writeLayout의 padding-inline이 var(--space-4)로 바뀌므로 동일하게 맞춘다 */
-  .specSection {
-    max-width: calc(860px - 2 * var(--space-4));
-  }
-
-  .toggleBtn {
-    padding: var(--space-4) var(--space-5);
-  }
-
-  .specBody {
-    padding: var(--space-6) var(--space-5);
-  }
-
   /* 툴 행: 모바일에서 2열로 축소 (순번 숨기기) */
   .toolRow {
     grid-template-columns: 1fr 1fr;
@@ -480,36 +465,8 @@
 }
 
 @media (max-width: 520px) {
-  /* PostWriteForm .writeLayout의 padding-inline이 var(--space-3)으로 바뀌므로 동일하게 맞춘다 */
-  .specSection {
-    max-width: calc(860px - 2 * var(--space-3));
-  }
-
   .inlineGroup {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  /* 파라미터 행도 모바일에서 세로 배치 */
-  .paramRow {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-  }
-
-  .paramSep {
-    display: none;
-  }
-
-  .paramKey {
-    grid-column: 1 / 2;
-  }
-
-  .paramValue {
-    grid-column: 1 / 2;
-  }
-
-  .paramRow .removeBtn {
-    grid-row: 1 / 2;
-    grid-column: 2 / 3;
   }
 }

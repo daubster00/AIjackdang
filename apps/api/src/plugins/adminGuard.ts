@@ -37,6 +37,13 @@ export async function adminGuardHook(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
+  // 이 훅은 app.ts에서 전역 preHandler로 등록되므로, 관리자 경로(/api/v1/admin/*)
+  // 이외의 요청(헬스체크·유저 인증/api/v1/auth/*·공개 API 등)은 가드를 건너뛴다.
+  // (전역 등록 상태에서 이 가드가 모든 경로에 걸리면 유저 로그인까지 401로 막힘)
+  if (!request.url.startsWith("/api/v1/admin/")) {
+    return;
+  }
+
   // /api/v1/admin/auth/* 경로는 Better Auth가 처리 — 가드 통과
   if (request.url.startsWith("/api/v1/admin/auth/")) {
     return;

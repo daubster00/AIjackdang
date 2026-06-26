@@ -1,0 +1,27 @@
+/* ResourceFilterClient — 검색창 래퍼 및 Select 컨테이너
+ * 툴바(display:flex)의 첫 번째 자식으로 배치된다.
+ * 각 페이지 CSS 모듈의 .toolbar 반응형 규칙에 자동으로 연동된다.
+ */
+
+.searchWrapper {
+  flex: 1 1 auto;
+  max-width: 480px;
+}
+
+/* form(SearchInput 루트)이 래퍼 폭을 채우도록 */
+.searchWrapper form {
+  width: 100%;
+}
+
+/* ── 정렬·환경 Select 래퍼 ── */
+/* min-width: "지원환경 전체"(longest label) 가 잘리지 않도록 충분한 너비 확보 */
+.sortGroup {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+@media (max-width: 520px) {
+  .sortGroup {
+    width: 100%;
+  }
+}

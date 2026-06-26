@@ -7,7 +7,10 @@ import { Image } from "@tiptap/extension-image";
 import { Color } from "@tiptap/extension-color";
 import { Highlight } from "@tiptap/extension-highlight";
 import { TextStyle } from "@tiptap/extension-text-style";
+import { TextAlign } from "@tiptap/extension-text-align";
+import { Youtube } from "@tiptap/extension-youtube";
 import { EditorToolbar } from "./EditorToolbar";
+import { FontSize } from "./extensions/FontSize";
 import styles from "./Editor.module.css";
 
 type EditorPreset = "full" | "lite";
@@ -64,7 +67,19 @@ function buildExtensions(preset: EditorPreset) {
       // 색상 관련 (제한 팔레트 — EditorToolbar 에서 노출 제어)
       TextStyle,
       Color,
+      // Highlight: 형광펜 버튼은 제거됐으나(요청), 기존에 저장된 형광펜 콘텐츠를
+      // 그대로 렌더하기 위해 확장 자체는 유지한다.
       Highlight.configure({ multicolor: true }),
+      // 폰트 크기 — TextStyle 을 확장해 font-size 인라인 스타일 적용
+      FontSize,
+      // 좌/가운데/우 정렬 — 문단·제목에 text-align 속성 부여
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // 동영상 삽입 (YouTube)
+      Youtube.configure({
+        controls: true,
+        nocookie: true,
+        HTMLAttributes: { class: "editor-youtube" },
+      }),
     ];
   }
 

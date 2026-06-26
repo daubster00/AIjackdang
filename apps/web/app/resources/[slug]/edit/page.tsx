@@ -46,7 +46,7 @@ async function fetchResourceForEdit(
 ): Promise<ResourceEditData | null> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/resources/${encodeURIComponent(slug)}`,
+      `${API_URL}/api/v1/resources/${encodeURIComponent(decodeURIComponent(slug))}`,
       {
         headers: cookie ? { cookie } : {},
         cache: "no-store", // 수정 페이지는 항상 최신 데이터 필요

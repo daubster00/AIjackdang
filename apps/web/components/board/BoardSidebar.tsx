@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Icon, RankBadge } from "@/components/ui";
 import type { RankTier } from "@/lib/ranks";
+import { RecentViewedPanel } from "./RecentViewedPanel";
+import { RankingPanel } from "./RankingPanel";
 import styles from "./BoardSidebar.module.css";
 
 /** 최근 본 글 항목 (게시판별로 데이터 주입) */
@@ -24,8 +24,11 @@ export type RankingUser = {
 };
 
 type BoardSidebarProps = {
-  /** "최근 본 글" 패널에 표시할 글 목록 */
-  recentPosts: RecentPost[];
+  /**
+   * "최근 본 글" 패널에 표시할 글 목록 (레거시 prop — 현재 미사용).
+   * localStorage 기반 RecentViewedPanel로 교체됨. optional로 유지해 기존 호출부 호환성 보장.
+   */
+  recentPosts?: RecentPost[];
   /** "작당 랭킹" 패널에 표시할 사용자 목록 */
   rankings: RankingUser[];
   /** aside 접근성 라벨 (기본: "게시판 보조 정보") */
@@ -35,49 +38,22 @@ type BoardSidebarProps = {
 /**
  * 게시판 목록 우측 공통 사이드바.
  * "최근 본 글" + "작당 랭킹" 두 패널을 렌더하며,
- * 각 게시판 페이지가 자기 데이터를 주입해 불러와 사용한다.
+ * 랭킹은 RankingPanel 이 직접 API 를 호출해 실 데이터를 표시한다.
+ * `rankings` prop 은 하위 호환성을 위해 유지하지만 실제로는 사용하지 않는다.
  */
 export function BoardSidebar({
-  recentPosts,
-  rankings,
+  // rankings prop 은 기존 호출부 호환성을 위해 받되 무시한다 — RankingPanel 이 직접 API 를 호출한다
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  rankings: _rankings,
   ariaLabel = "게시판 보조 정보",
 }: BoardSidebarProps) {
   return (
     <aside className={styles.listSidebar} aria-label={ariaLabel}>
-      <section className={styles.sidePanel}>
-        <div className={styles.sideHeader}>
-          <Icon name="history-line" />
-          <h2>최근 본 글</h2>
-        </div>
-        <ul className={styles.recentList}>
-          {recentPosts.map((post) => (
-            <li key={post.href}>
-              <Link href={post.href} className={styles.recentItem}>
-                <span className={styles.recentTag}>{post.board}</span>
-                <span className={styles.recentTitle}>{post.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* localStorage 기반 실제 열람 이력 — 클라이언트 컴포넌트 */}
+      <RecentViewedPanel />
 
-      <section className={styles.sidePanel}>
-        <div className={styles.sideHeader}>
-          <Icon name="award-line" />
-          <h2>작당 랭킹</h2>
-        </div>
-        <ol className={styles.userRankingList}>
-          {rankings.map((user) => (
-            <li key={user.nickname}>
-              <span className={styles.rankNumber}>{user.rank}</span>
-              <span className={styles.rankName}>{user.nickname}</span>
-              <span className={styles.badgeSlot}>
-                <RankBadge rank={user.tier} size={30} className={styles.badgeImage} />
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {/* 실 API 기반 주간 랭킹 — 클라이언트 컴포넌트 */}
+      <RankingPanel />
     </aside>
   );
 }

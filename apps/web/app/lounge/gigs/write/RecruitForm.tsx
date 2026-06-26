@@ -6,8 +6,10 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button, Icon } from "@/components/ui";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/hooks/useAuth";
 import { LightEditor } from "@/components/board";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { GIG_FIELDS, type GigField, type GigType, type GigStatus } from "../constants";
@@ -51,6 +53,8 @@ type FormErrors = Partial<Record<keyof FormState | "contactRoot", string>>;
 
 export function RecruitForm() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, ready } = useAuth();
   const { toast } = useToast();
 
   const [form, setForm] = useState<FormState>({
@@ -165,6 +169,11 @@ export function RecruitForm() {
         body: JSON.stringify(body),
       });
 
+      if (res.status === 401) {
+        toast({ tone: "danger", title: "로그인 후 이용해 주세요." });
+        router.push(`/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
+        return;
+      }
       if (!res.ok) {
         const data = (await res.json()) as { error?: { message?: string } };
         toast({ tone: "danger", title: data.error?.message ?? "등록에 실패했습니다." });
@@ -203,6 +212,22 @@ export function RecruitForm() {
   }
 
   const needsExternalInput = form.contactTypes.some((c) => c !== "사이트 쪽지");
+
+  // 비로그인 게이트 — ready=true이고 세션 없음이 확인된 경우만 차단
+  if (ready && !user) {
+    return (
+      <EmptyState
+        icon="lock-line"
+        title="로그인 후 이용해 주세요"
+        description="의뢰·구직 글을 작성하려면 로그인이 필요합니다."
+        actions={
+          <Link href={`/login?redirectTo=${encodeURIComponent(pathname)}`}>
+            <Button variant="primary">로그인하기</Button>
+          </Link>
+        }
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-label="의뢰·구직 글쓰기 폼">

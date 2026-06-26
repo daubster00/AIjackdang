@@ -54,6 +54,18 @@ export const publicUserSchema = z.object({
   bannerUrl: z.string().nullable(),
   /** 외부 링크 [{label, url}] */
   links: z.array(z.object({ label: z.string(), url: z.string() })).nullable(),
+  /** 이름(Better Auth core 필드). 회원정보 화면 표시·수정용. */
+  name: z.string().nullable(),
+  /** 휴대폰 번호 (회원정보 — 필수 입력 권장). */
+  phone: z.string().nullable(),
+  /** 성별 (선택). */
+  gender: z.enum(["male", "female", "other"]).nullable(),
+  /** 생년월일 'YYYY-MM-DD' (선택). */
+  birthDate: z.string().nullable(),
+  /** 마케팅 수신 동의 여부 (marketingAgreedAt 존재 여부로 도출). */
+  marketingAgreed: z.boolean(),
+  /** 약관 동의 시각 ISO (없으면 null). */
+  termsAgreedAt: z.string().nullable(),
   createdAt: z.string(),
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;
@@ -99,6 +111,26 @@ export const updateProfileSchema = z.object({
     )
     .max(5, "링크는 최대 5개까지 등록할 수 있습니다")
     .optional(),
+  // ── 회원정보 (수정요청 F) ──────────────────────────────────────────────────
+  /** 이름. */
+  name: z.string().trim().max(50, "이름은 50자 이하여야 합니다").optional(),
+  /** 휴대폰 번호. 숫자·하이픈 허용. */
+  phone: z
+    .string()
+    .trim()
+    .max(30, "휴대폰 번호가 너무 깁니다")
+    .regex(/^[0-9+\-\s]*$/, "휴대폰 번호 형식이 올바르지 않습니다")
+    .optional(),
+  /** 성별 (선택). null 로 보내면 미선택 처리. */
+  gender: z.enum(["male", "female", "other"]).nullable().optional(),
+  /** 생년월일 'YYYY-MM-DD' (선택). null 로 보내면 해제. */
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "생년월일 형식이 올바르지 않습니다(YYYY-MM-DD)")
+    .nullable()
+    .optional(),
+  /** 마케팅 수신 동의 여부. true → marketingAgreedAt 갱신, false → null. */
+  marketingAgreed: z.boolean().optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

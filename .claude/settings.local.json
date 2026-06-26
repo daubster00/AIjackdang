@@ -4,7 +4,22 @@
       "WebSearch",
       "Write",
       "Edit",
-      "Bash"
+      "Bash",
+      "Skill(update-config)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "f=\"docs/REVISION-REQUESTS.md\"; [ -s \"$f\" ] && { printf '%s\\n' \"=== [수정요청 문서] docs/REVISION-REQUESTS.md — 수정/변경 요청 처리 전 반드시 먼저 확인·반영 ===\"; cat \"$f\"; }; true",
+            "statusMessage": "수정요청 문서 확인 중..."
+          }
+        ]
+      }
     ]
   }
 }

@@ -9,6 +9,7 @@
  */
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import styles from "./DeleteConfirmModal.module.css";
 
 export interface DeleteConfirmModalProps {
@@ -44,9 +45,12 @@ export function DeleteConfirmModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, loading, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // body 포털로 렌더한다. 인라인으로 두면 게시판 상세의 .ownerActions button 등
+  // 조상 CSS(배경 danger-soft·hover 흰배경)가 취소/삭제 버튼을 덮어
+  // 두 버튼이 같은 색으로 보이고 삭제 hover 시 흰글씨가 사라지는 문제가 생긴다.
+  return createPortal(
     <div
       className={styles.overlay}
       role="dialog"
@@ -80,6 +84,7 @@ export function DeleteConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

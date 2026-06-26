@@ -184,6 +184,14 @@ function PostItem({ post, basePath }: { post: PostCard; basePath: string }) {
 
   return (
     <article className={styles.postItem}>
+      <Link href={postHref} className={styles.postThumb} aria-hidden="true" tabIndex={-1}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={post.thumbnailUrl ?? "/empty_thumbnail.png"}
+          alt=""
+          className={styles.thumbImage}
+        />
+      </Link>
       <div className={styles.postBody}>
         <div className={styles.postTop}>
           <div className={styles.tagRow}>
@@ -204,7 +212,7 @@ function PostItem({ post, basePath }: { post: PostCard; basePath: string }) {
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
             <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-            <AuthorName name={post.authorNickname ?? "익명"} className={styles.authorName} />
+            <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} className={styles.authorName} />
             <span className={styles.footerDivider} aria-hidden="true">|</span>
             <span className={styles.postDate}>{formattedDate}</span>
           </div>

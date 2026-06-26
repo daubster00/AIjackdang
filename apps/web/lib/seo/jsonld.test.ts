@@ -44,6 +44,7 @@ const mockPost: PostDetail = {
   contentHtml: "<p>바이브 코딩 시작하기</p>",
   contentJson: { type: "doc", content: [] },
   authorId: "00000000-0000-0000-0000-000000000099",
+  userId: "00000000-0000-0000-0000-000000000099",
   isOwner: false,
   status: "published",
 };

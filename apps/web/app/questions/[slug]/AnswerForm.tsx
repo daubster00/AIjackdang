@@ -6,13 +6,15 @@ import { Button, Icon } from "@/components/ui";
 import { LightEditor } from "@/components/board";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast/Toast";
+import type { Answer } from "./AnswerItem";
 import styles from "../questions.module.css";
 
 const MAX_LENGTH = 2000;
 
 interface AnswerFormProps {
   questionId: string;
-  onSuccess?: () => void;
+  /** 등록 성공 시 생성된 답변을 부모에 전달 (목록 즉시 반영) */
+  onSuccess?: (answer: Answer) => void;
 }
 
 /**
@@ -87,9 +89,10 @@ export function AnswerForm({ questionId, onSuccess }: AnswerFormProps) {
         return;
       }
 
+      const created = (await res.json()) as Answer;
       toast({ tone: "success", title: "답변이 등록되었습니다." });
       resetEditor();
-      onSuccess?.();
+      onSuccess?.(created);
       router.refresh();
     } catch {
       toast({ tone: "danger", title: "네트워크 오류가 발생했습니다." });
