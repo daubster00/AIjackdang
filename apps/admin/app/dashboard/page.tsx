@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { TrafficChart } from "@/components/dashboard/TrafficChart";
 import { SkeletonCard, SkeletonTable } from "@/components/ui/Skeleton";
+import { DashboardExportButton } from "./DashboardExportButton";
 import type {
   DashboardKpiResponse,
   DashboardAlertsResponse,
@@ -128,10 +129,7 @@ export default async function AdminDashboardPage() {
           <p className="page-description">AI작당 운영 현황을 한눈에 확인합니다.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline">
-            <i className="ri-download-2-line" />
-            리포트 내보내기
-          </button>
+          <DashboardExportButton recentItems={recentItems} />
           <Link href="/posts/new" className="btn btn-primary">
             <i className="ri-add-line" />
             새 게시글

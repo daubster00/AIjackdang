@@ -7,6 +7,7 @@ import { StatsDateFilter } from "@/components/stats/StatsDateFilter";
 import { AnalyticsOverviewChart } from "@/components/stats/AnalyticsOverviewChart";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { StatsTopExportButtons, StatsKeywordCsvButton } from "./StatsExportButtons";
 import type {
   AnalyticsOverviewResponse,
   ReferrersResponse,
@@ -192,8 +193,7 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
           <p className="page-description">방문유입검색콘텐츠 성과를 기간별로 분석합니다.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline"><i className="ri-file-excel-2-line" />CSV 다운로드</button>
-          <button className="btn btn-primary"><i className="ri-download-2-line" />리포트 내보내기</button>
+          <StatsTopExportButtons overviewItems={items} from={from} to={to} />
         </div>
       </div>
 
@@ -281,7 +281,7 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
               </span>
             </div>
             <div className="toolbar-right">
-              <button className="btn btn-outline btn-sm"><i className="ri-file-excel-2-line" />CSV 다운로드</button>
+              <StatsKeywordCsvButton kwItems={kwItems} from={from} to={to} />
             </div>
           </div>
           <div className="table-wrap">

@@ -429,7 +429,7 @@ function BoardPostsContent({ boardSlug }: { boardSlug: string }) {
     }
     downloadCsv(`admin-posts-${boardSlug}.csv`, posts.map((post) => ({
       id: post.id,
-      board: meta.label,
+      board: meta?.label ?? boardSlug,
       title: post.title,
       status: statusBadge(post.status)[1],
       author: post.authorNickname ?? "(운영자)",

@@ -295,8 +295,20 @@ export async function hideTarget(reportId: string, adminId: string) {
   };
 }
 
+// ── 복구 상태 매핑 ─────────────────────────────────────────────────────────────
+// 각 targetType의 "정상" 상태값. commentStatus는 visible|hidden|deleted 이므로
+// post/question/answer/resource의 "published" 와 다르다.
+const RESTORE_STATUS: Record<HideableTargetType, string> = {
+  post: "published",
+  question: "published",
+  answer: "published",
+  comment: "visible",
+  resource: "published",
+};
+
 // ── 자동 숨김 복구 (Story 9.11, AC #2) ───────────────────────────────────────
-// 자동 숨김(autoHidden=true)된 콘텐츠를 'published'로 복구하고 신고를 'resolved' 처리한다.
+// 자동 숨김(autoHidden=true)된 콘텐츠를 타입별 정상 상태로 복구하고
+// 신고를 'resolved' 처리한다.
 
 export async function restoreAutoHidden(reportId: string, adminId: string) {
   const db = getDb();
@@ -321,12 +333,14 @@ export async function restoreAutoHidden(reportId: string, adminId: string) {
   const targetId = existing.targetId;
 
   const updated = await db.transaction(async (tx) => {
-    // 1) 대상 콘텐츠 status='published' 복구 (자동 숨김 가능한 타입만)
+    // 1) 대상 콘텐츠를 타입별 정상 상태로 복구 (자동 숨김 가능한 타입만)
+    //    comment는 "visible", 나머지(post/question/answer/resource)는 "published"
     if (targetType in TARGET_TABLE_MAP) {
       const table = TARGET_TABLE_MAP[targetType as HideableTargetType];
+      const restoreStatus = RESTORE_STATUS[targetType as HideableTargetType];
       await tx
         .update(table)
-        .set({ status: "published" as never, updatedAt: now } as never)
+        .set({ status: restoreStatus as never, updatedAt: now } as never)
         .where(eq((table as typeof posts).id, targetId));
     }
 

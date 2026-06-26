@@ -37,6 +37,21 @@ type ResourceType = (typeof TYPE_OPTIONS)[number]["value"];
 type Difficulty = (typeof LEVEL_OPTIONS)[number]["value"];
 type ResourceStatus = (typeof STATUS_OPTIONS)[number]["value"];
 
+// 허용 확장자 — upload.service.ts의 ALLOWED_EXTENSIONS와 동일
+const ALLOWED_EXTENSIONS = [".zip", ".docx", ".xlsx", ".pdf", ".md", ".txt", ".json"];
+const ACCEPT_ATTR = ALLOWED_EXTENSIONS.join(",");
+
+type ResourceFile = {
+  id: string;
+  originalName: string;
+  fileSize: number;
+  mimeType: string;
+  allowedExtension: string;
+  fileStatus: string;
+  displayOrder: number;
+  createdAt: string;
+};
+
 type ResourceDetail = {
   id: string;
   title: string;
@@ -48,6 +63,7 @@ type ResourceDetail = {
   descriptionJson: unknown;
   usageJson: unknown;
   version: string | null;
+  files?: ResourceFile[];
 };
 
 type ResourceFormDefaults = {
@@ -115,7 +131,10 @@ export function ResourceForm({
   const [version, setVersion] = useState("");
   const [loading, setLoading] = useState(isEdit && Boolean(id));
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingFiles, setExistingFiles] = useState<ResourceFile[]>([]);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -137,6 +156,9 @@ export function ResourceForm({
         setDesc(tiptapJsonToText(resource.descriptionJson));
         setUsage(tiptapJsonToText(resource.usageJson));
         setVersion(resource.version ?? "");
+        if (resource.files) {
+          setExistingFiles(resource.files.filter((f) => f.fileStatus !== "deleted"));
+        }
       })
       .catch(() => {
         if (alive) setMessage({ type: "error", text: "자료를 불러오지 못했습니다." });
@@ -148,6 +170,54 @@ export function ResourceForm({
       alive = false;
     };
   }, [id, isEdit]);
+
+  async function uploadFiles(resourceId: string): Promise<string | null> {
+    if (selectedFiles.length === 0) return null;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      for (const file of selectedFiles) {
+        formData.append("files", file);
+      }
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/resources/${resourceId}/files`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return (err as { error?: { message?: string } })?.error?.message ?? "파일 업로드 중 오류가 발생했습니다.";
+      }
+      setSelectedFiles([]);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteFile(fileId: string) {
+    if (!id) return;
+    if (!window.confirm("이 첨부파일을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/resources/${id}/files/${fileId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "관리자 삭제" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setMessage({
+          type: "error",
+          text: (err as { error?: { message?: string } })?.error?.message ?? "파일 삭제 중 오류가 발생했습니다.",
+        });
+        return;
+      }
+      setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } catch {
+      setMessage({ type: "error", text: "파일 삭제 중 오류가 발생했습니다." });
+    }
+  }
 
   async function save() {
     if (!title.trim() || !summary.trim() || !desc.trim()) {
@@ -186,6 +256,16 @@ export function ResourceForm({
         return;
       }
       const result = (await res.json().catch(() => ({}))) as { id?: string };
+      // 메타데이터 저장 완료 후 파일 업로드 (create: 새 id 사용, edit: 기존 id 사용)
+      const targetId = result.id ?? id;
+      if (targetId && selectedFiles.length > 0) {
+        setSaving(false);
+        const uploadError = await uploadFiles(targetId);
+        if (uploadError) {
+          setMessage({ type: "error", text: uploadError });
+          return;
+        }
+      }
       setMessage({ type: "success", text: isEdit ? "자료가 수정되었습니다." : "자료가 등록되었습니다." });
       setTimeout(() => {
         router.push(result.id ? `/resources/${result.id}` : "/resources");
@@ -209,7 +289,7 @@ export function ResourceForm({
         </div>
         <div className="page-actions">
           <a className="btn btn-outline" href={backHref}><i className="ri-arrow-left-line" />취소</a>
-          <button className="btn btn-primary" type="button" onClick={save} disabled={saving || loading}><i className="ri-save-line" />{saving ? "저장 중..." : isEdit ? "변경 저장" : "자료 등록"}</button>
+          <button className="btn btn-primary" type="button" onClick={save} disabled={saving || uploading || loading}><i className="ri-save-line" />{saving ? "저장 중..." : uploading ? "업로드 중..." : isEdit ? "변경 저장" : "자료 등록"}</button>
         </div>
       </div>
 
@@ -282,8 +362,44 @@ export function ResourceForm({
 
                 <div className="field">
                   <label className="field-label" htmlFor="res-file">첨부파일</label>
-                  <input className="control" id="res-file" type="file" multiple disabled />
-                  <p className="field-help">파일 업로드는 사용자 자료 업로드/R2 스캔 파이프라인과 별도 연결이 필요해 현재 메타데이터 저장만 처리합니다.</p>
+                  {existingFiles.length > 0 && (
+                    <ul style={{ marginBottom: 8, padding: 0, listStyle: "none" }}>
+                      {existingFiles.map((f) => (
+                        <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
+                          <i className="ri-file-line" style={{ color: "var(--gray-500)" }} />
+                          <span style={{ flex: 1 }}>{f.originalName}</span>
+                          <span style={{ color: "var(--gray-400)", fontSize: 12 }}>
+                            ({(f.fileSize / 1024).toFixed(1)} KB)
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: "2px 8px", fontSize: 12 }}
+                            onClick={() => deleteFile(f.id)}
+                          >
+                            <i className="ri-delete-bin-line" />삭제
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <input
+                    className="control"
+                    id="res-file"
+                    type="file"
+                    multiple
+                    accept={ACCEPT_ATTR}
+                    onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                  />
+                  {selectedFiles.length > 0 && (
+                    <p style={{ marginTop: 4, fontSize: 12, color: "var(--gray-600)" }}>
+                      {selectedFiles.length}개 파일 선택됨 — 저장 시 업로드됩니다.
+                    </p>
+                  )}
+                  <p className="field-help">
+                    허용 형식: {ALLOWED_EXTENSIONS.join(", ")} / 최대 3개, 파일당 50MB.
+                    {uploading && " 업로드 중..."}
+                  </p>
                 </div>
               </>
             )}
@@ -292,7 +408,7 @@ export function ResourceForm({
 
         <div className="page-actions" style={{ marginTop: "16px", justifyContent: "flex-end" }}>
           <a className="btn btn-outline" href={backHref}>취소</a>
-          <button className="btn btn-primary" type="button" onClick={save} disabled={saving || loading}><i className="ri-save-line" />{saving ? "저장 중..." : isEdit ? "변경 저장" : "자료 등록"}</button>
+          <button className="btn btn-primary" type="button" onClick={save} disabled={saving || uploading || loading}><i className="ri-save-line" />{saving ? "저장 중..." : uploading ? "업로드 중..." : isEdit ? "변경 저장" : "자료 등록"}</button>
         </div>
       </section>
     </AdminShell>

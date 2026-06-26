@@ -38,7 +38,8 @@ export type AdminPatchPointRuleInput = z.infer<typeof adminPatchPointRuleSchema>
 /** GET /api/v1/admin/grades 응답 아이템 */
 export const adminGradeSchema = z.object({
   id: z.string().uuid(),
-  level: z.number().int().min(1).max(5),
+  /** level 상한 제거 — 등급 추가 시 5 초과 level 도 허용 */
+  level: z.number().int().min(1),
   name: z.string().min(1),
   minPoints: z.number().int().nonnegative(),
   maxPoints: z.number().int().nonnegative().nullable(),
@@ -58,6 +59,18 @@ export const adminPatchGradeSchema = z.object({
   name: z.string().min(1).optional(),
 });
 export type AdminPatchGradeInput = z.infer<typeof adminPatchGradeSchema>;
+
+/**
+ * POST /api/v1/admin/grades 요청.
+ * level 상한 없음 — 기존 1~5 등급 외 추가 등급(예: Lv.6 슈퍼마스터)을 허용.
+ */
+export const adminCreateGradeSchema = z.object({
+  level: z.number().int().min(1),
+  name: z.string().min(1).max(50),
+  minPoints: z.number().int().nonnegative(),
+  maxPoints: z.number().int().nonnegative().nullable().optional(),
+});
+export type AdminCreateGradeInput = z.infer<typeof adminCreateGradeSchema>;
 
 // ── 뱃지 관리 ────────────────────────────────────────────────────────────────
 

@@ -34,6 +34,11 @@ import {
   hideReview,
   deleteReview,
 } from "./service.js";
+import {
+  uploadResourceFiles,
+  UploadValidationError,
+  type UploadedFileData,
+} from "../../v1/resources/upload.service.js";
 
 const resourceTypes = ["prompt", "claude-code-skill", "mcp", "rules-config", "template-checklist"] as const;
 const difficulties = ["beginner", "intermediate", "advanced"] as const;
@@ -260,6 +265,100 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
         .send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
     }
   });
+
+  // ── POST /api/v1/admin/resources/:id/files — 관리자 파일 업로드 ─────────────
+  // adminGuardHook은 app.ts에서 전역 preHandler로 등록되어 자동 적용됨.
+  // multipart 플러그인도 전역 등록; per-request limits으로 50MB/3파일 확장.
+  app.post<{ Params: { id: string } }>(
+    "/admin/resources/:id/files",
+    {},
+    async (request, reply) => {
+      const { id } = request.params;
+      const MAX_FILES = 3;
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+      const uploadedFiles: UploadedFileData[] = [];
+
+      try {
+        const files = request.files({
+          limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES },
+        });
+
+        for await (const part of files) {
+          const chunks: Buffer[] = [];
+          let totalSize = 0;
+          let truncated = false;
+
+          for await (const chunk of part.file) {
+            totalSize += chunk.length;
+            if (totalSize > MAX_FILE_SIZE) {
+              truncated = true;
+              part.file.resume();
+              break;
+            }
+            chunks.push(chunk as Buffer);
+          }
+
+          if (truncated) {
+            return reply.status(400).send({
+              error: {
+                code: "FILE_TOO_LARGE",
+                message: `파일 크기 초과: ${part.filename ?? "unknown"} (최대 50MB)`,
+              },
+            });
+          }
+
+          uploadedFiles.push({
+            originalName: part.filename ?? "unknown",
+            mimetype: part.mimetype,
+            buffer: Buffer.concat(chunks),
+            size: totalSize,
+          });
+
+          if (uploadedFiles.length > MAX_FILES) {
+            return reply.status(400).send({
+              error: {
+                code: "TOO_MANY_FILES",
+                message: `파일 최대 ${MAX_FILES}개까지 업로드 가능합니다.`,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        const error = err as Error;
+        if (error.message?.includes("limit") || error.message?.includes("files")) {
+          return reply.status(400).send({
+            error: {
+              code: "TOO_MANY_FILES",
+              message: `파일 최대 ${MAX_FILES}개까지 업로드 가능합니다.`,
+            },
+          });
+        }
+        throw err;
+      }
+
+      if (uploadedFiles.length === 0) {
+        return reply.status(400).send({
+          error: { code: "NO_FILES", message: "업로드할 파일이 없습니다." },
+        });
+      }
+
+      try {
+        const results = await uploadResourceFiles(id, uploadedFiles);
+        return reply.status(201).send({ files: results });
+      } catch (err) {
+        if (err instanceof UploadValidationError) {
+          return reply.status(400).send({
+            error: { code: err.code, message: err.message },
+          });
+        }
+        request.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+      }
+    },
+  );
 
   // ── GET /api/v1/admin/resources/:id/reviews ─────────────────────────────────
   app.get("/admin/resources/:id/reviews", async (request, reply) => {
