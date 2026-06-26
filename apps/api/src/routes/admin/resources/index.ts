@@ -2,7 +2,9 @@
  * 실전자료 관리 API 등록 진입점 (Story 9.8).
  *
  * GET    /api/v1/admin/resources                      — 목록 조회
+ * POST   /api/v1/admin/resources                      — 운영자 자료 등록
  * GET    /api/v1/admin/resources/:id                  — 상세 (파일 목록 포함)
+ * PATCH  /api/v1/admin/resources/:id                  — 운영자 자료 수정
  * PATCH  /api/v1/admin/resources/:id/hide             — 자료 숨김
  * DELETE /api/v1/admin/resources/:id                  — 자료 소프트딜리트 (super_admin)
  * DELETE /api/v1/admin/resources/:id/files/:fileId    — 첨부파일 소프트딜리트
@@ -21,8 +23,10 @@ import {
   adminReviewDeleteSchema,
 } from "@ai-jakdang/contracts/admin/resources";
 import {
+  createAdminResource,
   listResources,
   getResourceDetail,
+  updateAdminResource,
   hideResource,
   deleteResource,
   deleteResourceFile,
@@ -30,6 +34,52 @@ import {
   hideReview,
   deleteReview,
 } from "./service.js";
+
+const resourceTypes = ["prompt", "claude-code-skill", "mcp", "rules-config", "template-checklist"] as const;
+const difficulties = ["beginner", "intermediate", "advanced"] as const;
+const writeStatuses = ["draft", "published", "hidden"] as const;
+
+function isOneOf<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
+  return typeof value === "string" && values.includes(value);
+}
+
+function parseWriteBody(body: unknown, partial = false) {
+  const b = body as Record<string, unknown> | null;
+  if (!b) return { error: "요청 본문이 필요합니다." };
+
+  const title = typeof b.title === "string" ? b.title.trim() : undefined;
+  const summary = typeof b.summary === "string" ? b.summary.trim() : undefined;
+  const resourceType = b.resourceType;
+  const environment = Array.isArray(b.environment) ? b.environment.filter((v): v is string => typeof v === "string") : undefined;
+  const difficulty = b.difficulty;
+  const status = b.status;
+  const descriptionJson = b.descriptionJson && typeof b.descriptionJson === "object" ? b.descriptionJson as Record<string, unknown> : undefined;
+  const usageJson = b.usageJson && typeof b.usageJson === "object" ? b.usageJson as Record<string, unknown> : undefined;
+  const version = typeof b.version === "string" ? b.version.trim() : undefined;
+
+  if (!partial && (!title || !summary || !descriptionJson || !usageJson)) {
+    return { error: "제목, 요약, 본문, 사용법은 필수입니다." };
+  }
+  if (title !== undefined && title.length < 2) return { error: "제목은 2자 이상 입력하세요." };
+  if (summary !== undefined && summary.length < 1) return { error: "요약을 입력하세요." };
+  if (resourceType !== undefined && !isOneOf(resourceTypes, resourceType)) return { error: "자료유형이 올바르지 않습니다." };
+  if (difficulty !== undefined && !isOneOf(difficulties, difficulty)) return { error: "난이도가 올바르지 않습니다." };
+  if (status !== undefined && !isOneOf(writeStatuses, status)) return { error: "상태가 올바르지 않습니다." };
+
+  return {
+    data: {
+      title,
+      summary,
+      resourceType: isOneOf(resourceTypes, resourceType) ? resourceType : undefined,
+      environment,
+      difficulty: isOneOf(difficulties, difficulty) ? difficulty : undefined,
+      status: isOneOf(writeStatuses, status) ? status : undefined,
+      descriptionJson,
+      usageJson,
+      version,
+    },
+  };
+}
 
 export async function registerAdminResourcesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/resources ─────────────────────────────────────────────
@@ -56,12 +106,63 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
     }
   });
 
+  // ── POST /api/v1/admin/resources ────────────────────────────────────────────
+  app.post("/admin/resources", async (request, reply) => {
+    const parsed = parseWriteBody(request.body);
+    if ("error" in parsed) {
+      return reply.status(400).send({ error: { code: "VALIDATION_ERROR", message: parsed.error } });
+    }
+
+    try {
+      const result = await createAdminResource({
+        title: parsed.data.title!,
+        summary: parsed.data.summary!,
+        resourceType: parsed.data.resourceType ?? "prompt",
+        environment: parsed.data.environment ?? [],
+        difficulty: parsed.data.difficulty ?? "beginner",
+        descriptionJson: parsed.data.descriptionJson!,
+        usageJson: parsed.data.usageJson!,
+        status: parsed.data.status ?? "published",
+        version: parsed.data.version,
+      });
+      return reply.status(201).send(result);
+    } catch (err) {
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
   // ── GET /api/v1/admin/resources/:id ─────────────────────────────────────────
   app.get("/admin/resources/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
       const result = await getResourceDetail(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply
+        .status(500)
+        .send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/resources/:id ───────────────────────────────────────
+  app.patch("/admin/resources/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = parseWriteBody(request.body, true);
+    if ("error" in parsed) {
+      return reply.status(400).send({ error: { code: "VALIDATION_ERROR", message: parsed.error } });
+    }
+
+    try {
+      const result = await updateAdminResource(id, parsed.data);
       return reply.send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

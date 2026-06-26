@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "../../lib/api";
+import { downloadCsv } from "../../lib/csv";
 import type { AdminResourceItem } from "@ai-jakdang/contracts/admin/resources";
 
 /**
@@ -283,6 +284,28 @@ function AdminResourcesContent() {
     }
   }
 
+  function handleDownloadCsv() {
+    if (items.length === 0) {
+      showToast("다운로드할 자료가 없습니다.", "error");
+      return;
+    }
+    downloadCsv("admin-resources.csv", items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      type: RESOURCE_TYPE_LABEL[item.resourceType] ?? item.resourceType,
+      difficulty: DIFFICULTY_LABEL[item.difficulty] ?? item.difficulty,
+      status: statusBadge(item.status)[1],
+      author: item.authorNickname ?? "(탈퇴)",
+      downloads: item.downloadCount,
+      rating: item.avgRating,
+      reviews: item.reviewCount,
+      reports: item.reportCount,
+      createdAt: item.createdAt,
+    })));
+    showToast("CSV 다운로드를 시작했습니다.", "success");
+  }
+
   return (
     <AdminShell breadcrumb={["관리자", "실전자료 관리"]} activeKey="resources">
       <div className="page-header">
@@ -291,7 +314,7 @@ function AdminResourcesContent() {
           <p className="page-description">회원이 올린 Claude Code Skill·MCP·프롬프트·템플릿 등 다운로드형 자료를 점검합니다.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline">
+          <button className="btn btn-outline" type="button" onClick={handleDownloadCsv}>
             <i className="ri-file-excel-2-line" />
             CSV 다운로드
           </button>

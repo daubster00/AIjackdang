@@ -9,6 +9,16 @@ import { posts, users, tags as tagsTable, taggable } from "@ai-jakdang/database/
 import { eq, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 
+function makeSlug(title: string): string {
+  const baseSlug =
+    title
+      .toLowerCase()
+      .replace(/[^\w\s가-힣]/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 80) || "post";
+  return `${baseSlug}-${Date.now()}`;
+}
+
 // ── 목록 조회 ─────────────────────────────────────────────────────────────────
 
 export async function listPosts(query: AdminPostsQuery) {
@@ -118,25 +128,74 @@ export async function listPosts(query: AdminPostsQuery) {
   };
 }
 
-// ── 공지 게시글 생성 (관리자 전용, Story 9.17) ─────────────────────────────────
+// ── 상세 조회 ─────────────────────────────────────────────────────────────────
 
-export async function createNoticePost(data: {
+export async function getPostDetail(id: string) {
+  const db = getDb();
+
+  const [row] = await db
+    .select({
+      id: posts.id,
+      board: posts.board,
+      category: posts.category,
+      title: posts.title,
+      slug: posts.slug,
+      contentJson: posts.contentJson,
+      status: posts.status,
+      userId: posts.userId,
+      authorNickname: users.nickname,
+      isNotice: posts.isNotice,
+      isPinned: posts.isPinned,
+      isFeatured: posts.isFeatured,
+      isMainFeatured: posts.isMainFeatured,
+      viewCount: posts.viewCount,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      deletedAt: posts.deletedAt,
+    })
+    .from(posts)
+    .leftJoin(users, eq(posts.userId, users.id))
+    .where(eq(posts.id, id))
+    .limit(1);
+
+  if (!row) {
+    throw Object.assign(new Error("게시글을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const tagRows = await db
+    .select({ name: tagsTable.name })
+    .from(taggable)
+    .leftJoin(tagsTable, eq(taggable.tagId, tagsTable.id))
+    .where(and(eq(taggable.targetType, "post"), eq(taggable.targetId, id)));
+
+  return {
+    ...row,
+    tags: tagRows.map((tag) => tag.name).filter((name): name is string => Boolean(name)),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+  };
+}
+
+// ── 게시글 생성 (관리자 전용, Story 9.17) ─────────────────────────────────────
+
+export async function createAdminPost(data: {
   title: string;
   contentJson: Record<string, unknown>;
+  board?: string;
+  category?: string | null;
   tags?: string[];
   status?: "draft" | "published";
+  isNotice?: boolean;
   isPinned?: boolean;
+  isFeatured?: boolean;
   isMainFeatured?: boolean;
 }) {
   const db = getDb();
 
-  // slug: 제목 기반 생성 + 타임스탬프로 유일성 보장
-  const baseSlug = data.title
-    .toLowerCase()
-    .replace(/[^\w\s가-힣]/g, "")
-    .replace(/\s+/g, "-")
-    .slice(0, 80);
-  const slug = `${baseSlug}-${Date.now()}`;
+  const board = data.board?.trim() || "notice";
+  const isNotice = data.isNotice ?? board === "notice";
+  const slug = makeSlug(data.title);
 
   const postId = await db.transaction(async (tx) => {
     // posts INSERT (userId=null → 운영자 작성)
@@ -144,14 +203,15 @@ export async function createNoticePost(data: {
       .insert(posts)
       .values({
         userId: null,
-        board: "notice",
-        category: "system",
+        board,
+        category: data.category ?? (isNotice ? "system" : null),
         title: data.title,
         slug,
         contentJson: data.contentJson,
         status: data.status ?? "published",
-        isNotice: true,
+        isNotice,
         isPinned: data.isPinned ?? false,
+        isFeatured: data.isFeatured ?? false,
         isMainFeatured: data.isMainFeatured ?? false,
       })
       .returning({ id: posts.id });
@@ -201,7 +261,7 @@ export async function createNoticePost(data: {
     return id;
   });
 
-  return { id: postId, slug, board: "notice", status: data.status ?? "published" };
+  return { id: postId, slug, board, status: data.status ?? "published" };
 }
 
 // ── 내용 수정 (관리자 전용) ────────────────────────────────────────────────────
@@ -212,6 +272,9 @@ export async function updatePostContent(
     title?: string;
     contentJson?: Record<string, unknown>;
     tags?: string[];
+    status?: "draft" | "published" | "hidden";
+    board?: string;
+    category?: string | null;
   },
 ) {
   const db = getDb();
@@ -228,6 +291,12 @@ export async function updatePostContent(
     const updateSet: Record<string, unknown> = { updatedAt: now };
     if (data.title !== undefined) updateSet.title = data.title;
     if (data.contentJson !== undefined) updateSet.contentJson = data.contentJson;
+    if (data.status !== undefined) {
+      updateSet.status = data.status;
+      updateSet.deletedAt = null;
+    }
+    if (data.board !== undefined) updateSet.board = data.board;
+    if (data.category !== undefined) updateSet.category = data.category;
 
     const [row] = await tx
       .update(posts)

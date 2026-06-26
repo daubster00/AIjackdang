@@ -3,6 +3,7 @@
  *
  * POST   /api/v1/admin/posts                — 공지 작성 (Story 9.17, admin 전용)
  * GET    /api/v1/admin/posts                — 목록 조회
+ * GET    /api/v1/admin/posts/:id            — 상세 조회
  * PATCH  /api/v1/admin/posts/:id/flags      — 플래그 토글
  * PATCH  /api/v1/admin/posts/:id/hide       — 숨김
  * PATCH  /api/v1/admin/posts/:id/restore    — 복구
@@ -21,7 +22,8 @@ import {
   adminPostsBulkSchema,
 } from "@ai-jakdang/contracts";
 import {
-  createNoticePost,
+  createAdminPost,
+  getPostDetail,
   listPosts,
   updatePostContent,
   updatePostFlags,
@@ -40,9 +42,13 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
     const body = request.body as {
       title?: string;
       contentJson?: Record<string, unknown>;
+      board?: string;
+      category?: string | null;
       tags?: string[];
       status?: "draft" | "published";
+      isNotice?: boolean;
       isPinned?: boolean;
+      isFeatured?: boolean;
       isMainFeatured?: boolean;
     };
 
@@ -58,16 +64,37 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
     }
 
     try {
-      const result = await createNoticePost({
+      const result = await createAdminPost({
         title: body.title.trim(),
         contentJson: body.contentJson,
+        board: typeof body.board === "string" ? body.board.trim() : undefined,
+        category: typeof body.category === "string" ? body.category.trim() : null,
         tags: Array.isArray(body.tags) ? body.tags : [],
         status: body.status === "draft" ? "draft" : "published",
+        isNotice: body.isNotice === true,
         isPinned: body.isPinned === true,
+        isFeatured: body.isFeatured === true,
         isMainFeatured: body.isMainFeatured === true,
       });
       return reply.status(201).send(result);
     } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── GET /api/v1/admin/posts/:id ─────────────────────────────────────────────
+  app.get("/admin/posts/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await getPostDetail(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
       request.log.error(err);
       return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
     }
@@ -184,6 +211,9 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
       title?: string;
       contentJson?: Record<string, unknown>;
       tags?: string[];
+      status?: "draft" | "published" | "hidden";
+      board?: string;
+      category?: string | null;
     };
 
     try {
@@ -191,6 +221,12 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
         title: typeof body?.title === "string" ? body.title : undefined,
         contentJson: body?.contentJson && typeof body.contentJson === "object" ? body.contentJson : undefined,
         tags: Array.isArray(body?.tags) ? body.tags : undefined,
+        status:
+          body?.status === "draft" || body?.status === "published" || body?.status === "hidden"
+            ? body.status
+            : undefined,
+        board: typeof body?.board === "string" ? body.board : undefined,
+        category: typeof body?.category === "string" ? body.category : undefined,
       });
       return reply.send(result);
     } catch (err: unknown) {

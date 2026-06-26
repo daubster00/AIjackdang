@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, Suspense, use } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { findBoard, boardApiParam } from "@/lib/boards";
 import { API_BASE_URL } from "../../../lib/api";
+import { downloadCsv } from "../../../lib/csv";
 import type { AdminPostItem } from "@ai-jakdang/contracts";
 
 /**
@@ -421,6 +422,26 @@ function BoardPostsContent({ boardSlug }: { boardSlug: string }) {
     else setSelectedIds(new Set(posts.map((p) => p.id)));
   }
 
+  function handleDownloadCsv() {
+    if (posts.length === 0) {
+      showToast("다운로드할 게시글이 없습니다.", "error");
+      return;
+    }
+    downloadCsv(`admin-posts-${boardSlug}.csv`, posts.map((post) => ({
+      id: post.id,
+      board: meta.label,
+      title: post.title,
+      status: statusBadge(post.status)[1],
+      author: post.authorNickname ?? "(운영자)",
+      views: post.viewCount,
+      comments: post.commentCount,
+      likes: post.likeCount,
+      reports: post.reportCount,
+      createdAt: post.createdAt,
+    })));
+    showToast("CSV 다운로드를 시작했습니다.", "success");
+  }
+
   const hasSelection = selectedIds.size > 0;
 
   return (
@@ -442,7 +463,7 @@ function BoardPostsContent({ boardSlug }: { boardSlug: string }) {
           </p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline">
+          <button className="btn btn-outline" type="button" onClick={handleDownloadCsv}>
             <i className="ri-file-excel-2-line" />
             CSV 내보내기
           </button>
@@ -554,7 +575,7 @@ function BoardPostsContent({ boardSlug }: { boardSlug: string }) {
               )}
             </div>
             <div className="toolbar-right">
-              <button className="btn btn-outline btn-sm">
+              <button className="btn btn-outline btn-sm" type="button" onClick={handleDownloadCsv}>
                 <i className="ri-file-excel-2-line" />
                 CSV 다운로드
               </button>

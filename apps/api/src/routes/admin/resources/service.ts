@@ -17,6 +17,30 @@ import { comments } from "@ai-jakdang/database/schema";
 import { eq, and, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminResourcesQuery } from "@ai-jakdang/contracts/admin/resources";
 
+type AdminResourceWriteInput = {
+  title: string;
+  summary: string;
+  resourceType: "prompt" | "claude-code-skill" | "mcp" | "rules-config" | "template-checklist";
+  environment: string[];
+  difficulty: "beginner" | "intermediate" | "advanced";
+  descriptionJson: Record<string, unknown>;
+  usageJson: Record<string, unknown>;
+  status: "draft" | "published" | "hidden";
+  version?: string | null;
+};
+
+function makeResourceSlug(title: string, resourceType: string): string {
+  const base =
+    title
+      .toLowerCase()
+      .replace(/[^\w\s가-힣]/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 80) ||
+    resourceType ||
+    "resource";
+  return `${base}-${Date.now()}`;
+}
+
 // ── 목록 조회 ─────────────────────────────────────────────────────────────────
 
 export async function listResources(query: AdminResourcesQuery) {
@@ -106,6 +130,79 @@ export async function listResources(query: AdminResourcesQuery) {
       totalItems: Number(totalItems),
       totalPages: Math.ceil(Number(totalItems) / pageSize),
     },
+  };
+}
+
+// ── 등록/수정 ─────────────────────────────────────────────────────────────────
+
+export async function createAdminResource(input: AdminResourceWriteInput) {
+  const db = getDb();
+  const slug = makeResourceSlug(input.title, input.resourceType);
+
+  const [created] = await db
+    .insert(resources)
+    .values({
+      userId: null,
+      slug,
+      title: input.title,
+      summary: input.summary,
+      resourceType: input.resourceType,
+      environment: input.environment,
+      difficulty: input.difficulty,
+      descriptionJson: input.descriptionJson,
+      usageJson: input.usageJson,
+      cautionJson: null,
+      version: input.version ?? null,
+      referenceLinks: null,
+      copyrightAgreed: true,
+      status: input.status,
+    })
+    .returning({ id: resources.id, slug: resources.slug, status: resources.status });
+
+  if (!created) {
+    throw new Error("실전자료 INSERT 실패");
+  }
+
+  return created;
+}
+
+export async function updateAdminResource(id: string, input: Partial<AdminResourceWriteInput>) {
+  const db = getDb();
+
+  const [target] = await db
+    .select({ id: resources.id })
+    .from(resources)
+    .where(eq(resources.id, id))
+    .limit(1);
+  if (!target) {
+    throw Object.assign(new Error("실전자료를 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.title !== undefined) updateSet.title = input.title;
+  if (input.summary !== undefined) updateSet.summary = input.summary;
+  if (input.resourceType !== undefined) updateSet.resourceType = input.resourceType;
+  if (input.environment !== undefined) updateSet.environment = input.environment;
+  if (input.difficulty !== undefined) updateSet.difficulty = input.difficulty;
+  if (input.descriptionJson !== undefined) updateSet.descriptionJson = input.descriptionJson;
+  if (input.usageJson !== undefined) updateSet.usageJson = input.usageJson;
+  if (input.version !== undefined) updateSet.version = input.version;
+  if (input.status !== undefined) {
+    updateSet.status = input.status;
+    updateSet.deletedAt = null;
+  }
+
+  const [updated] = await db
+    .update(resources)
+    .set(updateSet)
+    .where(eq(resources.id, id))
+    .returning({ id: resources.id, slug: resources.slug, status: resources.status, updatedAt: resources.updatedAt });
+
+  return {
+    id: updated.id,
+    slug: updated.slug,
+    status: updated.status,
+    updatedAt: updated.updatedAt.toISOString(),
   };
 }
 

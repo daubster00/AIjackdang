@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "../../lib/api";
+import { downloadCsv } from "../../lib/csv";
 import { getCrossLink } from "../../lib/contentCrossLink";
 import type { AdminCommentItem } from "@ai-jakdang/contracts/admin/comments";
 
@@ -386,6 +387,25 @@ function AdminCommentsContent() {
     }
   }
 
+  function handleDownloadCsv() {
+    if (commentItems.length === 0) {
+      showToast("다운로드할 댓글이 없습니다.", "error");
+      return;
+    }
+    downloadCsv("admin-comments.csv", commentItems.map((comment) => ({
+      id: comment.id,
+      type: comment.derivedType,
+      content: comment.contentPreview,
+      author: comment.authorNickname ?? "(탈퇴)",
+      targetType: comment.targetType,
+      targetId: comment.targetId,
+      status: statusBadge(comment.status)[1],
+      reports: comment.reportCount,
+      createdAt: comment.createdAt,
+    })));
+    showToast("CSV 다운로드를 시작했습니다.", "success");
+  }
+
   const hasSelection = selectedIds.size > 0;
 
   return (
@@ -396,7 +416,7 @@ function AdminCommentsContent() {
           <p className="page-description">일반 댓글 · 대댓글 · Q&A 답변 · 실전자료 후기를 한 곳에서 관리합니다.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline">
+          <button className="btn btn-outline" type="button" onClick={handleDownloadCsv}>
             <i className="ri-file-excel-2-line" />
             CSV 내보내기
           </button>
@@ -546,7 +566,7 @@ function AdminCommentsContent() {
               )}
             </div>
             <div className="toolbar-right">
-              <button className="btn btn-outline btn-sm">
+              <button className="btn btn-outline btn-sm" type="button" onClick={handleDownloadCsv}>
                 <i className="ri-file-excel-2-line" />
                 CSV 다운로드
               </button>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "../../lib/api";
+import { downloadCsv } from "../../lib/csv";
 
 // ── 로컬 타입 (contracts/src/admin/members.ts 미노출 시 임시) ─────────────────
 interface AdminUserMemberItem {
@@ -150,6 +151,25 @@ function AdminMembersContent() {
     router.push(`/members?${next.toString()}`);
   }
 
+  function handleDownloadCsv() {
+    if (members.length === 0) {
+      showToast("다운로드할 회원이 없습니다.", "error");
+      return;
+    }
+    downloadCsv("admin-members.csv", members.map((member) => ({
+      id: member.id,
+      nickname: member.nickname,
+      email: member.email,
+      status: statusBadge(member.status)[1],
+      createdAt: member.createdAt,
+      totalPoints: member.totalPoints,
+      grade: member.gradeName,
+      posts: member.postCount,
+      reports: member.reportCount,
+    })));
+    showToast("CSV 다운로드를 시작했습니다.", "success");
+  }
+
   return (
     <AdminShell breadcrumb={["관리자", "유저 회원 관리"]} activeKey="members">
       <div className="page-header">
@@ -158,7 +178,7 @@ function AdminMembersContent() {
           <p className="page-description">일반 유저 회원의 활동·등급·상태를 확인하고 처리합니다. 운영진 관리는 관리자 메뉴를 이용하세요.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline">
+          <button className="btn btn-outline" type="button" onClick={handleDownloadCsv}>
             <i className="ri-file-excel-2-line" />
             CSV 다운로드
           </button>
