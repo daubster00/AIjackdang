@@ -34,6 +34,11 @@ function visibleRows(tbody) {
 
 export function initTables(root = document) {
   root.querySelectorAll(".admin-table").forEach((table) => {
+    if (table.dataset.tableInitialized === "true") {
+      table._adminSyncSelection?.();
+      return;
+    }
+    table.dataset.tableInitialized = "true";
     const tbody = table.querySelector("tbody");
     const selectAll = table.querySelector("[data-admin-select-all]");
     if (!tbody) return;

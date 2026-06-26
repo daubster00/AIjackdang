@@ -71,7 +71,7 @@ import {
 
 export async function registerAdminUserMembersRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/members ────────────────────────────────────────────────
-  app.get("/api/v1/admin/members", async (request, reply) => {
+  app.get("/admin/members", async (request, reply) => {
     const parsed = adminUserMembersQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -88,7 +88,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
   });
 
   // ── GET /api/v1/admin/members/badges — 뱃지 마스터 목록 (:id 앞에 등록) ────
-  app.get("/api/v1/admin/members/badges", async (request, reply) => {
+  app.get("/admin/members/badges", async (request, reply) => {
     try {
       const result = await listBadges();
       return reply.send(result);
@@ -99,7 +99,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
   });
 
   // ── GET /api/v1/admin/members/:id ────────────────────────────────────────────
-  app.get("/api/v1/admin/members/:id", async (request, reply) => {
+  app.get("/admin/members/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
       const result = await getUserMemberDetail(id);
@@ -115,7 +115,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
   });
 
   // ── POST /api/v1/admin/members/:id/sanctions — 제재 생성 ────────────────────
-  app.post("/api/v1/admin/members/:id/sanctions", async (request, reply) => {
+  app.post("/admin/members/:id/sanctions", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminSanctionMemberSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -150,7 +150,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
 
   // ── DELETE /api/v1/admin/members/:id/sanctions/:sid — 제재 해제 (super_admin)
   app.delete(
-    "/api/v1/admin/members/:id/sanctions/:sid",
+    "/admin/members/:id/sanctions/:sid",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id, sid } = request.params as { id: string; sid: string };
@@ -169,7 +169,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
   );
 
   // ── POST /api/v1/admin/members/:id/points — 포인트 지급 ─────────────────────
-  app.post("/api/v1/admin/members/:id/points", async (request, reply) => {
+  app.post("/admin/members/:id/points", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminGrantPointsSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -193,7 +193,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
 
   // ── DELETE /api/v1/admin/members/:id/points — 포인트 차감 (super_admin) ──────
   app.delete(
-    "/api/v1/admin/members/:id/points",
+    "/admin/members/:id/points",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -223,7 +223,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
 
   // ── PATCH /api/v1/admin/members/:id/grade — 등급 변경 (super_admin) ──────────
   app.patch(
-    "/api/v1/admin/members/:id/grade",
+    "/admin/members/:id/grade",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -252,7 +252,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
   );
 
   // ── POST /api/v1/admin/members/:id/badges — 뱃지 지급 ───────────────────────
-  app.post("/api/v1/admin/members/:id/badges", async (request, reply) => {
+  app.post("/admin/members/:id/badges", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminGrantBadgeSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -280,7 +280,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
 
   // ── DELETE /api/v1/admin/members/:id/badges/:bid — 뱃지 회수 (super_admin) ──
   app.delete(
-    "/api/v1/admin/members/:id/badges/:bid",
+    "/admin/members/:id/badges/:bid",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id, bid } = request.params as { id: string; bid: string };

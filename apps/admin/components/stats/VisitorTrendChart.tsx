@@ -2,65 +2,92 @@
 
 import { useEffect, useRef } from "react";
 import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js";
+import { API_BASE_URL } from "@/lib/api";
+import type { VisitorTrendResponse } from "@ai-jakdang/contracts";
 
 /**
- * 접속 통계용 방문자 추이 차트 — 디자인 시스템의 선/면적 차트(createLineChart)를 사용한다.
- * 대시보드의 TrafficChart 패턴을 그대로 따르되, 이 페이지는 기간 필터를 세그먼트로 두고
- * 'admin:segment-change' 이벤트(디자인 시스템 JS initTabs가 발생)를 받아 데이터만 교체한다.
- * a = 방문자수(고유 방문자), b = 페이지뷰(PV)
+ * 접속 통계용 방문자 추이 차트 — page_views 집계 실데이터를 표시한다.
+ * 세그먼트(7d/30d/thismonth) 변경 시 API를 재호출해 차트를 갱신한다.
+ *
+ * a = 고유 방문자 수(visitors), b = 페이지뷰(PV)
  */
 
-// range(기간 키) 별 더미 데이터. 세그먼트의 data-range 값과 1:1 매칭된다.
-const DATASET: Record<string, { labels: string[]; a: number[]; b: number[] }> = {
-  // 최근 7일: 일자별 방문자수 / 페이지뷰
-  "7d": {
-    labels: ["6/12", "6/13", "6/14", "6/15", "6/16", "6/17", "6/18"],
-    a: [1180, 1240, 1090, 1360, 1420, 1510, 1284],
-    b: [5820, 6010, 5340, 6630, 7020, 7440, 6842],
-  },
-  // 최근 30일: 약 4일 간격 샘플
-  "30d": {
-    labels: ["5/20", "5/24", "5/28", "6/1", "6/5", "6/9", "6/13", "6/18"],
-    a: [980, 1040, 910, 1150, 1230, 1310, 1290, 1284],
-    b: [4480, 4960, 4210, 5470, 5980, 6360, 6420, 6842],
-  },
-  // 이번 달: 주차별 누적 추세
-  thismonth: {
-    labels: ["6/1", "6/4", "6/7", "6/10", "6/13", "6/16", "6/18"],
-    a: [1150, 1210, 1080, 1240, 1290, 1380, 1284],
-    b: [5470, 5710, 5040, 5980, 6420, 6710, 6842],
-  },
-};
+/** 세그먼트 키 → { from, to } (UTC 날짜 문자열) */
+function getFromTo(range: string): { from: string; to: string } {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  if (range === "thismonth") {
+    const from = new Date(now);
+    from.setUTCDate(1);
+    return { from: fmt(from), to: fmt(now) };
+  }
+
+  const days = range === "7d" ? 7 : 30;
+  const from = new Date(now);
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  return { from: fmt(from), to: fmt(now) };
+}
+
+type ChartInstance = ReturnType<typeof createLineChart>;
 
 export function VisitorTrendChart() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const css = getComputedStyle(document.documentElement);
-    const primary = css.getPropertyValue("--primary-600").trim() || "#2563eb";
-    const accent = css.getPropertyValue("--brand-accent").trim() || "#06b6d4";
+    if (!canvasRef.current) return;
 
-    const seriesFor = (range: string) => {
-      const d = DATASET[range] ?? DATASET["30d"];
-      return {
-        labels: d.labels,
-        series: [
-          { values: d.a, color: primary, fill: "rgba(37,99,235,0.18)" },
-          { values: d.b, color: accent, fill: "rgba(6,182,212,0.13)" },
-        ],
-      };
+    const css     = getComputedStyle(document.documentElement);
+    const primary = css.getPropertyValue("--primary-600").trim() || "#2563eb";
+    const accent  = css.getPropertyValue("--brand-accent").trim() || "#06b6d4";
+
+    const toChartData = (data: VisitorTrendResponse) => ({
+      labels: data.items.map((it) => it.date.slice(5)),  // MM-DD
+      series: [
+        { values: data.items.map((it) => it.visitors),  color: primary, fill: "rgba(37,99,235,0.18)" },
+        { values: data.items.map((it) => it.pageViews), color: accent,  fill: "rgba(6,182,212,0.13)" },
+      ],
+    });
+
+    const placeholder = {
+      labels: ["..."],
+      series: [
+        { values: [0], color: primary, fill: "rgba(37,99,235,0.18)" },
+        { values: [0], color: accent,  fill: "rgba(6,182,212,0.13)" },
+      ],
     };
 
-    const chart = createLineChart(canvasRef.current, seriesFor("30d"));
+    let chart: ChartInstance = createLineChart(canvasRef.current, placeholder);
+    let destroyed = false;
 
-    // 디자인 시스템 JS가 세그먼트 클릭 시 발생시키는 이벤트를 받아 데이터만 교체한다.
+    const loadData = async (range: string) => {
+      try {
+        const { from, to } = getFromTo(range);
+        const res = await fetch(
+          `${API_BASE_URL}/api/v1/admin/analytics/visitor-trend?from=${from}&to=${to}`,
+          { credentials: "include" },
+        );
+        if (!res.ok || destroyed) return;
+        const data = (await res.json()) as VisitorTrendResponse;
+        if (destroyed) return;
+        chart.setData(toChartData(data));
+      } catch {
+        // 조용히 무시
+      }
+    };
+
+    loadData("30d"); // 기본: 30일
+
+    // 디자인 시스템 JS가 세그먼트 클릭 시 발생시키는 이벤트
     const onSegmentChange = (e: Event) => {
       const detail = (e as CustomEvent<{ value: string }>).detail;
-      chart.setData(seriesFor(detail.value));
+      loadData(detail.value);
     };
     document.addEventListener("admin:segment-change", onSegmentChange);
 
     return () => {
+      destroyed = true;
       document.removeEventListener("admin:segment-change", onSegmentChange);
       chart.destroy();
     };

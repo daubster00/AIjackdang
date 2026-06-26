@@ -269,7 +269,7 @@ function AdminCommentsContent() {
 
   // 현재 관리자 role 조회
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         if (d?.user?.role === "super_admin") setIsSuperAdmin(true);
@@ -422,8 +422,10 @@ function AdminCommentsContent() {
 
           {/* 필터 패널 */}
           <div className="filter-panel">
-            <div className="filter-row">
-              <div className="input-icon">
+            {/* 댓글 페이지는 날짜 범위(2개 입력) 때문에 항목이 5개라 고정 5칼럼 grid(.filter-row)에서
+                날짜 칸이 넘쳐 액션 버튼과 겹쳤다 → 이 페이지만 flex-wrap으로 전환해 줄바꿈되게 한다. */}
+            <div className="filter-row" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+              <div className="input-icon" style={{ flex: "1 1 240px", minWidth: 0 }}>
                 <i className="ri-search-line" />
                 <input
                   className="control"
@@ -478,7 +480,7 @@ function AdminCommentsContent() {
                 </div>
               </div>
 
-              <div className="filter-row" style={{ gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <input
                   className="control"
                   type="date"
@@ -498,7 +500,7 @@ function AdminCommentsContent() {
                 />
               </div>
 
-              <div className="filter-actions">
+              <div className="filter-actions" style={{ marginLeft: "auto" }}>
                 <button
                   className="btn btn-outline"
                   onClick={() => {

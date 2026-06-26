@@ -10,6 +10,8 @@
  * =========================================================================== */
 
 function wireGroup(container, itemSelector, dataKey, eventName) {
+  if (container.dataset.tabsInitialized === "true") return;
+  container.dataset.tabsInitialized = "true";
   const items = container.querySelectorAll(itemSelector);
   items.forEach((item) => {
     item.addEventListener("click", () => {

@@ -108,6 +108,22 @@ export function createAdminAuth({
       camelCase: true,
     }),
 
+    /**
+     * 모델 필드 매핑 — admin_* 테이블은 FK 컬럼이 `admin_user_id`(drizzle 속성 `adminUserId`)라
+     * Better Auth 기본 필드명 `userId` 와 다르다. 매핑하지 않으면
+     * "field userId does not exist for model account/session" 로 sign-in 이 500 난다.
+     */
+    session: {
+      fields: {
+        userId: "adminUserId",
+      },
+    },
+    account: {
+      fields: {
+        userId: "adminUserId",
+      },
+    },
+
     /** 이메일+비밀번호 전용 (소셜 없음) */
     emailAndPassword: {
       enabled: true,

@@ -29,7 +29,7 @@ import {
 
 export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/qna/questions ──────────────────────────────────────────
-  app.get("/api/v1/admin/qna/questions", async (request, reply) => {
+  app.get("/admin/qna/questions", async (request, reply) => {
     const parsed = adminQnaQuestionsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -47,7 +47,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
   });
 
   // ── GET /api/v1/admin/qna/answers ────────────────────────────────────────────
-  app.get("/api/v1/admin/qna/answers", async (request, reply) => {
+  app.get("/admin/qna/answers", async (request, reply) => {
     const parsed = adminQnaAnswersQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -65,7 +65,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
   });
 
   // ── PATCH /api/v1/admin/qna/questions/:id/status ─────────────────────────────
-  app.patch("/api/v1/admin/qna/questions/:id/status", async (request, reply) => {
+  app.patch("/admin/qna/questions/:id/status", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminQnaStatusSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -88,7 +88,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
   });
 
   // ── PATCH /api/v1/admin/qna/questions/:id/hide ───────────────────────────────
-  app.patch("/api/v1/admin/qna/questions/:id/hide", async (request, reply) => {
+  app.patch("/admin/qna/questions/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -106,7 +106,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
 
   // ── DELETE /api/v1/admin/qna/questions/:id — super_admin 전용 ────────────────
   app.delete(
-    "/api/v1/admin/qna/questions/:id",
+    "/admin/qna/questions/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -126,7 +126,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
   );
 
   // ── PATCH /api/v1/admin/qna/answers/:id/hide ─────────────────────────────────
-  app.patch("/api/v1/admin/qna/answers/:id/hide", async (request, reply) => {
+  app.patch("/admin/qna/answers/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -144,7 +144,7 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
 
   // ── DELETE /api/v1/admin/qna/answers/:id — super_admin 전용 ──────────────────
   app.delete(
-    "/api/v1/admin/qna/answers/:id",
+    "/admin/qna/answers/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };

@@ -155,7 +155,7 @@ export function MessageDetailModal({
             {/* 수정요청 123: 삭제(휴지통) 버튼 — 일반 received/sent 탭에서만 */}
             {box !== "trash" && (
               <Button
-                variant="ghost"
+                variant="danger-outline"
                 type="button"
                 onClick={() => void handleTrash()}
                 loading={trashing}

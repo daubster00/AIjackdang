@@ -131,7 +131,7 @@ export function AdminShell({
   useEffect(() => {
     if (adminUserProp !== undefined) return; // 서버에서 주입됨 → fetch 불필요
     let active = true;
-    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (active) setFetchedUser((d?.user as AdminSessionUser) ?? null); })
       .catch(() => { if (active) setFetchedUser(null); });

@@ -73,14 +73,23 @@ export async function registerAdminSignInRoute(app: FastifyInstance): Promise<vo
       }
 
       // 2. Better Auth 내부 API로 자격 증명 검증 (Argon2id 비밀번호 비교 포함)
-      let signInResult: Awaited<ReturnType<typeof adminAuth.api.signInEmail>> | null = null;
+      //    returnHeaders:true 로 호출해 Better Auth가 직접 발급한 "서명된" Set-Cookie 헤더를 받는다.
+      //    (이전 구현은 raw 세션 토큰을 직접 쿠키에 심어서 getSession의 getSignedCookie 검증이 항상
+      //     실패 → 모든 /api/v1/admin/* 데이터 API가 401이 되는 회귀가 있었음)
+      let signInResult:
+        | { user?: { id: string } | null; token?: string | null }
+        | null = null;
+      let signInHeaders: Headers | null = null;
       try {
-        signInResult = await adminAuth.api.signInEmail({
+        const result = await adminAuth.api.signInEmail({
           body: {
             email: normalizedEmail,
             password,
           },
+          returnHeaders: true,
         });
+        signInHeaders = result.headers;
+        signInResult = result.response;
       } catch {
         // Better Auth 자격 검증 실패
         return reply.code(401).send({
@@ -145,19 +154,14 @@ export async function registerAdminSignInRoute(app: FastifyInstance): Promise<vo
         });
       }
 
-      // 4. active — 세션 쿠키 직접 설정
-      // Better Auth 내부 API는 토큰을 반환하고, 쿠키 이름은 {cookiePrefix}.session_token
-      // cookiePrefix: "aj_admin_session" → 쿠키 이름: "aj_admin_session.session_token"
-      if (signInResult.token) {
-        const isProduction = process.env.NODE_ENV === "production";
-        const cookieOptions = [
-          `aj_admin_session.session_token=${signInResult.token}`,
-          "Path=/",
-          "HttpOnly",
-          "SameSite=Strict",
-          ...(isProduction ? ["Secure"] : []),
-        ].join("; ");
-        reply.header("Set-Cookie", cookieOptions);
+      // 4. active — Better Auth가 발급한 서명 쿠키(set-cookie)를 그대로 응답에 전달.
+      // 쿠키 이름은 {cookiePrefix}.session_token = "aj_admin_session.session_token"이며
+      // HMAC 서명이 포함돼 있어 이후 getSession/get-session 검증을 통과한다.
+      if (signInHeaders) {
+        const setCookies = signInHeaders.getSetCookie();
+        if (setCookies.length > 0) {
+          reply.header("set-cookie", setCookies);
+        }
       }
 
       return reply.code(200).send({

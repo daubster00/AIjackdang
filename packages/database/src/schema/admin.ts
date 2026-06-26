@@ -8,6 +8,7 @@
  */
 
 import {
+  boolean,
   pgEnum,
   pgTable,
   text,
@@ -26,7 +27,11 @@ export const adminStatus = pgEnum("admin_status", ["pending", "active", "suspend
 export const adminUsers = pgTable("admin_users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
+  /** Better Auth 코어 필드 — 관리자는 이메일 인증을 쓰지 않아 항상 true 로 둔다. */
+  emailVerified: boolean("email_verified").notNull().default(true),
   name: text("name").notNull(),
+  /** Better Auth 코어 user 필드(프로필 이미지). 관리자는 미사용이라 nullable. */
+  image: text("image"),
   phone: text("phone").notNull(),
   role: adminRole("role").notNull().default("staff"),
   status: adminStatus("status").notNull().default("pending"),
@@ -53,6 +58,8 @@ export const adminSessions = pgTable("admin_sessions", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Better Auth 코어 session 필드. */
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type AdminSessionRow = typeof adminSessions.$inferSelect;
@@ -72,6 +79,13 @@ export const adminAccounts = pgTable(
     accountId: text("account_id").notNull(),
     /** Argon2id 해시 비밀번호. 항상 non-null (credential only). */
     password: text("password"),
+    /** Better Auth 코어 account 필드(소셜 토큰). credential 전용이라 항상 null 이지만 스키마 정합 위해 보유. */
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -94,6 +108,8 @@ export const adminVerifications = pgTable("admin_verifications", {
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Better Auth 코어 verification 필드. */
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type AdminVerificationRow = typeof adminVerifications.$inferSelect;

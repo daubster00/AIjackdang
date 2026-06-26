@@ -34,7 +34,7 @@ import {
 export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/ads ────────────────────────────────────────────────────
   app.get(
-    "/api/v1/admin/ads",
+    "/admin/ads",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const parsed = adminAdsQuerySchema.safeParse(request.query);
@@ -55,7 +55,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /api/v1/admin/ads/:id/stats (경로 충돌 방지: :id 앞에 등록) ───────────
   app.get(
-    "/api/v1/admin/ads/:id/stats",
+    "/admin/ads/:id/stats",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -81,7 +81,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /api/v1/admin/ads/:id ────────────────────────────────────────────────
   app.get(
-    "/api/v1/admin/ads/:id",
+    "/admin/ads/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -101,7 +101,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /api/v1/admin/ads ───────────────────────────────────────────────────
   app.post(
-    "/api/v1/admin/ads",
+    "/admin/ads",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const parsed = adminAdCreateSchema.safeParse(request.body);
@@ -122,7 +122,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── PATCH /api/v1/admin/ads/:id/toggle ──────────────────────────────────────
   app.patch(
-    "/api/v1/admin/ads/:id/toggle",
+    "/admin/ads/:id/toggle",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -142,7 +142,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── PATCH /api/v1/admin/ads/:id ─────────────────────────────────────────────
   app.patch(
-    "/api/v1/admin/ads/:id",
+    "/admin/ads/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -168,7 +168,7 @@ export async function registerAdminAdsRoutes(app: FastifyInstance): Promise<void
 
   // ── DELETE /api/v1/admin/ads/:id — super_admin 전용, note 필수 ───────────────
   app.delete(
-    "/api/v1/admin/ads/:id",
+    "/admin/ads/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };

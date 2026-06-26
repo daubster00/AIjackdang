@@ -128,6 +128,10 @@
   --btn-color: #d89a9a;
 }
 
+/* Variant — danger-outline */
+.danger-outline { --btn-bg: #fff; --btn-color: var(--color-danger); --btn-border: var(--color-danger); }
+.danger-outline:hover { --btn-bg: var(--color-danger-soft); }
+
 .full {
   width: 100%;
 }

@@ -46,7 +46,7 @@ const adminInquiryReplyCreateSchema = z.object({
 
 export async function registerAdminInquiriesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/inquiries ─────────────────────────────────────────────
-  app.get("/api/v1/admin/inquiries", async (request, reply) => {
+  app.get("/admin/inquiries", async (request, reply) => {
     const parsed = adminInquiriesQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -70,7 +70,7 @@ export async function registerAdminInquiriesRoutes(app: FastifyInstance): Promis
   });
 
   // ── GET /api/v1/admin/inquiries/:id ─────────────────────────────────────────
-  app.get("/api/v1/admin/inquiries/:id", async (request, reply) => {
+  app.get("/admin/inquiries/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -90,7 +90,7 @@ export async function registerAdminInquiriesRoutes(app: FastifyInstance): Promis
   });
 
   // ── PATCH /api/v1/admin/inquiries/:id/status ────────────────────────────────
-  app.patch("/api/v1/admin/inquiries/:id/status", async (request, reply) => {
+  app.patch("/admin/inquiries/:id/status", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminInquiryStatusUpdateSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -121,7 +121,7 @@ export async function registerAdminInquiriesRoutes(app: FastifyInstance): Promis
   });
 
   // ── POST /api/v1/admin/inquiries/:id/replies ────────────────────────────────
-  app.post("/api/v1/admin/inquiries/:id/replies", async (request, reply) => {
+  app.post("/admin/inquiries/:id/replies", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminInquiryReplyCreateSchema.safeParse(request.body);
     if (!parsed.success) {

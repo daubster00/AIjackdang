@@ -33,7 +33,7 @@ import {
 
 export async function registerAdminResourcesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/resources ─────────────────────────────────────────────
-  app.get("/api/v1/admin/resources", async (request, reply) => {
+  app.get("/admin/resources", async (request, reply) => {
     const parsed = adminResourcesQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -57,7 +57,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
   });
 
   // ── GET /api/v1/admin/resources/:id ─────────────────────────────────────────
-  app.get("/api/v1/admin/resources/:id", async (request, reply) => {
+  app.get("/admin/resources/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -76,7 +76,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
   });
 
   // ── PATCH /api/v1/admin/resources/:id/hide ──────────────────────────────────
-  app.patch("/api/v1/admin/resources/:id/hide", async (request, reply) => {
+  app.patch("/admin/resources/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
     // body는 선택적 note — 검증 실패여도 진행 (note 미입력 허용)
     adminResourceHideSchema.safeParse(request.body);
@@ -98,7 +98,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
 
   // ── DELETE /api/v1/admin/resources/:id — super_admin 전용 ──────────────────
   app.delete(
-    "/api/v1/admin/resources/:id",
+    "/admin/resources/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -132,7 +132,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
   // ── DELETE /api/v1/admin/resources/:id/files/:fileId ──────────────────────
   // 첨부파일 소프트딜리트 — fileStatus='deleted'. R2 실제 삭제는 9.10 worker.
   // UX-DR-A9: 안전성 보증 표시 없음.
-  app.delete("/api/v1/admin/resources/:id/files/:fileId", async (request, reply) => {
+  app.delete("/admin/resources/:id/files/:fileId", async (request, reply) => {
     const { id, fileId } = request.params as { id: string; fileId: string };
     const parsed = adminResourceFileDeleteSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -161,7 +161,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
   });
 
   // ── GET /api/v1/admin/resources/:id/reviews ─────────────────────────────────
-  app.get("/api/v1/admin/resources/:id/reviews", async (request, reply) => {
+  app.get("/admin/resources/:id/reviews", async (request, reply) => {
     const { id } = request.params as { id: string };
     const q = request.query as { page?: string; pageSize?: string };
     const page = Math.max(1, Number(q.page ?? "1"));
@@ -181,7 +181,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
   // ── PATCH /api/v1/admin/reviews/:commentId/hide ─────────────────────────────
   // comment_status enum이 visible|deleted 만 존재 — 숨김도 deleted로 처리.
   // 엔드포인트는 분리해 두어 추후 'hidden' enum 추가 시 동작만 교체 가능.
-  app.patch("/api/v1/admin/reviews/:commentId/hide", async (request, reply) => {
+  app.patch("/admin/reviews/:commentId/hide", async (request, reply) => {
     const { commentId } = request.params as { commentId: string };
 
     try {
@@ -201,7 +201,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
 
   // ── DELETE /api/v1/admin/reviews/:commentId — super_admin 전용 ─────────────
   app.delete(
-    "/api/v1/admin/reviews/:commentId",
+    "/admin/reviews/:commentId",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { commentId } = request.params as { commentId: string };

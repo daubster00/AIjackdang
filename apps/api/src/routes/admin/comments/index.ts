@@ -22,7 +22,7 @@ import {
 
 export async function registerAdminCommentsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/comments ──────────────────────────────────────────────
-  app.get("/api/v1/admin/comments", async (request, reply) => {
+  app.get("/admin/comments", async (request, reply) => {
     const parsed = adminCommentsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -40,7 +40,7 @@ export async function registerAdminCommentsRoutes(app: FastifyInstance): Promise
   });
 
   // ── POST /api/v1/admin/comments/bulk — 경로 충돌 방지: :id 앞에 등록 ─────────
-  app.post("/api/v1/admin/comments/bulk", async (request, reply) => {
+  app.post("/admin/comments/bulk", async (request, reply) => {
     const parsed = adminCommentsBulkSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -69,7 +69,7 @@ export async function registerAdminCommentsRoutes(app: FastifyInstance): Promise
   });
 
   // ── PATCH /api/v1/admin/comments/:id/hide ───────────────────────────────────
-  app.patch("/api/v1/admin/comments/:id/hide", async (request, reply) => {
+  app.patch("/admin/comments/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -87,7 +87,7 @@ export async function registerAdminCommentsRoutes(app: FastifyInstance): Promise
 
   // ── DELETE /api/v1/admin/comments/:id — super_admin 전용 ────────────────────
   app.delete(
-    "/api/v1/admin/comments/:id",
+    "/admin/comments/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };

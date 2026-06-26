@@ -54,6 +54,9 @@ export * from "./admin/messages";
 // ── 신고 관리 (Story 9.10) ────────────────────────────────────────────────────
 export * from "./admin/reports";
 
+// ── 접속통계·방문로그 (Analytics) ────────────────────────────────────────────
+export * from "./admin/analytics";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

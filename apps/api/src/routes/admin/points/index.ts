@@ -13,7 +13,7 @@ import { adminPatchPointRuleSchema } from "@ai-jakdang/contracts";
 
 export async function registerAdminPointsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/points/rules ───────────────────────────────────────────
-  app.get("/api/v1/admin/points/rules", async (request, reply) => {
+  app.get("/admin/points/rules", async (request, reply) => {
     const db = getDb();
     try {
       const rows = await db
@@ -37,7 +37,7 @@ export async function registerAdminPointsRoutes(app: FastifyInstance): Promise<v
   });
 
   // ── PATCH /api/v1/admin/points/rules/:actionType ─────────────────────────────
-  app.patch("/api/v1/admin/points/rules/:actionType", async (request, reply) => {
+  app.patch("/admin/points/rules/:actionType", async (request, reply) => {
     const db = getDb();
     const { actionType } = request.params as { actionType: string };
     const parsed = adminPatchPointRuleSchema.safeParse(request.body);

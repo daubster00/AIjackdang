@@ -34,18 +34,28 @@ export function initOverlay(root = document) {
   }
 
   root.querySelectorAll("[data-admin-open]").forEach((btn) => {
+    if (btn.dataset.overlayOpenInitialized === "true") return;
+    btn.dataset.overlayOpenInitialized = "true";
     btn.addEventListener("click", () => open(btn.dataset.adminOpen));
   });
 
   root.querySelectorAll(".close-overlay").forEach((btn) => {
+    if (btn.dataset.overlayCloseInitialized === "true") return;
+    btn.dataset.overlayCloseInitialized = "true";
     btn.addEventListener("click", closeAll);
   });
 
-  overlay?.addEventListener("click", closeAll);
+  if (overlay && overlay.dataset.overlayInitialized !== "true") {
+    overlay.dataset.overlayInitialized = "true";
+    overlay.addEventListener("click", closeAll);
+  }
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeAll();
-  });
+  if (document.documentElement.dataset.overlayKeydownInitialized !== "true") {
+    document.documentElement.dataset.overlayKeydownInitialized = "true";
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAll();
+    });
+  }
 
   return { open, closeAll };
 }

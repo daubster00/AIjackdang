@@ -43,7 +43,7 @@
 <!-- 사용자가 여기에 한 줄씩 추가. Claude가 읽고 '수정 중'으로 내림.
 - [ ] [대상 위치/파일] - 무엇을 어떻게
 -->
-_(없음 — 6건은 아래 검수 대기 119~124로 이동)_
+_(없음 — 10건은 아래 검수 대기 125~134로 이동)_
 
 ## 수정 중 (IN PROGRESS)
 
@@ -61,13 +61,60 @@ _(없음)_
 > Claude가 수정 + 자체 검증을 마쳤으나 **사용자 검수 전**인 항목.
 > 사용자가 확인 후 통과면 `검수` 박스를 v로 체크해 주세요. 여전히 문제면 그대로 비워두세요.
 
-_(없음 — 122·107·108·113 검수 통과로 이동)_
+_(없음 — 131 검수 통과로 CLOSED 이동)_
 
 ---
 
 ## 검수 통과 (CLOSED)
 
 > 사용자가 `검수` 박스를 체크해 통과시킨 항목을 Claude가 여기로 옮긴다.
+
+> 관리자 5건(130·131·132·133·134) — 2026-06-26 2차, 검수 통과. 진짜 원인은 **라우트 이중 prefix 404**(curl 격리검증으로는 못 잡고 실 브라우저 Playwright로만 잡힘) + get-session CORS 차단. 교훈: 관리자 검수는 반드시 실 브라우저 로그인 흐름으로.
+
+### 131. 댓글·후기 관리 검색 영역 줄바꿈 안되고 영역 밖으로 벗어남
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): **안쪽** 날짜범위 컨테이너의 중첩 `filter-row`를 flex로 교체 → 여전히 겹침(엉뚱한 곳).
+- 2차 (2026-06-26): 진짜 원인 = **바깥 `.filter-row`(고정 5칼럼 grid)**. 댓글 페이지만 날짜범위(입력 2개)로 항목 5개라 날짜 칸(~298px)이 210px 칼럼 넘쳐 액션 버튼과 겹침. → 이 페이지 바깥 filter-row만 `display:flex; flex-wrap:wrap`(공유 css 불변)·검색창 `flex:1 1 240px`·액션 `margin-left:auto`. → ✅ 실 브라우저 측정: 1280px·1024px 겹침 0, 2줄 줄바꿈, 넘침 0.
+
+### 130. 관리자 모든 목록(게시판·댓글·실전자료·Q&A 등) 데이터 안 불러옴
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 미서명 쿠키 가설 → returnHeaders 서명쿠키. curl `/admin/dashboard/kpi` 401→200만 보고 통과 → 실 브라우저 데이터 0(상대경로 kpi/analytics만 쳐서 놓침).
+- 2차 (2026-06-26): 가설 폐기, **실 브라우저(Playwright) 캡처** 재진단 → 진짜 원인 = **라우트 이중 prefix 404**. `adminRoutes`가 `{prefix:"/api/v1"}` 마운트인데 11개 파일이 절대경로 `app.get("/api/v1/admin/…")` 등록 → `/api/v1/api/v1/admin/…` → 프론트 호출 전부 404(상대경로 dashboard·analytics만 우연히 동작). → 11파일 51곳 절대→상대 `/admin/…` 교체. → ✅ 실 브라우저: 10개 관리자 페이지 전부 실데이터 200, 실패 호출 0.
+
+### 132. 신고관리 페이지 "HTTP 401" 표기
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): 130과 동일 **이중 prefix 404**(reports 절대경로 등록). 페이지가 not-ok 시 `HTTP ${status}`를 출력해 표면화. → 상대경로 교체. → ✅ 실 브라우저: /reports 실데이터 200, 오류 텍스트 0.
+
+### 133. 마스터 계정인데 "관리회원 관리" 접근 권한 없음
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): (a) 미서명 쿠키 (b) `/session`→`/get-session` 경로 오타 수정(둘 다 유효).
+- 2차 (2026-06-26): admin-members 게이트는 서버사이드 getAdminSession이라 (a)(b)로 동작. → ✅ 실 브라우저: 마스터 로그인 후 `/admin-members` 정상 렌더, 권한없음 텍스트 0.
+
+### 134. 마스터 계정 "내 정보 수정"에 실제 정보 안 나옴 (+저장 기능 추가)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): 진짜 원인 = client `get-session` **CORS 차단**(toNodeHandler가 reply.raw 직접 써 @fastify/cors 우회). → ① auth 경로 CORS 헤더 수동 부착(+OPTIONS) ② AdminAccountMenu를 신규 `GET/PATCH /api/v1/admin/account/me`(CORS 정상·phone 포함)로 전환 ③ 저장 기능 추가(name·phone PATCH). 이메일 읽기전용, 미동작 비밀번호 필드 제거. → ✅ 실 브라우저: 마스터 실데이터(최고관리자·aijackdang@gmail.com·010-2484-0289) 표시, CORS 0, PATCH 저장 200 영속.
+
+> 신규 5건(125~129) — 2026-06-26 배치, 검수 통과.
+
+### 125. 쪽지 확인 모달 삭제 버튼 → 붉은 테두리(흰 배경)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공유 Button에 outline형 danger variant 부재가 원인. `Button.types.ts`에 `danger-outline` variant 추가 + `Button.module.css`에 `.danger-outline`(흰배경·빨강글씨·빨강테두리, hover시 danger-soft) 정의 → `MessageDetailModal` 삭제(휴지통) 버튼 `ghost`→`danger-outline`. 영구삭제 버튼(채워진 danger)은 유지.
+
+### 126. 메인 작당 라운지 게시판 태그 가로폭 → 글자폭에 맞춤
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 원인 = 부모 `.creativeBody`가 grid라 라벨이 `justify-self:stretch`(기본)로 칼럼 전체폭 차지, 기존 `align-self:flex-start`는 세로축이라 무효. `page.module.css .creativeBoardLabel` `align-self:flex-start`→`justify-self:start`. → ✅ Playwright 실측: 라벨 4개 글자폭(67px·99px)으로 축소.
+
+### 127. 대대댓글 작성 시 프로필 이미지 안 나옴(새로고침하면 보임)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 원인 = 낙관적 append 시 `authorAvatarUrl: user?.avatarUrl ?? user?.image ?? null` 이라 기본 아바타 유저는 둘 다 null. → 7벌 CommentForm 전부 `user ? resolveAvatarUrl(user) : null`(lib/avatar 기본아바타 폴백 포함)로 교체.
+
+### 128. 관리자 접속통계 전체가 가짜 데이터 → 진짜 데이터
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 방문 로그 인프라 신규 구축 — `page_views`(마이그 0022) + 공개 적재 `POST /api/v1/analytics/collect` + 유저웹 `PageViewTracker`(layout, sendBeacon) + 집계 API 5종(visitor-trend·referrers·keywords·post/resource-performance). stats 더미 전량 제거→실 API. → ✅ curl 실측: collect 204, 집계 6종 200 실데이터. ⚠️ 방문 로그는 도입 시점부터 누적 → 초기엔 희소.
+
+### 129. 대시보드 방문자 추이·최근 콘텐츠 진짜 데이터
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): "최근 콘텐츠" → `GET /admin/dashboard/recent-content`(posts·resources·questions 최신순) 신설, RECENT 더미 제거. "방문자 추이" → page_views 인프라 공유, TrafficChart 더미 제거→visitor-trend API. → ✅ curl 실측: recent-content·visitor-trend 200 실데이터.
 
 > 재수정 4건(122·107·108·113) — 2026-06-26 2차 배치, 검수 통과. 근본 원인 = **댓글 컴포넌트가 게시판별 7벌 복제**라 1차가 lounge 한 벌만 고쳤던 것.
 

@@ -13,7 +13,7 @@ import { adminPatchGradeSchema } from "@ai-jakdang/contracts";
 
 export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/grades ─────────────────────────────────────────────────
-  app.get("/api/v1/admin/grades", async (request, reply) => {
+  app.get("/admin/grades", async (request, reply) => {
     const db = getDb();
     try {
       const rows = await db
@@ -37,7 +37,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
   });
 
   // ── PATCH /api/v1/admin/grades/:id ──────────────────────────────────────────
-  app.patch("/api/v1/admin/grades/:id", async (request, reply) => {
+  app.patch("/admin/grades/:id", async (request, reply) => {
     const db = getDb();
     const { id } = request.params as { id: string };
     const parsed = adminPatchGradeSchema.safeParse(request.body);

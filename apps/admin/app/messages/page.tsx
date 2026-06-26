@@ -216,7 +216,7 @@ function AdminMessagesContent() {
 
   // 현재 관리자 role 확인
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         if (d?.user?.role === "super_admin") setIsSuperAdmin(true);

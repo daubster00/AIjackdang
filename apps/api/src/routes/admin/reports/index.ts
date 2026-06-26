@@ -26,7 +26,7 @@ import {
 
 export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/reports ──────────────────────────────────────────────
-  app.get("/api/v1/admin/reports", async (request, reply) => {
+  app.get("/admin/reports", async (request, reply) => {
     const query = request.query as Record<string, unknown>;
     const parsed = adminReportsQuerySchema.safeParse(query);
     if (!parsed.success) {
@@ -55,7 +55,7 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
   });
 
   // ── GET /api/v1/admin/reports/:id ─────────────────────────────────────────
-  app.get("/api/v1/admin/reports/:id", async (request, reply) => {
+  app.get("/admin/reports/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -75,7 +75,7 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
 
   // ── PATCH /api/v1/admin/reports/:id/review ─────────────────────────────────
   // 접수(pending) → 확인중(reviewing) 상태 변경. 저위험: 즉시+토스트(undo 가능).
-  app.patch("/api/v1/admin/reports/:id/review", async (request, reply) => {
+  app.patch("/admin/reports/:id/review", async (request, reply) => {
     const { id } = request.params as { id: string };
     const adminId = request.adminSession?.adminUserId;
 
@@ -103,7 +103,7 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
   // ── PATCH /api/v1/admin/reports/:id/hide ──────────────────────────────────
   // 위반 확정+숨김: reports.status='resolved' + 대상 콘텐츠 status='hidden' (트랜잭션).
   // 저위험(되돌릴 수 있음): 즉시+토스트(undo 가능).
-  app.patch("/api/v1/admin/reports/:id/hide", async (request, reply) => {
+  app.patch("/admin/reports/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
     const adminId = request.adminSession?.adminUserId;
 
@@ -143,7 +143,7 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
   // ── PATCH /api/v1/admin/reports/:id/reject ────────────────────────────────
   // 반려: note(사유) 필수 → reports.status='dismissed'. 대상 콘텐츠 변경 없음.
   // 위험(되돌리기 어려움): 모달+사유 필수, note 없으면 400.
-  app.patch("/api/v1/admin/reports/:id/reject", async (request, reply) => {
+  app.patch("/admin/reports/:id/reject", async (request, reply) => {
     const { id } = request.params as { id: string };
     const adminId = request.adminSession?.adminUserId;
 
@@ -182,7 +182,7 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
   // ── PATCH /api/v1/admin/reports/:id/restore-auto-hide ─────────────────────
   // 자동 숨김된 콘텐츠 복구: target status='published' + report handled (Story 9.11, AC #2).
   // 저위험(콘텐츠 복구): 즉시+토스트.
-  app.patch("/api/v1/admin/reports/:id/restore-auto-hide", async (request, reply) => {
+  app.patch("/admin/reports/:id/restore-auto-hide", async (request, reply) => {
     const { id } = request.params as { id: string };
     const adminId = request.adminSession?.adminUserId;
 

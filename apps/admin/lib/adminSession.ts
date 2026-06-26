@@ -25,7 +25,7 @@ export const getAdminSession = cache(async (): Promise<AdminSessionUser | null> 
   if (!sessionCookie) return null;
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/admin/auth/session`, {
+    const res = await fetch(`${API_BASE}/api/v1/admin/auth/get-session`, {
       headers: { Cookie: `${sessionCookie.name}=${sessionCookie.value}` },
       cache: "no-store",
     });

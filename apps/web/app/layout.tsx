@@ -4,6 +4,7 @@ import Script from "next/script";
 import { ToastProvider } from "@/components/ui";
 import { SiteFooter, SiteHeader, NotificationAlert } from "@/components/site";
 import { GatingProvider } from "@/contexts/GatingContext";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 // 사용자 사이트 전역 디자인 시스템 (이 앱 전용)
 import "../styles/index.css";
 // 아이콘은 Remix Icon 으로 통일
@@ -84,6 +85,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </GatingProvider>
           {/* 페이지 이동·새로고침 시 새 알림/쪽지 팝업 — ToastProvider 하위에서만 useToast 동작 */}
           <NotificationAlert />
+          {/* 방문 로그 적재 — 라우트 변경 시마다 POST /api/v1/analytics/collect */}
+          <PageViewTracker />
         </ToastProvider>
       </body>
     </html>

@@ -131,7 +131,13 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
       createdAt: users.createdAt,
       totalPoints: sql<number>`COALESCE((SELECT SUM(pl.delta)::int FROM points_ledger pl WHERE pl.user_id = ${users.id}), 0)`,
       postCount: sql<number>`(SELECT COUNT(*)::int FROM posts WHERE user_id = ${users.id} AND status != 'deleted')`,
-      reportCount: sql<number>`(SELECT COUNT(*)::int FROM reports WHERE reported_user_id = ${users.id})`,
+      // 신고 테이블에는 "신고당한 유저" 컬럼이 없고 target_type/target_id로 콘텐츠를 가리킨다.
+      // → 이 유저가 작성한 게시글·댓글을 대상으로 한 신고 수를 합산한다.
+      reportCount: sql<number>`(
+        SELECT COUNT(*)::int FROM reports r
+        WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${users.id}))
+           OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM comments WHERE author_id = ${users.id}))
+      )`,
     })
     .from(users)
     .where(where)
@@ -208,7 +214,11 @@ export async function getUserMemberDetail(userId: string) {
   const [stats] = await db
     .select({
       postCount: sql<number>`(SELECT COUNT(*)::int FROM posts WHERE user_id = ${userId} AND status != 'deleted')`,
-      reportCount: sql<number>`(SELECT COUNT(*)::int FROM reports WHERE reported_user_id = ${userId})`,
+      reportCount: sql<number>`(
+        SELECT COUNT(*)::int FROM reports r
+        WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${userId}))
+           OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM comments WHERE author_id = ${userId}))
+      )`,
     })
     .from(users)
     .where(eq(users.id, userId));
@@ -554,9 +564,10 @@ export async function changeGrade(
 /**
  * 뱃지 수동 지급.
  * (userId, badgeId) UNIQUE 충돌 시 이미 보유 → 에러.
- * grantedBy = admin user id (uuid).
+ * user_badges.granted_by 는 현재 users FK 이므로 관리자 admin_users.id 를 넣지 않는다.
+ * 운영자 지급 이력은 별도 감사 로그가 생기기 전까지 null 로 저장한다.
  */
-export async function grantBadge(userId: string, badgeId: string, grantedBy: string) {
+export async function grantBadge(userId: string, badgeId: string, _grantedBy: string) {
   const db = getDb();
 
   const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
@@ -590,7 +601,7 @@ export async function grantBadge(userId: string, badgeId: string, grantedBy: str
     .values({
       userId,
       badgeId,
-      grantedBy,
+      grantedBy: null,
     })
     .returning();
 

@@ -16,7 +16,7 @@ import { adminCreateBadgeSchema, adminPatchBadgeSchema } from "@ai-jakdang/contr
 
 export async function registerAdminBadgesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/badges ─────────────────────────────────────────────────
-  app.get("/api/v1/admin/badges", async (request, reply) => {
+  app.get("/admin/badges", async (request, reply) => {
     const db = getDb();
     try {
       const rows = await db
@@ -43,7 +43,7 @@ export async function registerAdminBadgesRoutes(app: FastifyInstance): Promise<v
   });
 
   // ── POST /api/v1/admin/badges ────────────────────────────────────────────────
-  app.post("/api/v1/admin/badges", async (request, reply) => {
+  app.post("/admin/badges", async (request, reply) => {
     const db = getDb();
     const parsed = adminCreateBadgeSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -87,7 +87,7 @@ export async function registerAdminBadgesRoutes(app: FastifyInstance): Promise<v
   });
 
   // ── PATCH /api/v1/admin/badges/:id ──────────────────────────────────────────
-  app.patch("/api/v1/admin/badges/:id", async (request, reply) => {
+  app.patch("/admin/badges/:id", async (request, reply) => {
     const db = getDb();
     const { id } = request.params as { id: string };
     const parsed = adminPatchBadgeSchema.safeParse(request.body);
@@ -147,7 +147,7 @@ export async function registerAdminBadgesRoutes(app: FastifyInstance): Promise<v
 
   // ── DELETE /api/v1/admin/badges/:id — super_admin 전용 ───────────────────────
   app.delete(
-    "/api/v1/admin/badges/:id",
+    "/admin/badges/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const db = getDb();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { initAdminUI } from "@ai-jakdang/admin-design-system/js";
+import { initAdminUI, initSelects, initTabs, initTables, initOverlay } from "@ai-jakdang/admin-design-system/js";
 
 /**
  * 관리자 디자인 시스템의 공통 인터랙션을 클라이언트에서 1회 초기화한다.
@@ -15,6 +15,20 @@ import { initAdminUI } from "@ai-jakdang/admin-design-system/js";
 export function AdminInteractions() {
   useEffect(() => {
     initAdminUI();
+
+    const refreshDynamicInteractions = () => {
+      initSelects();
+      initTabs();
+      initTables();
+      initOverlay();
+    };
+
+    const observer = new MutationObserver(() => {
+      refreshDynamicInteractions();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {

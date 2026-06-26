@@ -493,7 +493,7 @@ function AdsPageContent() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/v1/admin/auth/session`, { credentials: "include" })
+    fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setSession(d?.user ?? null))
       .catch(() => setSession(null));

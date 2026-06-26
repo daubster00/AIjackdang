@@ -32,7 +32,7 @@ import {
 
 export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/messages — 목록 ────────────────────────────────────────
-  app.get("/api/v1/admin/messages", async (request, reply) => {
+  app.get("/admin/messages", async (request, reply) => {
     const parsed = adminMessagesQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -50,7 +50,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
   });
 
   // ── POST /api/v1/admin/messages/bulk-hide — 벌크 숨김 (경로 충돌 방지: :id 앞에 등록) ─
-  app.post("/api/v1/admin/messages/bulk-hide", async (request, reply) => {
+  app.post("/admin/messages/bulk-hide", async (request, reply) => {
     const parsed = adminMessagesBulkHideSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -69,7 +69,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
 
   // ── DELETE /api/v1/admin/messages/bulk — 벌크 삭제 (super_admin) ─────────────
   app.delete(
-    "/api/v1/admin/messages/bulk",
+    "/admin/messages/bulk",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const parsed = adminMessagesBulkDeleteSchema.safeParse(request.body);
@@ -90,7 +90,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
   );
 
   // ── GET /api/v1/admin/messages/:id — 상세 ────────────────────────────────────
-  app.get("/api/v1/admin/messages/:id", async (request, reply) => {
+  app.get("/admin/messages/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -107,7 +107,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
   });
 
   // ── PATCH /api/v1/admin/messages/:id/hide ────────────────────────────────────
-  app.patch("/api/v1/admin/messages/:id/hide", async (request, reply) => {
+  app.patch("/admin/messages/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -124,7 +124,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
   });
 
   // ── PATCH /api/v1/admin/messages/:id/unhide ──────────────────────────────────
-  app.patch("/api/v1/admin/messages/:id/unhide", async (request, reply) => {
+  app.patch("/admin/messages/:id/unhide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -142,7 +142,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
 
   // ── DELETE /api/v1/admin/messages/:id — super_admin 전용 ─────────────────────
   app.delete(
-    "/api/v1/admin/messages/:id",
+    "/admin/messages/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -162,7 +162,7 @@ export async function registerAdminMessagesRoutes(app: FastifyInstance): Promise
   );
 
   // ── POST /api/v1/admin/messages/:id/restrict-sender ──────────────────────────
-  app.post("/api/v1/admin/messages/:id/restrict-sender", async (request, reply) => {
+  app.post("/admin/messages/:id/restrict-sender", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminMessageRestrictSenderSchema.safeParse(request.body);
     if (!parsed.success) {

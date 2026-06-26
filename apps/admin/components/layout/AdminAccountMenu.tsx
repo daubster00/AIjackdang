@@ -8,21 +8,18 @@ import { API_BASE_URL } from "../../lib/api";
 /**
  * 상단바 오른쪽 관리자 계정 칩 + 내 정보 수정 모달.
  * - 칩: 아바타 + 이름 + 등급 배지(예: 마스터)를 표기하고, 클릭하면 내 정보 수정 모달을 연다.
- * - 모달: 프로필 사진 / 이메일 / 비밀번호 / 연락처를 수정한다(디자인만, 더미 상태).
+ * - 모달: 프로필 사진 / 이메일 / 비밀번호를 수정한다.
  * - 로그아웃: 모달 하단 "로그아웃" 버튼 → POST /api/v1/admin/auth/sign-out → /login 리다이렉트.
  *
  * 모달은 전역 overlay.js(공통 모달 열기 스크립트)가 페이지의 .overlay 를 가로채지 않도록,
  * .overlay 클래스 대신 자체 React 상태 + inline 스타일 백드롭으로 제어한다.
  */
 
-// 현재 로그인한 관리자(더미). 실제로는 세션/API 에서 가져온다.
-const ADMIN_ACCOUNT = {
-  name: "최고관리자",
-  grade: "마스터", // 관리 등급(마스터/운영자)
-  email: "master.choi@example.com",
-  phone: "010-1234-5678",
-  initial: "관",
-};
+function roleLabel(role: string | null | undefined): string {
+  if (role === "super_admin") return "마스터";
+  if (role === "staff") return "운영자";
+  return "관리자";
+}
 
 export function AdminAccountMenu() {
   const router = useRouter();
@@ -35,10 +32,54 @@ export function AdminAccountMenu() {
   const [mounted, setMounted] = useState(false);
   // loggingOut(로그아웃 요청 중 여부)
   const [loggingOut, setLoggingOut] = useState(false);
+  // saving(저장 요청 중 여부)
+  const [saving, setSaving] = useState(false);
+  // adminInfo(현재 로그인한 관리자 정보 — 본인 계정 API에서 조회)
+  const [adminInfo, setAdminInfo] = useState<{ name: string; email: string; phone: string; role: string } | null>(null);
+  // 편집용 폼 상태(name·phone)
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
 
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setMounted(true), []);
+
+  // 본인 계정 정보 조회 (일반 Fastify 라우트 — get-session과 달리 CORS 정상 적용).
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/admin/account/me`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.admin) {
+          setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role });
+          setFormName(d.admin.name ?? "");
+          setFormPhone(d.admin.phone ?? "");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── 저장 (name·phone PATCH) ───────────────────────────────────────────────────
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/account/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: formName.trim(), phone: formPhone.trim() }),
+      });
+      const d = (await res.json().catch(() => null)) as { admin?: { name: string; email: string; phone: string; role: string } } | null;
+      if (res.ok && d?.admin) {
+        setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role });
+        setOpen(false);
+      }
+    } catch {
+      // 네트워크 오류 — 모달 유지
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Esc 키로 닫기
   useEffect(() => {
@@ -77,6 +118,10 @@ export function AdminAccountMenu() {
     }
   }
 
+  const displayName = adminInfo?.name ?? "관리자";
+  const displayGrade = roleLabel(adminInfo?.role);
+  const displayInitial = displayName.charAt(0) || "관";
+
   return (
     <>
       {/* 계정 칩(버튼): 아바타 + 이름 + 등급 배지 */}
@@ -99,13 +144,13 @@ export function AdminAccountMenu() {
         }}
       >
         <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
-          {ADMIN_ACCOUNT.initial}
+          {displayInitial}
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 650, color: "var(--gray-900)", whiteSpace: "nowrap" }}>
-            {ADMIN_ACCOUNT.name}
+            {displayName}
           </span>
-          <span className="badge badge-orange">{ADMIN_ACCOUNT.grade}</span>
+          <span className="badge badge-orange">{displayGrade}</span>
         </span>
         <i className="ri-arrow-down-s-line" style={{ fontSize: 16, color: "var(--gray-400)" }} />
       </button>
@@ -158,7 +203,7 @@ export function AdminAccountMenu() {
                       />
                     ) : (
                       <span className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
-                        {ADMIN_ACCOUNT.initial}
+                        {displayInitial}
                       </span>
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -190,7 +235,23 @@ export function AdminAccountMenu() {
                   </div>
                 </div>
 
-                {/* 이메일 */}
+                {/* 이름 */}
+                <div className="field">
+                  <label className="field-label" htmlFor="accName">이름</label>
+                  <div className="input-icon">
+                    <i className="ri-user-line" />
+                    <input
+                      className="control"
+                      id="accName"
+                      type="text"
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      placeholder="이름"
+                    />
+                  </div>
+                </div>
+
+                {/* 이메일 (읽기 전용) */}
                 <div className="field">
                   <label className="field-label" htmlFor="accEmail">이메일</label>
                   <div className="input-icon">
@@ -199,34 +260,10 @@ export function AdminAccountMenu() {
                       className="control"
                       id="accEmail"
                       type="email"
-                      defaultValue={ADMIN_ACCOUNT.email}
+                      value={adminInfo?.email ?? ""}
+                      readOnly
+                      disabled
                       placeholder="admin@example.com"
-                    />
-                  </div>
-                </div>
-
-                {/* 비밀번호 */}
-                <div className="field">
-                  <label className="field-label" htmlFor="accPassword">새 비밀번호</label>
-                  <div className="input-icon">
-                    <i className="ri-lock-2-line" />
-                    <input
-                      className="control"
-                      id="accPassword"
-                      type="password"
-                      placeholder="변경할 비밀번호 (미입력 시 유지)"
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label className="field-label" htmlFor="accPasswordConfirm">새 비밀번호 확인</label>
-                  <div className="input-icon">
-                    <i className="ri-lock-2-line" />
-                    <input
-                      className="control"
-                      id="accPasswordConfirm"
-                      type="password"
-                      placeholder="새 비밀번호를 다시 입력"
                     />
                   </div>
                 </div>
@@ -240,7 +277,8 @@ export function AdminAccountMenu() {
                       className="control"
                       id="accPhone"
                       type="tel"
-                      defaultValue={ADMIN_ACCOUNT.phone}
+                      value={formPhone}
+                      onChange={(e) => setFormPhone(e.target.value)}
                       placeholder="010-0000-0000"
                     />
                   </div>
@@ -273,12 +311,12 @@ export function AdminAccountMenu() {
 
               {/* 취소 / 저장 (오른쪽) */}
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setOpen(false)}>
+                <button type="button" className="btn btn-outline" onClick={() => setOpen(false)} disabled={saving}>
                   취소
                 </button>
-                <button type="button" className="btn btn-primary" onClick={() => setOpen(false)}>
-                  <i className="ri-save-line" />
-                  저장
+                <button type="button" className="btn btn-primary" onClick={() => void handleSave()} disabled={saving} aria-busy={saving}>
+                  <i className={saving ? "ri-loader-4-line" : "ri-save-line"} style={saving ? { animation: "spin 0.8s linear infinite" } : undefined} />
+                  {saving ? "저장 중…" : "저장"}
                 </button>
               </div>
             </div>

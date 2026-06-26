@@ -29,6 +29,7 @@ import { registerNoticesRoutes } from "./notices/index.js";
 import { sitemapRoutes } from "./sitemap/routes.js";
 import { registerPublicSiteSettingsRoute } from "./site-settings-public.js";
 import { registerPublicAdsRoute } from "./ads.js";
+import { registerAnalyticsCollectRoute } from "./analytics/collect.js";
 
 /**
  * /api/v1 라우트.
@@ -130,4 +131,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 공개 광고 슬롯 라우트 (Story 9.16: GET /ads/:placement) ──────────────────
   await registerPublicAdsRoute(app);
+
+  // ── 방문 로그 적재 라우트 (공개 비인증: POST /analytics/collect) ───────────────
+  await registerAnalyticsCollectRoute(app);
 }

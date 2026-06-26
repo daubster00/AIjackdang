@@ -28,11 +28,15 @@ import { registerAdminBadgesRoutes } from "./badges/index.js";
 import { registerAdminAdsRoutes } from "./ads/index.js";
 import { registerAdminMessagesRoutes } from "./messages/index.js";
 import { registerAdminReportsRoutes } from "./reports/index.js";
+import { registerAdminAccountRoutes } from "./account/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
   await registerAdminSignUpRoute(app);
   await registerAdminSignOutRoute(app);
+
+  // 관리자 본인 계정(셀프 프로필) 조회·수정
+  await registerAdminAccountRoutes(app);
 
   // Epic 9 병렬 단계 (9.4·9.5·9.6) — 각 등록 함수는 해당 폴더에서 구현된다.
   await registerAdminMembersRoutes(app);

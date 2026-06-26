@@ -450,7 +450,7 @@
 
 .creativeBoardLabel {
   display: inline-flex;
-  align-self: flex-start;
+  justify-self: start;
   padding: 3px 8px;
   border: 1px solid rgba(48, 48, 192, 0.18);
   border-radius: var(--radius-pill);

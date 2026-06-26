@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { VisitorTrendChart } from "@/components/stats/VisitorTrendChart";
@@ -6,10 +7,21 @@ import { StatsDateFilter } from "@/components/stats/StatsDateFilter";
 import { AnalyticsOverviewChart } from "@/components/stats/AnalyticsOverviewChart";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/Skeleton";
-import type { AnalyticsOverviewResponse } from "@ai-jakdang/contracts";
+import type {
+  AnalyticsOverviewResponse,
+  ReferrersResponse,
+  KeywordsResponse,
+  PostPerformanceResponse,
+  ResourcePerformanceResponse,
+} from "@ai-jakdang/contracts";
 
 /**
  * 접속 통계 페이지 (Story 9.5).
+ * 목업 상수를 모두 제거하고 실제 API 데이터를 사용한다.
+ *
+ * 유입 경로(referrers), 검색 키워드(keywords), 게시글 성과(post-performance),
+ * 실전자료 성과(resource-performance)는 서버에서 fetch.
+ * 방문자 추이(visitor-trend)는 VisitorTrendChart 내부에서 클라이언트 fetch.
  */
 
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
@@ -19,96 +31,158 @@ async function getCookieHeader(): Promise<string> {
   return cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
-async function fetchAnalyticsOverview(from: string, to: string, cookieHeader: string): Promise<AnalyticsOverviewResponse | null> {
+// ── 공통 fetch 헬퍼 ──────────────────────────────────────────────────────────
+
+async function apiFetch<T>(url: string, cookieHeader: string): Promise<T | null> {
   try {
-    const url = `${API_BASE}/api/v1/admin/analytics/overview?from=${from}&to=${to}`;
     const res = await fetch(url, { headers: { Cookie: cookieHeader }, cache: "no-store" });
     if (!res.ok) return null;
-    return res.json() as Promise<AnalyticsOverviewResponse>;
+    return res.json() as Promise<T>;
   } catch { return null; }
 }
+
+// ── 날짜 헬퍼 ────────────────────────────────────────────────────────────────
 
 function todayStr(): string { return new Date().toISOString().slice(0, 10); }
 function daysAgoStr(n: number): string { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function thisMonthStartStr(): string { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); }
 function lastMonthRange(): { from: string; to: string } {
-  const d = new Date();
-  const year = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
+  const d     = new Date();
+  const year  = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
   const month = d.getMonth() === 0 ? 12 : d.getMonth();
-  const from = `${year}-${String(month).padStart(2, "0")}-01`;
+  const from  = `${year}-${String(month).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month, 0).getDate();
-  const to = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  const to    = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   return { from, to };
 }
 
-const SOURCES = [
-  { icon: "ri-search-line", style: { background: "var(--primary-50)", color: "var(--primary-600)" }, title: "검색엔진", desc: "네이버 구글 다음 자연 유입", visits: "14,210", ratio: "37.0%" },
-  { icon: "ri-cursor-line", style: { background: "var(--success-bg)", color: "var(--success)" }, title: "직접 유입", desc: "URL 직접 입력 북마크", visits: "8,640", ratio: "22.5%" },
-  { icon: "ri-instagram-line", style: { background: "var(--warning-bg)", color: "var(--warning)" }, title: "SNS", desc: "인스타 유튜브 스레드", visits: "5,920", ratio: "15.4%" },
-  { icon: "ri-links-line", style: { background: "var(--primary-50)", color: "var(--primary-600)" }, title: "외부 링크", desc: "블로그 커뮤니티 레퍼럴", visits: "3,810", ratio: "9.9%" },
-  { icon: "ri-megaphone-line", style: { background: "var(--danger-bg)", color: "var(--danger)" }, title: "광고", desc: "메타 구글 애즈 캠페인", visits: "3,180", ratio: "8.3%" },
-  { icon: "ri-robot-2-line", style: { background: "var(--warning-bg)", color: "var(--warning)" }, title: "AI 검색(추정)", desc: "ChatGPT Perplexity 인용 추정", visits: "1,820", ratio: "4.7%" },
-  { icon: "ri-more-line", style: { background: "var(--gray-100)", color: "var(--gray-500)" }, title: "기타", desc: "분류 불가 미식별", visits: "840", ratio: "2.2%" },
-] as const;
+// ── 유입 경로 아이콘 매핑 ─────────────────────────────────────────────────────
 
-const KEYWORDS = [
-  { kw: "claude code 사용법", visits: "3,420", pv: "11,280", signups: "182", downloads: "640", stay: "5분 48초" },
-  { kw: "n8n 자동화 예제", visits: "2,810", pv: "8,940", signups: "146", downloads: "512", stay: "6분 02초" },
-  { kw: "ai 외주 단가", visits: "2,140", pv: "5,670", signups: "98", downloads: "210", stay: "3분 51초" },
-  { kw: "바이브코딩 뜻", visits: "1,960", pv: "4,210", signups: "71", downloads: "88", stay: "2분 44초" },
-  { kw: "gpt api 수익화", visits: "1,540", pv: "4,880", signups: "63", downloads: "194", stay: "4분 33초" },
-  { kw: "claude skill 만들기", visits: "1,210", pv: "3,920", signups: "57", downloads: "276", stay: "5분 12초" },
-  { kw: "php 레거시 리팩토링", visits: "980", pv: "2,640", signups: "29", downloads: "131", stay: "4분 05초" },
-] as const;
+function sourceIcon(source: string): { icon: string; style: Record<string, string> } {
+  switch (source) {
+    case "검색엔진": return { icon: "ri-search-line",    style: { background: "var(--primary-50)",   color: "var(--primary-600)" } };
+    case "SNS":      return { icon: "ri-instagram-line", style: { background: "var(--warning-bg)",   color: "var(--warning)" } };
+    case "직접":     return { icon: "ri-cursor-line",    style: { background: "var(--success-bg)",   color: "var(--success)" } };
+    default:         return { icon: "ri-more-line",      style: { background: "var(--gray-100)",     color: "var(--gray-500)" } };
+  }
+}
 
-const POST_PERF = [
-  { title: "Claude Code로 기존 PHP 프로젝트 분석하는 방법", meta: "바이브코딩 가이드", type: ["badge-blue", "게시글"], views: "12,840", stay: "6분 21초", comments: "84", likes: "412", reports: "0", organic: "3,210", signups: "146" },
-  { title: "n8n으로 Gmail 문의 자동 분류 워크플로 만들기", meta: "AI 자동화 실습", type: ["badge-purple", "묻고답하기"], views: "9,460", stay: "5분 47초", comments: "61", likes: "298", reports: "1", organic: "2,640", signups: "118" },
-  { title: "AI 자동화 외주 견적을 잡을 때 꼭 확인할 것", meta: "외주판매 팁", type: ["badge-blue", "게시글"], views: "8,210", stay: "4분 12초", comments: "53", likes: "187", reports: "4", organic: "1,980", signups: "72" },
-  { title: "GPT API로 월 300 버는 자동화 봇 구조", meta: "AI 수익화 사례", type: ["badge-blue", "게시글"], views: "7,330", stay: "5분 09초", comments: "47", likes: "264", reports: "0", organic: "1,540", signups: "98" },
-] as const;
+// ── 게시글 유형·상태 뱃지 ─────────────────────────────────────────────────────
 
-const RESOURCE_PERF = [
-  { title: "PHP Legacy Code Review Skill", meta: "Claude Code Skill", views: "8,420", downloads: "3,180", conv: "37.8%", tone: "badge-green", rating: "4.8", reviews: "212", reports: "1" },
-  { title: "n8n 문의 자동분류 워크플로 템플릿", meta: "n8n Template", views: "6,210", downloads: "2,040", conv: "32.8%", tone: "badge-green", rating: "4.7", reviews: "168", reports: "0" },
-  { title: "GPT 수익화 봇 보일러플레이트", meta: "Node.js 스타터", views: "5,840", downloads: "1,520", conv: "26.0%", tone: "badge-cyan", rating: "4.5", reviews: "131", reports: "2" },
-  { title: "AI 외주 견적계약서 양식 패키지", meta: "문서 템플릿", views: "4,110", downloads: "624", conv: "15.2%", tone: "badge-orange", rating: "4.2", reviews: "57", reports: "0" },
-] as const;
+function boardLabel(board: string): string {
+  // board slug → 표시명 (필요 시 확장)
+  const MAP: Record<string, string> = {
+    automation: "자동화", lounge: "라운지", monetize: "수익화",
+    "vibe-coding": "바이브코딩", notice: "공지",
+  };
+  return MAP[board] ?? board;
+}
+
+function statusBadge(status: string): { cls: string; label: string } {
+  switch (status) {
+    case "published": return { cls: "badge-green",  label: "공개" };
+    case "draft":     return { cls: "badge-gray",   label: "초안" };
+    case "hidden":    return { cls: "badge-orange", label: "숨김" };
+    default:          return { cls: "badge-gray",   label: status };
+  }
+}
+
+// ── 날짜 표시 ─────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string): string {
+  return iso.slice(0, 10).replace(/-/g, ".");
+}
+
+// ── 페이지 props ──────────────────────────────────────────────────────────────
 
 interface StatsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
-  const params = await searchParams;
+  const params       = await searchParams;
   const cookieHeader = await getCookieHeader();
 
-  const range = (typeof params.range === "string" ? params.range : null) ?? "7days";
-  const customFrom = typeof params.from === "string" ? params.from : null;
-  const customTo = typeof params.to === "string" ? params.to : null;
+  const range      = (typeof params.range === "string" ? params.range : null) ?? "7days";
+  const customFrom = typeof params.from   === "string" ? params.from : null;
+  const customTo   = typeof params.to     === "string" ? params.to   : null;
+  const kwPage     = Math.max(1, parseInt(typeof params.kwPage === "string" ? params.kwPage : "1", 10) || 1);
 
-  const today = todayStr();
+  const today     = todayStr();
   const lastMonth = lastMonthRange();
 
   let from: string;
-  let to: string;
+  let to:   string;
   switch (range) {
-    case "today": from = today; to = today; break;
-    case "yesterday": const y = daysAgoStr(1); from = y; to = y; break;
-    case "30days": from = daysAgoStr(29); to = today; break;
-    case "thismonth": from = thisMonthStartStr(); to = today; break;
-    case "lastmonth": from = lastMonth.from; to = lastMonth.to; break;
-    case "custom": from = customFrom ?? daysAgoStr(6); to = customTo ?? today; break;
-    default: from = daysAgoStr(6); to = today; break;
+    case "today":     from = today;              to = today;          break;
+    case "yesterday": const y = daysAgoStr(1); from = y; to = y;     break;
+    case "30days":    from = daysAgoStr(29);    to = today;           break;
+    case "thismonth": from = thisMonthStartStr(); to = today;         break;
+    case "lastmonth": from = lastMonth.from;    to = lastMonth.to;    break;
+    case "custom":    from = customFrom ?? daysAgoStr(6); to = customTo ?? today; break;
+    default:          from = daysAgoStr(6);     to = today;           break;
   }
 
-  const overview = await fetchAnalyticsOverview(from, to, cookieHeader);
-  const items = overview?.items ?? [];
-  const hasData = items.length > 0 && items.some((item) => item.newUsers > 0 || item.newPosts > 0 || item.downloads > 0);
+  const base = `${API_BASE}/api/v1/admin/analytics`;
 
-  const totalNewUsers = items.reduce((sum, item) => sum + item.newUsers, 0);
-  const totalNewPosts = items.reduce((sum, item) => sum + item.newPosts, 0);
-  const totalDownloads = items.reduce((sum, item) => sum + item.downloads, 0);
+  // 병렬 fetch
+  const [overview, referrers, keywords, postPerf, resourcePerf] = await Promise.all([
+    apiFetch<AnalyticsOverviewResponse>(
+      `${API_BASE}/api/v1/admin/analytics/overview?from=${from}&to=${to}`,
+      cookieHeader,
+    ),
+    apiFetch<ReferrersResponse>(
+      `${base}/referrers?from=${from}&to=${to}`,
+      cookieHeader,
+    ),
+    apiFetch<KeywordsResponse>(
+      `${base}/keywords?from=${from}&to=${to}&page=${kwPage}&pageSize=10`,
+      cookieHeader,
+    ),
+    apiFetch<PostPerformanceResponse>(
+      `${base}/post-performance?from=${from}&to=${to}&limit=20`,
+      cookieHeader,
+    ),
+    apiFetch<ResourcePerformanceResponse>(
+      `${base}/resource-performance?from=${from}&to=${to}&limit=20`,
+      cookieHeader,
+    ),
+  ]);
+
+  // ── overview ──
+  const items        = overview?.items ?? [];
+  const hasData      = items.length > 0 && items.some((item) => item.newUsers > 0 || item.newPosts > 0 || item.downloads > 0);
+  const totalNewUsers  = items.reduce((s, it) => s + it.newUsers,  0);
+  const totalNewPosts  = items.reduce((s, it) => s + it.newPosts,  0);
+  const totalDownloads = items.reduce((s, it) => s + it.downloads, 0);
+
+  // ── referrers ──
+  const sourceItems = referrers?.items ?? [];
+  const sourceTotal = referrers?.total ?? 0;
+
+  // ── keywords ──
+  const kwItems = keywords?.items ?? [];
+  const kwTotal = keywords?.total ?? 0;
+  const kwTotalPages = Math.max(1, Math.ceil(kwTotal / 10));
+  const kwStart = (kwPage - 1) * 10 + 1;
+  const kwEnd   = Math.min(kwPage * 10, kwTotal);
+
+  // ── 페이지네이션 URL 생성 헬퍼 ──
+  const buildKwUrl = (page: number) => {
+    const sp = new URLSearchParams();
+    if (range  !== "7days") sp.set("range", range);
+    if (customFrom) sp.set("from", from);
+    if (customTo)   sp.set("to", to);
+    if (page !== 1) sp.set("kwPage", String(page));
+    const qs = sp.toString();
+    return `/stats${qs ? `?${qs}` : ""}`;
+  };
+
+  // ── post-performance ──
+  const postItems = postPerf?.items ?? [];
+
+  // ── resource-performance ──
+  const resourceItems = resourcePerf?.items ?? [];
 
   return (
     <AdminShell breadcrumb={["관리자", "접속 통계"]} activeKey="stats">
@@ -145,6 +219,7 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
         </section>
       </Suspense>
 
+      {/* 기간별 현황 차트 + 유입 경로 */}
       <section className="grid dashboard-grid">
         {hasData ? (
           <AnalyticsOverviewChart items={items} />
@@ -154,106 +229,228 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
             <div className="card-body"><EmptyState message="선택한 기간에 데이터가 없습니다" description="다른 기간을 선택하거나 조회 기간을 늘려보세요." /></div>
           </article>
         )}
+
+        {/* 유입 경로 분석 */}
         <article className="card">
-          <div className="card-header"><div><h2 className="card-title">유입 경로 분석</h2><div className="card-subtitle">방문자수 기준 채널 비율</div></div></div>
+          <div className="card-header">
+            <div><h2 className="card-title">유입 경로 분석</h2><div className="card-subtitle">방문자수 기준 채널 비율</div></div>
+          </div>
           <div className="card-body">
-            <div className="operation-list">
-              {SOURCES.map((src) => (
-                <div className="operation-item" key={src.title}>
-                  <span className="operation-icon" style={src.style}><i className={src.icon} /></span>
-                  <div className="operation-copy">
-                    <div className="operation-title">{src.title} <span className="badge badge-gray">{src.ratio}</span></div>
-                    <div className="operation-desc">{src.desc}</div>
-                  </div>
-                  <span className="operation-count">{src.visits}</span>
-                </div>
-              ))}
-            </div>
+            {sourceItems.length === 0 ? (
+              <div style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
+                데이터 없음 — 방문 로그가 누적되면 표시됩니다.
+              </div>
+            ) : (
+              <div className="operation-list">
+                {sourceItems.map((src) => {
+                  const { icon, style } = sourceIcon(src.source);
+                  return (
+                    <div className="operation-item" key={src.source}>
+                      <span className="operation-icon" style={style}><i className={icon} /></span>
+                      <div className="operation-copy">
+                        <div className="operation-title">
+                          {src.source} <span className="badge badge-gray">{src.percent}%</span>
+                        </div>
+                        <div className="operation-desc">전체 {sourceTotal.toLocaleString("ko-KR")}건 중 {src.count.toLocaleString("ko-KR")}건</div>
+                      </div>
+                      <span className="operation-count">{src.count.toLocaleString("ko-KR")}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </article>
       </section>
 
+      {/* 방문자 추이 차트 (클라이언트 컴포넌트, 자체 fetch) */}
       <section className="grid dashboard-grid" style={{ marginTop: 0 }}>
         <VisitorTrendChart />
       </section>
 
+      {/* 검색 키워드 분석 */}
       <section className="section">
-        <div className="section-heading"><div><h2 className="section-title">검색 키워드 분석</h2><p className="section-description">유입 검색어별 방문전환체류 지표입니다.</p></div></div>
+        <div className="section-heading">
+          <div><h2 className="section-title">검색 키워드 분석</h2><p className="section-description">사이트 내부 검색 유입어별 방문 수입니다.</p></div>
+        </div>
         <article className="card">
           <div className="table-toolbar">
-            <div className="toolbar-left"><span className="selection-info">상위 검색어 {KEYWORDS.length}개</span></div>
-            <div className="toolbar-right"><button className="btn btn-outline btn-sm"><i className="ri-file-excel-2-line" />CSV 다운로드</button></div>
-          </div>
-          <div className="table-wrap">
-            <table className="admin-table">
-              <thead><tr><th>유입 검색어</th><th>방문수</th><th>페이지뷰</th><th>가입수</th><th>다운로드수</th><th>평균 체류시간</th></tr></thead>
-              <tbody>
-                {KEYWORDS.map((k) => (
-                  <tr key={k.kw}>
-                    <td><div className="content-title"><i className="ri-search-line" style={{ color: "var(--gray-400)", marginRight: 6 }} />{k.kw}</div></td>
-                    <td className="num">{k.visits}</td><td className="num">{k.pv}</td><td className="num">{k.signups}</td><td className="num">{k.downloads}</td><td className="num">{k.stay}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <div className="page-info">1-7 / 총 248개</div>
-            <div className="page-buttons">
-              <button className="page-button" aria-label="이전 페이지"><i className="ri-arrow-left-s-line" /></button>
-              <button className="page-button active">1</button>
-              <button className="page-button">2</button>
-              <button className="page-button">3</button>
-              <button className="page-button" aria-label="다음 페이지"><i className="ri-arrow-right-s-line" /></button>
+            <div className="toolbar-left">
+              <span className="selection-info">
+                {kwTotal > 0 ? `상위 검색어 총 ${kwTotal.toLocaleString("ko-KR")}개` : "데이터 없음"}
+              </span>
+            </div>
+            <div className="toolbar-right">
+              <button className="btn btn-outline btn-sm"><i className="ri-file-excel-2-line" />CSV 다운로드</button>
             </div>
           </div>
+          <div className="table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr><th>유입 검색어</th><th>방문 수</th></tr>
+              </thead>
+              <tbody>
+                {kwItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
+                      검색 키워드 데이터가 없습니다. 방문 로그가 누적되면 표시됩니다.
+                    </td>
+                  </tr>
+                ) : (
+                  kwItems.map((k) => (
+                    <tr key={k.keyword}>
+                      <td>
+                        <div className="content-title">
+                          <i className="ri-search-line" style={{ color: "var(--gray-400)", marginRight: 6 }} />
+                          {k.keyword}
+                        </div>
+                      </td>
+                      <td className="num">{k.count.toLocaleString("ko-KR")}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {kwTotal > 0 && (
+            <div className="pagination">
+              <div className="page-info">
+                {kwStart}-{kwEnd} / 총 {kwTotal.toLocaleString("ko-KR")}개
+              </div>
+              <div className="page-buttons">
+                {kwPage > 1 ? (
+                  <Link href={buildKwUrl(kwPage - 1)} className="page-button" aria-label="이전 페이지">
+                    <i className="ri-arrow-left-s-line" />
+                  </Link>
+                ) : (
+                  <button className="page-button" disabled aria-label="이전 페이지">
+                    <i className="ri-arrow-left-s-line" />
+                  </button>
+                )}
+                {/* 최대 5페이지 번호 표시 */}
+                {Array.from({ length: Math.min(kwTotalPages, 5) }, (_, i) => {
+                  const p = i + 1;
+                  return (
+                    <Link key={p} href={buildKwUrl(p)} className={`page-button${p === kwPage ? " active" : ""}`}>
+                      {p}
+                    </Link>
+                  );
+                })}
+                {kwPage < kwTotalPages ? (
+                  <Link href={buildKwUrl(kwPage + 1)} className="page-button" aria-label="다음 페이지">
+                    <i className="ri-arrow-right-s-line" />
+                  </Link>
+                ) : (
+                  <button className="page-button" disabled aria-label="다음 페이지">
+                    <i className="ri-arrow-right-s-line" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </article>
       </section>
 
+      {/* 게시글별 성과 */}
       <section className="section">
-        <div className="section-heading"><div><h2 className="section-title">게시글별 성과</h2><p className="section-description">콘텐츠별 참여검색유입가입전환 지표입니다.</p></div></div>
+        <div className="section-heading">
+          <div>
+            <h2 className="section-title">게시글별 성과</h2>
+            <p className="section-description">콘텐츠별 조회·댓글·좋아요·신고 지표입니다. (조회수 기준 정렬)</p>
+          </div>
+        </div>
         <article className="card">
           <div className="table-wrap">
             <table className="admin-table">
-              <thead><tr><th>게시글</th><th>유형</th><th>조회수</th><th>체류시간</th><th>댓글</th><th>좋아요</th><th>신고</th><th>검색유입</th><th>가입전환</th></tr></thead>
+              <thead>
+                <tr><th>게시글</th><th>게시판</th><th>작성자</th><th>상태</th><th>조회수</th><th>댓글</th><th>좋아요</th><th>신고</th><th>등록일</th></tr>
+              </thead>
               <tbody>
-                {POST_PERF.map((p) => (
-                  <tr key={p.title}>
-                    <td><div className="content-title">{p.title}</div><div className="content-meta">{p.meta}</div></td>
-                    <td><span className={`badge ${p.type[0]}`}>{p.type[1]}</span></td>
-                    <td className="num">{p.views}</td>
-                    <td className="num">{p.stay}</td>
-                    <td className="num">{p.comments}</td>
-                    <td className="num">{p.likes}</td>
-                    <td className="num">{p.reports === "0" ? <span>0</span> : <span className="badge badge-red">{p.reports}</span>}</td>
-                    <td className="num">{p.organic}</td>
-                    <td className="num">{p.signups}</td>
+                {postItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
+                      선택한 기간에 게시글 데이터가 없습니다.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  postItems.map((p) => {
+                    const { cls: stCls, label: stLabel } = statusBadge(p.status);
+                    return (
+                      <tr key={p.id}>
+                        <td><div className="content-title">{p.title}</div></td>
+                        <td><span className="badge badge-blue">{boardLabel(p.board)}</span></td>
+                        <td>{p.authorNickname ?? <span style={{ color: "var(--gray-400)" }}>(탈퇴)</span>}</td>
+                        <td><span className={`badge ${stCls}`}>{stLabel}</span></td>
+                        <td className="num">{p.viewCount.toLocaleString("ko-KR")}</td>
+                        <td className="num">{p.commentCount.toLocaleString("ko-KR")}</td>
+                        <td className="num">{p.likeCount.toLocaleString("ko-KR")}</td>
+                        <td className="num">
+                          {p.reportCount > 0
+                            ? <span className="badge badge-red">{p.reportCount}</span>
+                            : <span>0</span>}
+                        </td>
+                        <td className="num">{fmtDate(p.createdAt)}</td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </article>
       </section>
 
+      {/* 실전자료별 성과 */}
       <section className="section">
-        <div className="section-heading"><div><h2 className="section-title">실전자료별 성과</h2><p className="section-description">자료별 다운로드평점후기 지표입니다. <strong>다운로드 전환율 = 다운로드수 / 조회수</strong>.</p></div></div>
+        <div className="section-heading">
+          <div>
+            <h2 className="section-title">실전자료별 성과</h2>
+            <p className="section-description">
+              자료별 다운로드·평점·후기·신고 지표입니다.{" "}
+              <strong>다운로드 전환율 = 다운로드수 / 조회수</strong>.
+            </p>
+          </div>
+        </div>
         <article className="card">
           <div className="table-wrap">
             <table className="admin-table">
-              <thead><tr><th>실전자료</th><th>조회수</th><th>다운로드수</th><th>다운로드 전환율</th><th>평점</th><th>후기</th><th>신고</th></tr></thead>
+              <thead>
+                <tr><th>실전자료</th><th>유형</th><th>조회수</th><th>다운로드수</th><th>다운로드 전환율</th><th>평점</th><th>후기</th><th>신고</th></tr>
+              </thead>
               <tbody>
-                {RESOURCE_PERF.map((r) => (
-                  <tr key={r.title}>
-                    <td><div className="content-title">{r.title}</div><div className="content-meta">{r.meta}</div></td>
-                    <td className="num">{r.views}</td>
-                    <td className="num">{r.downloads}</td>
-                    <td className="num"><span className={`badge ${r.tone}`}>{r.conv}</span></td>
-                    <td className="num"><i className="ri-star-fill" style={{ color: "var(--warning)", marginRight: 4 }} />{r.rating}</td>
-                    <td className="num">{r.reviews}</td>
-                    <td className="num">{r.reports === "0" ? <span>0</span> : <span className="badge badge-red">{r.reports}</span>}</td>
+                {resourceItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
+                      선택한 기간에 실전자료 데이터가 없습니다.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  resourceItems.map((r) => {
+                    const convTone =
+                      r.conversionRate >= 30 ? "badge-green"
+                      : r.conversionRate >= 15 ? "badge-cyan"
+                      : "badge-orange";
+                    return (
+                      <tr key={r.id}>
+                        <td><div className="content-title">{r.title}</div><div className="content-meta">{r.resourceType}</div></td>
+                        <td><span className="badge badge-cyan">{r.resourceType}</span></td>
+                        <td className="num">{r.viewCount.toLocaleString("ko-KR")}</td>
+                        <td className="num">{r.downloadCount.toLocaleString("ko-KR")}</td>
+                        <td className="num"><span className={`badge ${convTone}`}>{r.conversionRate}%</span></td>
+                        <td className="num">
+                          <i className="ri-star-fill" style={{ color: "var(--warning)", marginRight: 4 }} />
+                          {r.avgRating.toFixed(1)}
+                        </td>
+                        <td className="num">{r.ratingCount.toLocaleString("ko-KR")}</td>
+                        <td className="num">
+                          {r.reportCount > 0
+                            ? <span className="badge badge-red">{r.reportCount}</span>
+                            : <span>0</span>}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

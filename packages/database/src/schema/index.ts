@@ -26,6 +26,9 @@ export * from "./site-settings";
 export * from "./point-rules";
 export * from "./ads";
 
+// ── 접속통계: 방문 로그 ───────────────────────────────────────────────────────
+export * from "./page-views";
+
 export {
   pointsLedger,
   grades,

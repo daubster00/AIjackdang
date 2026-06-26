@@ -45,7 +45,7 @@ const adminSettingsPatchSchema = z.object({
 export async function registerAdminSettingsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/settings ───────────────────────────────────────────────
   app.get(
-    "/api/v1/admin/settings",
+    "/admin/settings",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       try {
@@ -62,7 +62,7 @@ export async function registerAdminSettingsRoutes(app: FastifyInstance): Promise
 
   // ── PATCH /api/v1/admin/settings ────────────────────────────────────────────
   app.patch(
-    "/api/v1/admin/settings",
+    "/admin/settings",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const parsed = adminSettingsPatchSchema.safeParse(request.body);

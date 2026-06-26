@@ -36,7 +36,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   // ── POST /api/v1/admin/posts — 공지 작성 (Story 9.17, admin 전용) ─────────────
   // ADR-0003: admin_users ↔ users 완전 분리. 공지 posts.user_id = null.
   // 작성자는 "(운영자)"로 표시된다. 관리자 세션은 adminGuardHook 이 이미 검증했다.
-  app.post("/api/v1/admin/posts", async (request, reply) => {
+  app.post("/admin/posts", async (request, reply) => {
     const body = request.body as {
       title?: string;
       contentJson?: Record<string, unknown>;
@@ -74,7 +74,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── GET /api/v1/admin/posts ──────────────────────────────────────────────────
-  app.get("/api/v1/admin/posts", async (request, reply) => {
+  app.get("/admin/posts", async (request, reply) => {
     const parsed = adminPostsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -92,7 +92,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── PATCH /api/v1/admin/posts/bulk — 벌크 액션 (경로 충돌 방지: :id 앞에 등록) ─
-  app.post("/api/v1/admin/posts/bulk", async (request, reply) => {
+  app.post("/admin/posts/bulk", async (request, reply) => {
     const parsed = adminPostsBulkSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -121,7 +121,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── PATCH /api/v1/admin/posts/:id/flags ─────────────────────────────────────
-  app.patch("/api/v1/admin/posts/:id/flags", async (request, reply) => {
+  app.patch("/admin/posts/:id/flags", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminPostsFlagsSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -144,7 +144,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── PATCH /api/v1/admin/posts/:id/hide ──────────────────────────────────────
-  app.patch("/api/v1/admin/posts/:id/hide", async (request, reply) => {
+  app.patch("/admin/posts/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -161,7 +161,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── PATCH /api/v1/admin/posts/:id/restore ───────────────────────────────────
-  app.patch("/api/v1/admin/posts/:id/restore", async (request, reply) => {
+  app.patch("/admin/posts/:id/restore", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
@@ -178,7 +178,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // ── PATCH /api/v1/admin/posts/:id — 게시글 내용 수정 (Story 9.17) ────────────
-  app.patch("/api/v1/admin/posts/:id", async (request, reply) => {
+  app.patch("/admin/posts/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = request.body as {
       title?: string;
@@ -205,7 +205,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
 
   // ── DELETE /api/v1/admin/posts/:id — super_admin 전용 ───────────────────────
   app.delete(
-    "/api/v1/admin/posts/:id",
+    "/admin/posts/:id",
     { preHandler: [requireSuperAdmin] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
@@ -225,7 +225,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
   );
 
   // ── PATCH /api/v1/admin/posts/:id/seo ───────────────────────────────────────
-  app.patch("/api/v1/admin/posts/:id/seo", async (request, reply) => {
+  app.patch("/admin/posts/:id/seo", async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = adminPostsSeoSchema.safeParse(request.body);
     if (!parsed.success) {

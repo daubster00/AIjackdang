@@ -27,9 +27,11 @@ export function closeAllSelects(root = document) {
 
 export function initSelects(root = document) {
   root.querySelectorAll(".custom-select").forEach((select) => {
+    if (select.dataset.selectInitialized === "true") return;
     const trigger = select.querySelector(".select-trigger");
     const menu = select.querySelector(".select-menu");
     if (!trigger || !menu) return;
+    select.dataset.selectInitialized = "true";
     const name = select.dataset.select;
 
     trigger.addEventListener("click", (event) => {

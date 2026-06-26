@@ -6,6 +6,7 @@ import { Button, Icon } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { useGating } from "@/hooks/useGating";
 import { useToast } from "@/components/ui/Toast/Toast";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import styles from "../vibe-coding.module.css";
 
 const MAX_LENGTH = 1000;
@@ -97,7 +98,7 @@ export function CommentForm({
         id: data.id,
         authorId: user?.id ?? "",
         authorNickname: user?.nickname ?? null,
-        authorAvatarUrl: user?.avatarUrl ?? user?.image ?? null,
+        authorAvatarUrl: user ? resolveAvatarUrl(user) : null,
         targetType: targetType,
         targetId: targetId,
         parentId: parentId ?? null,
