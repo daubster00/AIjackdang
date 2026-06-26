@@ -24,6 +24,8 @@ export interface MessageModalProps {
    * 미지정이거나 빈 문자열이면 보내기 버튼 비활성화.
    */
   recipientId?: string;
+  /** 받는 사람 아바타 이미지 URL. Avatar src에 전달된다. */
+  recipientAvatarUrl?: string | null;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface MessageModalProps {
  *
  * recipientId prop을 받으면 실제 POST /api/v1/messages API를 호출한다.
  */
-export function MessageModal({ open, onClose, recipient, recipientId }: MessageModalProps) {
+export function MessageModal({ open, onClose, recipient, recipientId, recipientAvatarUrl }: MessageModalProps) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -117,7 +119,7 @@ export function MessageModal({ open, onClose, recipient, recipientId }: MessageM
     >
       <div className={styles.body}>
         <div className={styles.recipient}>
-          <Avatar name={recipient} size="sm" />
+          <Avatar name={recipient} src={recipientAvatarUrl ?? undefined} size="sm" />
           <div className={styles.recipientInfo}>
             <span className={styles.recipientLabel}>받는 사람</span>
             <strong className={styles.recipientName}>{recipient}</strong>

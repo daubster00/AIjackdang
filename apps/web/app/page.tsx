@@ -5,11 +5,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { BOARDS } from "@ai-jakdang/contracts";
 import { Badge, Card, CardDesc, CardHead, CardMeta, CardTitle, Icon, Tag, EmptyState } from "@/components/ui";
-import { RankingWidget } from "@/features/gamification/RankingWidget";
 import {
   fetchPopularPosts,
   fetchLatestQuestions,
-  fetchMonetizationPosts,
   fetchPopularResources,
   fetchLoungeLatest,
   fetchPinnedNotice,
@@ -138,11 +136,10 @@ export default async function HomePage({
   const activeTab = params["popular-tab"] ?? "vibe-coding";
 
   // ── 병렬 데이터 패치 (Promise.all, AC #9 graceful degradation) ──────────────
-  const [popularPosts, questions, monetizationPosts, resources, loungePosts, pinnedNotice] =
+  const [popularPosts, questions, resources, loungePosts, pinnedNotice] =
     await Promise.all([
       fetchPopularPosts(activeTab),
       fetchLatestQuestions(),
-      fetchMonetizationPosts(),
       fetchPopularResources(),
       fetchLoungeLatest(),
       fetchPinnedNotice(),
@@ -245,7 +242,7 @@ export default async function HomePage({
             />
           ) : (
             <div className={styles.categoryGrid}>
-              {popularPosts.map((post, index) => (
+              {popularPosts.slice(0, 3).map((post, index) => (
                 <Link
                   key={post.id}
                   href={getPostDetailHref(post.board, post.slug, post.category)}
@@ -410,86 +407,6 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* ── ④ AI 수익화 인기글 섹션 ──────────────────────────────────────────── */}
-      <section className={styles.popularBand} aria-labelledby="monetization-title">
-        <div className={styles.section}>
-          <div className={styles.sectionHeaderRow}>
-            <div className={styles.sectionHead}>
-              <span className={styles.eyebrow}>Monetization</span>
-              <h2 id="monetization-title">AI 수익화 인기글</h2>
-              <p>AI로 실제 수익을 만들어낸 사람들의 경험과 전략을 확인하세요.</p>
-            </div>
-            <Link href="/monetization/" className={styles.moreLink}>
-              더보기
-              <Icon name="arrow-right-line" />
-            </Link>
-          </div>
-
-          {monetizationPosts.length === 0 ? (
-            <EmptyState
-              title="인기글이 없습니다"
-              description="잠시 후 다시 시도해주세요."
-              icon="funds-line"
-            />
-          ) : (
-            <div className={styles.categoryGrid}>
-              {monetizationPosts.map((post, index) => (
-                <Link
-                  key={post.id}
-                  href={getPostDetailHref(post.board, post.slug, post.category)}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <Card
-                    variant={index === 0 ? "highlight" : index === 1 ? "resource" : "question"}
-                    interactive
-                    className={styles.categoryCard}
-                  >
-                    <CardHead>
-                      <span className={styles.categoryIcon}>
-                        <Icon name="funds-line" />
-                      </span>
-                      <Badge tone={index === 0 ? "primary" : index === 1 ? "success" : "warning"}>
-                        인기
-                      </Badge>
-                    </CardHead>
-                    <CardTitle>{post.title}</CardTitle>
-                    {post.description && <CardDesc>{post.description}</CardDesc>}
-                    <CardMeta>
-                      {post.tags.slice(0, 3).map((tag) => (
-                        <Tag key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
-                          {tag}
-                        </Tag>
-                      ))}
-                    </CardMeta>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── [6.5] 랭킹 섹션 ────────────────────────────────────────────────── */}
-      <section id="ranking" className={styles.rankingBand} aria-labelledby="ranking-title">
-        <div className={styles.rankingInner}>
-          <div className={styles.sectionHeaderRow}>
-            <div className={styles.sectionHead}>
-              <span className={styles.eyebrow}>Ranking</span>
-              <h2 id="ranking-title">기여자 랭킹</h2>
-              <p>이번 주·이번 달 가장 활발하게 기여한 회원을 확인하세요.</p>
-            </div>
-            <Link href="/ranking" className={styles.moreLink}>
-              전체 랭킹 보기
-              <Icon name="arrow-right-line" />
-            </Link>
-          </div>
-          <div className={styles.rankingWidgetWrap}>
-            <RankingWidget />
-          </div>
-        </div>
-      </section>
-      {/* ── [6.5] END ───────────────────────────────────────────────────────── */}
-
       {/* ── ⑥ 작당 라운지 섹션 ──────────────────────────────────────────────── */}
       <section id="lounge" className={styles.loungeBand} aria-labelledby="cta-title">
         <div className={styles.loungeInner}>
@@ -513,14 +430,22 @@ export default async function HomePage({
             />
           ) : (
             <div className={styles.creativeGrid}>
-              {loungePosts.map((item) => (
+              {loungePosts.slice(0, 4).map((item) => (
                 <Link
                   key={item.id}
                   href={getPostDetailHref(item.board, item.slug, item.category)}
                   className={styles.creativeCard}
                 >
-                  {/* 실제 API 데이터에는 thumbnail_url이 없어 텍스트 카드로 렌더링 */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.thumbnailUrl ?? "/empty_thumbnail.png"}
+                    alt=""
+                    className={styles.creativeThumb}
+                  />
                   <div className={styles.creativeBody}>
+                    <span className={styles.creativeBoardLabel}>
+                      {BOARDS[item.board]?.label ?? item.board}
+                    </span>
                     <strong>{item.title}</strong>
                     {item.description && <span>{item.description}</span>}
                     <div className={styles.creativeStats}>

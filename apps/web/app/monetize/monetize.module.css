@@ -1482,3 +1482,14 @@
     max-width: none;
   }
 }
+
+/* 수정요청 113: 답글 작성 폼 [취소][답글 등록] 버튼 간격 */
+.commentFormActions {
+  gap: var(--space-2);
+}
+
+/* 수정요청 122: 대댓글 @멘션 토큰 강조 */
+.mention {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}

@@ -41,6 +41,8 @@ export interface AuthorNameProps {
   showLabel?: boolean;
   /** 트리거(닉네임)에 붙일 추가 클래스 */
   className?: string;
+  /** 쪽지 모달 아바타에 사용할 작성자 프로필 이미지 URL */
+  authorAvatarUrl?: string | null;
 }
 
 /**
@@ -50,7 +52,7 @@ export interface AuthorNameProps {
  * - 닉네임 옆에 항상 등급 뱃지를 함께 표기한다(lib/ranks + RankBadge 사용).
  * - 메뉴는 카드의 overflow:hidden 에 잘리지 않도록 body 포털에 fixed 로 렌더한다.
  */
-export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, showLabel = false, className }: AuthorNameProps) {
+export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, showLabel = false, className, authorAvatarUrl }: AuthorNameProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   // 본인 여부 — 닉네임 일치(항상 사용 가능) 또는 userId 일치(authorId 전달 시) 중 하나라도 맞으면 본인.
@@ -253,6 +255,7 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
         onClose={() => setDmOpen(false)}
         recipient={name}
         recipientId={authorId ?? ""}
+        recipientAvatarUrl={authorAvatarUrl ?? undefined}
       />
     </span>
   );

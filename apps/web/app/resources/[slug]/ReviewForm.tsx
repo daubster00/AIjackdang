@@ -13,6 +13,8 @@ interface ReviewFormProps {
   resourceId: string;
   /** 대댓글용 부모 ID. 없으면 최상위 후기(별점 필수). */
   parentId?: string;
+  /** 최상위 후기 폼 제목(예: "후기작성"). 있으면 별점 picker와 같은 줄에 표시(#108). */
+  title?: string;
   onSuccess?: (avgRating: number, ratingCount: number) => void;
   onCancel?: () => void;
   placeholder?: string;
@@ -51,6 +53,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 export function ReviewForm({
   resourceId,
   parentId,
+  title,
   onSuccess,
   onCancel,
   placeholder = "후기를 작성하세요.",
@@ -117,7 +120,14 @@ export function ReviewForm({
   return (
     <form className={styles.commentForm} onSubmit={handleSubmit}>
       {isTopLevel && (
-        <StarPicker value={rating} onChange={setRating} />
+        <div className={styles.reviewFormHeader}>
+          {title && (
+            <h2 id="rating-section-title" className={styles.reviewFormTitle}>
+              {title}
+            </h2>
+          )}
+          <StarPicker value={rating} onChange={setRating} />
+        </div>
       )}
       <div className={styles.commentInputBox}>
         <label className="sr-only" htmlFor={parentId ? `reply-review-${parentId}` : "review"}>
@@ -153,7 +163,7 @@ export function ReviewForm({
         )}
         <Button
           type="submit"
-          leftIcon={<Icon name={parentId ? "reply-line" : "star-line"} />}
+          leftIcon={parentId ? <Icon name="reply-line" /> : undefined}
           disabled={submitting || value.trim().length === 0 || (isTopLevel && rating === 0)}
         >
           {parentId ? "답글 등록" : "후기 등록"}

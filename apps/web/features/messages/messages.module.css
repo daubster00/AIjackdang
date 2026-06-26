@@ -204,6 +204,211 @@
   font-weight: var(--font-weight-bold);
 }
 
+/* ── 탭 바 ── */
+
+.tabsNav {
+  display: flex;
+  max-width: 760px;
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    color var(--transition-base),
+    border-bottom-color var(--transition-base);
+  margin-bottom: -1px; /* active tab border overlap with head border-bottom */
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── 쪽지 상세 모달 본문 ── */
+
+.readView {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.readHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.readHeadInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.readTime {
+  display: block;
+  color: var(--color-placeholder);
+  font-size: var(--font-size-xs);
+}
+
+.readBody {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 80px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── 휴지통 탭 ── */
+
+.trashNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft, #fffbe6);
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.trashNotice i {
+  flex: 0 0 auto;
+  color: var(--color-warning, #b45309);
+  font-size: 16px;
+}
+
+.trashToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.checkAll {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkAll input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.purgeBtn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.purgeBtn:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.purgeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 휴지통 아이템 — 체크박스 + 콘텐츠 영역 분리 */
+.trashItem {
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+.trashItemChecked {
+  border-color: var(--color-primary-soft);
+  background: var(--color-primary-soft);
+}
+
+.trashCheckbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  height: 100%;
+  min-height: 60px;
+  cursor: pointer;
+}
+
+.trashCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.trashItemContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-4) 0;
+  cursor: pointer;
+}
+
+.trashBoxLabel {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-sub);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  margin-left: var(--space-1);
+}
+
 /* ── 스레드 뷰 ── */
 
 .thread {

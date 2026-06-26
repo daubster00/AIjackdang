@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero, CodeBlockCopyButton, DeleteButton, RelatedPosts, RecentViewedTracker } from "@/components/board";
+import { AttachmentList, BoardHero, CodeBlockCopyButton, DeleteButton, RecentViewedTracker } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -63,14 +63,6 @@ export default async function LoungeDetailPage({ params }: PageProps) {
   const commentsData = commentsRes.ok
     ? ((await commentsRes.json()) as { items: ApiComment[] })
     : { items: [] };
-
-  const relatedRes = await fetch(
-    `${API_URL}/api/v1/related?targetType=post&targetId=${post.id}`,
-    { next: { revalidate: 300 } },
-  );
-  const relatedData = relatedRes.ok
-    ? ((await relatedRes.json()) as { relatedPosts: { id: string; title: string; slug: string; href: string; createdAt: string; viewCount: number }[]; authorPosts: { id: string; title: string; slug: string; href: string; createdAt: string; viewCount: number }[] })
-    : { relatedPosts: [], authorPosts: [] };
 
   const boardMeta = BOARDS[post.board];
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
@@ -140,7 +132,7 @@ export default async function LoungeDetailPage({ params }: PageProps) {
 
           <div className={styles.articleBody}>
             <CodeBlockCopyButton html={post.contentHtml} />
-            {post.hasAttachment && <AttachmentList />}
+            {post.hasAttachment && <AttachmentList files={post.attachments ?? []} />}
           </div>
 
           <ReactionBar
@@ -170,8 +162,6 @@ export default async function LoungeDetailPage({ params }: PageProps) {
               ))}
             </ul>
           </section>
-
-          <RelatedPosts relatedPosts={relatedData.relatedPosts} authorPosts={relatedData.authorPosts} />
 
           <footer className={styles.detailFooter}>
             <Link href="/lounge" className={styles.listButton}>

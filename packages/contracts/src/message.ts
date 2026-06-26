@@ -55,3 +55,60 @@ export type PaginatedMessages = z.infer<typeof paginatedMessagesSchema>;
 
 export const paginatedConversationsSchema = paginatedResponseSchema(conversationSchema);
 export type PaginatedConversations = z.infer<typeof paginatedConversationsSchema>;
+
+// ── 쪽지함 개별 메시지 아이템 (메일박스형 UI용) ────────────────────────────────
+
+/**
+ * 받은/보낸 쪽지함 목록 아이템.
+ * counterpart = 받은 쪽지일 때는 발신자, 보낸 쪽지일 때는 수신자.
+ */
+export const messageBoxItemSchema = z.object({
+  id: z.string().uuid(),
+  body: z.string(),
+  isRead: z.boolean(),
+  createdAt: z.string().datetime({ offset: true }),
+  counterpart: z.object({
+    id: z.string().uuid(),
+    nickname: z.string(),
+    avatarUrl: z.string().nullable(),
+  }),
+});
+export type MessageBoxItem = z.infer<typeof messageBoxItemSchema>;
+
+export const messageBoxResponseSchema = z.object({
+  items: z.array(messageBoxItemSchema),
+});
+export type MessageBoxResponse = z.infer<typeof messageBoxResponseSchema>;
+
+// ── 휴지통 아이템 ─────────────────────────────────────────────────────────────
+
+/**
+ * 휴지통(받은·보낸 합산) 목록 아이템.
+ * originalBox: 원래 받은 쪽지였는지 보낸 쪽지였는지.
+ */
+export const trashedMessageItemSchema = z.object({
+  id: z.string().uuid(),
+  body: z.string(),
+  isRead: z.boolean(),
+  createdAt: z.string().datetime({ offset: true }),
+  trashedAt: z.string().datetime({ offset: true }).nullable(),
+  originalBox: z.enum(["received", "sent"]),
+  counterpart: z.object({
+    id: z.string().uuid(),
+    nickname: z.string(),
+    avatarUrl: z.string().nullable(),
+  }),
+});
+export type TrashedMessageItem = z.infer<typeof trashedMessageItemSchema>;
+
+export const trashListResponseSchema = z.object({
+  items: z.array(trashedMessageItemSchema),
+});
+export type TrashListResponse = z.infer<typeof trashListResponseSchema>;
+
+// ── 영구삭제 요청 ─────────────────────────────────────────────────────────────
+
+export const purgeMessagesBodySchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+});
+export type PurgeMessagesBody = z.infer<typeof purgeMessagesBodySchema>;

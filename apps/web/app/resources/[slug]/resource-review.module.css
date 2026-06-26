@@ -70,13 +70,30 @@
   gap: var(--space-2);
 }
 
+/* ── 후기작성 제목 + 별점 같은 줄 헤더 (#108) ── */
+
+.reviewFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.reviewFormTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
 /* ── 별점 선택기 ── */
 
 .reviewStarPicker {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: var(--space-2);
 }
 
 .reviewStarPickerBtn {
@@ -157,17 +174,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-left: 52px;
-  margin-top: 2px;
   font-size: 15px;
 }
 
 .reviewRatingRow .starOn {
   color: var(--color-warning);
-}
-
-.reviewRatingRow .starOff {
-  color: var(--color-border-strong);
 }
 
 .reviewRatingScore {

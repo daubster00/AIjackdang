@@ -5,10 +5,11 @@
  * 트랜잭션은 이 레이어에서만 처리한다.
  */
 
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "@ai-jakdang/database";
 import { schema } from "@ai-jakdang/database";
 import type { NotificationEventPayload } from "@ai-jakdang/contracts";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 // ── 에러 코드 상수 ────────────────────────────────────────────────────────────
 
@@ -246,6 +247,8 @@ export async function getConversations(
       lm.partner_id,
       u.nickname AS partner_nickname,
       u.avatar_url AS partner_avatar_url,
+      u.image AS partner_image,
+      u.default_avatar_index AS partner_default_avatar_index,
       lm.last_message_id,
       lm.last_message_body,
       lm.last_message_at,
@@ -261,7 +264,10 @@ export async function getConversations(
   return (rows.rows as Record<string, unknown>[]).map((row) => ({
     partnerId: row.partner_id as string,
     partnerNickname: row.partner_nickname as string,
-    partnerAvatarUrl: (row.partner_avatar_url as string | null) ?? null,
+    partnerAvatarUrl:
+      (row.partner_avatar_url as string | null) ||
+      (row.partner_image as string | null) ||
+      getDefaultAvatarUrl(Number(row.partner_default_avatar_index ?? 0)),
     lastMessageId: row.last_message_id as string,
     lastMessageBody: row.last_message_body as string,
     lastMessageAt: new Date(row.last_message_at as string).toISOString(),
@@ -334,6 +340,118 @@ export async function getConversationThread(
   }));
 }
 
+// ── 쪽지함 개별 메시지 목록 조회 ─────────────────────────────────────────────
+
+export interface MessageBoxItem {
+  id: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+  counterpart: {
+    id: string;
+    nickname: string;
+    avatarUrl: string | null;
+  };
+}
+
+/**
+ * 받은 쪽지 또는 보낸 쪽지 목록을 최신순으로 반환한다.
+ * - box='received': 내가 receiver인 메시지. counterpart = sender.
+ * - box='sent':     내가 sender인 메시지.   counterpart = receiver.
+ */
+export async function getMessages(
+  db: Database,
+  userId: string,
+  box: "received" | "sent",
+): Promise<MessageBoxItem[]> {
+  let rows: { rows: Record<string, unknown>[] };
+
+  if (box === "received") {
+    rows = await db.execute(sql`
+      SELECT
+        m.id,
+        m.body,
+        m.is_read,
+        m.created_at,
+        u.id                   AS counterpart_id,
+        u.nickname             AS counterpart_nickname,
+        u.avatar_url           AS counterpart_avatar_url,
+        u.image                AS counterpart_image,
+        u.default_avatar_index AS counterpart_default_avatar_index
+      FROM messages m
+      INNER JOIN users u ON u.id = m.sender_id
+      WHERE
+        m.receiver_id             = ${userId}
+        AND m.deleted_by_receiver  = false
+        AND m.purged_by_receiver   = false
+        AND m.hidden_by_admin      = false
+        AND m.deleted_at           IS NULL
+      ORDER BY m.created_at DESC
+    `);
+  } else {
+    rows = await db.execute(sql`
+      SELECT
+        m.id,
+        m.body,
+        m.is_read,
+        m.created_at,
+        u.id                   AS counterpart_id,
+        u.nickname             AS counterpart_nickname,
+        u.avatar_url           AS counterpart_avatar_url,
+        u.image                AS counterpart_image,
+        u.default_avatar_index AS counterpart_default_avatar_index
+      FROM messages m
+      INNER JOIN users u ON u.id = m.receiver_id
+      WHERE
+        m.sender_id            = ${userId}
+        AND m.deleted_by_sender = false
+        AND m.purged_by_sender  = false
+        AND m.hidden_by_admin   = false
+        AND m.deleted_at        IS NULL
+      ORDER BY m.created_at DESC
+    `);
+  }
+
+  return (rows.rows as Record<string, unknown>[]).map((row) => ({
+    id: row.id as string,
+    body: row.body as string,
+    isRead: Boolean(row.is_read),
+    createdAt: new Date(row.created_at as string).toISOString(),
+    counterpart: {
+      id: row.counterpart_id as string,
+      nickname: row.counterpart_nickname as string,
+      avatarUrl:
+        (row.counterpart_avatar_url as string | null) ||
+        (row.counterpart_image as string | null) ||
+        getDefaultAvatarUrl(Number(row.counterpart_default_avatar_index ?? 0)),
+    },
+  }));
+}
+
+// ── 단일 수신 메시지 읽음 처리 ────────────────────────────────────────────────
+
+/**
+ * 단일 수신 메시지를 읽음 처리한다.
+ * receiverId가 요청자(userId)와 일치해야만 업데이트된다.
+ */
+export async function markMessageRead(
+  db: Database,
+  messageId: string,
+  userId: string,
+): Promise<{ updated: number }> {
+  const result = await db
+    .update(schema.messages)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(schema.messages.id, messageId),
+        eq(schema.messages.receiverId, userId),
+        eq(schema.messages.isRead, false),
+      ),
+    );
+  return { updated: result.rowCount ?? 0 };
+}
+
 // ── 스레드 일괄 읽음 처리 ─────────────────────────────────────────────────────
 
 /**
@@ -356,4 +474,229 @@ export async function markThreadRead(
     );
 
   return { updated: result.rowCount ?? 0 };
+}
+
+// ── 휴지통 목록 조회 ──────────────────────────────────────────────────────────
+
+export interface TrashedMessageServiceItem {
+  id: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+  trashedAt: string | null;
+  originalBox: "received" | "sent";
+  counterpart: {
+    id: string;
+    nickname: string;
+    avatarUrl: string | null;
+  };
+}
+
+/**
+ * 휴지통에 있는 쪽지 목록을 반환한다 (받은·보낸 합산, 최신 휴지통 이동 순).
+ * 호출 시점에 30일 초과 항목을 lazy purge 처리한다.
+ */
+export async function getTrashedMessages(
+  db: Database,
+  userId: string,
+): Promise<TrashedMessageServiceItem[]> {
+  // Lazy purge: 만료된 휴지통 항목 먼저 처리
+  await purgeExpiredTrash(db).catch((err: unknown) => {
+    console.warn("[messages/service] lazy purge 실패 (무시):", err);
+  });
+
+  const rows = await db.execute(sql`
+    SELECT
+      m.id,
+      m.body,
+      m.is_read,
+      m.created_at,
+      CASE
+        WHEN m.sender_id   = ${userId} THEN m.trashed_by_sender_at
+        ELSE m.trashed_by_receiver_at
+      END AS trashed_at,
+      CASE
+        WHEN m.sender_id = ${userId} THEN 'sent'
+        ELSE 'received'
+      END AS original_box,
+      u.id                   AS counterpart_id,
+      u.nickname             AS counterpart_nickname,
+      u.avatar_url           AS counterpart_avatar_url,
+      u.image                AS counterpart_image,
+      u.default_avatar_index AS counterpart_default_avatar_index
+    FROM messages m
+    INNER JOIN users u ON u.id = CASE
+      WHEN m.sender_id = ${userId} THEN m.receiver_id
+      ELSE m.sender_id
+    END
+    WHERE
+      m.hidden_by_admin = false
+      AND m.deleted_at  IS NULL
+      AND (
+        (m.receiver_id = ${userId} AND m.deleted_by_receiver = true AND m.purged_by_receiver = false)
+        OR
+        (m.sender_id   = ${userId} AND m.deleted_by_sender   = true AND m.purged_by_sender   = false)
+      )
+    ORDER BY COALESCE(
+      CASE
+        WHEN m.sender_id = ${userId} THEN m.trashed_by_sender_at
+        ELSE m.trashed_by_receiver_at
+      END,
+      m.created_at
+    ) DESC
+  `);
+
+  return (rows.rows as Record<string, unknown>[]).map((row) => ({
+    id: row.id as string,
+    body: row.body as string,
+    isRead: Boolean(row.is_read),
+    createdAt: new Date(row.created_at as string).toISOString(),
+    trashedAt: row.trashed_at
+      ? new Date(row.trashed_at as string).toISOString()
+      : null,
+    originalBox: row.original_box as "received" | "sent",
+    counterpart: {
+      id: row.counterpart_id as string,
+      nickname: row.counterpart_nickname as string,
+      avatarUrl:
+        (row.counterpart_avatar_url as string | null) ||
+        (row.counterpart_image as string | null) ||
+        getDefaultAvatarUrl(Number(row.counterpart_default_avatar_index ?? 0)),
+    },
+  }));
+}
+
+// ── 쪽지 휴지통으로 이동 ──────────────────────────────────────────────────────
+
+/**
+ * 단일 쪽지를 휴지통으로 이동한다.
+ * 요청자가 수신자면 deleted_by_receiver=true + trashed_by_receiver_at=now(),
+ * 발신자면 deleted_by_sender=true + trashed_by_sender_at=now().
+ * 참여자가 아니거나 이미 휴지통이면 updated=0 을 반환한다.
+ */
+export async function trashMessage(
+  db: Database,
+  messageId: string,
+  userId: string,
+): Promise<{ updated: number }> {
+  const now = new Date();
+
+  // 수신자로서 처리
+  const asReceiver = await db
+    .update(schema.messages)
+    .set({ deletedByReceiver: true, trashedByReceiverAt: now })
+    .where(
+      and(
+        eq(schema.messages.id, messageId),
+        eq(schema.messages.receiverId, userId),
+        eq(schema.messages.deletedByReceiver, false),
+        eq(schema.messages.purgedByReceiver, false),
+        eq(schema.messages.hiddenByAdmin, false),
+        isNull(schema.messages.deletedAt),
+      ),
+    );
+
+  if ((asReceiver.rowCount ?? 0) > 0) {
+    return { updated: 1 };
+  }
+
+  // 발신자로서 처리
+  const asSender = await db
+    .update(schema.messages)
+    .set({ deletedBySender: true, trashedBySenderAt: now })
+    .where(
+      and(
+        eq(schema.messages.id, messageId),
+        eq(schema.messages.senderId, userId),
+        eq(schema.messages.deletedBySender, false),
+        eq(schema.messages.purgedBySender, false),
+        eq(schema.messages.hiddenByAdmin, false),
+        isNull(schema.messages.deletedAt),
+      ),
+    );
+
+  return { updated: asSender.rowCount ?? 0 };
+}
+
+// ── 쪽지 영구삭제 ─────────────────────────────────────────────────────────────
+
+/**
+ * 지정한 쪽지들을 영구삭제(purge)한다.
+ * 요청자가 수신자면 purged_by_receiver=true, 발신자면 purged_by_sender=true.
+ * 반드시 본인 참여 + 이미 휴지통(deleted=true)인 항목만 처리한다.
+ */
+export async function purgeMessages(
+  db: Database,
+  ids: string[],
+  userId: string,
+): Promise<{ purged: number }> {
+  if (ids.length === 0) return { purged: 0 };
+
+  const [receiverResult, senderResult] = await Promise.all([
+    db
+      .update(schema.messages)
+      .set({ purgedByReceiver: true })
+      .where(
+        and(
+          inArray(schema.messages.id, ids),
+          eq(schema.messages.receiverId, userId),
+          eq(schema.messages.deletedByReceiver, true),
+          eq(schema.messages.purgedByReceiver, false),
+        ),
+      ),
+    db
+      .update(schema.messages)
+      .set({ purgedBySender: true })
+      .where(
+        and(
+          inArray(schema.messages.id, ids),
+          eq(schema.messages.senderId, userId),
+          eq(schema.messages.deletedBySender, true),
+          eq(schema.messages.purgedBySender, false),
+        ),
+      ),
+  ]);
+
+  return {
+    purged: (receiverResult.rowCount ?? 0) + (senderResult.rowCount ?? 0),
+  };
+}
+
+// ── 만료된 휴지통 자동 영구삭제 (30일) ───────────────────────────────────────
+
+/**
+ * 휴지통 이동 후 30일이 경과한 쪽지를 자동 영구삭제한다.
+ * getTrashedMessages 호출 시 lazy purge 방식으로 실행된다.
+ */
+export async function purgeExpiredTrash(db: Database): Promise<{ purged: number }> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [receiverResult, senderResult] = await Promise.all([
+    db
+      .update(schema.messages)
+      .set({ purgedByReceiver: true })
+      .where(
+        and(
+          eq(schema.messages.deletedByReceiver, true),
+          eq(schema.messages.purgedByReceiver, false),
+          lt(schema.messages.trashedByReceiverAt, thirtyDaysAgo),
+        ),
+      ),
+    db
+      .update(schema.messages)
+      .set({ purgedBySender: true })
+      .where(
+        and(
+          eq(schema.messages.deletedBySender, true),
+          eq(schema.messages.purgedBySender, false),
+          lt(schema.messages.trashedBySenderAt, thirtyDaysAgo),
+        ),
+      ),
+  ]);
+
+  const purged = (receiverResult.rowCount ?? 0) + (senderResult.rowCount ?? 0);
+  if (purged > 0) {
+    console.log(`[messages/service] 만료된 휴지통 항목 ${purged}건 자동 영구삭제`);
+  }
+  return { purged };
 }

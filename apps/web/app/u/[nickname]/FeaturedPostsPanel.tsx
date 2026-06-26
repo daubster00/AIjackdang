@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Checkbox, Icon, Spinner } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import styles from "./FeaturedPostsPanel.module.css";
@@ -35,6 +36,7 @@ const MAX_FEATURED = 5;
 
 export function FeaturedPostsPanel({ initialFeaturedIds }: FeaturedPostsPanelProps) {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,7 @@ export function FeaturedPostsPanel({ initialFeaturedIds }: FeaturedPostsPanelPro
       if (res.ok) {
         toast({ tone: "success", title: "노출 글이 저장됐어요" });
         setDirty(false);
+        router.refresh();
       } else {
         const err = (await res.json()) as { error?: { message?: string } };
         toast({ tone: "danger", title: "저장 실패", description: err.error?.message });

@@ -78,11 +78,22 @@ export type PostWriteFormConfig = {
 };
 
 const MAX_FILES = 5;
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 파일당 10MB
 
 interface AttachedFile {
+  /** 업로드할 실제 File 객체 */
+  file: File;
   name: string;
   size: string;
   isImage: boolean;
+}
+
+/** 업로드 완료된 첨부파일 메타 (서버 응답). */
+interface UploadedAttachment {
+  url: string;
+  name: string;
+  size: number;
+  mimeType: string;
 }
 
 /** 인라인 검증 오류 */
@@ -158,6 +169,36 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
       setter(true);
 
       try {
+        // ── 1) 첨부파일 업로드 (있을 때만) → 메타 수집 ────────────────────────
+        let attachments: UploadedAttachment[] = [];
+        if (files.length > 0) {
+          const fd = new FormData();
+          for (const f of files) fd.append("files", f.file);
+          const upRes = await fetch("/api/v1/posts/attachments", {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+          });
+          if (upRes.status === 401) {
+            toast({ tone: "danger", title: "로그인 후 이용해 주세요." });
+            router.push(`/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
+            return;
+          }
+          if (!upRes.ok) {
+            const data = (await upRes.json().catch(() => null)) as {
+              error?: { message?: string };
+            } | null;
+            toast({
+              tone: "danger",
+              title: "첨부파일 업로드 실패",
+              description: data?.error?.message ?? "허용되지 않는 파일이거나 용량을 초과했습니다.",
+            });
+            return;
+          }
+          const upData = (await upRes.json()) as { files: UploadedAttachment[] };
+          attachments = upData.files;
+        }
+
         const postBody: Record<string, unknown> = {
           board: config.board,
           title: title.trim(),
@@ -165,6 +206,10 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
           tags,
           status,
         };
+
+        if (attachments.length > 0) {
+          postBody.attachments = attachments;
+        }
 
         // Story 2.11: AI 창작마당에서만 creativeSpec 포함
         if (config.board === "ai-creation" && config.creativeSpec) {
@@ -223,18 +268,33 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
         setter(false);
       }
     },
-    [config.board, config.boardHref, config.creativeSpec, contentJson, router, tags, title, toast],
+    [config.board, config.boardHref, config.creativeSpec, contentJson, files, router, tags, title, toast],
   );
 
-  // ── 파일 첨부 (Epic 4 파일 업로드 구현 전 로컬 미리보기만) ─────────────────
+  // ── 파일 첨부 (선택 시 로컬 보관 → 제출 시 서버 업로드) ──────────────────────
   const handleFileSelect = useCallback(
     (fileList: FileList | null) => {
       if (!fileList) return;
       const remaining = MAX_FILES - files.length;
-      if (remaining <= 0) return;
-      const newFiles: AttachedFile[] = Array.from(fileList)
+      if (remaining <= 0) {
+        toast({ tone: "warning", title: `첨부파일은 최대 ${MAX_FILES}개까지 가능합니다.` });
+        return;
+      }
+      // 10MB 초과 파일은 제외하고 안내
+      const picked = Array.from(fileList);
+      const tooLarge = picked.filter((f) => f.size > MAX_FILE_BYTES);
+      if (tooLarge.length > 0) {
+        toast({
+          tone: "warning",
+          title: "파일이 너무 큽니다",
+          description: `${tooLarge.map((f) => f.name).join(", ")} — 파일당 최대 10MB`,
+        });
+      }
+      const newFiles: AttachedFile[] = picked
+        .filter((f) => f.size <= MAX_FILE_BYTES)
         .slice(0, remaining)
         .map((f) => ({
+          file: f,
           name: f.name,
           size:
             f.size < 1024 * 1024
@@ -242,9 +302,11 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
               : `${(f.size / 1024 / 1024).toFixed(1)} MB`,
           isImage: f.type.startsWith("image/"),
         }));
-      setFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES));
+      if (newFiles.length > 0) {
+        setFiles((prev) => [...prev, ...newFiles].slice(0, MAX_FILES));
+      }
     },
-    [files.length],
+    [files.length, toast],
   );
 
   const handleDrop = useCallback(
@@ -417,14 +479,14 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
             <Icon name="upload-cloud-2-line" className={styles.dropzoneIcon} />
             <p className={styles.dropzoneText}>{config.dropzoneText}</p>
             <p className={styles.dropzoneHint}>
-              jpg, png, gif, pdf, zip, md, txt, json, docx, xlsx 지원
+              zip, pdf, json, md, txt, csv, xlsx 지원 (허용 형식은 운영자 설정 기준)
             </p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,.pdf,.zip,.md,.txt,.json,.docx,.xlsx"
+            accept=".zip,.pdf,.json,.md,.txt,.csv,.xlsx,.docx"
             className={styles.hiddenInput}
             onChange={(e) => handleFileSelect(e.target.files)}
             aria-hidden="true"

@@ -216,10 +216,23 @@ export function ReviewItem({ review, onDeleted }: ReviewItemProps) {
           {isDeleted ? (
             <strong>삭제된 후기</strong>
           ) : (
-            <strong><AuthorName name={review.authorNickname ?? "익명"} authorId={review.authorId} /></strong>
+            <strong><AuthorName name={review.authorNickname ?? "익명"} authorId={review.authorId} authorAvatarUrl={review.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(review.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
+        {/* 최상위 후기에만 별점 표시 - commentMeta 오른쪽 끝 정렬 (채워진별+빈별 5개 고정) */}
+        {!isDeleted && isTopLevel && review.rating !== null && (
+          <div className={styles.reviewRatingRow}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Icon
+                key={n}
+                name={n <= review.rating! ? "star-fill" : "star-line"}
+                className={n <= review.rating! ? styles.starOn : styles.starOff}
+              />
+            ))}
+            <span className={styles.reviewRatingScore}>{review.rating}점</span>
+          </div>
+        )}
         {!isDeleted && isOwner && (
           <div className={styles.commentMenuWrapper} ref={menuRef}>
             <button
@@ -290,20 +303,6 @@ export function ReviewItem({ review, onDeleted }: ReviewItemProps) {
           </div>
         )}
       </div>
-
-      {/* 최상위 후기에만 별점 표시 */}
-      {!isDeleted && isTopLevel && review.rating !== null && (
-        <div className={styles.reviewRatingRow}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <Icon
-              key={n}
-              name={n <= review.rating! ? "star-fill" : "star-line"}
-              className={n <= review.rating! ? styles.starOn : styles.starOff}
-            />
-          ))}
-          <span className={styles.reviewRatingScore}>{review.rating}점</span>
-        </div>
-      )}
 
       {isDeleted ? (
         <p className={styles.commentDeleted}>삭제된 후기입니다.</p>
@@ -570,7 +569,7 @@ function ReplyReviewItem({ reply }: { reply: Omit<ApiReview, "replies"> }) {
           {isDeleted ? (
             <span>삭제된 답글</span>
           ) : (
-            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} /></strong>
+            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} authorAvatarUrl={reply.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(reply.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>

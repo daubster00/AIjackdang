@@ -437,7 +437,7 @@
 .creativeThumb {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   background: var(--color-neutral-soft);
 }
@@ -446,6 +446,19 @@
   display: grid;
   gap: var(--space-2);
   padding: 16px;
+}
+
+.creativeBoardLabel {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border: 1px solid rgba(48, 48, 192, 0.18);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
 }
 
 .creativeBody strong {

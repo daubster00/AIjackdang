@@ -100,7 +100,7 @@ export default async function LoungeProductDetailPage({ params }: { params: Para
 
           <div className={styles.articleBody}>
             <CodeBlockCopyButton html={post.contentHtml} />
-            {post.hasAttachment && <AttachmentList />}
+            {post.hasAttachment && <AttachmentList files={post.attachments ?? []} />}
           </div>
 
           <ReactionBar

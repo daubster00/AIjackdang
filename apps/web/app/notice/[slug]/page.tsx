@@ -137,7 +137,7 @@ export default async function NoticeDetailPage({ params }: PageProps) {
 
           <div className={styles.articleBody}>
             <CodeBlockCopyButton html={post.contentHtml} />
-            {post.hasAttachment && <AttachmentList />}
+            {post.hasAttachment && <AttachmentList files={post.attachments ?? []} />}
           </div>
 
           {/* Participation slots (Epic 5에서 활성화) */}

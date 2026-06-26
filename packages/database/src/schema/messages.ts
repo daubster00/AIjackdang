@@ -22,10 +22,18 @@ export const messages = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     isRead: boolean("is_read").notNull().default(false),
-    /** 발신자가 대화함을 삭제했는지 여부 */
+    /** 발신자가 쪽지를 삭제(휴지통 이동)했는지 여부 */
     deletedBySender: boolean("deleted_by_sender").notNull().default(false),
-    /** 수신자가 대화함을 삭제했는지 여부 */
+    /** 수신자가 쪽지를 삭제(휴지통 이동)했는지 여부 */
     deletedByReceiver: boolean("deleted_by_receiver").notNull().default(false),
+    /** 발신자가 휴지통으로 보낸 시각 (NULL=휴지통 아님, 30일 후 자동 영구삭제 기준) */
+    trashedBySenderAt: timestamp("trashed_by_sender_at", { withTimezone: true }),
+    /** 수신자가 휴지통으로 보낸 시각 (NULL=휴지통 아님, 30일 후 자동 영구삭제 기준) */
+    trashedByReceiverAt: timestamp("trashed_by_receiver_at", { withTimezone: true }),
+    /** 발신자가 휴지통에서 영구삭제했는지 여부 (어떤 목록에도 비노출) */
+    purgedBySender: boolean("purged_by_sender").notNull().default(false),
+    /** 수신자가 휴지통에서 영구삭제했는지 여부 (어떤 목록에도 비노출) */
+    purgedByReceiver: boolean("purged_by_receiver").notNull().default(false),
     /** [9.18] 운영자가 모더레이션으로 숨긴 쪽지 (발신·수신 양쪽 비노출) */
     hiddenByAdmin: boolean("hidden_by_admin").notNull().default(false),
     /** [9.18] 운영자 soft-delete 시각 (30일 후 cleanup worker hard-delete) */

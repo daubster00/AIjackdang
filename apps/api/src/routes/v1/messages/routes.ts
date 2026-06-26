@@ -11,7 +11,11 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { getDb } from "@ai-jakdang/database";
-import { createMessageSchema, errorResponseSchema } from "@ai-jakdang/contracts";
+import {
+  createMessageSchema,
+  errorResponseSchema,
+  purgeMessagesBodySchema,
+} from "@ai-jakdang/contracts";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
 import { publishNotification } from "../../../lib/notifications.js";
 import { getRedisPublisher } from "../../../lib/redis.js";
@@ -20,12 +24,81 @@ import {
   getConversations,
   getConversationThread,
   markThreadRead,
+  getMessages,
+  markMessageRead,
+  getTrashedMessages,
+  trashMessage,
+  purgeMessages,
 } from "./service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
 export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   const typed = app.withTypeProvider<ZodTypeProvider>();
+
+  // ── GET /messages — 쪽지함 목록 (개별 메시지, 메일박스형) ──────────────────────
+  typed.get(
+    "/",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "쪽지함 개별 메시지 목록 조회 (box=received|sent)",
+        tags: ["messages"],
+        querystring: z.object({
+          box: z.enum(["received", "sent"]).default("received"),
+        }),
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string().uuid(),
+                body: z.string(),
+                isRead: z.boolean(),
+                createdAt: z.string(),
+                counterpart: z.object({
+                  id: z.string().uuid(),
+                  nickname: z.string(),
+                  avatarUrl: z.string().nullable(),
+                }),
+              }),
+            ),
+          }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { box } = request.query;
+      const db = getDb();
+      const items = await getMessages(db, user.id, box);
+      return reply.send({ items });
+    },
+  );
+
+  // ── POST /messages/:id/read — 단일 메시지 읽음 처리 ──────────────────────────
+  typed.post(
+    "/:id/read",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "단일 수신 메시지 읽음 처리",
+        tags: ["messages"],
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ updated: z.number() }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { id } = request.params;
+      const db = getDb();
+      const result = await markMessageRead(db, id, user.id);
+      return reply.send(result);
+    },
+  );
 
   // ── POST /messages — 쪽지 발송 ───────────────────────────────────────────────
   typed.post(
@@ -84,6 +157,101 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         }
         throw err;
       }
+    },
+  );
+
+  // ── GET /messages/trash — 휴지통 목록 ───────────────────────────────────────
+  typed.get(
+    "/trash",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "휴지통(받은·보낸 합산) 쪽지 목록 조회",
+        tags: ["messages"],
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string().uuid(),
+                body: z.string(),
+                isRead: z.boolean(),
+                createdAt: z.string(),
+                trashedAt: z.string().nullable(),
+                originalBox: z.enum(["received", "sent"]),
+                counterpart: z.object({
+                  id: z.string().uuid(),
+                  nickname: z.string(),
+                  avatarUrl: z.string().nullable(),
+                }),
+              }),
+            ),
+          }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const db = getDb();
+      const items = await getTrashedMessages(db, user.id);
+      return reply.send({ items });
+    },
+  );
+
+  // ── POST /messages/:id/trash — 쪽지 휴지통으로 이동 ─────────────────────────
+  typed.post(
+    "/:id/trash",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "쪽지를 휴지통으로 이동한다 (영구삭제 아님)",
+        tags: ["messages"],
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ updated: z.number() }),
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { id } = request.params;
+      const db = getDb();
+      const result = await trashMessage(db, id, user.id);
+      if (result.updated === 0) {
+        return reply.code(404).send({
+          error: {
+            code: "MESSAGE_NOT_FOUND",
+            message: "쪽지를 찾을 수 없거나 권한이 없습니다.",
+          },
+        });
+      }
+      return reply.send(result);
+    },
+  );
+
+  // ── POST /messages/purge — 영구삭제 ─────────────────────────────────────────
+  typed.post(
+    "/purge",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "지정한 쪽지를 영구삭제한다 (휴지통에 있는 항목만 처리)",
+        tags: ["messages"],
+        body: purgeMessagesBodySchema,
+        response: {
+          200: z.object({ purged: z.number() }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { ids } = request.body;
+      const db = getDb();
+      const result = await purgeMessages(db, ids, user.id);
+      return reply.send(result);
     },
   );
 

@@ -9,7 +9,7 @@
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -79,13 +79,13 @@ function publicBaseUrl(): string {
   return `${(env.S3_ENDPOINT ?? "").replace(/\/$/, "")}/${env.S3_BUCKET_PUBLIC}`;
 }
 
-function buildKey(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): string {
+function buildKey(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images" | "attachments"): string {
   const ext = MIME_TO_EXT[file.mimetype] ?? extname(file.filename) ?? ".bin";
   return `${subdir}/${randomUUID()}${ext}`;
 }
 
 /** S3(MinIO/R2) 공개 버킷에 업로드하고 외부 접근 URL 을 반환한다. */
-async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): Promise<UploadResult> {
+async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images" | "attachments"): Promise<UploadResult> {
   const key = buildKey(file, subdir);
   await getS3().send(
     new PutObjectCommand({
@@ -100,7 +100,7 @@ async function uploadToS3(file: ParsedFile, subdir: "avatars" | "banners" | "edi
 }
 
 /** 로컬 파일시스템 폴백 저장(S3 미설정 개발 환경). */
-function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images"): UploadResult {
+function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners" | "editor-images" | "attachments"): UploadResult {
   const dirUrl = fileURLToPath(new URL(".", import.meta.url));
   const uploadDir = join(dirUrl, "../../../../uploads", subdir);
   mkdirSync(uploadDir, { recursive: true });
@@ -118,10 +118,49 @@ function uploadToLocal(file: ParsedFile, subdir: "avatars" | "banners" | "editor
  */
 export async function uploadImage(
   file: ParsedFile,
-  subdir: "avatars" | "banners" | "editor-images",
+  subdir: "avatars" | "banners" | "editor-images" | "attachments",
 ): Promise<UploadResult> {
   if (isS3Configured()) {
     return uploadToS3(file, subdir);
   }
   return uploadToLocal(file, subdir);
+}
+
+/**
+ * 게시글 첨부파일 업로드 진입점 — 이미지가 아닌 일반 파일(zip/pdf/문서 등)도 처리한다.
+ * 공개 버킷의 `attachments/` 하위에 원본 확장자를 보존하여 저장하고 다운로드 URL 을 반환한다.
+ * 확장자 화이트리스트 검증은 호출 측(라우트)에서 관리자 설정 기반으로 수행한다.
+ */
+export async function uploadAttachment(file: ParsedFile): Promise<UploadResult> {
+  if (isS3Configured()) {
+    return uploadToS3(file, "attachments");
+  }
+  return uploadToLocal(file, "attachments");
+}
+
+/**
+ * 다운로드 프록시용: 공개 버킷 베이스 URL 반환.
+ * SSRF 방지 화이트리스트 확인에 사용한다.
+ */
+export function getPublicBaseUrl(): string {
+  return publicBaseUrl();
+}
+
+/**
+ * 다운로드 프록시용: `/uploads/...` 형태의 로컬 URL을 실제 파일시스템 경로로 변환한다.
+ * 경로 조작(path traversal) 공격 방지 검증 포함.
+ * S3 URL 또는 잘못된 입력이면 null 반환.
+ */
+export function resolveLocalFilePath(url: string): string | null {
+  if (!url.startsWith("/uploads/")) return null;
+  const dirUrl = fileURLToPath(new URL(".", import.meta.url));
+  const uploadsBase = resolve(join(dirUrl, "../../../../uploads"));
+  const subPath = url.slice("/uploads/".length);
+  // 빈 subPath 또는 상위 경로 탈출 시도 차단
+  if (!subPath || subPath.includes("..")) return null;
+  const resolved = resolve(join(uploadsBase, subPath));
+  // 경로 조작 방지: resolved는 반드시 uploadsBase 하위여야 한다
+  const base = uploadsBase.endsWith(sep) ? uploadsBase : uploadsBase + sep;
+  if (!resolved.startsWith(base)) return null;
+  return resolved;
 }

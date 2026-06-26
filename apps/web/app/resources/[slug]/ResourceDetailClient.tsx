@@ -21,10 +21,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { LoginGatingModal } from "@/components/ui/LoginGatingModal";
-import { RatingInput } from "@/components/ui/RatingInput";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast/Toast";
-import { useGatingContext } from "@/contexts/GatingContext";
 import { ReviewForm } from "./ReviewForm";
 import { ReviewItem, type ApiReview } from "./ReviewItem";
 import styles from "./resource-detail.module.css";
@@ -150,7 +148,6 @@ export function ResourceDetailClient({
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { requireAuth } = useGatingContext();
 
   // ── 다운로드 상태 (Story 4.6) ─────────────────────────────────────────────────
   const [isDownloading, setIsDownloading] = useState(false);
@@ -160,8 +157,6 @@ export function ResourceDetailClient({
   // ── 평점 상태 (Story 4.7, SSR 초기값 → API 응답으로 교체) ─────────────────────
   const [avgRating, setAvgRating] = useState(initialAvgRating);
   const [ratingCount, setRatingCount] = useState(initialRatingCount);
-  const [myRating, setMyRating] = useState<number>(0);
-  const [ratingLoading, setRatingLoading] = useState(false);
 
   // ── 후기 목록 상태 (#16) ────────────────────────────────────────────────────
   const [reviews, setReviews] = useState<ApiReview[]>([]);
@@ -229,30 +224,6 @@ export function ResourceDetailClient({
     }
   }, [searchParams, user, primaryFile, handleDownload]);
 
-  // ── 마운트 시 기존 평점 조회 (Story 4.7) ──────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchMyRating = async () => {
-      try {
-        const res = await fetch(`/api/v1/resources/${resourceId}/ratings/me`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const data = (await res.json()) as { id: string; score: number } | null;
-          if (data) {
-            setMyRating(data.score);
-          }
-        }
-      } catch {
-        // 조회 실패 시 조용히 무시 (미선택 상태 유지)
-      }
-    };
-
-    void fetchMyRating();
-  }, [resourceId, user]);
-
   // ── 후기 목록 fetch (#16) ──────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -269,64 +240,6 @@ export function ResourceDetailClient({
       .finally(() => { if (!cancelled) setReviewsLoading(false); });
     return () => { cancelled = true; };
   }, [resourceId, reviewRefreshKey]);
-
-  // ── 별점 클릭 핸들러 ──────────────────────────────────────────────────────────
-  const handleRatingChange = useCallback(
-    async (score: number) => {
-      // 비회원: 로그인 유도 모달
-      if (!requireAuth("평점 등록")) return;
-
-      setRatingLoading(true);
-      const prevMyRating = myRating;
-      const prevAvgRating = avgRating;
-      const prevRatingCount = ratingCount;
-
-      try {
-        const res = await fetch(`/api/v1/resources/${resourceId}/ratings`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score }),
-        });
-
-        if (!res.ok) {
-          const err = (await res.json()) as { error?: { code?: string; message?: string } };
-          const message = err.error?.message ?? "평점 등록에 실패했습니다.";
-          toast({ tone: "danger", title: "평점 등록 실패", description: message });
-          // 이전 상태 복원
-          setMyRating(prevMyRating);
-          setAvgRating(prevAvgRating);
-          setRatingCount(prevRatingCount);
-          return;
-        }
-
-        const data = (await res.json()) as {
-          score: number;
-          avgRating: number;
-          ratingCount: number;
-        };
-
-        // 성공: 응답 값으로 즉시 갱신
-        setMyRating(data.score);
-        setAvgRating(data.avgRating);
-        setRatingCount(data.ratingCount);
-
-        toast({
-          tone: "success",
-          title: "평점이 등록되었습니다.",
-          description: `${data.score}점을 남겼습니다.`,
-        });
-      } catch {
-        toast({ tone: "danger", title: "평점 등록 실패", description: "잠시 후 다시 시도해 주세요." });
-        setMyRating(prevMyRating);
-        setAvgRating(prevAvgRating);
-        setRatingCount(prevRatingCount);
-      } finally {
-        setRatingLoading(false);
-      }
-    },
-    [requireAuth, myRating, avgRating, ratingCount, resourceId, toast],
-  );
 
   // ── 비회원 게이팅 모달 (redirectTo: /resources/{slug}?download=true) ──────────
   // LoginGatingModal의 intendedAction을 사용하면 ?action=download 로 리다이렉트되므로
@@ -399,25 +312,12 @@ export function ResourceDetailClient({
             <RatingStars rating={avgRating} className={styles.reviewScoreStars} />
             <span className={styles.reviewScoreCount}>후기 {ratingCount}개</span>
           </div>
-
-          {/* Story 4.7: 평점 입력 슬롯 — 구현 완료 */}
-          <div data-slot="rating-input">
-            <RatingInput
-              value={myRating}
-              onChange={!ratingLoading ? handleRatingChange : undefined}
-              disabled={ratingLoading || !user}
-              disabledLabel={!user ? "로그인 후 평점 등록" : "평점 등록 중..."}
-            />
-          </div>
         </div>
 
-        <h2 id="rating-section-title" className={styles.sectionTitle}>
-          후기 {ratingCount}
-        </h2>
-
-        {/* 후기 작성 폼 (#16) */}
+        {/* 후기 작성 폼 (#16) — 제목("후기작성")과 별점을 같은 줄에 배치(#108) */}
         <ReviewForm
           resourceId={resourceId}
+          title="후기작성"
           placeholder="이 자료를 사용해보셨나요? 후기를 남겨주세요."
           onSuccess={(newAvg, newCount) => {
             setAvgRating(newAvg);

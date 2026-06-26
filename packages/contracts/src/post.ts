@@ -114,6 +114,31 @@ export const recruitMetaSchema = z.object({
 });
 export type RecruitMeta = z.infer<typeof recruitMetaSchema>;
 
+// ── 첨부파일 ──────────────────────────────────────────────────────────────────
+
+/**
+ * 게시글 첨부파일 — 상세 응답에 포함되는 다운로드 항목.
+ * size 는 사람이 읽기 쉬운 문자열(예: "2.4 MB")로 서버가 포맷한다.
+ */
+export const attachmentSchema = z.object({
+  name: z.string(),
+  size: z.string(),
+  url: z.string(),
+});
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+/**
+ * 첨부파일 업로드 입력 — POST /posts/attachments 응답을 그대로 createPost 본문에 전달.
+ * url: 공개 버킷 다운로드 URL, size: byte 단위 원본 크기.
+ */
+export const attachmentInputSchema = z.object({
+  url: z.string().min(1),
+  name: z.string().min(1).max(300),
+  size: z.number().int().nonnegative(),
+  mimeType: z.string().min(1).max(200),
+});
+export type AttachmentInput = z.infer<typeof attachmentInputSchema>;
+
 // ── 게시글 운영 상태 ──────────────────────────────────────────────────────────
 // AR-7 soft-delete: status + deleted_at 패턴
 
@@ -177,6 +202,8 @@ export const postDetailSchema = postCardSchema.extend({
   recruitPost: recruitPostSchema.nullable().optional(),
   /** Story 8.6: 본문 외부 링크 OG 미리보기 맵. URL → OG 메타. 빈 객체이면 수집 미완료. */
   linkPreviews: linkPreviewMapSchema.optional(),
+  /** 게시글 본문 하단 첨부파일 목록. 없으면 빈 배열. */
+  attachments: z.array(attachmentSchema).optional(),
 });
 export type PostDetail = z.infer<typeof postDetailSchema>;
 
@@ -195,6 +222,8 @@ export const createPostSchema = z.object({
   contentJson: z.record(z.string(), z.unknown()),
   summary: z.string().trim().max(500).optional(),
   tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]),
+  /** 첨부파일 메타(업로드 완료된 항목). 최대 5개. */
+  attachments: z.array(attachmentInputSchema).max(5).optional(),
 });
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 

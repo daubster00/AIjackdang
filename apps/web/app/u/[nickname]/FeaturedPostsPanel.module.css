@@ -47,6 +47,29 @@
   max-height: 400px;
   overflow-y: auto;
   padding: var(--space-2) 0;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.45) transparent;
+}
+
+/* WebKit (Chrome / Safari / Edge) */
+.panelBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panelBody::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.panelBody::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.45);
+  border-radius: 99px;
+}
+
+.panelBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.70);
 }
 
 .loadingWrap {

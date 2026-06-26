@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag, OgLinkCard } from "@/components/ui";
-import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RelatedPosts, RecentViewedTracker } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RecentViewedTracker } from "@/components/board";
 import {
   buildPostMeta,
   buildPostBreadcrumb,
@@ -62,14 +62,6 @@ export default async function AutomationDetailPage({ params }: PageProps) {
   const commentsData = commentsRes.ok
     ? ((await commentsRes.json()) as { items: ApiComment[] })
     : { items: [] };
-
-  const relatedRes = await fetch(
-    `${API_URL}/api/v1/related?targetType=post&targetId=${post.id}`,
-    { next: { revalidate: 300 } },
-  );
-  const relatedData = relatedRes.ok
-    ? ((await relatedRes.json()) as { relatedPosts: { id: string; title: string; slug: string; href: string; createdAt: string; viewCount: number }[]; authorPosts: { id: string; title: string; slug: string; href: string; createdAt: string; viewCount: number }[] })
-    : { relatedPosts: [], authorPosts: [] };
 
   const boardMeta = BOARDS[post.board];
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
@@ -135,7 +127,7 @@ export default async function AutomationDetailPage({ params }: PageProps) {
 
           <div className={styles.articleBody}>
             <CodeBlockCopyButton html={post.contentHtml} />
-            {post.hasAttachment && <AttachmentList />}
+            {post.hasAttachment && <AttachmentList files={post.attachments ?? []} />}
           </div>
 
           {/* [8.6] OG 링크 미리보기 카드 — linkPreviews 맵에 데이터가 있는 URL만 표시 */}
@@ -173,8 +165,6 @@ export default async function AutomationDetailPage({ params }: PageProps) {
               ))}
             </ul>
           </section>
-
-          <RelatedPosts relatedPosts={relatedData.relatedPosts} authorPosts={relatedData.authorPosts} />
 
           <footer className={styles.detailFooter}>
             <Link href="/automation" className={styles.listButton}>

@@ -9,7 +9,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ConversationsPage } from "@/features/messages/ConversationsPage";
+import { MessagesPage } from "@/features/messages/MessagesPage";
 
 export const metadata: Metadata = {
   title: "쪽지함 | AI작당",
@@ -28,5 +28,5 @@ export default async function Page() {
     redirect("/login?redirectTo=/messages");
   }
 
-  return <ConversationsPage />;
+  return <MessagesPage />;
 }

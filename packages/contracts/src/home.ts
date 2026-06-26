@@ -23,6 +23,7 @@ export const popularPostItemSchema = z.object({
   commentCount: z.number().int(),
   createdAt: z.string(), // ISO 8601 UTC
   tags: z.array(z.string()),
+  thumbnailUrl: z.string().nullable(),
 });
 export type PopularPostItem = z.infer<typeof popularPostItemSchema>;
 

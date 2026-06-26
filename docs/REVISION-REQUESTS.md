@@ -23,7 +23,7 @@
 3. 수정 완료 시 Claude가 **시도 이력**(아래 형식)을 적고 `Claude` 박스를 체크 → `## 검수 대기 (사용자 확인 필요)` 로 이동.
 4. 사용자가 검수:
    - **통과** → 사용자가 `검수` 박스 체크 → Claude가 `## 검수 통과 (CLOSED)` 로 이동.
-   - **여전히 문제** → 사용자가 "재검사" 라고만 적으면 Claude가 다시 `수정 중` 으로 올린다.
+   - **여전히 문제** → 사용자가  박스안에 아무것도 안적으면 Claude가 다시 `수정 중` 으로 올린다.
 
 ### 재수정 규칙 (핵심)
 같은 항목을 2번째·3번째 다시 고칠 때, Claude는 **반드시 시도 이력에 적힌 앞선 접근 방식을 먼저 읽고, 그와 다른 방식으로 접근**한다.
@@ -43,6 +43,7 @@
 <!-- 사용자가 여기에 한 줄씩 추가. Claude가 읽고 '수정 중'으로 내림.
 - [ ] [대상 위치/파일] - 무엇을 어떻게
 -->
+_(없음 — 6건은 아래 검수 대기 119~124로 이동)_
 
 ## 수정 중 (IN PROGRESS)
 
@@ -51,10 +52,7 @@
 
 ## 보류 (HOLD)
 
-### 게시글 첨부파일 — 상세 페이지에서 첨부 파일 확인 불가
-- [ ] `Claude`   [ ] `검수`
-- 증상: 게시글 작성 시 파일을 첨부해도 상세 페이지에서 확인할 수 없음.
-- 사유(보류): 게시글 첨부파일은 **미구현 기능**. 글쓰기 폼은 로컬 미리보기만 하고 서버 업로드를 안 하며(주석 "Epic 4 파일 업로드 구현 전 로컬 미리보기만"), posts 쪽에 저장 테이블(`post_attachments`)도 없음. 완전 구현하려면 ① 새 DB 테이블 + 마이그레이션, ② 게시글 파일 업로드 엔드포인트(자료실 `/resources/:id/files` 인프라 재사용), ③ 글쓰기 폼 업로드 연동, ④ 상세 응답에 attachments 추가 + 표시. 지금 마이그레이션 생성 시 타 세션 미커밋 마이그레이션(0012·0013)과 엉킴 → 클린 상태에서 전용 스토리로 처리 권장.
+_(없음)_
 
 ---
 
@@ -63,13 +61,129 @@
 > Claude가 수정 + 자체 검증을 마쳤으나 **사용자 검수 전**인 항목.
 > 사용자가 확인 후 통과면 `검수` 박스를 v로 체크해 주세요. 여전히 문제면 그대로 비워두세요.
 
-_(현재 없음 — 신규 16건은 2026-06-26 전부 검수 통과 → CLOSED 이동.)_
+_(없음 — 122·107·108·113 검수 통과로 이동)_
 
 ---
 
 ## 검수 통과 (CLOSED)
 
 > 사용자가 `검수` 박스를 체크해 통과시킨 항목을 Claude가 여기로 옮긴다.
+
+> 재수정 4건(122·107·108·113) — 2026-06-26 2차 배치, 검수 통과. 근본 원인 = **댓글 컴포넌트가 게시판별 7벌 복제**라 1차가 lounge 한 벌만 고쳤던 것.
+
+### 122. 대댓글에 또 답글 — 같은 층위 + @멘션 표기
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `lounge/[slug]` 한 벌만 수정 → 미통과.
+- 2차 (2026-06-26): `CommentItem.tsx`/`CommentForm.tsx`가 게시판별 7벌 복제임을 확인 → 수정된 lounge 한 쌍을 나머지 6벌에 복제(css import만 보정). 106(즉시표시)·116(아바타)도 전 게시판 반영. → ✅ grep + web typecheck + 빌드.
+
+### 107. 실전자료 후기 빈 별(테두리만 있는 별) 삭제
+- [x] `Claude`   [x] `검수`
+- 3차 (2026-06-26): 조언이 지목한 `ResourceDetailClient`의 `<div data-slot="rating-input">`(별점 직접입력 `RatingInput`, 후기폼 StarPicker와 중복) 삭제 + `myRating`/`handleRatingChange`/`requireAuth`·`useGatingContext` 연쇄 제거. → ✅ web typecheck + 빌드.
+
+### 108. 실전자료 후기작성 제목과 별점 picker를 같은 줄에 배치
+- [x] `Claude`   [x] `검수`
+- 3차 (2026-06-26): `ReviewForm`에 `title` prop → `.reviewFormHeader`(flex space-between)로 "후기작성" h2(좌)+StarPicker(우) 한 줄. 외부 h2 제거, aria id는 폼 안 h2로 유지. → ✅ web typecheck + 빌드.
+
+### 113. 대댓글 작성 시 [취소]·[답글 등록] 버튼이 간격 없이 붙음
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): CSS 모듈도 게시판별 분리임을 확인 → `automation`·`monetize`·`vibe-coding` `.module.css`의 `.commentFormActions`에 `gap` + `.mention` 추가. → ✅ web typecheck + 빌드.
+
+> 신규 10건(119·120·121·123·124 + 114~118) — 2026-06-26 검수 통과.
+
+### 119. 메인 실전 인기글 — 라운지 외 탭 비노출 원인 + 탭당 3개
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 원인 = `posts.category`(글 대분류 컬럼) DB 전부 NULL → category 필터 0건. `popular.route.ts`에서 `BOARDS`(게시판 메타)로 category→board 슬러그 매핑해 board IN 필터로 변경, `page.tsx` 인기글 `.slice(0,3)`. → ✅ 캐시 flush 후 실측 vibe 2·자동화 3·수익화 3건.
+
+### 120. 메인 작당 라운지 섹션 — 썸네일 + 게시판 표기 + 4개
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): popular 라우트·`contracts/home.ts`에 `thumbnailUrl` 추가, 라운지 카드에 썸네일 img(없으면 empty_thumbnail)+게시판 라벨 뱃지+`.slice(0,4)`. (기존 글은 thumbnail null이라 폴백, 신규 작성부터 본문 첫 이미지.)
+
+### 121. 쪽지 상세 모달 닫기 버튼 → 테두리 있는 흰색 버튼
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `MessageDetailModal` 닫기 버튼 `variant="secondary"`(흰 배경 #fff + 테두리)로 교체.
+
+### 123. 쪽지 상세 모달 삭제 버튼 → 휴지통 이동
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 삭제 버튼 → `POST /messages/:id/trash`(발신/수신 측 대칭 soft-delete, 영구삭제 아님), 낙관적 제거 + 중앙 토스트.
+
+### 124. 쪽지함 휴지통 탭 + 선택 일괄 영구삭제 + 30일 자동삭제
+- [x] `Claude`   [x] `검수`
+- 스키마(메인): `messages` 4컬럼 추가(`trashed_by_*_at`·`purged_by_*`, 마이그 0021). 휴지통 탭·체크박스 일괄선택·`POST /messages/purge`·lazy 30일 자동 purge.
+
+### 114. 쪽지함 프로필 이미지에 실제 사진이 안 나옴
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `getMessages`/`getConversations` SELECT에 `u.image`·`u.default_avatar_index` 추가, `avatar_url||image||기본아바타` 해석.
+
+### 115. 작당 의뢰소에서 내가 쓴 글에는 [쪽지 보내기] 버튼이 안 떠야 함
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `GigDetailClient` 쪽지 버튼을 `{!isSelf && ...}`로 미렌더 + 누락된 `recipientId`/`recipientAvatarUrl` 주입.
+
+### 116. 쪽지 보내기 모달에 프로필 이미지가 안 보임
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `MessageModal`에 `recipientAvatarUrl` prop·`AuthorName`에 `authorAvatarUrl` prop 추가, 아바타 아는 호출부 일괄 주입.
+
+### 117. 푸터에 작당 라운지 하위 메뉴 추가
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `SiteFooter` "작당 라운지" 그룹 4개 링크로 확장(헤더와 동일).
+
+### 118. 쪽지·알림 페이지 이동/새로고침 시 즉시 알림 모달
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `NotificationAlert`를 `layout.tsx`에 마운트, `usePathname` 변경 시 미읽음 count 비교해 증가 시 중앙 토스트.
+
+> 신규 12건(100~112 + 게시글 첨부) — 2026-06-26 배치, 사용자 검수 통과.
+
+### 100. 유저 계정 페이지 노출글 선택 박스 스크롤바 디자인(얇은 옅은 보라색)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `FeaturedPostsPanel.module.css`의 `.panelBody`(max-height 400·overflow-y auto)에 커스텀 스크롤바 추가 — WebKit(`::-webkit-scrollbar` 폭 6px·track 투명 둥금·thumb 옅은보라 `rgba(167,139,250,0.45)` 99px 라운드·hover 0.70) + Firefox(`scrollbar-width:thin; scrollbar-color: rgba(167,139,250,0.45) transparent`). primary가 인디고(#3030c0)라 보라가 아니므로 violet-400 계열로 "옅은 보라" 충족. → ✅ 코드 확인.
+
+### 101. 유저 계정 페이지 노출글 저장 후 즉시 반영(새로고침 불필요)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `handleSave()`가 PATCH 성공 후 `setDirty(false)`만 하고 좌측 노출글 목록(서버 컴포넌트 렌더)은 미갱신이라 새로고침 필요였음. → `useRouter().router.refresh()`를 저장 성공 분기에 추가, page.tsx의 `fetchFeaturedPosts`는 이미 `cache:"no-store"`라 refresh만으로 최신 반영. → ✅ 코드 확인.
+
+### 102. 헤더 계정 드롭다운에 "내 계정" 항목 추가
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `SiteHeader` UserMenu에 `내 계정`(아이콘 account-circle-line) → `/u/${encodeURIComponent(user.nickname)}`(본인 공개 프로필) 추가. 기존 마이페이지(user-line·/mypage)와 아이콘·경로 구분해 둘 다 유지. → ✅ 빌드 통과.
+
+### 103. 메인 페이지 "AI 수익화 인기글" 섹션 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `app/page.tsx`의 `.popularBand`(monetization-title) 섹션 전체 + `fetchMonetizationPosts` import·`monetizationPosts` 변수·호출 제거(미사용 잔재 grep 0건). `lib/home.ts` 함수 본체·CSS는 유지. → ✅ web 빌드 성공.
+
+### 104. 메인 페이지 "기여자 랭킹" 섹션 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `app/page.tsx`의 `#ranking` 섹션(내부 `RankingWidget`) 전체 + `RankingWidget` import 제거(파일 자체는 보존). → ✅ web 빌드 성공.
+
+### 105. 쪽지함 메일박스형 전면 개편(받은/보낸 탭·단건 모달·답장·실사진·AuthorName)
+- [x] `Claude`   [x] `검수`
+- 증상(원인): 기존 `/messages`는 **채팅형**(대화 스레드 버블, `ThreadView`)으로 보낸/받은 구분 없음, 메시지마다 프로필·계정 메뉴 없음.
+- 1차 (2026-06-26): **채팅 → 메일박스**로 재설계. **API**: `GET /api/v1/messages?box=received|sent` + `POST /api/v1/messages/:id/read`(기존 conversations 라우트 보존). **프론트**: `/messages` = 신규 `MessagesPage`(받은/보낸 탭) — 행 클릭 → `MessageDetailModal`(채팅 버블 없음), 받은 쪽지만 "답장하기" → `MessageModal` 연결, 모달 열 때 읽음 처리. → ✅ typecheck green + web 빌드.
+
+### 106. 대댓글 작성 시 즉시 표시(새로고침 불필요)
+- [x] `Claude`   [x] `검수`
+- 증상(원인): reply 폼 `onSuccess`가 `router.refresh()`만 호출해 새 대댓글이 즉시 안 보임.
+- 1차 (2026-06-26): 로컬 state 즉시 append 방식 — `CommentForm`이 POST 201 응답을 현재 유저 정보로 낙관적 `CreatedComment`로 구성→`onSuccess(created)`, `CommentItem`이 `localReplies`에 append+펼침, `router.refresh()` 제거. → ✅ typecheck green.
+
+### 109. 푸터 메뉴 실제 페이지 링크 연결
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): footerGroups가 전부 `<a href="#">`(미동작)였음 → `{label, href}` + next/link `<Link>`로 통일. 실제 app/ 폴더 존재로 매핑 검증. → ✅ web 빌드. ⚠️ 이용약관(/terms)·개인정보처리방침(/privacy)은 페이지 미생성이라 해당 2개만 `href="#"` 유지(페이지 신설 시 연결).
+
+### 110. 첨부파일 게시글 수정 시 첨부 편집 기능 추가
+- [x] `Claude`   [x] `검수`
+- 증상(원인): `PostEditForm`이 title/contentJson/tags만 PATCH — 기존 첨부 편집 불가.
+- 1차 (2026-06-26): 수정 폼에 `existingAttachments`(삭제 버튼)+`newFiles`(드롭존, 10MB·5개) 추가. 새 파일은 `POST /posts/attachments` 업로드, 기존 첨부는 변환해 **유지목록 전체**를 PATCH `attachments`로 전송(전량 교체로 유실 방지). 계약 스키마 일치 확인. → ✅ typecheck green + web 빌드.
+
+### 111. 게시판 상세 페이지 "관련 글" 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 4개 상세(vibe-coding·automation·monetize·lounge)에서 `<RelatedPosts>` JSX + import + 전용 `relatedData` fetch 제거. 컴포넌트 파일은 보존. → ✅ grep 잔재 0 + web 빌드.
+
+### 112. txt 등 첨부 강제 다운로드(브라우저 인라인 열림 방지)
+- [x] `Claude`   [x] `검수`
+- 증상(원인): `<a href download>`는 .txt 인라인 렌더·크로스오리진 시 download 무시.
+- 1차 (2026-06-26): API 다운로드 프록시 `GET /api/v1/posts/attachments/download?url=&name=` 신설 — `Content-Disposition: attachment` + `application/octet-stream`으로 스트리밍. SSRF 방지(허용 base·path traversal 차단), `/posts/:slug`보다 먼저 등록. `AttachmentList` href를 프록시로 교체. → ✅ typecheck green + 메인 직접 검수.
+
+### 게시글 첨부파일 — 작성 시 첨부 → 상세 페이지에서 확인·다운로드
+- [x] `Claude`   [x] `검수`
+- 증상(원인): 게시글 첨부가 미구현(서버 업로드 없음·`post_attachments` 테이블 없음·`hasAttachment` 하드코딩 false).
+- 1차 (2026-06-26): 풀스택 신규 구현(마이그 0020). **DB** `post_attachments` 테이블. **API** 공개버킷 업로드(`storage.uploadAttachment`)+`POST /api/v1/posts/attachments`(인증·10MB·5개), 허용 확장자는 관리자 설정 `file_allowed_extensions`로 검증, getPostBySlug `attachments[]`/`hasAttachment` 동적화. **프론트** `PostWriteForm` 실업로드, `AttachmentList` 실데이터, 상세 9곳 주입. → ✅ 전 패키지 typecheck green + 읽기경로 실측(테스트 첨부 GET 확인 후 정리).
 
 > 신규 16건(84~99) — 2026-06-26 병렬 배치. 스키마/마이그(0019: posts.thumbnail_url·resources.thumbnail_url·users.featured_post_ids·comments.rating)은 메인 단일 소유 선처리, 기능은 파일 비충돌 7개 서브에이전트 병렬 + 메인 검수. 전 패키지 typecheck green + web 프로덕션 빌드 63페이지 성공(RSC 위반 0).
 

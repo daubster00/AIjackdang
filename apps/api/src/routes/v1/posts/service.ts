@@ -9,7 +9,7 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { PostCard, PostDetail, CreativeSpec } from "@ai-jakdang/contracts";
-import type { CreatePostInput, RecruitPost, RecruitMeta } from "@ai-jakdang/contracts";
+import type { CreatePostInput, RecruitPost, RecruitMeta, AttachmentInput } from "@ai-jakdang/contracts";
 
 /** Story 8.6: OG 링크 미리보기 맵 타입 (contracts/index.ts 추가 전 로컬 정의) */
 type LinkPreviewMap = Record<string, {
@@ -38,6 +38,13 @@ function getRedis(): Redis {
     _redis.on("error", (err) => console.error("[view-redis] 연결 오류:", err.message));
   }
   return _redis;
+}
+
+/** byte 크기를 사람이 읽기 쉬운 문자열로 변환한다. 예: 2516582 → "2.4 MB" */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export type SortOption = "latest" | "popular" | "most-comments";
@@ -171,6 +178,13 @@ export async function getPosts({
   // ── 태그 배치 쿼리 (N+1 방지) ─────────────────────────────────────────────────
   const postIds = rows.map((r) => r.id);
 
+  // 첨부파일 보유 여부 배치 조회 (N+1 방지) — distinct post_id 집합
+  const attachmentRows = await db
+    .selectDistinct({ postId: schema.postAttachments.postId })
+    .from(schema.postAttachments)
+    .where(inArray(schema.postAttachments.postId, postIds));
+  const attachmentPostIds = new Set(attachmentRows.map((r) => r.postId));
+
   const taggableRows = await db
     .select({
       targetId: schema.taggable.targetId,
@@ -208,7 +222,7 @@ export async function getPosts({
     viewCount: row.viewCount,
     commentCount: 0, // Epic 5 이전 고정
     likeCount: 0, // Epic 5 이전 고정
-    hasAttachment: false, // Epic 4 이전 고정 (첨부파일 테이블 미존재)
+    hasAttachment: attachmentPostIds.has(row.id),
     isPinned: row.isPinned, // Story 2.9: 공지 핀 고정 여부
     tags: tagMap.get(row.id) ?? [],
     userId: row.userId ?? null,
@@ -278,6 +292,7 @@ export async function createPost({
     status = "published",
     creativeSpec,
     recruitPost,
+    attachments = [],
   } = input;
 
   // ── slug 생성 ──────────────────────────────────────────────────────────────
@@ -327,6 +342,20 @@ export async function createPost({
 
     if (!post) {
       throw new Error("게시글 INSERT 실패");
+    }
+
+    // 1.5) post_attachments INSERT (첨부파일이 있을 때만)
+    if (attachments.length > 0) {
+      await tx.insert(schema.postAttachments).values(
+        attachments.slice(0, 5).map((att, idx) => ({
+          postId: post.id,
+          fileUrl: att.url,
+          fileName: att.name,
+          fileSize: att.size,
+          mimeType: att.mimeType,
+          displayOrder: idx,
+        })),
+      );
     }
 
     // 2) tags upsert + taggable INSERT (태그가 있을 때만)
@@ -577,6 +606,8 @@ export interface UpdatePostParams {
     status?: string;
     board?: string;
     category?: string;
+    /** 지정 시 첨부파일 전량 교체. undefined 면 기존 첨부 보존. */
+    attachments?: AttachmentInput[];
   };
 }
 
@@ -719,6 +750,26 @@ export async function updatePost({
             })),
           );
         }
+      }
+    }
+
+    // 첨부파일 교체 (input.attachments 가 명시된 경우에만 — 미지정 시 기존 보존)
+    if (input.attachments !== undefined) {
+      await tx
+        .delete(schema.postAttachments)
+        .where(eq(schema.postAttachments.postId, postId));
+
+      if (input.attachments.length > 0) {
+        await tx.insert(schema.postAttachments).values(
+          input.attachments.slice(0, 5).map((att, idx) => ({
+            postId,
+            fileUrl: att.url,
+            fileName: att.name,
+            fileSize: att.size,
+            mimeType: att.mimeType,
+            displayOrder: idx,
+          })),
+        );
       }
     }
 
@@ -925,6 +976,23 @@ export async function getPostBySlug(
 
   const tags = taggableRows.map((r) => r.tagName);
 
+  // 첨부파일 조회 (displayOrder 순)
+  const attachmentRows = await db
+    .select({
+      fileUrl: schema.postAttachments.fileUrl,
+      fileName: schema.postAttachments.fileName,
+      fileSize: schema.postAttachments.fileSize,
+    })
+    .from(schema.postAttachments)
+    .where(eq(schema.postAttachments.postId, row.id))
+    .orderBy(schema.postAttachments.displayOrder);
+
+  const attachments = attachmentRows.map((a) => ({
+    name: a.fileName,
+    size: formatFileSize(a.fileSize),
+    url: a.fileUrl,
+  }));
+
   // contentHtml — Tiptap JSON → HTML + sanitize-html 화이트리스트 (Story 2.6)
   const contentHtml = tiptapJsonToHtml(row.contentJson);
 
@@ -1028,7 +1096,8 @@ export async function getPostBySlug(
     viewCount: row.viewCount,
     commentCount: 0, // Epic 5 이전 고정
     likeCount: 0,    // Epic 5 이전 고정
-    hasAttachment: false, // Epic 4 이전 고정
+    hasAttachment: attachments.length > 0,
+    attachments,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     isPinned: row.isPinned,

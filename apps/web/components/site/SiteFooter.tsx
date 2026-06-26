@@ -4,15 +4,30 @@ import styles from "./SiteFooter.module.css";
 const footerGroups = [
   {
     title: "커뮤니티",
-    links: ["바이브 코딩", "AI 자동화", "AI 수익화", "묻고답하기"],
+    links: [
+      { label: "바이브 코딩", href: "/vibe-coding" },
+      { label: "AI 자동화", href: "/automation" },
+      { label: "AI 수익화", href: "/monetize" },
+      { label: "묻고답하기", href: "/questions" },
+    ],
   },
   {
     title: "자료실",
-    links: ["프롬프트", "MCP·Skills", "Rules·설정", "템플릿·체크리스트"],
+    links: [
+      { label: "프롬프트", href: "/resources/prompts" },
+      { label: "MCP·Skills", href: "/resources/mcp-skills" },
+      { label: "Rules·설정", href: "/resources/rules" },
+      { label: "템플릿·체크리스트", href: "/resources/templates" },
+    ],
   },
   {
-    title: "라운지",
-    links: ["AI 창작마당", "내가 만든 AI 제품"],
+    title: "작당 라운지",
+    links: [
+      { label: "AI 창작마당", href: "/lounge" },
+      { label: "내가 만든 AI 제품", href: "/lounge/products" },
+      { label: "작당 수다방", href: "/lounge/talk" },
+      { label: "작당 의뢰소", href: "/lounge/gigs" },
+    ],
   },
 ];
 
@@ -32,9 +47,9 @@ export function SiteFooter() {
             <div key={group.title} className={styles.group}>
               <strong>{group.title}</strong>
               {group.links.map((link) => (
-                <a key={link} href="#">
-                  {link}
-                </a>
+                <Link key={link.label} href={link.href}>
+                  {link.label}
+                </Link>
               ))}
             </div>
           ))}
@@ -44,7 +59,7 @@ export function SiteFooter() {
       <div className={styles.bottom}>
         <span>© 2026 AI작당. All rights reserved.</span>
         <div>
-          <a href="/notice">공지사항</a>
+          <Link href="/notice">공지사항</Link>
           <a href="#">이용약관</a>
           <a href="#">개인정보처리방침</a>
         </div>

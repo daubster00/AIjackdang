@@ -1,6 +1,7 @@
 export * from "./auth";
 export * from "./admin";
 export * from "./posts";
+export * from "./post-attachments";
 export * from "./tags";
 export * from "./post-creative-spec";
 export * from "./qna";

@@ -32,9 +32,13 @@ import { paginationQuerySchema } from "@ai-jakdang/contracts";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { requireAuthHook } from "../../../plugins/require-auth.js";
 import { contentGuard } from "../../../middleware/contentGuard.js";
 import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
+import { uploadPostAttachments, AttachmentValidationError, type UploadedAttachmentData } from "./attachments.service.js";
+import { resolveLocalFilePath, getPublicBaseUrl } from "../../../services/storage/index.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { adminAuth } from "../../../auth/admin-auth.js";
 import { registerPopularPostsRoute } from "./popular.route.js"; // Story 8.5
@@ -197,6 +201,106 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       });
 
       return reply.code(201).send(result);
+    },
+  );
+
+  // ── POST /posts/attachments — 게시글 첨부파일 업로드 (인증 필수) ──────────────
+  /**
+   * multipart/form-data 로 파일들을 받아 공개 버킷에 업로드하고 메타데이터를 반환한다.
+   * 글쓰기 폼이 게시글 작성 직전에 호출 → 반환된 attachments 를 createPost 본문에 포함한다.
+   * 허용 확장자: 관리자 설정(file_allowed_extensions). 파일당 10MB·최대 5개.
+   */
+  const ATTACHMENT_MAX_FILES = 5;
+  const ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+  app.post(
+    "/posts/attachments",
+    { preHandler: [requireAuthHook] },
+    async (request, reply) => {
+      const sessionUser = (request as typeof request & RequestWithUser).user;
+      if (!sessionUser?.id) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const collected: UploadedAttachmentData[] = [];
+
+      try {
+        const parts = request.files({
+          limits: { fileSize: ATTACHMENT_MAX_SIZE, files: ATTACHMENT_MAX_FILES },
+        });
+
+        for await (const part of parts) {
+          const chunks: Buffer[] = [];
+          let totalSize = 0;
+          let truncated = false;
+
+          for await (const chunk of part.file) {
+            totalSize += chunk.length;
+            if (totalSize > ATTACHMENT_MAX_SIZE) {
+              truncated = true;
+              part.file.resume();
+              break;
+            }
+            chunks.push(chunk as Buffer);
+          }
+
+          if (truncated) {
+            return reply.code(400).send({
+              error: {
+                code: "FILE_TOO_LARGE",
+                message: `파일 크기 초과: ${part.filename ?? "unknown"} (최대 10MB)`,
+              },
+            });
+          }
+
+          collected.push({
+            originalName: part.filename ?? "unknown",
+            mimetype: part.mimetype,
+            buffer: Buffer.concat(chunks),
+            size: totalSize,
+          });
+
+          if (collected.length > ATTACHMENT_MAX_FILES) {
+            return reply.code(400).send({
+              error: {
+                code: "TOO_MANY_FILES",
+                message: `첨부파일은 최대 ${ATTACHMENT_MAX_FILES}개까지 가능합니다.`,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        const error = err as Error;
+        if (error.message?.includes("limit") || error.message?.includes("files")) {
+          return reply.code(400).send({
+            error: {
+              code: "TOO_MANY_FILES",
+              message: `첨부파일은 최대 ${ATTACHMENT_MAX_FILES}개까지 가능합니다.`,
+            },
+          });
+        }
+        throw err;
+      }
+
+      if (collected.length === 0) {
+        return reply.code(400).send({
+          error: { code: "NO_FILES", message: "업로드할 파일이 없습니다." },
+        });
+      }
+
+      try {
+        const files = await uploadPostAttachments(collected);
+        return reply.code(201).send({ files });
+      } catch (err) {
+        if (err instanceof AttachmentValidationError) {
+          return reply.code(400).send({
+            error: { code: err.code, message: err.message },
+          });
+        }
+        throw err;
+      }
     },
   );
 
@@ -466,6 +570,73 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  // ── GET /posts/attachments/download — 첨부파일 강제 다운로드 프록시 ───────────
+  // NOTE: 정적 경로(/posts/attachments/download)가 동적 경로(/posts/:slug)보다 먼저 등록되어야 한다.
+  // 브라우저가 파일을 인라인으로 열지 않도록 Content-Disposition: attachment 헤더를 서버에서 붙여 반환.
+  // SSRF 방지: 허용된 스토리지 출처(공개 S3 버킷 or 로컬 /uploads/)만 프록시한다.
+  app.get("/posts/attachments/download", async (request, reply) => {
+    const query = request.query as Record<string, string | undefined>;
+    const fileUrl = query.url;
+    const fileName = query.name;
+
+    if (!fileUrl || !fileName) {
+      return reply.code(400).send({
+        error: { code: "BAD_REQUEST", message: "url과 name 파라미터가 필요합니다." },
+      });
+    }
+
+    // SSRF 방지: 로컬 /uploads/ 경로 또는 우리 S3 공개 버킷 URL만 허용
+    const isLocalUrl = fileUrl.startsWith("/uploads/");
+    const s3Base = getPublicBaseUrl();
+    const isS3Url = !isLocalUrl && s3Base.length > 0 && fileUrl.startsWith(s3Base);
+
+    if (!isLocalUrl && !isS3Url) {
+      return reply.code(400).send({
+        error: { code: "INVALID_URL", message: "허용되지 않는 파일 URL입니다." },
+      });
+    }
+
+    // 파일명 정제 (슬래시·백슬래시 제거) 및 RFC 5987 인코딩
+    const safeFileName = fileName.replace(/[/\\]/g, "_");
+    const encodedFileName = encodeURIComponent(safeFileName);
+
+    void reply.header(
+      "Content-Disposition",
+      `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
+    );
+    void reply.header("Content-Type", "application/octet-stream");
+    void reply.header("Cache-Control", "private, no-cache");
+
+    if (isLocalUrl) {
+      // 로컬 파일시스템에서 읽어 반환
+      const filePath = resolveLocalFilePath(fileUrl);
+      if (!filePath || !existsSync(filePath)) {
+        return reply.code(404).send({
+          error: { code: "FILE_NOT_FOUND", message: "파일을 찾을 수 없습니다." },
+        });
+      }
+      const data = await readFile(filePath);
+      return reply.send(data);
+    } else {
+      // S3/R2 에서 fetch 후 버퍼링하여 반환 (최대 10MB 첨부 제한 내에서 안전)
+      let upstream: Response;
+      try {
+        upstream = await fetch(fileUrl);
+      } catch {
+        return reply.code(502).send({
+          error: { code: "UPSTREAM_ERROR", message: "파일을 가져올 수 없습니다." },
+        });
+      }
+      if (!upstream.ok) {
+        return reply.code(502).send({
+          error: { code: "UPSTREAM_ERROR", message: `스토리지 응답 오류: ${upstream.status}` },
+        });
+      }
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      return reply.send(buffer);
+    }
+  });
 
   // ── GET /posts/:slug — 게시글 상세 (비회원 공개) ─────────────────────────────
   // NOTE: /posts/drafts/:id 보다 반드시 나중에 등록해야 Fastify가 정확한 경로를 매칭한다.

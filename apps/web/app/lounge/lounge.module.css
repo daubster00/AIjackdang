@@ -611,6 +611,7 @@
 .commentFormActions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .commentList {
@@ -974,6 +975,12 @@
   padding-left: 52px;
   color: var(--color-text);
   line-height: var(--line-height-relaxed);
+}
+
+/* 대댓글 본문 맨 앞 @닉네임 강조 (멘션 토큰) */
+.mention {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ── 대댓글 폼 ── */

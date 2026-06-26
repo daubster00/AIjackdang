@@ -175,14 +175,16 @@ export function GigDetailClient({ post }: Props) {
 
           {/* 연락 액션 버튼 행 */}
           <div className={styles.contactActions}>
-            {/* 쪽지 보내기 슬롯 버튼 (Epic 7 FR-13 연계, 현재 MessageModal) */}
-            <Button
-              className={styles.dmButton}
-              onClick={handleDmClick}
-              leftIcon={<Icon name="mail-send-line" />}
-            >
-              쪽지 보내기
-            </Button>
+            {/* 쪽지 보내기 슬롯 버튼 (Epic 7 FR-13 연계, 현재 MessageModal) — 본인 글에는 노출하지 않음 */}
+            {!isSelf && (
+              <Button
+                className={styles.dmButton}
+                onClick={handleDmClick}
+                leftIcon={<Icon name="mail-send-line" />}
+              >
+                쪽지 보내기
+              </Button>
+            )}
 
             {/* 본인만 노출: 모집상태 토글 */}
             {isOwner && (
@@ -238,7 +240,7 @@ export function GigDetailClient({ post }: Props) {
         />
 
         {/* 첨부파일 다운로드 영역 */}
-        <AttachmentList />
+        {post.hasAttachment && <AttachmentList files={post.attachments ?? []} />}
 
         {/* ── 댓글 영역 ── */}
         <section className={commentStyles.commentSection} aria-labelledby="gig-comment-title">
@@ -280,6 +282,8 @@ export function GigDetailClient({ post }: Props) {
           open={dmOpen}
           onClose={() => setDmOpen(false)}
           recipient={post.authorNickname ?? ""}
+          recipientId={post.authorId ?? undefined}
+          recipientAvatarUrl={post.authorAvatarUrl ?? undefined}
         />
       )}
     </div>

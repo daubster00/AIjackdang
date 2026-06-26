@@ -3,20 +3,44 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Icon } from "@/components/ui";
+import { useAuth } from "@/hooks/useAuth";
 import { useGating } from "@/hooks/useGating";
 import { useToast } from "@/components/ui/Toast/Toast";
 import styles from "../monetize.module.css";
 
 const MAX_LENGTH = 1000;
 
+/** CommentForm이 onSuccess 콜백에 전달하는 낙관적(optimistic) 댓글 객체 타입 */
+export type CreatedComment = {
+  id: string;
+  authorId: string;
+  authorNickname: string | null;
+  authorAvatarUrl: string | null;
+  targetType: string;
+  targetId: string;
+  parentId: string | null;
+  content: string;
+  status: "visible";
+  deletedAt: null;
+  createdAt: string;
+  updatedAt: string;
+  likeCount: number;
+  dislikeCount: number;
+  myReaction: null;
+  myReactionId: null;
+};
+
 interface CommentFormProps {
   targetType?: string;
   targetId?: string;
   parentId?: string;
-  onSuccess?: () => void;
+  /** 등록 성공 시 낙관적 댓글 객체를 인자로 받는 콜백. 미제공 시 router.refresh() 호출. */
+  onSuccess?: (created: CreatedComment) => void;
   onCancel?: () => void;
   placeholder?: string;
   compact?: boolean;
+  /** 제출 시 본문 맨 앞에 붙일 멘션 접두사 (예: "@철수 "). 기존 호출부에 영향 없는 optional. */
+  mentionPrefix?: string;
 }
 
 export function CommentForm({
@@ -27,7 +51,9 @@ export function CommentForm({
   onCancel,
   placeholder = "댓글을 작성하세요.",
   compact = false,
+  mentionPrefix,
 }: CommentFormProps) {
+  const { user } = useAuth();
   const { requireAuth } = useGating();
   const { toast } = useToast();
   const router = useRouter();
@@ -49,21 +75,46 @@ export function CommentForm({
     setSubmitting(true);
     setError(null);
     try {
+      // mentionPrefix가 있으면 제출 본문 앞에 @닉네임 를 붙인다.
+      const finalContent = mentionPrefix
+        ? `${mentionPrefix}${value.trim()}`
+        : value.trim();
       const res = await fetch("/api/v1/comments", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetType, targetId, content: value.trim(), parentId }),
+        body: JSON.stringify({ targetType, targetId, content: finalContent, parentId }),
       });
       if (!res.ok) {
         const data = (await res.json()) as { error?: { message?: string } };
         setError(data.error?.message ?? "댓글 등록에 실패했습니다.");
         return;
       }
+      const data = (await res.json()) as { id: string };
+      const now = new Date().toISOString();
+      // API는 id만 반환하므로 user 정보로 낙관적 객체를 구성한다.
+      const created: CreatedComment = {
+        id: data.id,
+        authorId: user?.id ?? "",
+        authorNickname: user?.nickname ?? null,
+        authorAvatarUrl: user?.avatarUrl ?? user?.image ?? null,
+        targetType: targetType,
+        targetId: targetId,
+        parentId: parentId ?? null,
+        content: finalContent,
+        status: "visible",
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        likeCount: 0,
+        dislikeCount: 0,
+        myReaction: null,
+        myReactionId: null,
+      };
       setValue("");
       setError(null);
       if (onSuccess) {
-        onSuccess();
+        onSuccess(created);
       } else {
         router.refresh();
       }

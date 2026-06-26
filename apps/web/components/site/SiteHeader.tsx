@@ -248,6 +248,9 @@ function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
         </div>
       </div>
       <DropdownDivider />
+      <DropdownItem href={`/u/${encodeURIComponent(user.nickname)}`}>
+        <Icon name="account-circle-line" /> 내 계정
+      </DropdownItem>
       <DropdownItem href="/mypage">
         <Icon name="user-line" /> 마이페이지
       </DropdownItem>

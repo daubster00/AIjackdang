@@ -19,7 +19,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { getDb, schema } from "@ai-jakdang/database";
 import { popularPostsResponseSchema } from "@ai-jakdang/contracts/home";
-import { errorResponseSchema } from "@ai-jakdang/contracts";
+import { errorResponseSchema, BOARDS } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc, sql, inArray } from "drizzle-orm";
 import { getApiRedis } from "../../../lib/redis.js";
 import { buildPopularKey, MAIN_LOUNGE_LATEST } from "../../../lib/cache.js";
@@ -92,7 +92,16 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
       if (boardList.length > 0) {
         conditions.push(inArray(schema.posts.board, boardList));
       } else if (category) {
-        conditions.push(eq(schema.posts.category, category));
+        // category → board 슬러그 목록 매핑 (posts.category는 DB에서 채워지지 않으므로 board IN 필터로 대체)
+        const categoryBoards = Object.entries(BOARDS)
+          .filter(([, meta]) => meta.category === category)
+          .map(([slug]) => slug);
+        if (categoryBoards.length > 0) {
+          conditions.push(inArray(schema.posts.board, categoryBoards));
+        } else {
+          // 매칭 board가 없으면 빈 결과 반환
+          return reply.code(200).send({ items: [] });
+        }
       }
 
       // 정렬 컬럼 — popular: view_count + like_count 합산 DESC
@@ -128,6 +137,7 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
           board: schema.posts.board,
           slug: schema.posts.slug,
           viewCount: schema.posts.viewCount,
+          thumbnailUrl: schema.posts.thumbnailUrl,
           createdAt: schema.posts.createdAt,
           likeCount: sql<number>`(${likeCountSq})`,
           commentCount: sql<number>`(${commentCountSq})`,
@@ -175,6 +185,7 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
         board: r.board,
         slug: r.slug,
         viewCount: r.viewCount,
+        thumbnailUrl: r.thumbnailUrl ?? null,
         likeCount: r.likeCount ?? 0,
         commentCount: r.commentCount ?? 0,
         createdAt: r.createdAt.toISOString(),

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Script from "next/script";
 import { ToastProvider } from "@/components/ui";
-import { SiteFooter, SiteHeader } from "@/components/site";
+import { SiteFooter, SiteHeader, NotificationAlert } from "@/components/site";
 import { GatingProvider } from "@/contexts/GatingContext";
 // 사용자 사이트 전역 디자인 시스템 (이 앱 전용)
 import "../styles/index.css";
@@ -82,6 +82,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             {children}
             <SiteFooter />
           </GatingProvider>
+          {/* 페이지 이동·새로고침 시 새 알림/쪽지 팝업 — ToastProvider 하위에서만 useToast 동작 */}
+          <NotificationAlert />
         </ToastProvider>
       </body>
     </html>

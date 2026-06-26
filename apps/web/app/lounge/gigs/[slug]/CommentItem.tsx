@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast/Toast";
 import styles from "../../lounge.module.css";
 import { ReportModal } from "./ReportModal";
 import { CommentForm } from "./CommentForm";
+import type { CreatedComment } from "./CommentForm";
 
 const MAX_LENGTH = 1000;
 
@@ -34,7 +35,6 @@ export type ApiComment = {
 };
 
 export function CommentItem({ comment }: { comment: ApiComment }) {
-  const router = useRouter();
   const { user } = useAuth();
   const { requireAuth } = useGating();
   const { toast } = useToast();
@@ -51,6 +51,8 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
   const [localContent, setLocalContent] = useState(comment.content);
   const [localStatus, setLocalStatus] = useState(comment.status);
   const [deleted, setDeleted] = useState(false);
+  /** 대댓글 목록. 초기값은 서버 props, 답글 작성 시 낙관적으로 즉시 추가된다. */
+  const [localReplies, setLocalReplies] = useState<Omit<ApiComment, "replies">[]>(comment.replies);
 
   const [voteState, setVoteState] = useState<"like" | "dislike" | null>(comment.myReaction);
   const [myReactionId, setMyReactionId] = useState<string | null>(comment.myReactionId);
@@ -182,7 +184,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
 
   const editRemaining = MAX_LENGTH - editValue.length;
 
-  if (isDeleted && comment.replies.length === 0) {
+  if (isDeleted && localReplies.length === 0) {
     return (
       <article className={styles.commentItem}>
         <p className={styles.commentDeleted}>삭제된 댓글입니다.</p>
@@ -202,7 +204,7 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
           {isDeleted ? (
             <strong>삭제된 댓글</strong>
           ) : (
-            <strong><AuthorName name={comment.authorNickname ?? "익명"} authorId={comment.authorId} /></strong>
+            <strong><AuthorName name={comment.authorNickname ?? "익명"} authorId={comment.authorId} authorAvatarUrl={comment.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(comment.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -355,12 +357,17 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
           parentId={comment.id}
           placeholder={`${comment.authorNickname ?? "작성자"}님께 답글을 작성하세요.`}
           compact
-          onSuccess={() => { setReplyOpen(false); router.refresh(); }}
+          onSuccess={(created: CreatedComment) => {
+            // 낙관적 즉시 추가: 서버 재요청 없이 로컬 state에 append
+            setLocalReplies((prev) => [...prev, created]);
+            setRepliesVisible(true);
+            setReplyOpen(false);
+          }}
           onCancel={() => setReplyOpen(false)}
         />
       )}
 
-      {comment.replies.length > 0 && (
+      {localReplies.length > 0 && (
         <>
           {!repliesVisible && (
             <button
@@ -369,14 +376,20 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
               onClick={() => setRepliesVisible(true)}
             >
               <Icon name="arrow-down-s-line" />
-              {`답글 ${comment.replies.length}개`}
+              {`답글 ${localReplies.length}개`}
             </button>
           )}
           {repliesVisible && (
             <>
               <ul className={styles.replyList}>
-                {comment.replies.map((reply) => (
-                  <ReplyItem key={reply.id} reply={reply} />
+                {localReplies.map((reply) => (
+                  <ReplyItem
+                    key={reply.id}
+                    reply={reply}
+                    parentCommentId={comment.id}
+                    onReplyCreated={(created) => setLocalReplies((prev) => [...prev, created])}
+                    mentionNickname={reply.authorNickname}
+                  />
                 ))}
               </ul>
               <button
@@ -404,7 +417,41 @@ export function CommentItem({ comment }: { comment: ApiComment }) {
   );
 }
 
-function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
+/**
+ * 본문 맨 앞 @닉네임 토큰만 primary 색·볼드로 강조 렌더한다.
+ * 일반 텍스트 안의 @ 기호는 건드리지 않는다.
+ */
+function renderContentWithMention(content: string | null) {
+  if (!content) return null;
+  if (content.startsWith("@")) {
+    const spaceIdx = content.indexOf(" ");
+    if (spaceIdx > 0) {
+      const mention = content.slice(0, spaceIdx);
+      const rest = content.slice(spaceIdx + 1);
+      return (
+        <>
+          <span className={styles.mention}>{mention}</span>{" "}{rest}
+        </>
+      );
+    }
+  }
+  return content;
+}
+
+function ReplyItem({
+  reply,
+  parentCommentId,
+  onReplyCreated,
+  mentionNickname,
+}: {
+  reply: Omit<ApiComment, "replies">;
+  /** 대댓글을 달 때 parentId로 사용할 최상위 댓글 id */
+  parentCommentId: string;
+  /** 새 답글이 등록됐을 때 부모 localReplies에 append하는 콜백 */
+  onReplyCreated: (created: CreatedComment) => void;
+  /** 멘션 대상 닉네임. null이면 멘션 prefix 없이 답글 작성 */
+  mentionNickname: string | null;
+}) {
   const { user } = useAuth();
   const { requireAuth } = useGating();
   const { toast } = useToast();
@@ -425,6 +472,8 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
   const [likeCount, setLikeCount] = useState(reply.likeCount);
   const [dislikeCount, setDislikeCount] = useState(reply.dislikeCount);
 
+  const [replyOpen, setReplyOpen] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = user !== null && user.id === reply.authorId;
   const isSelf = isOwner;
@@ -443,7 +492,14 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
   function openEdit() {
     setEditValue(localContent ?? "");
     setMenuOpen(false);
+    setReplyOpen(false);
     setEditOpen(true);
+  }
+
+  function openReply() {
+    setEditOpen(false);
+    setMenuOpen(false);
+    setReplyOpen(true);
   }
 
   async function handleSaveEdit() {
@@ -552,7 +608,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
           {isDeleted ? (
             <span>삭제된 답글</span>
           ) : (
-            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} /></strong>
+            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} authorAvatarUrl={reply.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(reply.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -586,6 +642,10 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
                     <hr className={styles.menuDivider} />
                   </>
                 )}
+                <button type="button" role="menuitem" onClick={openReply}>
+                  <Icon name="reply-line" />답글
+                </button>
+                <hr className={styles.menuDivider} />
                 <button
                   type="button"
                   role="menuitem"
@@ -640,7 +700,7 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
           </div>
         </div>
       ) : (
-        <p className={styles.replyItemText}>{localContent}</p>
+        <p className={styles.replyItemText}>{renderContentWithMention(localContent)}</p>
       )}
 
       {!isDeleted && (
@@ -668,6 +728,22 @@ function ReplyItem({ reply }: { reply: Omit<ApiComment, "replies"> }) {
             <span className={styles.commentVoteCount}>{dislikeCount}</span>
           </button>
         </div>
+      )}
+
+      {replyOpen && (
+        <CommentForm
+          targetType={reply.targetType}
+          targetId={reply.targetId}
+          parentId={parentCommentId}
+          mentionPrefix={mentionNickname ? `@${mentionNickname} ` : undefined}
+          placeholder={`${mentionNickname ?? "작성자"}님께 답글을 작성하세요.`}
+          compact
+          onSuccess={(created: CreatedComment) => {
+            onReplyCreated(created);
+            setReplyOpen(false);
+          }}
+          onCancel={() => setReplyOpen(false)}
+        />
       )}
 
       <DeleteConfirmModal
