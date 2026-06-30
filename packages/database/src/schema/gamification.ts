@@ -1,20 +1,13 @@
 /**
  * 게이미피케이션 스키마 — Epic 6.
  *
- * points_ledger · grades · badges · user_badges 테이블.
+ * points_ledger · grades 테이블.
  * 포인트 원장은 적립/차감 이벤트 행으로 관리한다 (Event Sourcing 패턴).
+ *
+ * (업적 뱃지(badges·user_badges)는 수정요청으로 전면 제거됨 — 마이그 0023.)
  */
 
-import {
-  boolean,
-  index,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
 
@@ -63,66 +56,11 @@ export const grades = pgTable(
     name: text("name").notNull(),
     minPoints: integer("min_points").notNull(),
     maxPoints: integer("max_points"),
+    /** 등급 뱃지 이미지 URL (관리자 업로드, 없으면 level 기반 정적 에셋 폴백) */
+    imageUrl: text("image_url"),
   },
   (t) => [index("grades_level_idx").on(t.level)],
 );
 
 export type GradeTableRow = typeof grades.$inferSelect;
 export type NewGradeTableRow = typeof grades.$inferInsert;
-
-// ── badges ────────────────────────────────────────────────────────────────────
-
-/**
- * 뱃지 마스터 테이블.
- * is_auto=true: 자동 수여 조건 달성 시 부여.
- * is_auto=false: 운영자가 수동 부여.
- */
-export const badges = pgTable(
-  "badges",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    slug: text("slug").notNull().unique(),
-    name: text("name").notNull(),
-    description: text("description").notNull(),
-    iconUrl: text("icon_url").notNull(),
-    isAuto: boolean("is_auto").notNull().default(true),
-    /** [9.13] 수여 조건 설명(운영자 관리용 텍스트) */
-    condition: text("condition"),
-    /** [9.13] 활성 여부. false면 수여 중단(기존 보유분은 유지) */
-    isActive: boolean("is_active").notNull().default(true),
-  },
-  (t) => [index("badges_slug_idx").on(t.slug)],
-);
-
-export type BadgeTableRow = typeof badges.$inferSelect;
-export type NewBadgeTableRow = typeof badges.$inferInsert;
-
-// ── user_badges ───────────────────────────────────────────────────────────────
-
-/**
- * 사용자 보유 뱃지.
- * granted_by: 자동 수여 시 null, 운영자 수여 시 admin user id.
- * (user_id, badge_id) UNIQUE — 중복 수여 방지.
- */
-export const userBadges = pgTable(
-  "user_badges",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    badgeId: uuid("badge_id")
-      .notNull()
-      .references(() => badges.id, { onDelete: "cascade" }),
-    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
-    /** 운영자 수여 시 운영자 user id, 자동 수여 시 null */
-    grantedBy: uuid("granted_by").references(() => users.id, { onDelete: "set null" }),
-  },
-  (t) => [
-    uniqueIndex("user_badges_user_badge_unique_idx").on(t.userId, t.badgeId),
-    index("user_badges_user_id_idx").on(t.userId),
-  ],
-);
-
-export type UserBadgeRow = typeof userBadges.$inferSelect;
-export type NewUserBadgeRow = typeof userBadges.$inferInsert;

@@ -32,8 +32,13 @@ export const adminCommentItemSchema = z.object({
   id: z.string(),
   authorId: z.string(),
   authorNickname: z.string().nullable(),
+  authorAvatarUrl: z.string().nullable().optional(),
+  authorImage: z.string().nullable().optional(),
+  authorDefaultAvatarIndex: z.number().nullable().optional(),
   targetType: z.enum(["post", "question", "answer", "resource", "comment"]),
   targetId: z.string(),
+  /** 게시글 댓글이면 상위 게시글 board (상세페이지 링크용) */
+  targetBoard: z.string().nullable().optional(),
   parentId: z.string().nullable(),
   /** 내용 앞 100자 미리보기 */
   contentPreview: z.string(),

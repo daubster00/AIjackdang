@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, Icon, Pagination } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
-import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
+import { useNotificationCount } from "@/contexts/NotificationCountContext";
 import { NotificationItem, type NotificationItemData } from "./NotificationItem";
 import styles from "./notifications.module.css";
 
@@ -26,13 +26,13 @@ interface Meta {
 }
 
 interface NotificationsPageProps {
-  /** useAuth の user がいるかどうか (SSRで認証済み確認済みなので常に true) */
+  /** 현재 사용하지 않음 — 카운트는 NotificationCountContext 에서 관리 */
   isLoggedIn?: boolean;
 }
 
-export function NotificationsPage({ isLoggedIn = true }: NotificationsPageProps) {
+export function NotificationsPage({ isLoggedIn: _isLoggedIn = true }: NotificationsPageProps) {
   const { toast } = useToast();
-  const { reset: resetBadge, decrement: decrementBadge } = useUnreadNotifications(isLoggedIn);
+  const { reset: resetBadge, decrement: decrementBadge } = useNotificationCount();
 
   const [items, setItems] = useState<NotificationItemData[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);

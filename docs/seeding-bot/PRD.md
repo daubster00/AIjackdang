@@ -7,7 +7,7 @@ source_docs:
   - 'docs/seeding-bot-design.md'
   - 'docs/seeding-bot-topic-pools.md'
 parent_project: 'AI작당 (AI Jakdang)'
-epics: 'Epic 11 ~ Epic 19'
+epic: 'Epic 11 (스토리 18개)'
 ---
 
 # 시딩 봇 PRD (Product Requirements Document)
@@ -55,7 +55,7 @@ epics: 'Epic 11 ~ Epic 19'
 
 ### 봇 신원 & 도메인 통합 (FR-SB-1.x)
 - **FR-SB-1.1** 봇 계정은 `users` 테이블의 일반 레코드이되 `is_bot`(봇 여부 플래그)=true로 표시한다.
-- **FR-SB-1.2** 봇은 사람 로그인/쿠키/공개 HTTP API를 흉내 내지 않는다. **서버 내부 공용 도메인 서비스**(`createPostAsBot`(봇으로 글 작성)·`createCommentAsBot`(봇으로 댓글 작성)·`createReplyAsBot`(봇으로 대댓글 작성))를 호출한다.
+- **FR-SB-1.2** 봇은 사람 로그인/쿠키/공개 HTTP API를 흉내 내지 않는다. **서버 내부 공용 도메인 서비스**(`createPostAsBot`(봇으로 글 작성)·`createCommentAsBot`(봇으로 댓글 작성)·`createReplyAsBot`(봇으로 대댓글 작성)·`createQuestionAsBot`(봇으로 Q&A 질문 작성)·`createResourceAsBot`(봇으로 실전자료 작성))를 호출한다.
 - **FR-SB-1.3** 위 봇 작성 함수는 일반 사용자 작성 경로와 **동일한 도메인 로직**(slug 생성, sanitize, 썸네일 추출, 태그 연결, 첨부, moderation, 알림, 검색 인덱싱, 캐시 무효화)을 재사용한다. **DB 직접 INSERT 금지**(통제된 초기 계정 시드 제외).
 - **FR-SB-1.4** 봇 페르소나·주제·리듬·모델 설정의 **단일 출처(source of truth)는 DB**다. 설계 문서 값은 **최초 시드(기본값)**일 뿐이며, 운영 중 수정은 관리자 대시보드(FR-SB-8.x)가 담당한다.
 - **FR-SB-1.5** 봇 계정을 통계·기여 랭킹에서 **제외할지 여부**는 설정값(`bot_exclude_from_ranking`(봇을 랭킹에서 제외))으로 토글한다.
@@ -155,11 +155,11 @@ epics: 'Epic 11 ~ Epic 19'
 | Q-2 | 푸시 채널 | **텔레그램** 우선 |
 | Q-3 | 각 프로바이더 정확한 모델명/이미지 생성 모델 | 착수 시점 최신 라인업 재확인(추상화로 교체 용이) |
 | Q-4 | 밈·짤 외부 이미지 저작권 처리 | 무료 라이선스 소스만, 퍼온 짤은 게시 전 점검 큐 |
-| Q-5 | 초기 시드 게시물 백필 규모(런칭 시점에 과거 날짜로 채울지) | 미정 — Epic 17에서 결정 |
+| Q-5 | 초기 시드 게시물 백필 규모(런칭 시점에 과거 날짜로 채울지) | 미정 — 그룹 D(오케스트레이터) 착수 시 결정 |
 
 ## 10. 산출물 맵 (이 PRD가 낳는 문서)
 
 - 아키텍처: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
-- 에픽·스토리: [`EPICS-AND-STORIES.md`](./EPICS-AND-STORIES.md) — Epic 11~19
+- 에픽·스토리: [`EPICS-AND-STORIES.md`](./EPICS-AND-STORIES.md) — Epic 11 (스토리 18개)
 - 배포 준비: [`DEPLOYMENT.md`](./DEPLOYMENT.md)
 - 원본 설계: [`../seeding-bot-design.md`](../seeding-bot-design.md), [`../seeding-bot-topic-pools.md`](../seeding-bot-topic-pools.md)

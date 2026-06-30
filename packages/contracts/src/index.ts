@@ -60,16 +60,11 @@ export * from "./admin/analytics";
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,
-  badgeSchema,
-  userBadgeSchema,
   pointsLedgerEntrySchema,
   rankEntrySchema,
   periodTypeSchema,
   rankingResponseSchema,
-  userBadgesResponseSchema,
   gradeUpJobSchema,
-  // ── [6.4] ──
-  badgeCheckJobSchema,
   // ── [6.5] ──
   rankingComputeJobSchema,
   // ── [6.6] ──
@@ -81,16 +76,11 @@ export {
 } from "./gamification";
 export type {
   Grade,
-  Badge,
-  UserBadge,
   PointsLedgerEntry,
   RankEntry as GamificationRankEntry,
   PeriodType as GamificationPeriodType,
   RankingResponse,
-  UserBadgesResponse,
   GradeUpJobPayload,
-  // ── [6.4] ──
-  BadgeCheckJobPayload,
   // ── [6.5] ──
   RankingComputeJobPayload,
   // ── [6.6] ──

@@ -17,29 +17,6 @@ export const gradeSchema = z.object({
 });
 export type Grade = z.infer<typeof gradeSchema>;
 
-// ── Badge ──────────────────────────────────────────────────────────────────────
-
-export const badgeSchema = z.object({
-  id: z.string().uuid(),
-  slug: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string(),
-  iconUrl: z.string().url(),
-  isAuto: z.boolean(),
-});
-export type Badge = z.infer<typeof badgeSchema>;
-
-// ── UserBadge ─────────────────────────────────────────────────────────────────
-
-export const userBadgeSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
-  badgeId: z.string().uuid(),
-  grantedAt: z.string().datetime(),
-  grantedBy: z.string().uuid().nullable(),
-});
-export type UserBadge = z.infer<typeof userBadgeSchema>;
-
 // ── PointsLedgerEntry ─────────────────────────────────────────────────────────
 
 export const pointsLedgerEntrySchema = z.object({
@@ -77,21 +54,6 @@ export const rankingResponseSchema = z.object({
 });
 export type RankingResponse = z.infer<typeof rankingResponseSchema>;
 
-// ── UserBadgesResponse ────────────────────────────────────────────────────────
-
-export const userBadgesResponseSchema = z.object({
-  userId: z.string().uuid(),
-  badges: z.array(
-    z.object({
-      badge: badgeSchema,
-      grantedAt: z.string().datetime(),
-      grantedBy: z.string().uuid().nullable(),
-    }),
-  ),
-  total: z.number().int().nonnegative(),
-});
-export type UserBadgesResponse = z.infer<typeof userBadgesResponseSchema>;
-
 // ── GradeUpJob ────────────────────────────────────────────────────────────────
 
 /** BullMQ gamification.grade-up 잡 페이로드 (Story 6.3) */
@@ -102,16 +64,6 @@ export const gradeUpJobSchema = z.object({
   newGradeName: z.string().min(1),
 });
 export type GradeUpJobPayload = z.infer<typeof gradeUpJobSchema>;
-
-// ── [6.4] BadgeCheckJob ───────────────────────────────────────────────────────
-
-/** BullMQ gamification.badge-check 잡 페이로드 (Story 6.4) */
-export const badgeCheckJobSchema = z.object({
-  userId: z.string().uuid(),
-});
-export type BadgeCheckJobPayload = z.infer<typeof badgeCheckJobSchema>;
-
-// ── [6.4] END ─────────────────────────────────────────────────────────────────
 
 // ── [6.5] RankingComputeJob ───────────────────────────────────────────────────
 
@@ -125,17 +77,10 @@ export type RankingComputeJobPayload = z.infer<typeof rankingComputeJobSchema>;
 
 // ── [6.6] MeResponse ─────────────────────────────────────────────────────────
 
-/** GET /api/v1/gamification/me 통합 응답 스키마 (grade + badges) */
+/** GET /api/v1/gamification/me 응답 스키마 (grade + points) */
 const gradeInfoSchema = z.object({
   level: z.number().int().min(1).max(5),
   name: z.string().min(1),
-});
-
-const badgeItemSchema = z.object({
-  badgeSlug: z.string().min(1),
-  badgeName: z.string().min(1),
-  iconUrl: z.string(),
-  grantedAt: z.string().datetime(),
 });
 
 export const meResponseSchema = z.object({
@@ -143,7 +88,6 @@ export const meResponseSchema = z.object({
   grade: gradeInfoSchema,
   nextGrade: gradeInfoSchema.nullable(),
   pointsToNext: z.number().int().nonnegative().nullable(),
-  badges: z.array(badgeItemSchema),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 

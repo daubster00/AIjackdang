@@ -39,7 +39,7 @@ export const adminSignInResponseSchema = z.object({
     id: z.string(),
     name: z.string(),
     email: z.string().email(),
-    role: z.enum(["staff", "super_admin"]),
+    role: z.string(), // staff/super_admin 고정 + 커스텀 역할(M12)
     status: z.enum(["pending", "active", "suspended", "disabled"]),
   }),
 });

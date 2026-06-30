@@ -37,6 +37,12 @@ export const adminPostItemSchema = z.object({
   status: z.enum(["draft", "published", "hidden", "deleted"]),
   userId: z.string().nullable(),
   authorNickname: z.string().nullable(),
+  /** G5: 작성자 직접 업로드 프로필 사진 URL */
+  authorAvatarUrl: z.string().nullable().optional(),
+  /** G5: 작성자 소셜 provider 프로필 사진 URL */
+  authorImage: z.string().nullable().optional(),
+  /** G5: 작성자 기본 아바타 인덱스 */
+  authorDefaultAvatarIndex: z.number().nullable().optional(),
   isNotice: z.boolean(),
   isPinned: z.boolean(),
   isFeatured: z.boolean(),

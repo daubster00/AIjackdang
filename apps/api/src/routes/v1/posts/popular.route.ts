@@ -23,6 +23,7 @@ import { errorResponseSchema, BOARDS } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc, sql, inArray } from "drizzle-orm";
 import { getApiRedis } from "../../../lib/redis.js";
 import { buildPopularKey, MAIN_LOUNGE_LATEST } from "../../../lib/cache.js";
+import { getSiteSetting } from "../../../lib/siteSettings.js";
 
 const popularQuerySchema = z.object({
   category: z.string().trim().max(50).optional(),
@@ -128,6 +129,13 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
           ),
         );
 
+      // 인기 게시글 정렬 기준: site_settings.popular_post_metric (캐시 miss 시만 읽음)
+      let popularMetric = "default";
+      if (sort === "popular") {
+        const settingVal = await getSiteSetting<string>("popular_post_metric");
+        if (settingVal && typeof settingVal === "string") popularMetric = settingVal;
+      }
+
       const rows = await db
         .select({
           id: schema.posts.id,
@@ -145,9 +153,16 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
         .from(schema.posts)
         .where(and(...conditions))
         .orderBy(
-          sort === "popular"
-            ? desc(sql`${schema.posts.viewCount} + (${likeCountSq})`)
-            : desc(schema.posts.createdAt),
+          (() => {
+            if (sort === "latest") return desc(schema.posts.createdAt);
+            switch (popularMetric) {
+              case "views":    return desc(schema.posts.viewCount);
+              case "likes":    return desc(sql`(${likeCountSq})`);
+              case "comments": return desc(sql`(${commentCountSq})`);
+              case "recent":   return desc(schema.posts.createdAt);
+              default:         return desc(sql`${schema.posts.viewCount} + (${likeCountSq})`);
+            }
+          })(),
         )
         .limit(limit);
 

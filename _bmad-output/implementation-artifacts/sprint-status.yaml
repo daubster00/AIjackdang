@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-24 # Epic 9 전체 완료(9.1~9.18): Wave A(QnA·자료·회원·문의·설정·공지)·Wave B(댓글·게이미·광고·쪽지)·Wave C(신고큐+cleanup·자동숨김/금칙어) 구현·typecheck green
+last_updated: 2026-06-30 # Epic 12 추가(회원 신고 & 누적 제재 연동, 12.1~12.5 ready-for-dev) — epics.md Epic 12 섹션 + 스토리 5종 신규
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -135,4 +135,33 @@ development_status:
   10-3-signup-consent-flow-and-api: ready-for-dev
   10-4-terms-version-update: ready-for-dev
   epic-10-retrospective: optional
+
+  epic-11: in-progress
+  11-1-bot-schema-is-bot-migration: ready-for-dev
+  11-2-bot-zod-contracts: ready-for-dev
+  11-3-comment-service-contentguard-extraction: ready-for-dev
+  11-4-bot-write-service: ready-for-dev
+  11-5-ensure-bot-user-seed-ranking-exclude: ready-for-dev
+  11-6-ai-abstraction-layer: backlog
+  11-7-search-grounding: backlog
+  11-8-image-engine: backlog
+  11-9-post-generation-pipeline: backlog
+  11-10-comment-reaction-pipeline: backlog
+  11-11-daily-activity-planner: backlog
+  11-12-kill-switch-rate-cost-guards: backlog
+  11-13-bullmq-jobs-cron-worker: backlog
+  11-14-admin-bot-routes-character-prompt-edit: backlog
+  11-15-activity-config-boards-topics-models-ui: backlog
+  11-16-operations-panel: backlog
+  11-17-daily-report-api-hold-queue-actions: backlog
+  11-18-telegram-push: backlog
+  epic-11-retrospective: optional
+
+  epic-12: in-progress # 회원 신고 & 누적 제재 연동(런칭 후 증분) — 회원 신고 대상 추가·처리완료 누적 귀속·자동 경고+에스컬레이션(자동 정지 비포함)
+  12-1-user-report-target-schema-contracts-api: ready-for-dev # Foundation: report_target_type에 user 추가·회원 사유·신고 API·관리자 서비스 분기
+  12-2-web-member-report-entrypoint-modal: ready-for-dev # 유저 웹 AuthorName/프로필 신고 입구 + 회원 신고 모달
+  12-3-resolved-report-aggregation-author-attribution: ready-for-dev # 처리완료 신고 작성자 귀속 집계 + 회원 상세 피신고 이력
+  12-4-auto-warning-escalation-sanction-notify: ready-for-dev # 임계치 자동 경고 + 검토 큐 에스컬레이션 + 제재 통보 알림(기본 OFF)
+  12-5-admin-member-report-processing-crosslink: ready-for-dev # 관리자 회원 신고 처리·대상보기 라우팅·제재 직접 연결
+  epic-12-retrospective: optional
 

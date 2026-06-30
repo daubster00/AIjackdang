@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
 import type {
   AdminQnaQuestionItem,
@@ -127,7 +129,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -252,6 +254,22 @@ function QuestionsTab({
       fetchQuestions();
     } catch {
       showToast("숨김 처리 중 오류가 발생했습니다.", "error");
+    }
+  }
+
+  /* M11 + #4: 질문 숨김 복구 */
+  async function handleUnhide(id: string) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/qna/questions/${id}/unhide`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("질문이 다시 공개 처리되었습니다.", "success");
+      fetchQuestions();
+    } catch {
+      showToast("공개 처리 중 오류가 발생했습니다.", "error");
     }
   }
 
@@ -416,61 +434,48 @@ function QuestionsTab({
                   items.map((item) => {
                     const [qnaBadge, qnaLabel] = qnaStatusBadge(item.qnaStatus);
                     const [contentBadge, contentLabel] = contentStatusBadge(item.status);
+                    /* M11: tr 전체 opacity 대신 개별 td에만 적용 → action-menu 드롭다운은 온전하게 유지 */
+                    const mutedStyle = item.status === "hidden" || item.status === "deleted" ? { opacity: 0.6 } : undefined;
                     return (
-                      <tr key={item.id} style={item.status === "hidden" || item.status === "deleted" ? { opacity: 0.6 } : undefined}>
-                        <td>
+                      <tr key={item.id}>
+                        <td style={mutedStyle}>
                           <Link className="content-title" href={`/qna/${item.id}`}>{item.title}</Link>
                         </td>
-                        <td>
+                        <td style={mutedStyle}>
                           <div className="author">
-                            <span className="author-avatar">
-                              {item.authorNickname ? item.authorNickname.slice(0, 1) : "?"}
-                            </span>
+                            <UserAvatar
+                              size={28}
+                              alt={item.authorNickname ?? "탈퇴"}
+                              avatarUrl={item.authorAvatarUrl}
+                              image={item.authorImage}
+                              defaultAvatarIndex={item.authorDefaultAvatarIndex ?? 0}
+                            />
                             <span>{item.authorNickname ?? "(탈퇴)"}</span>
                           </div>
                         </td>
-                        <td className="num">{formatDate(item.createdAt)}</td>
-                        <td><span className={`badge ${qnaBadge}`}>{qnaLabel}</span></td>
-                        <td><span className={`badge ${contentBadge}`}>{contentLabel}</span></td>
-                        <td className="num">{item.answerCount}</td>
-                        <td className="num">{item.viewCount.toLocaleString()}</td>
-                        <td className="num">
+                        <td className="num" style={mutedStyle}>{formatDate(item.createdAt)}</td>
+                        <td style={mutedStyle}><span className={`badge ${qnaBadge}`}>{qnaLabel}</span></td>
+                        <td style={mutedStyle}><span className={`badge ${contentBadge}`}>{contentLabel}</span></td>
+                        <td className="num" style={mutedStyle}>{item.answerCount}</td>
+                        <td className="num" style={mutedStyle}>{item.viewCount.toLocaleString()}</td>
+                        <td className="num" style={mutedStyle}>
                           {item.reportCount > 0 ? (
                             <span className="badge badge-red">{item.reportCount}</span>
                           ) : (
                             <span>0</span>
                           )}
                         </td>
+                        {/* action td: opacity 적용 안 함 → 드롭다운이 선명하게 표시됨 */}
                         <td>
-                          <div className="row-actions">
-                            <button className="icon-button row-action-button" aria-label="행 메뉴">
-                              <i className="ri-more-2-fill" />
-                            </button>
-                            <div className="action-menu">
-                              <Link href={`/qna/${item.id}`}>
-                                <i className="ri-eye-line" />
-                                상세 보기
-                              </Link>
-                              {/* 숨김 처리 — staff 이상 */}
-                              {item.status !== "hidden" && item.status !== "deleted" && (
-                                <button type="button" onClick={() => handleHide(item.id)}>
-                                  <i className="ri-eye-off-line" />
-                                  숨김
-                                </button>
-                              )}
-                              {/* 삭제 — super_admin 전용 */}
-                              {isSuperAdmin && item.status !== "deleted" && (
-                                <button
-                                  className="danger"
-                                  type="button"
-                                  onClick={() => setDeleteModal({ id: item.id, title: item.title })}
-                                >
-                                  <i className="ri-delete-bin-line" />
-                                  삭제
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          <RowActionMenu
+                            items={[
+                              { label: "상세 보기", icon: "ri-eye-line", href: `/qna/${item.id}` },
+                              ...(item.status !== "hidden" && item.status !== "deleted" ? [{ label: "숨김", icon: "ri-eye-off-line", onClick: () => handleHide(item.id) } as RowActionItem] : []),
+                              ...(item.status === "hidden" ? [{ label: "다시 보이기", icon: "ri-eye-line", onClick: () => handleUnhide(item.id) } as RowActionItem] : []),
+                              ...(isSuperAdmin && item.status !== "deleted" ? [{ label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteModal({ id: item.id, title: item.title }) } as RowActionItem] : []),
+                            ]}
+                            ariaLabel="질문 관리 메뉴"
+                          />
                         </td>
                       </tr>
                     );
@@ -612,6 +617,22 @@ function AnswersTab({
     }
   }
 
+  /* M11 + #4: 답변 숨김 복구 */
+  async function handleUnhide(id: string) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/qna/answers/${id}/unhide`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (!res.ok) throw new Error();
+      showToast("답변이 다시 공개 처리되었습니다.", "success");
+      fetchAnswers();
+    } catch {
+      showToast("공개 처리 중 오류가 발생했습니다.", "error");
+    }
+  }
+
   async function handleDeleteConfirm(id: string) {
     setDeleteModal(null);
     try {
@@ -711,58 +732,47 @@ function AnswersTab({
                 ) : (
                   items.map((item) => {
                     const [contentBadge, contentLabel] = contentStatusBadge(item.status);
+                    /* M11: tr 전체 opacity 대신 개별 td에만 적용 → action-menu 드롭다운은 온전하게 유지 */
+                    const mutedStyle = item.status === "hidden" || item.status === "deleted" ? { opacity: 0.6 } : undefined;
                     return (
-                      <tr key={item.id} style={item.status === "hidden" || item.status === "deleted" ? { opacity: 0.6 } : undefined}>
-                        <td>
+                      <tr key={item.id}>
+                        <td style={mutedStyle}>
                           <Link className="content-title" href={`/qna/${item.questionId}`}>
                             {item.questionTitle ?? `질문 #${item.questionId.slice(0, 8)}`}
                           </Link>
                         </td>
-                        <td>
+                        <td style={mutedStyle}>
                           <div className="author">
-                            <span className="author-avatar">
-                              {item.authorNickname ? item.authorNickname.slice(0, 1) : "?"}
-                            </span>
+                            <UserAvatar
+                              size={28}
+                              alt={item.authorNickname ?? "탈퇴"}
+                              avatarUrl={item.authorAvatarUrl}
+                              image={item.authorImage}
+                              defaultAvatarIndex={item.authorDefaultAvatarIndex ?? 0}
+                            />
                             <span>{item.authorNickname ?? "(탈퇴)"}</span>
                           </div>
                         </td>
-                        <td className="num">{formatDate(item.createdAt)}</td>
-                        <td><span className={`badge ${contentBadge}`}>{contentLabel}</span></td>
-                        <td className="num">
+                        <td className="num" style={mutedStyle}>{formatDate(item.createdAt)}</td>
+                        <td style={mutedStyle}><span className={`badge ${contentBadge}`}>{contentLabel}</span></td>
+                        <td className="num" style={mutedStyle}>
                           {item.reportCount > 0 ? (
                             <span className="badge badge-red">{item.reportCount}</span>
                           ) : (
                             <span>0</span>
                           )}
                         </td>
+                        {/* action td: opacity 적용 안 함 → 드롭다운이 선명하게 표시됨 */}
                         <td>
-                          <div className="row-actions">
-                            <button className="icon-button row-action-button" aria-label="행 메뉴">
-                              <i className="ri-more-2-fill" />
-                            </button>
-                            <div className="action-menu">
-                              <Link href={`/qna/${item.questionId}`}>
-                                <i className="ri-eye-line" />
-                                질문 보기
-                              </Link>
-                              {item.status !== "hidden" && item.status !== "deleted" && (
-                                <button type="button" onClick={() => handleHide(item.id)}>
-                                  <i className="ri-eye-off-line" />
-                                  숨김
-                                </button>
-                              )}
-                              {isSuperAdmin && item.status !== "deleted" && (
-                                <button
-                                  className="danger"
-                                  type="button"
-                                  onClick={() => setDeleteModal({ id: item.id, label: `답변 #${item.id.slice(0, 8)}` })}
-                                >
-                                  <i className="ri-delete-bin-line" />
-                                  삭제
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          <RowActionMenu
+                            items={[
+                              { label: "질문 보기", icon: "ri-eye-line", href: `/qna/${item.questionId}` },
+                              ...(item.status !== "hidden" && item.status !== "deleted" ? [{ label: "숨김", icon: "ri-eye-off-line", onClick: () => handleHide(item.id) } as RowActionItem] : []),
+                              ...(item.status === "hidden" ? [{ label: "다시 보이기", icon: "ri-eye-line", onClick: () => handleUnhide(item.id) } as RowActionItem] : []),
+                              ...(isSuperAdmin && item.status !== "deleted" ? [{ label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteModal({ id: item.id, label: `답변 #${item.id.slice(0, 8)}` }) } as RowActionItem] : []),
+                            ]}
+                            ariaLabel="답변 관리 메뉴"
+                          />
                         </td>
                       </tr>
                     );

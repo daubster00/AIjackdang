@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, Dropdown, DropdownDivider, DropdownItem, Icon, RankBadge } from "@/components/ui";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
-import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
+import { useNotificationCount } from "@/contexts/NotificationCountContext";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import type { RankTier } from "@/lib/ranks";
@@ -73,7 +73,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { count: unreadCount } = useUnreadNotifications(!!user);
+  const { count: unreadCount } = useNotificationCount();
   const { count: unreadMessages } = useUnreadMessages(!!user);
 
   async function handleLogout() {

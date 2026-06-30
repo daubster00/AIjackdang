@@ -39,8 +39,9 @@ export default async function AdminMembersPermissionsPage() {
         <div>
           <h1 className="page-title">권한 설정</h1>
           <p className="page-description">
-            각 관리 액션에 대한 역할별 권한을 확인합니다.
-            권한은 시스템에 고정 정의되어 있으며 변경할 수 없습니다.
+            각 역할의 관리 액션별 권한을 토글하여 DB에 저장할 수 있습니다.
+            마스터(super_admin)는 모든 권한을 항상 보유하며 변경할 수 없습니다.
+            커스텀 역할을 추가하면 이 매트릭스에 자동으로 컬럼이 추가됩니다.
           </p>
         </div>
       </div>

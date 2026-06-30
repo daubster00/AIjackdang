@@ -116,7 +116,7 @@ audience: '운영자(사용자) — 배포 전 직접 준비해야 할 것'
 
 ## 6. 배포 순서 (권장 런북)
 
-1. **코드 배포**: Epic 11~19 머지된 빌드 배포. `SEEDING_BOT_ENABLED=false`(아직 봇 안 돔).
+1. **코드 배포**: Epic 11(스토리 11.1~11.18) 머지된 빌드 배포. `SEEDING_BOT_ENABLED=false`(아직 봇 안 돔).
 2. **마이그레이션**: `pnpm --filter @ai-jakdang/database db:migrate` — `bot_*` 테이블·`users.is_bot` 생성.
 3. **봇 시드**: 시드 스크립트 실행 → 7인+관리자 페르소나·주제 풀·리듬 적재(`is_bot=true` 계정 생성).
 4. **키 입력**: `.env`에 §1~§4 키 채우기. `packages/config`가 검증.

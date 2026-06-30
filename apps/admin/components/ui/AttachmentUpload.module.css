@@ -1,0 +1,135 @@
+/* ===========================================================================
+ * AttachmentUpload — 드래그·드롭 첨부파일 업로드 컴포넌트
+ *
+ * 디자인 기준: apps/web PostWriteForm의 드롭존 UI를 관리자 디자인 토큰으로 포팅.
+ * 색상/반경은 packages/admin-design-system/css/tokens에서 정의된 CSS 변수 사용.
+ * =========================================================================== */
+
+/* ─── Dropzone ─── */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+  padding: 28px 24px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzoneActive {
+  border-color: var(--primary-600);
+  background: var(--primary-50);
+}
+
+.dropzoneIcon {
+  font-size: 32px;
+  line-height: 1;
+  color: var(--gray-400);
+  transition: color 0.15s ease;
+}
+
+.dropzone:hover .dropzoneIcon,
+.dropzoneActive .dropzoneIcon {
+  color: var(--primary-600);
+}
+
+.dropzoneText {
+  margin: 0;
+  color: var(--gray-700);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dropzoneHint {
+  margin: 0;
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+/* ─── File lists ─── */
+
+.fileList {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  padding: 0 12px;
+}
+
+.fileIcon {
+  flex: 0 0 auto;
+  color: var(--gray-400);
+  font-size: 16px;
+}
+
+.fileName {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--gray-800);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  flex: 0 0 auto;
+  color: var(--gray-400);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.fileRemoveBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--gray-400);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fileRemoveBtn:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* 이미 업로드된 파일임을 표시하는 뱃지 */
+.existingBadge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}

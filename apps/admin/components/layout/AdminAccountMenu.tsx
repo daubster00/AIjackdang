@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "../../lib/api";
+import { notifyDialog } from "../../lib/dialog";
 
 /**
  * 상단바 오른쪽 관리자 계정 칩 + 내 정보 수정 모달.
@@ -28,6 +29,8 @@ export function AdminAccountMenu() {
   const [open, setOpen] = useState(false);
   // photoPreview(미리보기용 프로필 사진 data URL) — 선택 시에만 채워진다.
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // imageFile(선택된 이미지 파일) — 저장 시 업로드에 사용한다.
+  const [imageFile, setImageFile] = useState<File | null>(null);
   // mounted(클라이언트 마운트 여부) — 포털 대상 document.body 접근 가드.
   const [mounted, setMounted] = useState(false);
   // loggingOut(로그아웃 요청 중 여부)
@@ -35,7 +38,7 @@ export function AdminAccountMenu() {
   // saving(저장 요청 중 여부)
   const [saving, setSaving] = useState(false);
   // adminInfo(현재 로그인한 관리자 정보 — 본인 계정 API에서 조회)
-  const [adminInfo, setAdminInfo] = useState<{ name: string; email: string; phone: string; role: string } | null>(null);
+  const [adminInfo, setAdminInfo] = useState<{ name: string; email: string; phone: string; role: string; image?: string | null } | null>(null);
   // 편집용 폼 상태(name·phone)
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -50,7 +53,7 @@ export function AdminAccountMenu() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.admin) {
-          setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role });
+          setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role, image: d.admin.image ?? null });
           setFormName(d.admin.name ?? "");
           setFormPhone(d.admin.phone ?? "");
         }
@@ -58,21 +61,50 @@ export function AdminAccountMenu() {
       .catch(() => {});
   }, []);
 
-  // ── 저장 (name·phone PATCH) ───────────────────────────────────────────────────
+  // ── 저장 (name·phone·image PATCH) ──────────────────────────────────────────
   async function handleSave() {
     if (saving) return;
     setSaving(true);
     try {
+      // 1단계: 새 이미지 파일이 있으면 먼저 업로드해 URL 을 얻는다.
+      let uploadedImageUrl: string | undefined;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        const uploadRes = await fetch(`${API_BASE_URL}/api/v1/admin/account/upload-image`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const uploadData = (await uploadRes.json().catch(() => null)) as { url?: string } | null;
+        if (!uploadRes.ok || !uploadData?.url) {
+          await notifyDialog("이미지 업로드에 실패했습니다. 다시 시도해 주세요.", "danger");
+          return;
+        }
+        uploadedImageUrl = uploadData.url;
+      }
+
+      // 2단계: name·phone·imageUrl(있는 경우) 을 PATCH 로 저장한다.
+      const patchBody: Record<string, string> = {
+        name: formName.trim(),
+        phone: formPhone.trim(),
+      };
+      if (uploadedImageUrl !== undefined) {
+        patchBody.imageUrl = uploadedImageUrl;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/account/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: formName.trim(), phone: formPhone.trim() }),
+        body: JSON.stringify(patchBody),
       });
-      const d = (await res.json().catch(() => null)) as { admin?: { name: string; email: string; phone: string; role: string } } | null;
+      const d = (await res.json().catch(() => null)) as { admin?: { name: string; email: string; phone: string; role: string; image?: string | null } } | null;
       if (res.ok && d?.admin) {
-        setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role });
+        setAdminInfo({ name: d.admin.name, email: d.admin.email, phone: d.admin.phone ?? "", role: d.admin.role, image: d.admin.image ?? null });
+        setImageFile(null);
         setOpen(false);
+        await notifyDialog("저장되었습니다");
       }
     } catch {
       // 네트워크 오류 — 모달 유지
@@ -94,6 +126,7 @@ export function AdminAccountMenu() {
   function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImageFile(file);
     const reader = new FileReader();
     reader.onload = () => setPhotoPreview(typeof reader.result === "string" ? reader.result : null);
     reader.readAsDataURL(file);
@@ -121,6 +154,8 @@ export function AdminAccountMenu() {
   const displayName = adminInfo?.name ?? "관리자";
   const displayGrade = roleLabel(adminInfo?.role);
   const displayInitial = displayName.charAt(0) || "관";
+  // avatarSrc(표시할 아바타 이미지 URL) — 미리보기(photoPreview)가 있으면 우선, 없으면 저장된 image URL
+  const avatarSrc = photoPreview ?? adminInfo?.image ?? null;
 
   return (
     <>
@@ -143,9 +178,18 @@ export function AdminAccountMenu() {
           transition: "140ms ease",
         }}
       >
-        <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
-          {displayInitial}
-        </span>
+        {adminInfo?.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={adminInfo.image}
+            alt={displayName}
+            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }}
+          />
+        ) : (
+          <span className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
+            {displayInitial}
+          </span>
+        )}
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 650, color: "var(--gray-900)", whiteSpace: "nowrap" }}>
             {displayName}
@@ -194,10 +238,10 @@ export function AdminAccountMenu() {
                 <div className="field">
                   <span className="field-label">프로필 사진</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    {photoPreview ? (
+                    {avatarSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={photoPreview}
+                        src={avatarSrc}
                         alt="프로필 미리보기"
                         style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }}
                       />
@@ -215,11 +259,11 @@ export function AdminAccountMenu() {
                         <i className="ri-image-edit-line" />
                         사진 변경
                       </button>
-                      {photoPreview && (
+                      {avatarSrc && (
                         <button
                           type="button"
                           className="btn btn-text btn-sm"
-                          onClick={() => setPhotoPreview(null)}
+                          onClick={() => { setPhotoPreview(null); setImageFile(null); }}
                         >
                           기본 이미지로
                         </button>

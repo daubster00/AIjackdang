@@ -5,7 +5,7 @@
  */
 
 import { getDb } from "@ai-jakdang/database";
-import { posts, users, tags as tagsTable, taggable } from "@ai-jakdang/database/schema";
+import { posts, users, tags as tagsTable, taggable, postAttachments, comments } from "@ai-jakdang/database/schema";
 import { eq, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 
@@ -89,6 +89,9 @@ export async function listPosts(query: AdminPostsQuery) {
       status: posts.status,
       userId: posts.userId,
       authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
       isNotice: posts.isNotice,
       isPinned: posts.isPinned,
       isFeatured: posts.isFeatured,
@@ -168,9 +171,38 @@ export async function getPostDetail(id: string) {
     .leftJoin(tagsTable, eq(taggable.tagId, tagsTable.id))
     .where(and(eq(taggable.targetType, "post"), eq(taggable.targetId, id)));
 
+  // 이 게시글의 댓글(삭제 제외) — 신고 대상 맥락 확인용
+  const commentRows = await db
+    .select({
+      id: comments.id,
+      content: comments.content,
+      status: comments.status,
+      createdAt: comments.createdAt,
+      authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
+    })
+    .from(comments)
+    .leftJoin(users, eq(comments.authorId, users.id))
+    .where(and(eq(comments.targetType, "post"), eq(comments.targetId, id)))
+    .orderBy(comments.createdAt);
+
   return {
     ...row,
     tags: tagRows.map((tag) => tag.name).filter((name): name is string => Boolean(name)),
+    comments: commentRows
+      .filter((c) => c.status !== "deleted")
+      .map((c) => ({
+        id: c.id,
+        content: c.content,
+        status: c.status,
+        authorNickname: c.authorNickname ?? null,
+        authorAvatarUrl: c.authorAvatarUrl ?? null,
+        authorImage: c.authorImage ?? null,
+        authorDefaultAvatarIndex: c.authorDefaultAvatarIndex ?? null,
+        createdAt: c.createdAt.toISOString(),
+      })),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
@@ -190,6 +222,7 @@ export async function createAdminPost(data: {
   isPinned?: boolean;
   isFeatured?: boolean;
   isMainFeatured?: boolean;
+  attachments?: { url: string; name: string; size: number; mimeType: string }[];
 }) {
   const db = getDb();
 
@@ -256,6 +289,20 @@ export async function createAdminPost(data: {
       if (taggableValues.length > 0) {
         await tx.insert(taggable).values(taggableValues).onConflictDoNothing();
       }
+    }
+
+    // 첨부파일 처리 (최대 5개)
+    if (data.attachments && data.attachments.length > 0) {
+      await tx.insert(postAttachments).values(
+        data.attachments.slice(0, 5).map((a, idx) => ({
+          postId: id,
+          fileUrl: a.url,
+          fileName: a.name,
+          fileSize: a.size,
+          mimeType: a.mimeType,
+          displayOrder: idx,
+        })),
+      );
     }
 
     return id;

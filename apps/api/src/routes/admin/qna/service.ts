@@ -19,7 +19,7 @@
 
 import { getDb } from "@ai-jakdang/database";
 import { questions, answers, users } from "@ai-jakdang/database/schema";
-import { eq, and, count, gte, lte, ilike, sql } from "drizzle-orm";
+import { eq, and, count, gte, lte, ilike, ne, sql } from "drizzle-orm";
 import type {
   AdminQnaQuestionsQuery,
   AdminQnaAnswersQuery,
@@ -32,6 +32,50 @@ function deriveQnaStatus(isResolved: boolean, answerCount: number): QnaStatus {
   if (isResolved) return "resolved";
   if (answerCount > 0) return "answered";
   return "pending";
+}
+
+// ── 질문 단건 조회 ────────────────────────────────────────────────────────────
+
+export async function getQuestion(id: string) {
+  const db = getDb();
+
+  const [row] = await db
+    .select({
+      id: questions.id,
+      title: questions.title,
+      slug: questions.slug,
+      status: questions.status,
+      userId: questions.userId,
+      authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
+      contentJson: questions.contentJson,
+      viewCount: questions.viewCount,
+      isResolved: questions.isResolved,
+      helpfulAnswerId: questions.helpfulAnswerId,
+      createdAt: questions.createdAt,
+      updatedAt: questions.updatedAt,
+      deletedAt: questions.deletedAt,
+      answerCount: sql<number>`(SELECT COUNT(*)::int FROM answers WHERE question_id = ${questions.id} AND status != 'deleted')`,
+      reportCount: sql<number>`(SELECT COUNT(*)::int FROM reports WHERE target_type = 'question' AND target_id = ${questions.id})`,
+    })
+    .from(questions)
+    .leftJoin(users, eq(questions.userId, users.id))
+    .where(eq(questions.id, id))
+    .limit(1);
+
+  if (!row) {
+    throw Object.assign(new Error("질문을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  return {
+    ...row,
+    qnaStatus: deriveQnaStatus(row.isResolved, row.answerCount),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+  };
 }
 
 // ── 질문 목록 ─────────────────────────────────────────────────────────────────
@@ -94,6 +138,9 @@ export async function listQuestions(query: AdminQnaQuestionsQuery) {
       status: questions.status,
       userId: questions.userId,
       authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
       viewCount: questions.viewCount,
       isResolved: questions.isResolved,
       helpfulAnswerId: questions.helpfulAnswerId,
@@ -142,6 +189,9 @@ export async function listAnswers(query: AdminQnaAnswersQuery) {
   }
   if (contentStatus) {
     conditions.push(eq(answers.status, contentStatus));
+  } else {
+    // 기본: 삭제된 답변은 목록에서 제외 (소프트삭제 유지·목록 비노출 — M10)
+    conditions.push(ne(answers.status, "deleted" as const));
   }
   if (hasReports === true) {
     conditions.push(
@@ -166,6 +216,10 @@ export async function listAnswers(query: AdminQnaAnswersQuery) {
       status: answers.status,
       userId: answers.userId,
       authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
+      contentJson: answers.contentJson,
       createdAt: answers.createdAt,
       updatedAt: answers.updatedAt,
       deletedAt: answers.deletedAt,
@@ -316,6 +370,54 @@ export async function deleteAnswer(id: string) {
   const [updated] = await db
     .update(answers)
     .set({ status: "deleted", deletedAt: now, updatedAt: now })
+    .where(eq(answers.id, id))
+    .returning({ id: answers.id, status: answers.status, updatedAt: answers.updatedAt });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    updatedAt: updated.updatedAt.toISOString(),
+  };
+}
+
+// ── 질문 숨김 복구 (hidden → published) ──────────────────────────────────────
+
+export async function unhideQuestion(id: string) {
+  const db = getDb();
+
+  const [target] = await db.select().from(questions).where(eq(questions.id, id)).limit(1);
+  if (!target) {
+    throw Object.assign(new Error("질문을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+  const [updated] = await db
+    .update(questions)
+    .set({ status: "published", updatedAt: now })
+    .where(eq(questions.id, id))
+    .returning({ id: questions.id, status: questions.status, updatedAt: questions.updatedAt });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    updatedAt: updated.updatedAt.toISOString(),
+  };
+}
+
+// ── 답변 숨김 복구 (hidden → published) ──────────────────────────────────────
+
+export async function unhideAnswer(id: string) {
+  const db = getDb();
+
+  const [target] = await db.select().from(answers).where(eq(answers.id, id)).limit(1);
+  if (!target) {
+    throw Object.assign(new Error("답변을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+  const [updated] = await db
+    .update(answers)
+    .set({ status: "published", updatedAt: now })
     .where(eq(answers.id, id))
     .returning({ id: answers.id, status: answers.status, updatedAt: answers.updatedAt });
 

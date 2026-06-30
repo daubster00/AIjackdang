@@ -115,7 +115,20 @@
 
 /* ---- 데이터 테이블 ---- */
 .table-wrap {
-  overflow-x: auto;
+  /* 행 액션 드롭다운(.action-menu, position:absolute)이 래퍼에 잘리지 않도록 overflow:visible.
+     주의: overflow-x:auto 를 주면 CSS 명세상 overflow-y 가 visible→auto 로 계산되어,
+     마지막 행 삼점 메뉴가 래퍼 하단 경계에서 세로로 잘리고 스크롤이 생긴다(new#3).
+     표 셀은 ellipsis(white-space:nowrap)로 폭이 제한돼 관리자 폭에서 가로 넘침이 없으므로
+     auto 클리핑이 불필요하다. 좁은 화면에서만 가로 스크롤을 복원한다(아래 미디어쿼리). */
+  overflow: visible;
+}
+
+/* 좁은 화면(표가 실제로 넘칠 수 있는 폭)에서만 가로 스크롤 복원.
+   관리자 콘솔은 데스크톱 우선이라 이 구간의 드롭다운 클리핑은 허용 가능한 트레이드오프. */
+@media (max-width: 960px) {
+  .table-wrap {
+    overflow-x: auto;
+  }
 }
 
 .admin-table {
@@ -222,6 +235,12 @@
 
 .action-menu.open {
   display: block;
+}
+
+/* 뷰포트 하단 행에서 위로 펼침(아래 공간 부족 시) — 화면 밖 잘림 방지(new#3) */
+.action-menu.up {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 /* 메뉴 항목은 button 과 a(next/link)가 섞여 쓰이므로 둘 다 동일하게 스타일링한다.

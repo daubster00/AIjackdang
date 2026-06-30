@@ -2,30 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { JSONContent } from "@tiptap/core";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Editor, textToTiptapJson } from "@/features/editor";
 import { API_BASE_URL } from "@/lib/api";
 
 /**
  * 공지사항 작성 페이지 (/posts/notices/new) — Story 9.17.
  *
- * POST /api/v1/posts { board: 'notice', ... } 로 공지 게시글을 생성한다.
+ * POST /api/v1/admin/posts { board: 'notice', ... } 로 공지 게시글을 생성한다.
  * 관리자 쿠키(aj_admin_session)가 필요하며, 없으면 API가 403을 반환한다.
- *
- * 에디터: 관리자 전용 구조화 textarea. 본문은 Tiptap JSON 형식으로 변환하여 전달한다.
- * (apps/admin 에 @tiptap/react 미설치 상태이므로, plain-text → paragraph JSON 변환 방식 채택.
- *  추후 Tiptap 설치 시 NoticeEditor.tsx 로 교체 가능.)
  */
-
-// plain text → Tiptap doc JSON 변환 헬퍼
-function textToTiptapJson(text: string): Record<string, unknown> {
-  const paragraphs = text
-    .split("\n")
-    .map((line) => ({
-      type: "paragraph",
-      content: line.trim() ? [{ type: "text", text: line }] : [],
-    }));
-  return { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph" }] };
-}
 
 function Toast({
   message,
@@ -72,7 +59,7 @@ export default function NoticeNewPage() {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [contentJson, setContentJson] = useState<JSONContent>(() => textToTiptapJson(""));
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [isPinned, setIsPinned] = useState(false);
@@ -98,8 +85,6 @@ export default function NoticeNewPage() {
     }
     setSaving(true);
     try {
-      const contentJson = textToTiptapJson(content);
-
       // 공지 게시글 생성 — POST /api/v1/admin/posts (관리자 세션 전용)
       // ADR-0003: admin_users ↔ users 완전 분리. 관리자는 user 세션 없음.
       // /api/v1/admin/posts 는 adminGuardHook 이 보호하며 user_id=null 로 공지를 생성한다.
@@ -189,20 +174,8 @@ export default function NoticeNewPage() {
 
             {/* 본문 */}
             <div className="field">
-              <label className="field-label" htmlFor="notice-content">
-                본문
-              </label>
-              <textarea
-                id="notice-content"
-                className="control"
-                style={{ minHeight: 300, resize: "vertical" }}
-                placeholder="공지 내용을 입력하세요"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-              <p className="field-help">
-                입력된 텍스트는 Tiptap 단락(paragraph) JSON 포맷으로 변환되어 저장됩니다.
-              </p>
+              <label className="field-label">본문</label>
+              <Editor preset="full" value={contentJson} onChange={(json) => setContentJson(json)} />
             </div>
 
             {/* 태그 */}

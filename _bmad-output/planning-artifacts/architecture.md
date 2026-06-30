@@ -27,7 +27,7 @@ preImplementationBlockers:
   - 'better-auth-providers: (de-risked + 설계완료 2026-06-17) Better Auth가 카카오·네이버·구글 네이티브 지원 확인. 신원·다계정 정책 + 인증 스키마 초안 = docs/adr/ADR-0002-identity-and-auth-schema.md. 카카오 이메일=(a)비즈앱 검수→email 필수. 남은 일: (사용자) 구글/네이버/카카오 개발자 앱 등록·키 발급·콜백 등록 + 카카오 비즈앱 검수 신청. (에이전트, 인증 Story) packages/auth Role 2→3단계 확장, Better Auth 산출 스키마와 ADR-0002 대조 확정, 실제 로그인 검증.'
   - 'auth-schema-design: (정정) 실제 DB/마이그레이션 없음 = DB는 그린필드. packages/database/src/schema/users.ts는 예시 placeholder일 뿐. 데이터 이전 이슈 아님. 인증 Story에서 예시 users.ts를 Better Auth 기대 스키마(user/session/account/verification) + 확장 컬럼(nickname/role/소셜 식별자)으로 처음부터 일관 설계(placeholder 대체). DB 스키마 Story 착수 전 설계 확정.'
   - 'local-dev-infra: ✅(완료 2026-06-17) ADR-0001 + 실제 인프라 파일 생성됨 — docker-compose.dev.yml, infra/postgres/Dockerfile, infra/postgres/init/01-pg_bigm.sql, .env.example 갱신(ClamAV/MinIO/OAuth/dev-bypass/관리자 시크릿, PG주석 18→17). `docker compose -f docker-compose.dev.yml up -d`로 즉시 부팅 가능. (스키마/Better Auth 코드는 구현 Story에서.)'
-  - 'prd-ux-sync: ✅(완료 2026-06-17) 신규 요구사항 4건 PRD/UX 동기화 완료 — PRD FR-1.6/1.9·FR-5.1·FR-15(공지)·FR-16(문의)·FR-10.6/10.7·§8 IA·Q-9, UX user EXPERIENCE IA, admin EXPERIENCE 14번 메뉴. 잔여(튜닝): 신고 자동숨김 임계값(Q-13)·회원 제재 단계는 모더레이션 Story 전 확정.'
+  - 'prd-ux-sync: ✅(완료 2026-06-17) 신규 요구사항 4건 PRD/UX 동기화 완료 — PRD FR-1.6/1.9·FR-5.1·FR-15(공지)·FR-16(문의)·FR-10.6/10.7·§8 IA·Q-9, UX user EXPERIENCE IA, admin EXPERIENCE 14번 메뉴. 잔여(튜닝): 신고 자동숨김 임계값(Q-13)·회원 제재 단계는 모더레이션 Story 전 확정. → ✅(확정 2026-06-30, Epic 12) Q-13 해소: 처리완료 기준 누적·자동 경고까지·자동 정지 금지, 회원 직접 신고(FR-8.6~8.8) 추가.'
   - 'pg_bigm-ranking: 통합검색 UNION ALL 시 bigm_similarity 스코어 정규화·랭킹 기준. 검색 Story 착수 전까지만 확정하면 됨(나머지 착수 비차단).'
 workflowType: 'architecture'
 project_name: 'AI작당 (AI Jakdang)'
@@ -426,7 +426,7 @@ ai-jakdang/
 - **실전자료(FR-4)** → `app/(content)/resources` · api `v1/resources` + `lib/storage.ts`(R2) + worker `resource.scan` · db `resources`,`resource_files`,`ratings`
 - **메인/검색/태그(FR-6)** → `app/page.tsx`,`search`,`tags/[tag]` · api `v1/search`(pg_bigm),`v1/tags`
 - **참여(FR-7)** → api `v1/comments`,`reactions`,`bookmarks` · db 다형 테이블
-- **신고/모더레이션(FR-8,10)** → admin `reports`,`posts`... · api `v1/admin/*` · core `moderation.ts` · worker `cleanup`
+- **신고/모더레이션(FR-8,10)** → admin `reports`,`posts`... · api `v1/admin/*` · core `moderation.ts` · worker `cleanup`. `report_target_type` 다형 enum에 **`user` 포함(회원 직접 신고, FR-8.6)**. **처리완료(resolved) 신고 누적→작성자 귀속→자동 경고+에스컬레이션(FR-8.7)** 은 `user_sanctions`(type=`warning`/`suspend`/`permaban`) 재사용 + `site_settings`(`report_escalation_threshold`·`report_auto_warning_enabled`) 플래그. **자동 정지 없음**(경고 상한). 제재 통보는 `v1/notifications`(FR-8.8). — *Epic 12*
 - **게이미피케이션(FR-9)** → `me/badges` · api `v1/gamification` · core `points/grades/badges/ranking.ts` · db `points_ledger`,`badges`,`grades`
 - **알림/쪽지(FR-12,13)** → `me/notifications`,`me/messages` · api `v1/notifications`(SSE),`v1/messages`
 - **SEO(FR-11)** → `app/sitemap.ts`,`robots.ts`,`lib/seo/*`, 페이지별 `generateMetadata`+JSON-LD
@@ -468,11 +468,11 @@ ai-jakdang/
 - ✅ (해결) SSE Redis Pub/Sub 팬아웃 — 아키텍처 §API & Communication에 명시.
 - 🔴 Better Auth 카카오/네이버 OAuth PoC(표준 OIDC 아님) + 인증 스키마 설계(예시 `users.ts` placeholder를 Better Auth 스키마로 대체 — DB 그린필드, 데이터 이전 아님) — 인증/스키마 Story 전 필수.
 - 🔴 로컬 dev 인프라 ADR(docker-compose: PG17+pg_bigm Dockerfile, Redis, ClamAV, 소셜 OAuth 목업) — DB/인증 Story 전 필수.
-- ✅ (해결 2026-06-17) PRD/UX 동기화 완료(문의 엔티티·어드민 14, /me·/settings URL, 자유게시판, 공지). 잔여 튜닝값(신고 임계값·제재 단계)은 모더레이션 Story 전 확정.
+- ✅ (해결 2026-06-17) PRD/UX 동기화 완료(문의 엔티티·어드민 14, /me·/settings URL, 자유게시판, 공지). 잔여 튜닝값(신고 임계값·제재 단계)은 모더레이션 Story 전 확정. → ✅ (확정 2026-06-30, Epic 12) 신고 임계값·제재 단계 확정 + 회원 직접 신고·처리완료 누적 자동 경고/에스컬레이션(FR-8.6~8.8) 추가.
 - ✅ (재동기화 2026-06-22) PRD/에픽 추가분 데이터 모델 반영 — §Data Architecture에 신규 테이블 5개(`follows`·`post_creative_spec`·`recruit_post`·`notification_settings`·`link_previews`) + `users`/`posts` 추가 컬럼 + 기존 테이블 컬럼 명세 보강. 갭 총 14건(치명 7건) 해소. 최우선: `users.default_avatar_index`(NOT NULL)는 Epic 1 Story 1.2 첫 스키마부터 포함.
 - 🟡 pg_bigm 통합검색 랭킹 정규화(`bigm_similarity` UNION ALL 스코어) — 검색 Story 전까지(나머지 비차단).
 
-**Important Gaps (해당 Story 전 순차 확정):** Q-13 신고 임계치·제재 단계, Q-14 알림 채널, Q-4 SEO 자동생성 규칙 + 실전자료 JSON-LD 타입.
+**Important Gaps (해당 Story 전 순차 확정):** ~~Q-13 신고 임계치·제재 단계~~(✅ 확정 2026-06-30, Epic 12 — FR-8.6~8.8), Q-14 알림 채널, Q-4 SEO 자동생성 규칙 + 실전자료 JSON-LD 타입.
 **Defer (운영 튜닝):** 성능 수치(Q-11), soft-delete 보존기간, 공개 프로필 범위(Q-9 일부), 알림 이메일 채널(feature flag), Turborepo 도입 시점, 검색 고도화(pg_bigm→Meilisearch) 트리거.
 
 ### Validation Issues Addressed

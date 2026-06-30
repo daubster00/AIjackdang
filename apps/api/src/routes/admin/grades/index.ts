@@ -13,6 +13,7 @@ import { grades } from "@ai-jakdang/database/schema";
 import { eq, asc } from "drizzle-orm";
 import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
 import { adminCreateGradeSchema, adminPatchGradeSchema } from "@ai-jakdang/contracts";
+import { uploadImage, ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../../services/storage/index.js";
 
 export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/grades ─────────────────────────────────────────────────
@@ -31,6 +32,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
           name: r.name,
           minPoints: r.minPoints,
           maxPoints: r.maxPoints,
+          imageUrl: r.imageUrl ?? null,
         })),
       });
     } catch (err) {
@@ -38,6 +40,56 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
       return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
     }
   });
+
+  // ── POST /api/v1/admin/grades/upload-badge — 뱃지 이미지 업로드 (super_admin) ──
+  app.post(
+    "/admin/grades/upload-badge",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const reqWithFile = request as typeof request & {
+        isMultipart?: () => boolean;
+        file?: () => Promise<
+          | {
+              filename: string;
+              mimetype: string;
+              file: { truncated: boolean };
+              toBuffer: () => Promise<Buffer>;
+            }
+          | undefined
+        >;
+      };
+
+      if (!reqWithFile.isMultipart?.()) {
+        return reply.status(400).send({
+          error: { code: "INVALID_CONTENT_TYPE", message: "multipart/form-data 형식으로 전송해주세요." },
+        });
+      }
+
+      const part = await reqWithFile.file?.();
+      if (!part) {
+        return reply.status(400).send({ error: { code: "NO_FILE", message: "업로드할 파일이 없습니다." } });
+      }
+
+      if (!ALLOWED_IMAGE_TYPES.has(part.mimetype)) {
+        return reply.status(400).send({
+          error: { code: "INVALID_FILE_TYPE", message: "jpg·png·webp·gif 형식만 허용됩니다." },
+        });
+      }
+
+      const buffer = await part.toBuffer();
+      if (part.file.truncated || buffer.length > MAX_UPLOAD_BYTES) {
+        return reply.status(400).send({
+          error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
+        });
+      }
+
+      const result = await uploadImage(
+        { filename: part.filename, mimetype: part.mimetype, data: buffer },
+        "avatars",
+      );
+      return reply.status(200).send({ url: result.url });
+    },
+  );
 
   // ── PATCH /api/v1/admin/grades/:id ──────────────────────────────────────────
   app.patch("/admin/grades/:id", async (request, reply) => {
@@ -65,6 +117,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
       if (parsed.data.minPoints !== undefined) updateData.minPoints = parsed.data.minPoints;
       if (parsed.data.maxPoints !== undefined) updateData.maxPoints = parsed.data.maxPoints;
       if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+      if (parsed.data.imageUrl !== undefined) updateData.imageUrl = parsed.data.imageUrl;
 
       const [updated] = await db
         .update(grades)
@@ -78,6 +131,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
         name: updated.name,
         minPoints: updated.minPoints,
         maxPoints: updated.maxPoints,
+        imageUrl: updated.imageUrl ?? null,
       });
     } catch (err) {
       request.log.error(err);
@@ -106,6 +160,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
             name: parsed.data.name,
             minPoints: parsed.data.minPoints,
             maxPoints: parsed.data.maxPoints ?? null,
+            imageUrl: parsed.data.imageUrl ?? null,
           })
           .returning();
 
@@ -115,6 +170,7 @@ export async function registerAdminGradesRoutes(app: FastifyInstance): Promise<v
           name: created.name,
           minPoints: created.minPoints,
           maxPoints: created.maxPoints,
+          imageUrl: created.imageUrl ?? null,
         });
       } catch (err: unknown) {
         const e = err as Error & { code?: string };

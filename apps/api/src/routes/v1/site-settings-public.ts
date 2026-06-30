@@ -16,7 +16,7 @@
 import type { FastifyInstance } from "fastify";
 import { getSiteSetting } from "../../lib/siteSettings.js";
 
-const PUBLIC_SETTING_KEYS = ["site_name", "seo_title", "seo_description", "og_image"] as const;
+const PUBLIC_SETTING_KEYS = ["site_name", "seo_title", "seo_description", "og_image", "favicon_url"] as const;
 
 export async function registerPublicSiteSettingsRoute(app: FastifyInstance): Promise<void> {
   app.get("/api/v1/settings/public", async (_request, reply) => {

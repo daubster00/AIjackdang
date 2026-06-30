@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "../../lib/api";
-import { InquiryDrawer } from "./InquiryDrawer";
 
 // 로컬 타입 정의 — contracts/src/index.ts export 전 임시 선언
 interface AdminInquiryItem {
@@ -22,7 +22,7 @@ interface AdminInquiryItem {
  * 문의 관리 페이지 (Story 9.14).
  * GET /api/v1/admin/inquiries 실제 API 연동.
  * URL 파라미터: page, status, dateFrom, dateTo, q
- * 행 클릭 → InquiryDrawer (상세+스레드+답변 작성).
+ * 행 클릭 → /inquiries/[id] 상세 페이지로 이동 (Item 18).
  */
 
 // ── 상수 ─────────────────────────────────────────────────────────────────────
@@ -126,7 +126,6 @@ function AdminInquiriesContent() {
   const [dateFrom, setDateFrom] = useState(dateFromParam);
   const [dateTo, setDateTo] = useState(dateToParam);
 
-  const [selectedInquiryId, setSelectedInquiryId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
@@ -330,7 +329,7 @@ function AdminInquiriesContent() {
                         <tr
                           key={inquiry.id}
                           style={{ cursor: "pointer" }}
-                          onClick={() => setSelectedInquiryId(inquiry.id)}
+                          onClick={() => router.push(`/inquiries/${inquiry.id}`)}
                         >
                           <td>
                             <div
@@ -358,16 +357,14 @@ function AdminInquiriesContent() {
                             <span className={`badge ${badgeClass}`}>{statusText}</span>
                           </td>
                           <td>
-                            <button
+                            <Link
                               className="btn btn-outline btn-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedInquiryId(inquiry.id);
-                              }}
+                              href={`/inquiries/${inquiry.id}`}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <i className="ri-eye-line" />
                               보기
-                            </button>
+                            </Link>
                           </td>
                         </tr>
                       );
@@ -419,15 +416,6 @@ function AdminInquiriesContent() {
           )}
         </article>
       </section>
-
-      {/* 상세 드로어 */}
-      {selectedInquiryId && (
-        <InquiryDrawer
-          inquiryId={selectedInquiryId}
-          onClose={() => setSelectedInquiryId(null)}
-          onStatusChanged={() => fetchInquiries()}
-        />
-      )}
 
       {/* 토스트 */}
       {toast && (

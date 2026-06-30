@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { JSONContent } from "@tiptap/core";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Select } from "@/components/ui/Select";
+import { Editor, textToTiptapJson } from "@/features/editor";
 import { API_BASE_URL } from "@/lib/api";
+import { confirmDialog } from "@/lib/dialog";
+import {
+  AttachmentUpload,
+  type AttachmentExistingFile,
+} from "@/components/ui/AttachmentUpload";
 
 const TYPE_OPTIONS = [
   { value: "prompt", label: "프롬프트" },
@@ -21,12 +29,6 @@ const ENV_OPTIONS = [
   { value: "cross", label: "환경 무관" },
 ] as const;
 
-const LEVEL_OPTIONS = [
-  { value: "beginner", label: "입문" },
-  { value: "intermediate", label: "중급" },
-  { value: "advanced", label: "고급" },
-] as const;
-
 const STATUS_OPTIONS = [
   { value: "published", label: "공개" },
   { value: "draft", label: "임시저장" },
@@ -34,12 +36,14 @@ const STATUS_OPTIONS = [
 ] as const;
 
 type ResourceType = (typeof TYPE_OPTIONS)[number]["value"];
-type Difficulty = (typeof LEVEL_OPTIONS)[number]["value"];
 type ResourceStatus = (typeof STATUS_OPTIONS)[number]["value"];
 
-// 허용 확장자 — upload.service.ts의 ALLOWED_EXTENSIONS와 동일
-const ALLOWED_EXTENSIONS = [".zip", ".docx", ".xlsx", ".pdf", ".md", ".txt", ".json"];
-const ACCEPT_ATTR = ALLOWED_EXTENSIONS.join(",");
+/** 관리자 파일관리 설정 미지정 시 대체값 */
+const DEFAULT_FILE_SETTINGS = {
+  allowedExtensions: [".zip", ".docx", ".xlsx", ".pdf", ".md", ".txt", ".json"],
+  maxFiles: 3,
+  maxSizeMb: 50,
+};
 
 type ResourceFile = {
   id: string;
@@ -58,7 +62,7 @@ type ResourceDetail = {
   summary: string;
   resourceType: ResourceType;
   environment: string[];
-  difficulty: Difficulty;
+  difficulty: string;
   status: ResourceStatus | "deleted";
   descriptionJson: unknown;
   usageJson: unknown;
@@ -70,41 +74,43 @@ type ResourceFormDefaults = {
   title: string;
   type: string;
   env: string;
-  level: string;
   status: string;
   desc: string;
   price: string;
   points: string;
 };
 
-function textToTiptapJson(text: string): Record<string, unknown> {
-  const paragraphs = text.split("\n").map((line) => ({
-    type: "paragraph",
-    content: line.trim() ? [{ type: "text", text: line }] : [],
-  }));
-  return { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph" }] };
-}
-
-function tiptapJsonToText(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const node = value as { type?: string; text?: string; content?: unknown[] };
-  if (node.type === "text") return node.text ?? "";
-  if (!Array.isArray(node.content)) return "";
-  if (node.type === "paragraph") return node.content.map(tiptapJsonToText).join("");
-  return node.content.map(tiptapJsonToText).join("\n").replace(/\n{3,}/g, "\n\n");
-}
-
 function asType(value: string | undefined): ResourceType {
   return TYPE_OPTIONS.some((option) => option.value === value) ? (value as ResourceType) : "prompt";
-}
-
-function asDifficulty(value: string | undefined): Difficulty {
-  return LEVEL_OPTIONS.some((option) => option.value === value) ? (value as Difficulty) : "beginner";
 }
 
 function asStatus(value: string | undefined): ResourceStatus {
   if (value === "hidden" || value === "draft") return value;
   return "published";
+}
+
+/** site_settings 응답에서 파일 설정을 파싱한다. */
+function parseFileSettings(settings: Record<string, unknown>) {
+  const extRaw =
+    typeof settings.resource_extensions === "string" && settings.resource_extensions.trim()
+      ? settings.resource_extensions
+      : typeof settings.file_allowed_extensions === "string" && settings.file_allowed_extensions.trim()
+        ? settings.file_allowed_extensions
+        : null;
+
+  const allowedExtensions = extRaw
+    ? extRaw
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean)
+    : DEFAULT_FILE_SETTINGS.allowedExtensions;
+
+  const maxSizeMb =
+    typeof settings.max_upload_mb === "number" && settings.max_upload_mb > 0
+      ? settings.max_upload_mb
+      : DEFAULT_FILE_SETTINGS.maxSizeMb;
+
+  return { allowedExtensions, maxFiles: DEFAULT_FILE_SETTINGS.maxFiles, maxSizeMb };
 }
 
 export function ResourceForm({
@@ -124,10 +130,11 @@ export function ResourceForm({
   const [summary, setSummary] = useState("");
   const [type, setType] = useState<ResourceType>(asType(defaults?.type));
   const [env, setEnv] = useState(defaults?.env ?? "claude-code");
-  const [level, setLevel] = useState<Difficulty>(asDifficulty(defaults?.level));
   const [status, setStatus] = useState<ResourceStatus>(asStatus(defaults?.status));
-  const [desc, setDesc] = useState(defaults?.desc ?? "");
-  const [usage, setUsage] = useState("");
+  const [descJson, setDescJson] = useState<JSONContent>(() =>
+    textToTiptapJson(defaults?.desc ?? ""),
+  );
+  const [usageJson, setUsageJson] = useState<JSONContent>(() => textToTiptapJson(""));
   const [version, setVersion] = useState("");
   const [loading, setLoading] = useState(isEdit && Boolean(id));
   const [saving, setSaving] = useState(false);
@@ -135,6 +142,22 @@ export function ResourceForm({
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [existingFiles, setExistingFiles] = useState<ResourceFile[]>([]);
+
+  /**
+   * 관리자 파일관리 설정(site_settings)에서 허용 확장자·크기 제한을 읽는다.
+   * GET /api/v1/admin/settings는 super_admin 전용이므로 실패 시 기본값으로 폴백.
+   */
+  const [fileSettings, setFileSettings] = useState(DEFAULT_FILE_SETTINGS);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/admin/settings`, { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return; // staff는 403 → 기본값 유지
+        const settings = (await res.json()) as Record<string, unknown>;
+        setFileSettings(parseFileSettings(settings));
+      })
+      .catch(() => {}); // 네트워크 오류 시 기본값 유지
+  }, []);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -151,10 +174,9 @@ export function ResourceForm({
         setSummary(resource.summary);
         setType(asType(resource.resourceType));
         setEnv(resource.environment[0] ?? "claude-code");
-        setLevel(asDifficulty(resource.difficulty));
         setStatus(asStatus(resource.status));
-        setDesc(tiptapJsonToText(resource.descriptionJson));
-        setUsage(tiptapJsonToText(resource.usageJson));
+        setDescJson((resource.descriptionJson as JSONContent) ?? textToTiptapJson(""));
+        setUsageJson((resource.usageJson as JSONContent) ?? textToTiptapJson(""));
         setVersion(resource.version ?? "");
         if (resource.files) {
           setExistingFiles(resource.files.filter((f) => f.fileStatus !== "deleted"));
@@ -197,7 +219,7 @@ export function ResourceForm({
 
   async function deleteFile(fileId: string) {
     if (!id) return;
-    if (!window.confirm("이 첨부파일을 삭제하시겠습니까?")) return;
+    if (!(await confirmDialog({ title: "삭제", message: "이 첨부파일을 삭제하시겠습니까?", tone: "danger" }))) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/resources/${id}/files/${fileId}`, {
         method: "DELETE",
@@ -220,8 +242,8 @@ export function ResourceForm({
   }
 
   async function save() {
-    if (!title.trim() || !summary.trim() || !desc.trim()) {
-      setMessage({ type: "error", text: "자료명, 요약, 자료 설명은 필수입니다." });
+    if (!title.trim() || !summary.trim()) {
+      setMessage({ type: "error", text: "자료명과 요약은 필수입니다." });
       return;
     }
     setSaving(true);
@@ -232,10 +254,9 @@ export function ResourceForm({
       summary: summary.trim(),
       resourceType: type,
       environment: [env],
-      difficulty: level,
       status,
-      descriptionJson: textToTiptapJson(desc),
-      usageJson: textToTiptapJson(usage || "관리자 등록 자료입니다."),
+      descriptionJson: descJson,
+      usageJson: usageJson,
       version: version.trim() || undefined,
     };
 
@@ -278,6 +299,13 @@ export function ResourceForm({
     }
   }
 
+  /** ResourceFile[] → AttachmentExistingFile[] 변환 */
+  const existingForUpload: AttachmentExistingFile[] = existingFiles.map((f) => ({
+    id: f.id,
+    name: f.originalName,
+    size: f.fileSize,
+  }));
+
   return (
     <AdminShell breadcrumb={["관리자", "실전자료 관리", isEdit ? "자료 수정" : "새 자료 등록"]} activeKey="resources">
       <div className="page-header">
@@ -317,42 +345,43 @@ export function ResourceForm({
 
                 <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                   <div className="field">
-                    <label className="field-label" htmlFor="res-type">자료유형</label>
-                    <select className="control" id="res-type" value={type} onChange={(e) => setType(asType(e.target.value))}>
-                      {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <label className="field-label">자료유형</label>
+                    <Select
+                      id="res-type"
+                      options={[...TYPE_OPTIONS]}
+                      value={type}
+                      onChange={(v) => setType(asType(v))}
+                    />
                   </div>
                   <div className="field">
-                    <label className="field-label" htmlFor="res-env">지원환경</label>
-                    <select className="control" id="res-env" value={env} onChange={(e) => setEnv(e.target.value)}>
-                      {ENV_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                  <div className="field">
-                    <label className="field-label" htmlFor="res-level">난이도</label>
-                    <select className="control" id="res-level" value={level} onChange={(e) => setLevel(asDifficulty(e.target.value))}>
-                      {LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label className="field-label" htmlFor="res-status">상태</label>
-                    <select className="control" id="res-status" value={status} onChange={(e) => setStatus(asStatus(e.target.value))}>
-                      {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <label className="field-label">지원환경</label>
+                    <Select
+                      id="res-env"
+                      options={[...ENV_OPTIONS]}
+                      value={env}
+                      onChange={(v) => setEnv(v)}
+                    />
                   </div>
                 </div>
 
                 <div className="field">
-                  <label className="field-label" htmlFor="res-desc">자료 설명</label>
-                  <textarea className="control" id="res-desc" rows={8} placeholder="자료 내용·사용법을 설명하세요" value={desc} onChange={(e) => setDesc(e.target.value)} />
+                  <label className="field-label">상태</label>
+                  <Select
+                    id="res-status"
+                    options={[...STATUS_OPTIONS]}
+                    value={status}
+                    onChange={(v) => setStatus(asStatus(v))}
+                  />
                 </div>
 
                 <div className="field">
-                  <label className="field-label" htmlFor="res-usage">사용법</label>
-                  <textarea className="control" id="res-usage" rows={5} placeholder="설치/사용 절차를 입력하세요" value={usage} onChange={(e) => setUsage(e.target.value)} />
+                  <label className="field-label">자료 설명</label>
+                  <Editor preset="full" value={descJson} onChange={(json) => setDescJson(json)} />
+                </div>
+
+                <div className="field">
+                  <label className="field-label">사용법</label>
+                  <Editor preset="full" value={usageJson} onChange={(json) => setUsageJson(json)} />
                 </div>
 
                 <div className="field">
@@ -361,45 +390,25 @@ export function ResourceForm({
                 </div>
 
                 <div className="field">
-                  <label className="field-label" htmlFor="res-file">첨부파일</label>
-                  {existingFiles.length > 0 && (
-                    <ul style={{ marginBottom: 8, padding: 0, listStyle: "none" }}>
-                      {existingFiles.map((f) => (
-                        <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13 }}>
-                          <i className="ri-file-line" style={{ color: "var(--gray-500)" }} />
-                          <span style={{ flex: 1 }}>{f.originalName}</span>
-                          <span style={{ color: "var(--gray-400)", fontSize: 12 }}>
-                            ({(f.fileSize / 1024).toFixed(1)} KB)
-                          </span>
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            style={{ padding: "2px 8px", fontSize: 12 }}
-                            onClick={() => deleteFile(f.id)}
-                          >
-                            <i className="ri-delete-bin-line" />삭제
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <input
-                    className="control"
-                    id="res-file"
-                    type="file"
-                    multiple
-                    accept={ACCEPT_ATTR}
-                    onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                  <label className="field-label">
+                    첨부파일{" "}
+                    <span className="field-help" style={{ fontWeight: 400 }}>
+                      (최대 {fileSettings.maxFiles}개 · 파일당 최대 {fileSettings.maxSizeMb}MB)
+                    </span>
+                  </label>
+                  {/* 드롭존 UI — 허용 확장자·크기는 관리자 파일관리 설정에서 읽음 */}
+                  <AttachmentUpload
+                    files={selectedFiles}
+                    onFilesChange={setSelectedFiles}
+                    existingFiles={existingForUpload}
+                    onDeleteExisting={isEdit ? deleteFile : undefined}
+                    allowedExtensions={fileSettings.allowedExtensions}
+                    maxFiles={fileSettings.maxFiles}
+                    maxSizeMb={fileSettings.maxSizeMb}
                   />
-                  {selectedFiles.length > 0 && (
-                    <p style={{ marginTop: 4, fontSize: 12, color: "var(--gray-600)" }}>
-                      {selectedFiles.length}개 파일 선택됨 — 저장 시 업로드됩니다.
-                    </p>
+                  {uploading && (
+                    <p className="field-help" style={{ marginTop: 8 }}>업로드 중...</p>
                   )}
-                  <p className="field-help">
-                    허용 형식: {ALLOWED_EXTENSIONS.join(", ")} / 최대 3개, 파일당 50MB.
-                    {uploading && " 업로드 중..."}
-                  </p>
                 </div>
               </>
             )}

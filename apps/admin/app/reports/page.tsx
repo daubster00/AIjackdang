@@ -1,19 +1,30 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Select } from "@/components/ui/Select";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
-import { getCrossLink } from "@/lib/contentCrossLink";
+import { notifyDialog } from "@/lib/dialog";
 import type { AdminReportItem } from "@ai-jakdang/contracts";
+
+// 서비스가 추가로 반환하는 필드 (계약 타입 확장)
+type ReportItemExtended = AdminReportItem & {
+  targetBoard?: string | null;
+  reporterAvatarUrl?: string | null;
+  reporterImage?: string | null;
+  reporterDefaultAvatarIndex?: number | null;
+  reportedUserId?: string | null;
+};
 
 /**
  * 신고 관리 페이지 (Story 9.10).
  * GET /api/v1/admin/reports 실제 API 연동.
  * URL 파라미터: page, status, targetType, dateFrom, dateTo, q
  * 상태 탭: 전체/접수/확인중/처리완료/반려
- * 드로어 방식 신고 상세: 확인중(즉시+토스트)·숨김(즉시+토스트)·반려(모달+사유 필수)
+ * 행 클릭 → /reports/{id} 상세페이지 이동
  */
 
 // ── 상수 ─────────────────────────────────────────────────────────────────────
@@ -67,48 +78,6 @@ function formatDate(iso: string): string {
   return iso.slice(0, 10).replace(/-/g, ".");
 }
 
-// ── 토스트 ────────────────────────────────────────────────────────────────────
-
-function Toast({
-  message,
-  type,
-  onClose,
-}: {
-  message: string;
-  type: "success" | "error";
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3500);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        zIndex: 99999,
-        background: type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
-        color: "#fff",
-        borderRadius: 8,
-        padding: "12px 20px",
-        fontSize: 14,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        pointerEvents: "none",
-      }}
-    >
-      <i className={type === "success" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
-      {message}
-    </div>
-  );
-}
-
 // ── 반려 모달 ─────────────────────────────────────────────────────────────────
 
 function RejectModal({
@@ -136,7 +105,7 @@ function RejectModal({
     >
       <div
         style={{
-          background: "var(--surface)",
+          background: "var(--gray-0, #fff)",
           borderRadius: 8,
           padding: 24,
           width: 420,
@@ -191,207 +160,6 @@ function RejectModal({
   );
 }
 
-// ── 상세 드로어 ───────────────────────────────────────────────────────────────
-
-function ReportDrawer({
-  report,
-  onClose,
-  onReview,
-  onHide,
-  onReject,
-  onRestoreAutoHide,
-}: {
-  report: AdminReportItem;
-  onClose: () => void;
-  onReview: (id: string) => void;
-  onHide: (id: string) => void;
-  onReject: (id: string) => void;
-  onRestoreAutoHide: (id: string) => void;
-}) {
-  const [sb, sl] = statusBadge(report.status);
-  const [tb, tl] = targetBadge(report.targetType);
-  const crossLink = getCrossLink(report.targetType, report.targetId);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 8000,
-        display: "flex",
-      }}
-    >
-      {/* Backdrop */}
-      <div
-        style={{ flex: 1, background: "rgba(0,0,0,0.35)" }}
-        onClick={onClose}
-        aria-label="드로어 닫기"
-      />
-      {/* Panel */}
-      <div
-        style={{
-          width: 440,
-          background: "var(--surface)",
-          boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "16px 20px",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>신고 상세</h2>
-          <button
-            className="icon-button"
-            onClick={onClose}
-            aria-label="닫기"
-          >
-            <i className="ri-close-line" />
-          </button>
-        </div>
-
-        <div style={{ padding: "20px", flex: 1 }}>
-          {/* 대상 정보 */}
-          <div className="detail-list">
-            <div className="detail-row">
-              <div className="detail-label">대상 유형</div>
-              <div className="detail-value">
-                <span className={`badge ${tb}`}>{tl}</span>
-              </div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-label">대상 내용</div>
-              <div className="detail-value">
-                {report.targetPreview ?? "(미리보기 없음)"}
-              </div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-label">신고 사유</div>
-              <div className="detail-value">{report.reasonCode}</div>
-            </div>
-            {report.detail && (
-              <div className="detail-row">
-                <div className="detail-label">상세 내용</div>
-                <div className="detail-value">{report.detail}</div>
-              </div>
-            )}
-            <div className="detail-row">
-              <div className="detail-label">신고자</div>
-              <div className="detail-value">
-                <div className="author">
-                  <span className="author-avatar">
-                    {(report.reporterNickname ?? "?")[0]}
-                  </span>
-                  <span>{report.reporterNickname ?? "(알 수 없음)"}</span>
-                </div>
-              </div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-label">신고일</div>
-              <div className="detail-value">{formatDate(report.createdAt)}</div>
-            </div>
-            <div className="detail-row">
-              <div className="detail-label">처리 상태</div>
-              <div className="detail-value">
-                <span className={`badge ${sb}`}>{sl}</span>
-              </div>
-            </div>
-            {report.reviewedByName && (
-              <div className="detail-row">
-                <div className="detail-label">처리자</div>
-                <div className="detail-value">{report.reviewedByName}</div>
-              </div>
-            )}
-            {report.reviewedAt && (
-              <div className="detail-row">
-                <div className="detail-label">처리일시</div>
-                <div className="detail-value">{formatDate(report.reviewedAt)}</div>
-              </div>
-            )}
-          </div>
-
-          {/* 신고 대상 보기 크로스 링크 */}
-          {crossLink && (
-            <div style={{ marginTop: 16 }}>
-              <Link
-                href={crossLink}
-                className="btn btn-outline btn-sm"
-                style={{ width: "100%", justifyContent: "center" }}
-              >
-                <i className="ri-external-link-line" />
-                신고 대상 보기
-              </Link>
-            </div>
-          )}
-
-          <Link
-            href={`/reports/${report.id}`}
-            className="btn btn-outline btn-sm"
-            style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
-          >
-            <i className="ri-eye-line" />
-            상세 페이지 열기
-          </Link>
-        </div>
-
-        {/* 액션 버튼 */}
-        {report.status !== "resolved" && report.status !== "dismissed" && (
-          <div
-            style={{
-              padding: "16px 20px",
-              borderTop: "1px solid var(--border)",
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            {report.autoHidden && (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => onRestoreAutoHide(report.id)}
-              >
-                <i className="ri-refresh-line" />
-                자동 숨김 복구
-              </button>
-            )}
-            {report.status === "pending" && (
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => onReview(report.id)}
-              >
-                <i className="ri-search-eye-line" />
-                확인중
-              </button>
-            )}
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => onHide(report.id)}
-            >
-              <i className="ri-eye-off-line" />
-              숨김 처리
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ marginLeft: "auto" }}
-              onClick={() => onReject(report.id)}
-            >
-              <i className="ri-close-circle-line" />
-              반려
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── 메인 페이지 컴포넌트 ──────────────────────────────────────────────────────
 
 function AdminReportsPageInner() {
@@ -413,22 +181,13 @@ function AdminReportsPageInner() {
   const [localDateTo, setLocalDateTo] = useState(dateToParam);
 
   // 데이터
-  const [reports, setReports] = useState<AdminReportItem[]>([]);
+  const [reports, setReports] = useState<ReportItemExtended[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 20, totalItems: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // UI 상태
-  const [selectedReport, setSelectedReport] = useState<AdminReportItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-
-  const showToast = useCallback(
-    (message: string, type: "success" | "error" = "success") => {
-      setToast({ message, type });
-    },
-    [],
-  );
 
   // ── 목록 조회 ────────────────────────────────────────────────────────────
   const fetchReports = useCallback(async () => {
@@ -456,7 +215,7 @@ function AdminReportsPageInner() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as {
-        items: AdminReportItem[];
+        items: ReportItemExtended[];
         meta: typeof meta;
       };
       setReports(data.items);
@@ -511,11 +270,10 @@ function AdminReportsPageInner() {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("확인중으로 변경되었습니다.");
-      setSelectedReport(null);
+      await notifyDialog("확인중으로 변경되었습니다.");
       void fetchReports();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     }
   };
 
@@ -528,11 +286,10 @@ function AdminReportsPageInner() {
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("숨김 처리되었습니다.");
-      setSelectedReport(null);
+      await notifyDialog("숨김 처리되었습니다.");
       void fetchReports();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     }
   };
 
@@ -545,12 +302,11 @@ function AdminReportsPageInner() {
         body: JSON.stringify({ note }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("신고가 반려되었습니다.");
+      await notifyDialog("신고가 반려되었습니다.");
       setRejectTarget(null);
-      setSelectedReport(null);
       void fetchReports();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     }
   };
 
@@ -562,11 +318,10 @@ function AdminReportsPageInner() {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("콘텐츠가 복구되었습니다.");
-      setSelectedReport(null);
+      await notifyDialog("콘텐츠가 복구되었습니다.");
       void fetchReports();
     } catch {
-      showToast("복구 중 오류가 발생했습니다.", "error");
+      await notifyDialog("복구 중 오류가 발생했습니다.", "danger");
     }
   };
 
@@ -632,18 +387,12 @@ function AdminReportsPageInner() {
                 />
               </div>
 
-              <select
-                className="control"
+              <Select
+                options={[...TARGET_OPTIONS]}
                 value={localTargetType}
-                onChange={(e) => setLocalTargetType(e.target.value)}
-                aria-label="대상 유형 필터"
-              >
-                {TARGET_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setLocalTargetType(v)}
+                placeholder="대상 유형: 전체"
+              />
 
               <input
                 className="control"
@@ -723,16 +472,36 @@ function AdminReportsPageInner() {
                   reports.map((r) => {
                     const [sb, sl] = statusBadge(r.status);
                     const [tb, tl] = targetBadge(r.targetType);
+                    const canAct = r.status !== "resolved" && r.status !== "dismissed";
+                    const actionItems: RowActionItem[] = [
+                      { label: "상세보기", icon: "ri-eye-line", href: `/reports/${r.id}` },
+                      ...(r.autoHidden && canAct
+                        ? [{ label: "자동 숨김 복구", icon: "ri-refresh-line", onClick: () => void handleRestoreAutoHide(r.id) }]
+                        : []),
+                      ...(canAct && r.status === "pending"
+                        ? [{ label: "확인중으로 변경", icon: "ri-search-eye-line", onClick: () => void handleReview(r.id) }]
+                        : []),
+                      ...(canAct
+                        ? [
+                            { label: "대상 숨김", icon: "ri-eye-off-line", onClick: () => void handleHide(r.id) },
+                            { label: "신고 반려", icon: "ri-close-circle-line", danger: true, onClick: () => setRejectTarget(r.id) },
+                          ]
+                        : []),
+                    ];
                     return (
-                      <tr key={r.id}>
+                      <tr
+                        key={r.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={(e) => {
+                          // 행 액션 영역(삼점 메뉴) 클릭은 상세 이동에서 제외
+                          if ((e.target as HTMLElement).closest(".row-actions")) return;
+                          router.push(`/reports/${r.id}`);
+                        }}
+                      >
                         <td>
-                          <button
-                            className="content-title"
-                            style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
-                            onClick={() => setSelectedReport(r)}
-                          >
+                          <span className="content-title">
                             {r.targetPreview ?? "(미리보기 없음)"}
-                          </button>
+                          </span>
                           <div className="content-meta">
                             <span className={`badge ${tb}`}>{tl}</span>
                             {r.autoHidden && (
@@ -743,9 +512,13 @@ function AdminReportsPageInner() {
                         <td>{r.reasonCode}</td>
                         <td>
                           <div className="author">
-                            <span className="author-avatar">
-                              {(r.reporterNickname ?? "?")[0]}
-                            </span>
+                            <UserAvatar
+                              avatarUrl={r.reporterAvatarUrl}
+                              image={r.reporterImage}
+                              defaultAvatarIndex={r.reporterDefaultAvatarIndex ?? 0}
+                              alt={r.reporterNickname ?? "?"}
+                              size={24}
+                            />
                             <span>{r.reporterNickname ?? "(알 수 없음)"}</span>
                           </div>
                         </td>
@@ -755,49 +528,7 @@ function AdminReportsPageInner() {
                         </td>
                         <td>{r.reviewedByName ?? "-"}</td>
                         <td>
-                          <div className="row-actions">
-                            <button
-                              className="icon-button row-action-button"
-                              aria-label="행 메뉴"
-                              onClick={() => setSelectedReport(r)}
-                            >
-                              <i className="ri-more-2-fill" />
-                            </button>
-                            <div className="action-menu">
-                              <button onClick={() => setSelectedReport(r)}>
-                                <i className="ri-eye-line" />
-                                상세보기
-                              </button>
-                              {r.autoHidden && r.status !== "resolved" && r.status !== "dismissed" && (
-                                <button onClick={() => void handleRestoreAutoHide(r.id)}>
-                                  <i className="ri-refresh-line" />
-                                  자동 숨김 복구
-                                </button>
-                              )}
-                              {r.status !== "resolved" && r.status !== "dismissed" && (
-                                <>
-                                  {r.status === "pending" && (
-                                    <button onClick={() => void handleReview(r.id)}>
-                                      <i className="ri-search-eye-line" />
-                                      확인중으로 변경
-                                    </button>
-                                  )}
-                                  <button onClick={() => void handleHide(r.id)}>
-                                    <i className="ri-eye-off-line" />
-                                    대상 숨김
-                                  </button>
-                                  <button onClick={() => setRejectTarget(r.id)}>
-                                    <i className="ri-close-circle-line" />
-                                    신고 반려
-                                  </button>
-                                </>
-                              )}
-                              <Link href={`/reports/${r.id}`}>
-                                <i className="ri-external-link-line" />
-                                상세 페이지
-                              </Link>
-                            </div>
-                          </div>
+                          <RowActionMenu items={actionItems} ariaLabel="신고 처리 메뉴" />
                         </td>
                       </tr>
                     );
@@ -852,33 +583,12 @@ function AdminReportsPageInner() {
         </article>
       </section>
 
-      {/* 상세 드로어 */}
-      {selectedReport && (
-        <ReportDrawer
-          report={selectedReport}
-          onClose={() => setSelectedReport(null)}
-          onReview={(id) => void handleReview(id)}
-          onHide={(id) => void handleHide(id)}
-          onReject={(id) => setRejectTarget(id)}
-          onRestoreAutoHide={(id) => void handleRestoreAutoHide(id)}
-        />
-      )}
-
       {/* 반려 모달 */}
       {rejectTarget && (
         <RejectModal
           reportId={rejectTarget}
           onConfirm={(id, note) => void handleReject(id, note)}
           onClose={() => setRejectTarget(null)}
-        />
-      )}
-
-      {/* 토스트 */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
         />
       )}
     </AdminShell>

@@ -142,12 +142,7 @@ export const RANKING_QUEUE_NAME = "ranking" as const;
 /** BullMQ job 이름 상수 (ranking 큐) */
 export const GRADE_UP_JOB_NAME = "gamification.grade-up" as const;
 
-// ── [6.4] ─────────────────────────────────────────────────────────────────────
-/** BullMQ badge-check 잡 이름 (Story 6.4) */
-export const BADGE_CHECK_JOB_NAME = "gamification.badge-check" as const;
-// ── [6.4] END ─────────────────────────────────────────────────────────────────
-
-// ── [6.4] ranking 큐는 grade-up / badge-check / (6.5) ranking.compute 잡을 공유한다.
+// ── ranking 큐는 grade-up / (6.5) ranking.compute 잡을 공유한다.
 // 여러 페이로드 타입을 단일 Queue 인스턴스에서 사용하므로 제네릭을 넓힌다.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _rankingQueue: Queue<any> | null = null;
@@ -157,10 +152,7 @@ let _rankingQueue: Queue<any> | null = null;
  *
  * 현재 사용 잡:
  * - gamification.grade-up: 등급 변동 감지 후 알림 발행 (Story 6.3)
- * - gamification.badge-check: 뱃지 조건 재평가 (Story 6.4)
- *
- * 향후 확장:
- * - Story 6.5: ranking.compute 잡 추가
+ * - ranking.compute: 랭킹 재계산 (Story 6.5)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getRankingQueue(): Queue<any> {

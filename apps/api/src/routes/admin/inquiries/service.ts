@@ -257,3 +257,72 @@ export async function createAdminReply(input: CreateAdminReplyInput) {
     },
   };
 }
+
+// ── 관리자 답변 수정 ──────────────────────────────────────────────────────────
+
+/**
+ * 관리자 작성 답변의 본문(body)을 수정한다.
+ * authorType !== 'admin' 인 답변은 수정 불가 (FORBIDDEN).
+ */
+export async function updateAdminReply(replyId: string, body: unknown) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({ id: schema.inquiryReplies.id, authorType: schema.inquiryReplies.authorType,
+              inquiryId: schema.inquiryReplies.inquiryId, authorId: schema.inquiryReplies.authorId,
+              createdAt: schema.inquiryReplies.createdAt })
+    .from(schema.inquiryReplies)
+    .where(eq(schema.inquiryReplies.id, replyId))
+    .limit(1);
+
+  if (!existing) {
+    throw Object.assign(new Error("답변을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+  if (existing.authorType !== "admin") {
+    throw Object.assign(new Error("관리자 답변만 수정할 수 있습니다."), { code: "FORBIDDEN" });
+  }
+
+  const [updated] = await db
+    .update(schema.inquiryReplies)
+    .set({ body: body as Record<string, unknown> })
+    .where(eq(schema.inquiryReplies.id, replyId))
+    .returning();
+
+  return {
+    id: updated.id,
+    inquiryId: updated.inquiryId,
+    authorType: updated.authorType,
+    authorId: updated.authorId,
+    body: updated.body,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
+// ── 관리자 답변 삭제 ──────────────────────────────────────────────────────────
+
+/**
+ * 관리자 작성 답변을 삭제한다.
+ * authorType !== 'admin' 인 답변은 삭제 불가 (FORBIDDEN).
+ */
+export async function deleteAdminReply(replyId: string) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({ id: schema.inquiryReplies.id, authorType: schema.inquiryReplies.authorType })
+    .from(schema.inquiryReplies)
+    .where(eq(schema.inquiryReplies.id, replyId))
+    .limit(1);
+
+  if (!existing) {
+    throw Object.assign(new Error("답변을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+  if (existing.authorType !== "admin") {
+    throw Object.assign(new Error("관리자 답변만 삭제할 수 있습니다."), { code: "FORBIDDEN" });
+  }
+
+  await db
+    .delete(schema.inquiryReplies)
+    .where(eq(schema.inquiryReplies.id, replyId));
+
+  return { success: true };
+}

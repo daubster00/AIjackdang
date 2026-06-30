@@ -37,7 +37,7 @@ function ConfirmDeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >

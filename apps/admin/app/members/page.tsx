@@ -6,6 +6,9 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { Select } from "@/components/ui/Select";
+import { RowActionMenu } from "@/components/ui/RowActionMenu";
 
 // ── 로컬 타입 (contracts/src/admin/members.ts 미노출 시 임시) ─────────────────
 interface AdminUserMemberItem {
@@ -15,6 +18,9 @@ interface AdminUserMemberItem {
   status: "active" | "suspended" | "withdrawn";
   suspendedUntil: string | null;
   createdAt: string;
+  avatarUrl: string | null;
+  image: string | null;
+  defaultAvatarIndex: number;
   totalPoints: number;
   gradeLevel: number;
   gradeName: string;
@@ -229,21 +235,22 @@ function AdminMembersContent() {
                 />
               </div>
 
-              {/* 등급 셀렉트 */}
-              <select
-                className="control"
-                value={gradeParam}
-                onChange={(e) => updateParams({ grade: e.target.value })}
-                style={{ width: "auto", minWidth: 120 }}
-                aria-label="등급 필터"
-              >
-                <option value="all">등급: 전체</option>
-                <option value="1">새내기 (Lv.1)</option>
-                <option value="2">작당원 (Lv.2)</option>
-                <option value="3">실전러 (Lv.3)</option>
-                <option value="4">고수 (Lv.4)</option>
-                <option value="5">마스터 (Lv.5)</option>
-              </select>
+              {/* 등급 셀렉트 (디자인 시스템 커스텀 드롭다운) */}
+              <div style={{ minWidth: 150 }}>
+                <Select
+                  value={gradeParam}
+                  onChange={(v) => updateParams({ grade: v })}
+                  aria-label="등급 필터"
+                  options={[
+                    { value: "all", label: "등급: 전체" },
+                    { value: "1", label: "새내기 (Lv.1)" },
+                    { value: "2", label: "작당원 (Lv.2)" },
+                    { value: "3", label: "실전러 (Lv.3)" },
+                    { value: "4", label: "고수 (Lv.4)" },
+                    { value: "5", label: "마스터 (Lv.5)" },
+                  ]}
+                />
+              </div>
 
               {/* 기간 필터 */}
               <input
@@ -324,7 +331,13 @@ function AdminMembersContent() {
                         <tr key={m.id}>
                           <td>
                             <Link className="author" href={`/members/${m.id}`}>
-                              <span className="author-avatar">{m.nickname.slice(0, 1)}</span>
+                              <UserAvatar
+                                size={28}
+                                alt={m.nickname}
+                                avatarUrl={m.avatarUrl}
+                                image={m.image}
+                                defaultAvatarIndex={m.defaultAvatarIndex}
+                              />
                               <span>{m.nickname}</span>
                             </Link>
                           </td>
@@ -344,16 +357,12 @@ function AdminMembersContent() {
                             <span className={`badge ${statusCls}`}>{statusLabel}</span>
                           </td>
                           <td>
-                            <div className="row-actions">
-                              <button className="icon-button row-action-button" aria-label="행 메뉴">
-                                <i className="ri-more-2-fill" />
-                              </button>
-                              <div className="action-menu">
-                                <Link href={`/members/${m.id}`}>
-                                  <i className="ri-eye-line" />상세보기
-                                </Link>
-                              </div>
-                            </div>
+                            <RowActionMenu
+                              items={[
+                                { label: "상세보기", icon: "ri-eye-line", href: `/members/${m.id}` },
+                              ]}
+                              ariaLabel="회원 관리 메뉴"
+                            />
                           </td>
                         </tr>
                       );

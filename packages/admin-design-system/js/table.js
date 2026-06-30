@@ -82,15 +82,25 @@ export function initTables(root = document) {
 
     tbody.querySelectorAll(".row-check").forEach((c) => c.addEventListener("change", sync));
 
-    // 행 액션 메뉴
-    table.querySelectorAll(".row-action-button").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const menu = btn.nextElementSibling;
-        if (!menu?.classList.contains("action-menu")) return;
-        closeAllActionMenus(root);
-        menu.classList.toggle("open");
-      });
+    // 행 액션 메뉴 — 이벤트 위임으로 테이블에 1회만 바인딩한다.
+    // (per-button 바인딩은 initTables 가 tableInitialized 가드로 1회만 도므로,
+    //  데이터가 비동기로 늦게 채워지는 표에서는 새 행 버튼에 핸들러가 안 붙는다.)
+    table.addEventListener("click", (event) => {
+      const btn = event.target.closest?.(".row-action-button");
+      if (!btn || !table.contains(btn)) return;
+      // React 가 직접 열고닫는 메뉴(data-menu-manual)는 table.js 가 손대지 않는다
+      if (btn.dataset.menuManual === "true") return;
+      const menu = btn.nextElementSibling;
+      if (!menu?.classList.contains("action-menu")) return;
+      event.stopPropagation();
+      const wasOpen = menu.classList.contains("open");
+      closeAllActionMenus(root);
+      if (wasOpen) return; // 토글: 열려 있던 메뉴는 닫기만
+      menu.classList.add("open");
+      // 아래 공간이 부족하면(뷰포트 하단 행) 위로 펼친다 — 화면 밖으로 잘리지 않도록(new#3)
+      menu.classList.remove("up");
+      const spaceBelow = window.innerHeight - btn.getBoundingClientRect().bottom;
+      if (spaceBelow < menu.offsetHeight + 12) menu.classList.add("up");
     });
 
     // 외부에서 다시 호출할 수 있도록 동기화 함수 노출

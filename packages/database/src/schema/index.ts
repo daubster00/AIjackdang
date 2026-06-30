@@ -29,19 +29,10 @@ export * from "./ads";
 // ── 접속통계: 방문 로그 ───────────────────────────────────────────────────────
 export * from "./page-views";
 
-export {
-  pointsLedger,
-  grades,
-  badges,
-  userBadges,
-} from "./gamification";
+export { pointsLedger, grades } from "./gamification";
 export type {
   PointsLedgerRow,
   NewPointsLedgerRow,
   GradeTableRow,
   NewGradeTableRow,
-  BadgeTableRow,
-  NewBadgeTableRow,
-  UserBadgeRow,
-  NewUserBadgeRow,
 } from "./gamification";

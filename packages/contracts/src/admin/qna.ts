@@ -79,6 +79,14 @@ export const adminQnaQuestionItemSchema = z.object({
   qnaStatus: qnaStatusEnum,
   userId: z.string().nullable(),
   authorNickname: z.string().nullable(),
+  /** G5: 작성자 직접 업로드 프로필 사진 URL */
+  authorAvatarUrl: z.string().nullable().optional(),
+  /** G5: 작성자 소셜 provider 프로필 사진 URL */
+  authorImage: z.string().nullable().optional(),
+  /** G5: 작성자 기본 아바타 인덱스 */
+  authorDefaultAvatarIndex: z.number().nullable().optional(),
+  /** 질문 본문 (Tiptap JSON 또는 LightEditor 래퍼) */
+  contentJson: z.unknown().nullable().optional(),
   answerCount: z.number(),
   viewCount: z.number(),
   reportCount: z.number(),
@@ -99,6 +107,14 @@ export const adminQnaAnswerItemSchema = z.object({
   status: answerContentStatusEnum,
   userId: z.string().nullable(),
   authorNickname: z.string().nullable(),
+  /** G5: 작성자 직접 업로드 프로필 사진 URL */
+  authorAvatarUrl: z.string().nullable().optional(),
+  /** G5: 작성자 소셜 provider 프로필 사진 URL */
+  authorImage: z.string().nullable().optional(),
+  /** G5: 작성자 기본 아바타 인덱스 */
+  authorDefaultAvatarIndex: z.number().nullable().optional(),
+  /** 답변 본문 (Tiptap JSON 또는 LightEditor 래퍼) */
+  contentJson: z.unknown().nullable().optional(),
   reportCount: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),

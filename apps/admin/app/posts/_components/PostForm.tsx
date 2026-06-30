@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { JSONContent } from "@tiptap/core";
 import { API_BASE_URL } from "@/lib/api";
 import { BOARDS } from "@/lib/boards";
+import { confirmDialog } from "@/lib/dialog";
+import { Select } from "@/components/ui/Select";
+import { Editor, textToTiptapJson } from "@/features/editor";
+import { AttachmentUpload } from "@/components/ui/AttachmentUpload";
 
 export type PostFormDefaults = {
   title?: string;
@@ -30,23 +35,6 @@ type PostDetail = {
   tags?: string[];
 };
 
-function textToTiptapJson(text: string): Record<string, unknown> {
-  const paragraphs = text.split("\n").map((line) => ({
-    type: "paragraph",
-    content: line.trim() ? [{ type: "text", text: line }] : [],
-  }));
-  return { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph" }] };
-}
-
-function tiptapJsonToText(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const node = value as { type?: string; text?: string; content?: unknown[] };
-  if (node.type === "text") return node.text ?? "";
-  if (!Array.isArray(node.content)) return "";
-  if (node.type === "paragraph") return node.content.map(tiptapJsonToText).join("");
-  return node.content.map(tiptapJsonToText).join("\n").replace(/\n{3,}/g, "\n\n");
-}
-
 function parseTags(input: string): string[] {
   return input
     .split(/[,\n]/)
@@ -70,7 +58,9 @@ export function PostForm({
   const router = useRouter();
   const [selectedBoard, setSelectedBoard] = useState(board);
   const [title, setTitle] = useState(defaults.title ?? "");
-  const [content, setContent] = useState(defaults.content ?? "");
+  const [contentJson, setContentJson] = useState<JSONContent>(() =>
+    textToTiptapJson(defaults.content ?? ""),
+  );
   const [tags, setTags] = useState((defaults.tags ?? []).join(", "));
   const [isNotice, setIsNotice] = useState(defaults.notice ?? false);
   const [isPinned, setIsPinned] = useState(defaults.pinned ?? false);
@@ -82,6 +72,46 @@ export function PostForm({
   const [loading, setLoading] = useState(mode === "edit" && Boolean(postId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  /**
+   * 첨부파일 상태 — 신규 작성 시 save()에서 POST /api/v1/admin/posts/attachments 로
+   * 업로드 후 반환 메타를 본문 attachments 에 포함한다.
+   */
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  /** 관리자 파일설정: site_settings에서 읽고, 실패 시 기본값 유지 */
+  const [fileSettings, setFileSettings] = useState({
+    allowedExtensions: [".zip", ".pdf", ".json", ".md", ".txt", ".csv", ".xlsx"],
+    maxFiles: 5,
+    maxSizeMb: 10,
+  });
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/admin/settings`, { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return; // staff는 403 → 기본값 유지
+        const settings = (await res.json()) as Record<string, unknown>;
+        const extRaw =
+          typeof settings.file_allowed_extensions === "string" && settings.file_allowed_extensions.trim()
+            ? settings.file_allowed_extensions
+            : null;
+        const allowedExtensions = extRaw
+          ? extRaw.split(",").map((e) => e.trim()).filter(Boolean)
+          : undefined;
+        const maxSizeMb =
+          typeof settings.max_upload_mb === "number" && settings.max_upload_mb > 0
+            ? settings.max_upload_mb
+            : undefined;
+        if (allowedExtensions || maxSizeMb) {
+          setFileSettings((prev) => ({
+            ...prev,
+            ...(allowedExtensions ? { allowedExtensions } : {}),
+            ...(maxSizeMb ? { maxSizeMb } : {}),
+          }));
+        }
+      })
+      .catch(() => {}); // 오류 시 기본값 유지
+  }, []);
 
   useEffect(() => {
     if (mode !== "edit" || !postId) return;
@@ -96,7 +126,7 @@ export function PostForm({
         if (!alive) return;
         setSelectedBoard(post.board);
         setTitle(post.title);
-        setContent(tiptapJsonToText(post.contentJson));
+        setContentJson((post.contentJson as JSONContent) ?? textToTiptapJson(""));
         setTags((post.tags ?? []).join(", "));
         setIsNotice(post.isNotice);
         setIsPinned(post.isPinned);
@@ -123,16 +153,48 @@ export function PostForm({
     setSaving(true);
     setMessage(null);
 
+    // 첨부파일 업로드 (신규 작성 시) — 업로드 후 반환된 메타를 본문에 포함
+    let uploadedAttachments: { url: string; name: string; size: number; mimeType: string }[] = [];
+    if (mode !== "edit" && selectedFiles.length > 0) {
+      try {
+        const fd = new FormData();
+        selectedFiles.forEach((f) => fd.append("files", f));
+        const upRes = await fetch(`${API_BASE_URL}/api/v1/admin/posts/attachments`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+        if (!upRes.ok) {
+          const e = await upRes.json().catch(() => ({}));
+          setMessage({
+            type: "error",
+            text: (e as { error?: { message?: string } })?.error?.message ?? "첨부파일 업로드에 실패했습니다.",
+          });
+          setSaving(false);
+          return;
+        }
+        const upJson = (await upRes.json()) as {
+          files: { url: string; name: string; size: number; mimeType: string }[];
+        };
+        uploadedAttachments = upJson.files ?? [];
+      } catch {
+        setMessage({ type: "error", text: "첨부파일 업로드 중 오류가 발생했습니다." });
+        setSaving(false);
+        return;
+      }
+    }
+
     const payload = {
       board: selectedBoard,
       title: title.trim(),
-      contentJson: textToTiptapJson(content),
+      contentJson,
       tags: parseTags(tags),
       status: nextStatus,
       isNotice,
       isPinned,
       isFeatured,
       isMainFeatured,
+      attachments: uploadedAttachments,
     };
 
     try {
@@ -170,7 +232,7 @@ export function PostForm({
   }
 
   async function remove() {
-    if (!postId || !confirm("이 게시글을 삭제할까요?")) return;
+    if (!postId || !(await confirmDialog({ title: "삭제", message: "이 게시글을 삭제할까요?", tone: "danger" }))) return;
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/posts/${postId}`, {
@@ -221,23 +283,46 @@ export function PostForm({
             </div>
 
             <div className="field">
-              <label className="field-label" htmlFor="post-board">게시판</label>
-              <select id="post-board" className="control" value={selectedBoard} onChange={(e) => setSelectedBoard(e.target.value)}>
-                {BOARDS.map((b) => (
-                  <option key={b.slug} value={b.slug}>{b.label}</option>
-                ))}
-              </select>
+              <label className="field-label">게시판</label>
+              <Select
+                id="post-board"
+                options={BOARDS.map((b) => ({ value: b.slug, label: b.label }))}
+                value={selectedBoard}
+                onChange={(v) => setSelectedBoard(v)}
+              />
             </div>
 
             <div className="field">
-              <label className="field-label" htmlFor="post-content">본문</label>
-              <textarea id="post-content" className="control" style={{ minHeight: 240 }} placeholder="본문 내용을 입력하세요" value={content} onChange={(e) => setContent(e.target.value)} />
-              <p className="field-help">입력한 텍스트는 Tiptap paragraph JSON으로 저장됩니다.</p>
+              <label className="field-label">본문</label>
+              <Editor preset="full" value={contentJson} onChange={(json) => setContentJson(json)} />
             </div>
 
             <div className="field">
               <label className="field-label" htmlFor="post-tags">태그</label>
               <input id="post-tags" className="control" type="text" placeholder="쉼표로 태그를 구분하세요" value={tags} onChange={(e) => setTags(e.target.value)} />
+            </div>
+
+            <div className="field">
+              <label className="field-label">
+                첨부파일{" "}
+                <span className="field-help" style={{ fontWeight: 400 }}>
+                  (최대 {fileSettings.maxFiles}개 · 파일당 최대 {fileSettings.maxSizeMb}MB)
+                </span>
+              </label>
+              {mode === "edit" && (
+                <div className="field-help" style={{ marginBottom: 8 }}>
+                  첨부파일 추가는 새 글 작성 시 지원됩니다.
+                </div>
+              )}
+              {mode !== "edit" && (
+                <AttachmentUpload
+                  files={selectedFiles}
+                  onFilesChange={setSelectedFiles}
+                  allowedExtensions={fileSettings.allowedExtensions}
+                  maxFiles={fileSettings.maxFiles}
+                  maxSizeMb={fileSettings.maxSizeMb}
+                />
+              )}
             </div>
 
             <div className="field">

@@ -1,0 +1,180 @@
+/* ===========================================================================
+ * Admin 커스텀 셀렉트 — CSS Module
+ * 어드민 디자인 토큰(--gray-*, --primary-*, --radius-*, etc.) 사용.
+ * 브라우저 기본 셀렉트 UI를 절대 노출하지 않는다.
+ * =========================================================================== */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--gray-700);
+}
+
+/* ---- 커스텀 셀렉트 래퍼 ---- */
+.customSelect {
+  position: relative;
+}
+
+/* ---- 트리거 버튼 ---- */
+.trigger {
+  width: 100%;
+  height: 40px;
+  padding: 0 38px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  color: var(--gray-800);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.trigger:hover {
+  border-color: var(--gray-400);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: var(--focus-ring);
+}
+
+.trigger[aria-expanded="true"] {
+  border-color: var(--primary-500);
+  box-shadow: var(--focus-ring);
+}
+
+.trigger:disabled {
+  background: var(--gray-100);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+/* 플레이스홀더 텍스트 색 */
+.placeholder {
+  color: var(--gray-400);
+}
+
+/* ---- 화살표 아이콘 ---- */
+.arrow {
+  position: absolute;
+  right: 12px;
+  font-size: 16px;
+  color: var(--gray-400);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: transform 200ms ease;
+  pointer-events: none;
+}
+
+.open .arrow {
+  transform: rotate(180deg);
+}
+
+/* ---- 메뉴 드롭다운 ---- */
+.menu {
+  position: absolute;
+  z-index: 200;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
+  max-height: 320px;
+  overflow-y: auto;
+  animation: adminSelectPopIn 120ms ease;
+}
+
+@keyframes adminSelectPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 보라색 얇은 스크롤바 (WebKit + Firefox) */
+.menu::-webkit-scrollbar { width: 6px; }
+.menu::-webkit-scrollbar-track { background: transparent; }
+.menu::-webkit-scrollbar-thumb { background: rgba(167,139,250,0.45); border-radius: 99px; }
+.menu::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,0.70); }
+.menu { scrollbar-width: thin; scrollbar-color: rgba(167,139,250,0.45) transparent; }
+
+/* ---- 옵션 항목 ---- */
+.option {
+  min-height: 36px;
+  padding: 0 9px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--gray-700);
+  list-style: none;
+  transition: background-color 100ms ease;
+  user-select: none;
+}
+
+.option:hover,
+.option.focused {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.option.selected {
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-weight: 650;
+}
+
+/* 선택 + 포커스 동시: primary-50 유지 */
+.option.selected.focused {
+  background: var(--primary-50);
+}
+
+/* ---- 체크 아이콘 ---- */
+.check {
+  opacity: 0;
+  font-size: 14px;
+  color: var(--primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.option.selected .check {
+  opacity: 1;
+}
+
+/* ---- 숨겨진 native select (폼 제출 / 접근성 전용) ---- */
+.nativeSelect {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

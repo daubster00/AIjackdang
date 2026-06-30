@@ -275,53 +275,6 @@ export async function getRanking(
 
 // ── [6.5] END ─────────────────────────────────────────────────────────────────
 
-// ── [6.4] getUserBadges ───────────────────────────────────────────────────────
-
-/** 보유 뱃지 단건 응답 타입 (AC#4) */
-export interface UserBadgeItem {
-  badgeSlug: string;
-  badgeName: string;
-  iconUrl: string;
-  grantedAt: string;
-}
-
-/** getUserBadges 응답 타입 (AC#4, AC#7: 미보유·달성조건 노출 금지) */
-export interface UserBadgesResult {
-  items: UserBadgeItem[];
-}
-
-/**
- * 사용자의 보유 뱃지 목록을 반환한다.
- *
- * - user_badges JOIN badges 쿼리
- * - 보유 뱃지만 반환 (미보유·달성조건 절대 노출 금지 — AC#7)
- * - 비회원 열람 가능 (공개 프로필 SSR용 — AC#5)
- */
-export async function getUserBadges(db: DbLike, userId: string): Promise<UserBadgesResult> {
-  const rows = await db
-    .select({
-      badgeSlug: schema.badges.slug,
-      badgeName: schema.badges.name,
-      iconUrl: schema.badges.iconUrl,
-      grantedAt: schema.userBadges.grantedAt,
-    })
-    .from(schema.userBadges)
-    .innerJoin(schema.badges, eq(schema.userBadges.badgeId, schema.badges.id))
-    .where(eq(schema.userBadges.userId, userId))
-    .orderBy(schema.userBadges.grantedAt);
-
-  return {
-    items: rows.map((row: { badgeSlug: string; badgeName: string; iconUrl: string; grantedAt: Date | string }) => ({
-      badgeSlug: row.badgeSlug,
-      badgeName: row.badgeName,
-      iconUrl: row.iconUrl,
-      grantedAt: row.grantedAt instanceof Date ? row.grantedAt.toISOString() : String(row.grantedAt),
-    })),
-  };
-}
-
-// ── [6.4] END ─────────────────────────────────────────────────────────────────
-
 // ── [수정요청 G] 포인트 적립 내역 + 등급 안내 ──────────────────────────────────
 
 /** points_ledger.reason 코드 → 한국어 설명. 미정의 코드는 fallback 처리. */

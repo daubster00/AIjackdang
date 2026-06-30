@@ -14,10 +14,12 @@ import { initAdminUI, initSelects, initTabs, initTables, initOverlay } from "@ai
  */
 export function AdminInteractions() {
   useEffect(() => {
-    initAdminUI();
+    // reactSafe: 셀렉트는 React 가 선택표시·체크아이콘·라벨을 렌더하므로,
+    // 레거시 JS 는 메뉴 열기/닫기만 담당하게 한다(removeChild 크래시 방지 — 묻고답하기 검색 sort 에러).
+    initAdminUI(document, { reactSafe: true });
 
     const refreshDynamicInteractions = () => {
-      initSelects();
+      initSelects(document, { reactSafe: true });
       initTabs();
       initTables();
       initOverlay();

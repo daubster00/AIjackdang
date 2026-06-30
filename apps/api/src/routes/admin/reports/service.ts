@@ -99,6 +99,32 @@ export async function listReports(query: AdminReportsQuery, autoHiddenFilter?: b
       reviewedByName: sql<string | null>`(
         SELECT name FROM admin_users WHERE id = ${reports.reviewedBy}
       )`,
+      // 신고자 아바타 정보 (G5 — UserAvatar 컴포넌트에서 사용)
+      reporterAvatarUrl: users.avatarUrl,
+      reporterImage: users.image,
+      reporterDefaultAvatarIndex: users.defaultAvatarIndex,
+      // 신고당한 콘텐츠 작성자(피신고인) userId — targetType별 동적 서브쿼리
+      // 회원 상세(/members/[id])로 연결하기 위해 제공한다.
+      // ⚠️ comments 테이블은 user_id 아닌 author_id 사용 (G17 bugfix)
+      reportedUserId: sql<string | null>`CASE
+        WHEN ${reports.targetType} = 'post'
+          THEN (SELECT user_id FROM posts WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'question'
+          THEN (SELECT user_id FROM questions WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'answer'
+          THEN (SELECT user_id FROM answers WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'comment'
+          THEN (SELECT author_id FROM comments WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'resource'
+          THEN (SELECT user_id FROM resources WHERE id = ${reports.targetId})
+        ELSE NULL
+      END`,
+      // 게시글 board 값 — getCrossLink 에서 상세 URL 구성에 필요 (G16)
+      targetBoard: sql<string | null>`CASE
+        WHEN ${reports.targetType} = 'post'
+          THEN (SELECT board FROM posts WHERE id = ${reports.targetId})
+        ELSE NULL
+      END`,
       // 대상 콘텐츠 미리보기 — targetType별 동적 서브쿼리
       targetPreview: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
@@ -168,6 +194,45 @@ export async function getReport(id: string) {
       reviewedByName: sql<string | null>`(
         SELECT name FROM admin_users WHERE id = ${reports.reviewedBy}
       )`,
+      // 신고자 아바타 정보 (G5)
+      reporterAvatarUrl: users.avatarUrl,
+      reporterImage: users.image,
+      reporterDefaultAvatarIndex: users.defaultAvatarIndex,
+      // 피신고인 userId (G17 — 회원 상세 링크용, comments는 author_id 사용)
+      reportedUserId: sql<string | null>`CASE
+        WHEN ${reports.targetType} = 'post'
+          THEN (SELECT user_id FROM posts WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'question'
+          THEN (SELECT user_id FROM questions WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'answer'
+          THEN (SELECT user_id FROM answers WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'comment'
+          THEN (SELECT author_id FROM comments WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'resource'
+          THEN (SELECT user_id FROM resources WHERE id = ${reports.targetId})
+        ELSE NULL
+      END`,
+      // 게시글 board 값 (G16 — getCrossLink 상세 URL 구성용)
+      targetBoard: sql<string | null>`CASE
+        WHEN ${reports.targetType} = 'post'
+          THEN (SELECT board FROM posts WHERE id = ${reports.targetId})
+        ELSE NULL
+      END`,
+      // 대상 콘텐츠의 현재 상태(숨김 여부 판단용 — '숨김 해제' 버튼 노출 조건).
+      // message 타입은 status 컬럼이 없으므로 NULL.
+      targetStatus: sql<string | null>`CASE
+        WHEN ${reports.targetType} = 'post'
+          THEN (SELECT status::text FROM posts WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'question'
+          THEN (SELECT status::text FROM questions WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'answer'
+          THEN (SELECT status::text FROM answers WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'comment'
+          THEN (SELECT status::text FROM comments WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'resource'
+          THEN (SELECT status::text FROM resources WHERE id = ${reports.targetId})
+        ELSE NULL
+      END`,
       targetPreview: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT title FROM posts WHERE id = ${reports.targetId})
@@ -348,6 +413,59 @@ export async function restoreAutoHidden(reportId: string, adminId: string) {
     const [reportRow] = await tx
       .update(reports)
       .set({ status: "resolved", autoHidden: false, reviewedBy: adminId, reviewedAt: now })
+      .where(eq(reports.id, reportId))
+      .returning({ id: reports.id, status: reports.status, reviewedAt: reports.reviewedAt });
+
+    return reportRow;
+  });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    reviewedAt: updated.reviewedAt ? updated.reviewedAt.toISOString() : null,
+  };
+}
+
+// ── 숨김 해제 (수동/자동 숨김 모두 복구) ──────────────────────────────────────
+// "대상 숨김"(hideTarget)으로 status='resolved'가 되면 canAct=false라 조치 버튼이
+// 사라져 되돌릴 수 없던 문제를 해결한다. 대상 콘텐츠를 정상 상태로 복구하고
+// 신고는 'reviewing'으로 되돌려(재조치 가능) autoHidden=false 로 둔다.
+export async function unhideTarget(reportId: string, adminId: string) {
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: reports.id,
+      targetType: reports.targetType,
+      targetId: reports.targetId,
+    })
+    .from(reports)
+    .where(eq(reports.id, reportId))
+    .limit(1);
+
+  if (!existing) {
+    throw Object.assign(new Error("신고를 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+  const targetType = existing.targetType as string;
+  const targetId = existing.targetId;
+
+  const updated = await db.transaction(async (tx) => {
+    // 1) 대상 콘텐츠를 타입별 정상 상태로 복구
+    if (targetType in TARGET_TABLE_MAP) {
+      const table = TARGET_TABLE_MAP[targetType as HideableTargetType];
+      const restoreStatus = RESTORE_STATUS[targetType as HideableTargetType];
+      await tx
+        .update(table)
+        .set({ status: restoreStatus as never, updatedAt: now } as never)
+        .where(eq((table as typeof posts).id, targetId));
+    }
+
+    // 2) 신고를 reviewing 으로 되돌림(재조치 가능) + autoHidden 해제
+    const [reportRow] = await tx
+      .update(reports)
+      .set({ status: "reviewing", autoHidden: false, reviewedBy: adminId, reviewedAt: now })
       .where(eq(reports.id, reportId))
       .returning({ id: reports.id, status: reports.status, reviewedAt: reports.reviewedAt });
 

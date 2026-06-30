@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 
 /**
  * 포인트 거래 상세 페이지 — 목록(회원별 포인트 내역)의 사유 클릭 시 이동하는 별도 페이지.
@@ -109,7 +110,7 @@ export default async function PointTransactionDetailPage({
                 <div className="detail-label">대상 회원</div>
                 <div className="detail-value">
                   <div className="author">
-                    <span className="author-avatar">{DETAIL.initial}</span>
+                    <UserAvatar size={28} alt={DETAIL.member} />
                     <span>{DETAIL.member} · {DETAIL.email}</span>
                   </div>
                 </div>

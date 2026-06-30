@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { API_BASE_URL } from "../../../lib/api";
+import { Select } from "@/components/ui/Select";
 
 /**
  * 사이트 설정 응답 타입 (로컬 정의 — 오케스트레이터가 packages/contracts/src/index.ts 에
@@ -14,6 +15,7 @@ interface AdminSettingsResponse {
   seo_title?: unknown;
   seo_description?: unknown;
   og_image?: unknown;
+  favicon_url?: unknown;
   auto_hide_enabled?: unknown;
   auto_hide_threshold?: unknown;
   report_reasons?: unknown;
@@ -32,11 +34,9 @@ interface AdminSettingsResponse {
  *
  * - GET /api/v1/admin/settings → 실제 DB 값으로 각 탭 필드를 채운다.
  * - 탭별 저장 버튼 → PATCH /api/v1/admin/settings → 성공/실패 토스트.
- * - 디자인 시스템의 .line-tabs JS 는 탭 클릭 시 active 클래스만 옮기고
- *   'admin:tab-change'(detail.value = data-tab) 이벤트만 쏠 뿐, 패널을 숨기지 않는다.
- *   그래서 4개 [data-tab-panel] 섹션이 한 화면에 모두 쌓여 보였다.
- *   이 컴포넌트는 그 이벤트를 받아, value(선택된 탭 키)와 같은 data-tab-panel 섹션만 보이고
- *   나머지는 숨기도록 display 를 토글한다(탭별 기능을 따로 노출).
+ * - activeTab React 상태로 탭 패널 가시성을 제어한다.
+ *   (DOM 직접 조작 방식 대신 admin:tab-change 이벤트를 수신해 activeTab 상태 업데이트 →
+ *   패널 section에 style.display를 조건부로 적용. useEffect 레이스 컨디션 방지)
  */
 
 // ── 토스트 ─────────────────────────────────────────────────────────────────────
@@ -146,6 +146,9 @@ export function SettingsTabPanels() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  // ── 활성 탭 (React 상태로 관리 — DOM 조작 레이스 컨디션 방지) ──────────────
+  const [activeTab, setActiveTab] = useState<string>("basic");
+
   // ── 탭별 로컬 상태 ─────────────────────────────────────────────────────────
 
   // 기본 설정
@@ -155,9 +158,18 @@ export function SettingsTabPanels() {
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  const [faviconUrl, setFaviconUrl] = useState("");
+
+  // 이미지 업로드 상태
+  const [ogImageUploading, setOgImageUploading] = useState(false);
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const ogImageInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   // 콘텐츠 설정
   const [contentRetentionDays, setContentRetentionDays] = useState(365);
+  const [popularPostMetric, setPopularPostMetric] = useState("views");
+  const [popularResourceMetric, setPopularResourceMetric] = useState("downloads");
 
   // 파일 설정
   const [fileAllowedExtensions, setFileAllowedExtensions] = useState("zip, pdf, json, md, txt, csv, xlsx");
@@ -196,10 +208,15 @@ export function SettingsTabPanels() {
       if (data.seo_title != null) setSeoTitle(String(data.seo_title));
       if (data.seo_description != null) setSeoDescription(String(data.seo_description));
       if (data.og_image != null) setOgImage(String(data.og_image));
+      if (data.favicon_url != null) setFaviconUrl(String(data.favicon_url));
 
       // 콘텐츠 설정
       if (data.content_retention_days != null)
         setContentRetentionDays(Number(data.content_retention_days));
+      if (data.popular_post_metric != null)
+        setPopularPostMetric(String(data.popular_post_metric));
+      if (data.popular_resource_metric != null)
+        setPopularResourceMetric(String(data.popular_resource_metric));
 
       // 파일 설정
       if (data.file_allowed_extensions != null)
@@ -224,24 +241,13 @@ export function SettingsTabPanels() {
     }
   }, []);
 
-  // ── 탭 패널 전환 ────────────────────────────────────────────────────────────
-
+  // ── 탭 전환: admin:tab-change 이벤트 → activeTab 상태 업데이트 ──────────────
+  // DOM 직접 조작(display 토글) 대신 React 상태 기반으로 전환하여
+  // loading → 패널 렌더 전 useEffect 실행으로 인한 레이스 컨디션을 완전 차단한다.
   useEffect(() => {
-    const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-tab-panel]"));
-    if (panels.length === 0) return;
-
-    const show = (value: string) => {
-      panels.forEach((p) => {
-        p.style.display = p.dataset.tabPanel === value ? "" : "none";
-      });
-    };
-
-    const activeTab = document.querySelector<HTMLElement>(".line-tabs .line-tab.active");
-    show(activeTab?.dataset.tab ?? panels[0]?.dataset.tabPanel ?? "");
-
     const onTabChange = (e: Event) => {
       const value = (e as CustomEvent<{ value: string }>).detail?.value;
-      if (value) show(value);
+      if (value) setActiveTab(value);
     };
     document.addEventListener("admin:tab-change", onTabChange as EventListener);
     return () => document.removeEventListener("admin:tab-change", onTabChange as EventListener);
@@ -286,12 +292,15 @@ export function SettingsTabPanels() {
       seo_title: seoTitle,
       seo_description: seoDescription,
       og_image: ogImage,
+      favicon_url: faviconUrl,
     });
   }
 
   async function saveContent() {
     await saveSettings({
       content_retention_days: contentRetentionDays,
+      popular_post_metric: popularPostMetric,
+      popular_resource_metric: popularResourceMetric,
     });
   }
 
@@ -313,6 +322,33 @@ export function SettingsTabPanels() {
     });
   }
 
+  // ── 이미지 업로드 (OG / 파비콘) ─────────────────────────────────────────────
+
+  async function uploadSettingImage(
+    field: "og_image" | "favicon_url",
+    file: File,
+  ): Promise<void> {
+    const setUploading = field === "og_image" ? setOgImageUploading : setFaviconUploading;
+    const setter = field === "og_image" ? setOgImage : setFaviconUrl;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/settings/upload-image`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("업로드 실패");
+      const data = (await res.json()) as { url: string };
+      setter(data.url);
+    } catch {
+      setToast({ message: "이미지 업로드에 실패했습니다.", type: "error" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--gray-400)" }}>
@@ -321,12 +357,6 @@ export function SettingsTabPanels() {
     );
   }
 
-  // settings가 로드됐으면 빈 div를 반환하되, 필드 제어는 각 섹션 직접 조작 대신
-  // 이 컴포넌트 내부에서 DOM을 직접 관리한다.
-  // 단, 실제 패널 섹션들은 page.tsx의 SSR 마크업에 있으므로
-  // 이 컴포넌트는 그 섹션들의 input 값을 React state로 제어할 수 없다.
-  // 따라서 설정 패널들을 이 컴포넌트 내에서 직접 렌더링한다.
-
   return (
     <>
       {toast && (
@@ -334,7 +364,12 @@ export function SettingsTabPanels() {
       )}
 
       {/* ── 기본 설정 패널 ── */}
-      <section className="section" data-tab-panel="basic" aria-label="기본 설정">
+      <section
+        className="section"
+        data-tab-panel="basic"
+        aria-label="기본 설정"
+        style={{ display: activeTab === "basic" ? "" : "none" }}
+      >
         <div className="section-heading">
           <div>
             <h2 className="section-title">기본 설정</h2>
@@ -406,16 +441,103 @@ export function SettingsTabPanels() {
           </div>
 
           <div className="field">
-            <label className="field-label" htmlFor="ogImage">기본 OG 이미지 URL</label>
-            <input
-              className="control"
-              id="ogImage"
-              type="text"
-              placeholder="https://aijakdang.com/og-image.png"
-              value={ogImage}
-              onChange={(e) => setOgImage(e.target.value)}
-            />
-            <div className="field-help">SNS 공유 시 표시될 대표 이미지 URL입니다(권장 1200×630px).</div>
+            <label className="field-label">기본 OG 이미지</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="control"
+                type="text"
+                readOnly
+                value={ogImage}
+                placeholder="이미지를 업로드하면 URL이 자동 입력됩니다"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={ogImageUploading}
+                onClick={() => ogImageInputRef.current?.click()}
+              >
+                <i className="ri-upload-2-line" />
+                {ogImageUploading ? "업로드 중..." : "업로드"}
+              </button>
+              <input
+                ref={ogImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  await uploadSettingImage("og_image", file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {ogImage && (
+              <div style={{ marginTop: 8 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ogImage}
+                  alt="OG 이미지 미리보기"
+                  style={{ maxWidth: 240, maxHeight: 126, border: "1px solid var(--gray-200)", borderRadius: 4, objectFit: "contain" }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            )}
+            <div className="field-help">SNS 공유 시 표시될 대표 이미지입니다(권장 1200×630px).</div>
+          </div>
+
+          <div className="field">
+            <label className="field-label">파비콘(Favicon)</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="control"
+                type="text"
+                readOnly
+                value={faviconUrl}
+                placeholder="이미지를 업로드하면 URL이 자동 입력됩니다"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={faviconUploading}
+                onClick={() => faviconInputRef.current?.click()}
+              >
+                <i className="ri-upload-2-line" />
+                {faviconUploading ? "업로드 중..." : "업로드"}
+              </button>
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/x-icon,image/svg+xml"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  await uploadSettingImage("favicon_url", file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {faviconUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={faviconUrl}
+                  alt="파비콘 미리보기"
+                  width={32}
+                  height={32}
+                  style={{ border: "1px solid var(--gray-200)", borderRadius: 4, objectFit: "contain" }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+                <span style={{ fontSize: 12, color: "var(--gray-500)" }}>미리보기</span>
+              </div>
+            )}
+            <div className="field-help">
+              브라우저 탭·북마크에 표시되는 사이트 아이콘입니다. .ico / .png / .svg를 지원합니다.
+              변경 후 저장하면 웹 메타데이터에 즉시 반영됩니다.
+            </div>
           </div>
         </div>
 
@@ -440,7 +562,7 @@ export function SettingsTabPanels() {
         className="section"
         data-tab-panel="content"
         aria-label="콘텐츠 설정"
-        style={{ display: "none" }}
+        style={{ display: activeTab === "content" ? "" : "none" }}
       >
         <div className="section-heading">
           <div>
@@ -468,6 +590,43 @@ export function SettingsTabPanels() {
               </div>
             </div>
           </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label">인기 게시글 기준 지표</label>
+              <Select
+                id="popularPostMetric"
+                value={popularPostMetric}
+                onChange={setPopularPostMetric}
+                options={[
+                  { value: "views", label: "조회수" },
+                  { value: "likes", label: "좋아요" },
+                  { value: "comments", label: "댓글수" },
+                  { value: "recent", label: "최신순" },
+                ]}
+              />
+              <div className="field-help">
+                인기 게시글 순위 집계 기준입니다. Redis 캐시 만료(최대 1시간) 후 반영됩니다.
+              </div>
+            </div>
+            <div className="field">
+              <label className="field-label">인기 자료 기준 지표</label>
+              <Select
+                id="popularResourceMetric"
+                value={popularResourceMetric}
+                onChange={setPopularResourceMetric}
+                options={[
+                  { value: "downloads", label: "다운로드수" },
+                  { value: "views", label: "조회수" },
+                  { value: "rating", label: "평점" },
+                  { value: "recent", label: "최신순" },
+                ]}
+              />
+              <div className="field-help">
+                인기 실전자료 순위 집계 기준입니다. Redis 캐시 만료(최대 1시간) 후 반영됩니다.
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="filter-actions" style={{ justifyContent: "flex-end", marginTop: 16 }}>
@@ -491,7 +650,7 @@ export function SettingsTabPanels() {
         className="section"
         data-tab-panel="file"
         aria-label="파일 설정"
-        style={{ display: "none" }}
+        style={{ display: activeTab === "file" ? "" : "none" }}
       >
         <div className="section-heading">
           <div>
@@ -577,7 +736,7 @@ export function SettingsTabPanels() {
         className="section"
         data-tab-panel="report"
         aria-label="신고 설정"
-        style={{ display: "none" }}
+        style={{ display: activeTab === "report" ? "" : "none" }}
       >
         <div className="section-heading">
           <div>

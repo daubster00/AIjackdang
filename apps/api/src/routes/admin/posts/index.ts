@@ -33,8 +33,85 @@ import {
   updatePostSeo,
   bulkPostAction,
 } from "./service.js";
+import {
+  uploadPostAttachments,
+  AttachmentValidationError,
+  type UploadedAttachmentData,
+} from "../../v1/posts/attachments.service.js";
 
 export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<void> {
+  // ── POST /api/v1/admin/posts/attachments — 관리자 게시글 첨부 업로드 ───────────
+  // 유저용 POST /posts/attachments 와 동일 로직(공개 버킷 업로드·확장자 검증)이나
+  // 관리자 세션(adminGuardHook)으로만 접근. 반환된 files 를 POST /admin/posts 본문에 포함.
+  const ADMIN_ATTACH_MAX_FILES = 5;
+  const ADMIN_ATTACH_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+  app.post("/admin/posts/attachments", async (request, reply) => {
+    const collected: UploadedAttachmentData[] = [];
+    try {
+      const parts = (request as typeof request & {
+        files: (opts: { limits: { fileSize: number; files: number } }) => AsyncIterable<{
+          filename?: string;
+          mimetype: string;
+          file: AsyncIterable<Buffer> & { resume: () => void };
+        }>;
+      }).files({ limits: { fileSize: ADMIN_ATTACH_MAX_SIZE, files: ADMIN_ATTACH_MAX_FILES } });
+
+      for await (const part of parts) {
+        const chunks: Buffer[] = [];
+        let totalSize = 0;
+        let truncated = false;
+        for await (const chunk of part.file) {
+          totalSize += chunk.length;
+          if (totalSize > ADMIN_ATTACH_MAX_SIZE) {
+            truncated = true;
+            part.file.resume();
+            break;
+          }
+          chunks.push(chunk as Buffer);
+        }
+        if (truncated) {
+          return reply.code(400).send({
+            error: { code: "FILE_TOO_LARGE", message: `파일 크기 초과: ${part.filename ?? "unknown"} (최대 10MB)` },
+          });
+        }
+        collected.push({
+          originalName: part.filename ?? "unknown",
+          mimetype: part.mimetype,
+          buffer: Buffer.concat(chunks),
+          size: totalSize,
+        });
+        if (collected.length > ADMIN_ATTACH_MAX_FILES) {
+          return reply.code(400).send({
+            error: { code: "TOO_MANY_FILES", message: `첨부파일은 최대 ${ADMIN_ATTACH_MAX_FILES}개까지 가능합니다.` },
+          });
+        }
+      }
+    } catch (err) {
+      const error = err as Error;
+      if (error.message?.includes("limit") || error.message?.includes("files")) {
+        return reply.code(400).send({
+          error: { code: "TOO_MANY_FILES", message: `첨부파일은 최대 ${ADMIN_ATTACH_MAX_FILES}개까지 가능합니다.` },
+        });
+      }
+      throw err;
+    }
+
+    if (collected.length === 0) {
+      return reply.code(400).send({ error: { code: "NO_FILES", message: "업로드할 파일이 없습니다." } });
+    }
+
+    try {
+      const files = await uploadPostAttachments(collected);
+      return reply.code(201).send({ files });
+    } catch (err) {
+      if (err instanceof AttachmentValidationError) {
+        return reply.code(400).send({ error: { code: err.code, message: err.message } });
+      }
+      throw err;
+    }
+  });
+
   // ── POST /api/v1/admin/posts — 공지 작성 (Story 9.17, admin 전용) ─────────────
   // ADR-0003: admin_users ↔ users 완전 분리. 공지 posts.user_id = null.
   // 작성자는 "(운영자)"로 표시된다. 관리자 세션은 adminGuardHook 이 이미 검증했다.
@@ -50,6 +127,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
       isPinned?: boolean;
       isFeatured?: boolean;
       isMainFeatured?: boolean;
+      attachments?: { url: string; name: string; size: number; mimeType: string }[];
     };
 
     if (!body?.title || typeof body.title !== "string" || !body.title.trim()) {
@@ -75,6 +153,7 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
         isPinned: body.isPinned === true,
         isFeatured: body.isFeatured === true,
         isMainFeatured: body.isMainFeatured === true,
+        attachments: Array.isArray(body.attachments) ? body.attachments : [],
       });
       return reply.status(201).send(result);
     } catch (err) {

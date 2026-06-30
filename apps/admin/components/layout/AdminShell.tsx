@@ -71,7 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
         label: "관리회원 관리",
         children: [
           { key: "admin-members-list", href: "/admin-members", icon: "ri-group-line", label: "관리회원", subKey: "" },
-          { key: "admin-members-grades", href: "/admin-members/grades", icon: "ri-award-line", label: "등급 설정", subKey: "grades" },
+          { key: "admin-members-grades", href: "/admin-members/grades", icon: "ri-award-line", label: "관리자 역할", subKey: "grades" },
           { key: "admin-members-perms", href: "/admin-members/permissions", icon: "ri-key-2-line", label: "권한 설정", subKey: "permissions" },
         ],
       },
@@ -81,7 +81,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Engagement",
     items: [
       { key: "points", href: "/points", icon: "ri-copper-coin-line", label: "포인트 관리" },
-      { key: "ranks", href: "/ranks", icon: "ri-medal-line", label: "등급·뱃지 관리" },
+      { key: "ranks", href: "/ranks", icon: "ri-medal-line", label: "등급 관리" },
     ],
   },
   {

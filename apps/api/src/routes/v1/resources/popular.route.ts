@@ -18,6 +18,22 @@ import { errorResponseSchema } from "@ai-jakdang/contracts";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { getApiRedis } from "../../../lib/redis.js";
 import { MAIN_RESOURCES_POPULAR } from "../../../lib/cache.js";
+import { getSiteSetting } from "../../../lib/siteSettings.js";
+
+/** 인기 자료 기준 지표(popular_resource_metric) → 정렬 컬럼 매핑 */
+function resourceMetricColumn(metric: string | null) {
+  switch (metric) {
+    case "views":
+      return schema.resources.viewCount;
+    case "rating":
+      return schema.resources.avgRating;
+    case "recent":
+      return schema.resources.createdAt;
+    case "downloads":
+    default:
+      return schema.resources.downloadCount;
+  }
+}
 
 /** resourceType → 배지 tone 매핑 */
 const RESOURCE_TYPE_TONE: Record<string, string> = {
@@ -75,6 +91,9 @@ export async function registerPopularResourcesRoute(app: FastifyInstance): Promi
       // ── DB 조회 ──────────────────────────────────────────────────────────────
       const db = getDb();
 
+      // 관리자 사이트 설정의 인기 자료 기준 지표 적용 (기본: 다운로드수)
+      const metric = await getSiteSetting<string>("popular_resource_metric");
+
       const rows = await db
         .select({
           id: schema.resources.id,
@@ -92,7 +111,7 @@ export async function registerPopularResourcesRoute(app: FastifyInstance): Promi
             isNull(schema.resources.deletedAt),
           ),
         )
-        .orderBy(desc(schema.resources.downloadCount))
+        .orderBy(desc(resourceMetricColumn(metric)))
         .limit(limit);
 
       const items = rows.map((r) => ({

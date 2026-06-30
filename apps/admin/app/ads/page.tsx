@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Select } from "@/components/ui/Select";
+import { RowActionMenu } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
+import { notifyDialog } from "@/lib/dialog";
 import type { AdminAdSlotItem } from "@ai-jakdang/contracts";
 
 /**
@@ -284,38 +287,22 @@ function AdFormDrawer({
 
             <div className="form-grid">
               <div className="field">
-                <label className="field-label" htmlFor="adType">
-                  광고 유형
-                </label>
-                <select
-                  className="control"
+                <Select
+                  label="광고 유형"
                   id="adType"
                   value={form.adType}
-                  onChange={(e) => set("adType", e.target.value)}
-                >
-                  {Object.entries(TYPE_LABEL).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("adType", v)}
+                  options={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+                />
               </div>
               <div className="field">
-                <label className="field-label" htmlFor="adPlacement">
-                  노출 위치
-                </label>
-                <select
-                  className="control"
+                <Select
+                  label="노출 위치"
                   id="adPlacement"
                   value={form.placement}
-                  onChange={(e) => set("placement", e.target.value)}
-                >
-                  {PLACEMENTS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("placement", v)}
+                  options={PLACEMENTS}
+                />
               </div>
             </div>
 
@@ -483,14 +470,8 @@ function AdsPageContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editAd, setEditAd] = useState<AdminAdSlotItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminAdSlotItem | null>(null);
-  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
 
   const PAGE_SIZE = 20;
-
-  const showToast = (msg: string, undo?: () => void) => {
-    setToast({ msg, undo });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
@@ -551,18 +532,9 @@ function AdsPageContent() {
       if (!res.ok) throw new Error("토글 실패");
       const wasActive = ad.isActive;
       await fetchAds();
-      showToast(
-        wasActive ? "광고가 비활성화되었습니다." : "광고가 활성화되었습니다.",
-        async () => {
-          await fetch(`${API_BASE_URL}/api/v1/admin/ads/${ad.id}/toggle`, {
-            method: "PATCH",
-            credentials: "include",
-          });
-          fetchAds();
-        },
-      );
+      void notifyDialog(wasActive ? "광고가 비활성화되었습니다." : "광고가 활성화되었습니다.");
     } catch {
-      showToast("토글에 실패했습니다.");
+      void notifyDialog("토글에 실패했습니다.", "danger");
     }
   };
 
@@ -577,9 +549,9 @@ function AdsPageContent() {
       if (!res.ok) throw new Error("삭제 실패");
       setDeleteTarget(null);
       await fetchAds();
-      showToast("광고가 삭제되었습니다.");
+      void notifyDialog("광고가 삭제되었습니다.");
     } catch {
-      showToast("삭제에 실패했습니다.");
+      void notifyDialog("삭제에 실패했습니다.", "danger");
     }
   };
 
@@ -587,24 +559,6 @@ function AdsPageContent() {
 
   return (
     <AdminShell breadcrumb={["관리자", "광고 관리"]} activeKey="ads" adminUser={session as Parameters<typeof AdminShell>[0]["adminUser"]}>
-      {/* 토스트 */}
-      {toast && (
-        <div className="toast-stack" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 9999 }}>
-          <div className="toast">
-            <span>{toast.msg}</span>
-            {toast.undo && (
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => { toast.undo?.(); setToast(null); }}
-                style={{ marginLeft: 12 }}
-              >
-                되돌리기
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {!isSuperAdmin ? (
         <div className="alert alert-error">
           <i className="ri-lock-line" />
@@ -674,47 +628,36 @@ function AdsPageContent() {
                       onChange={(e) => { setQ(e.target.value); setPage(1); }}
                     />
                   </div>
-                  <select
-                    className="control"
+                  <Select
                     value={placementFilter}
-                    onChange={(e) => { setPlacementFilter(e.target.value); setPage(1); }}
-                    aria-label="위치 필터"
-                    style={{ minWidth: 140 }}
-                  >
-                    <option value="">위치: 전체</option>
-                    {PLACEMENTS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="control"
+                    onChange={(v) => { setPlacementFilter(v); setPage(1); }}
+                    placeholder="위치: 전체"
+                    options={[
+                      { value: "", label: "위치: 전체" },
+                      ...PLACEMENTS,
+                    ]}
+                  />
+                  <Select
                     value={adTypeFilter}
-                    onChange={(e) => { setAdTypeFilter(e.target.value); setPage(1); }}
-                    aria-label="유형 필터"
-                    style={{ minWidth: 120 }}
-                  >
-                    <option value="">유형: 전체</option>
-                    {Object.entries(TYPE_LABEL).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="control"
+                    onChange={(v) => { setAdTypeFilter(v); setPage(1); }}
+                    placeholder="유형: 전체"
+                    options={[
+                      { value: "", label: "유형: 전체" },
+                      ...Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l })),
+                    ]}
+                  />
+                  <Select
                     value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                    aria-label="상태 필터"
-                    style={{ minWidth: 120 }}
-                  >
-                    <option value="">상태: 전체</option>
-                    <option value="active">노출중</option>
-                    <option value="scheduled">예약</option>
-                    <option value="inactive">일시중지</option>
-                    <option value="expired">종료</option>
-                  </select>
+                    onChange={(v) => { setStatusFilter(v); setPage(1); }}
+                    placeholder="상태: 전체"
+                    options={[
+                      { value: "", label: "상태: 전체" },
+                      { value: "active", label: "노출중" },
+                      { value: "scheduled", label: "예약" },
+                      { value: "inactive", label: "일시중지" },
+                      { value: "expired", label: "종료" },
+                    ]}
+                  />
                   <div className="filter-actions">
                     <button
                       className="btn btn-outline"
@@ -803,37 +746,15 @@ function AdsPageContent() {
                             <td className="num">{formatNum(ad.totalClicks)}</td>
                             <td className="num">{formatCtr(ad.ctr)}</td>
                             <td>
-                              <div className="row-actions">
-                                <button
-                                  className="icon-button row-action-button"
-                                  aria-label="행 메뉴"
-                                >
-                                  <i className="ri-more-2-fill" />
-                                </button>
-                                <div className="action-menu">
-                                  <Link href={`/ads/${ad.id}`}>
-                                    <i className="ri-bar-chart-line" />
-                                    성과 보기
-                                  </Link>
-                                  <button
-                                    onClick={() => { setEditAd(ad); setDrawerOpen(true); }}
-                                  >
-                                    <i className="ri-edit-line" />
-                                    수정
-                                  </button>
-                                  <button onClick={() => handleToggle(ad)}>
-                                    <i className="ri-stop-circle-line" />
-                                    {ad.isActive ? "중지" : "활성화"}
-                                  </button>
-                                  <button
-                                    className="danger"
-                                    onClick={() => setDeleteTarget(ad)}
-                                  >
-                                    <i className="ri-delete-bin-line" />
-                                    삭제
-                                  </button>
-                                </div>
-                              </div>
+                              <RowActionMenu
+                                items={[
+                                  { label: "성과 보기", icon: "ri-bar-chart-line", href: `/ads/${ad.id}` },
+                                  { label: "수정", icon: "ri-edit-line", onClick: () => { setEditAd(ad); setDrawerOpen(true); } },
+                                  { label: ad.isActive ? "중지" : "활성화", icon: "ri-stop-circle-line", onClick: () => handleToggle(ad) },
+                                  { label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteTarget(ad) },
+                                ]}
+                                ariaLabel="광고 관리 메뉴"
+                              />
                             </td>
                           </tr>
                         );

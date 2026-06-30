@@ -6,7 +6,6 @@ import { sendMail, isSmtpConfigured } from "./mailer.js";
 import { viewFlushProcessor } from "./processors/view.flush.js";
 import { processResourceScan } from "./processors/resource-scan.processor.js"; // Story 4.5
 import { gradeUpProcessor } from "./processors/gradeUp.processor.js"; // Story 6.3
-import { badgeCheckProcessor } from "./processors/badgeCheck.processor.js"; // Story 6.4
 import { rankingComputeProcessor } from "./processors/rankingCompute.processor.js"; // Story 6.5
 import { setupRankingCron } from "./schedules/ranking.cron.js"; // Story 6.5
 import { ogFetchProcessor } from "./processors/og-fetch.js"; // Story 8.6
@@ -179,12 +178,8 @@ function startWorkers(): Worker[] {
   );
   // ── [5.4] notifications worker END ───────────────────────────────────────
 
-  // ── [6.3] ranking worker ─────────────────────────────────────────────────
+  // ── [6.3/6.5] ranking worker ─────────────────────────────────────────────────
   // gamification.grade-up 잡 처리: 등급 변동 감지 → notifications 큐에 grade.level-up 발행
-  // ── [6.4] job.name 디스패처로 리팩터:
-  //    - gamification.grade-up  → gradeUpProcessor
-  //    - gamification.badge-check → badgeCheckProcessor
-  //    6.5에서 ranking.compute 잡이 이 라우터에 추가될 예정
   const rankingConnection = createConnection();
 
   /**
@@ -195,8 +190,6 @@ function startWorkers(): Worker[] {
     switch (job.name) {
       case "gamification.grade-up":
         return gradeUpProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").GradeUpJobPayload>);
-      case "gamification.badge-check":
-        return badgeCheckProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").BadgeCheckJobPayload>);
       // ── [6.5] ranking.compute ────────────────────────────────────────────────
       case "ranking.compute":
         return rankingComputeProcessor(job as import("bullmq").Job<import("@ai-jakdang/contracts").RankingComputeJobPayload>);
@@ -219,7 +212,7 @@ function startWorkers(): Worker[] {
   rankingWorker.on("failed", (job, error) =>
     console.error(`[ranking-worker] job 실패 ${job?.id}:`, error.message),
   );
-  // ── [6.3/6.4] ranking worker END ─────────────────────────────────────────
+  // ── [6.3/6.5] ranking worker END ─────────────────────────────────────────
 
   // ── [8.6] og-fetch worker ─────────────────────────────────────────────────
   // link_previews 테이블에 OG 메타를 upsert한다.

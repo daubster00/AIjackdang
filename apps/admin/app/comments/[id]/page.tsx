@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState, use } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { API_BASE_URL } from "../../../lib/api";
 import { getCrossLink } from "../../../lib/contentCrossLink";
+import { notifyDialog } from "@/lib/dialog";
 import type { AdminCommentItem } from "@ai-jakdang/contracts/admin/comments";
+// ⚠️ AdminCommentItem 계약에 아바타 필드 없음(authorAvatarUrl/image/defaultAvatarIndex).
+// 댓글 API에서 해당 필드를 추가해야 실제 프로필 사진이 표시된다.
 
 /**
  * 댓글·후기 상세 페이지 (Story 9.9).
@@ -54,37 +58,6 @@ function formatDateTime(iso: string): string {
   return iso.slice(0, 16).replace("T", " ");
 }
 
-// ── 토스트 ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div
-      style={{
-        position: "fixed", bottom: 24, right: 24, zIndex: 99999,
-        background: type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
-        color: "#fff", borderRadius: 8, padding: "12px 20px",
-        fontSize: 14, boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        display: "flex", alignItems: "center", gap: 10,
-      }}
-    >
-      <i className={type === "success" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
-      {message}
-      <button
-        onClick={onClose}
-        style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", marginLeft: 8 }}
-        aria-label="닫기"
-      >
-        <i className="ri-close-line" />
-      </button>
-    </div>
-  );
-}
-
 // ── 삭제 확인 모달 ──────────────────────────────────────────────────────────────
 
 function DeleteModal({
@@ -104,7 +77,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -152,12 +125,7 @@ export default function CommentDetailPage({
   const [comment, setComment] = useState<AdminCommentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
-
-  function showToast(message: string, type: "success" | "error") {
-    setToast({ message, type });
-  }
 
   // 댓글 조회 (단건 엔드포인트 없으므로 목록에서 필터링)
   useEffect(() => {
@@ -198,12 +166,12 @@ export default function CommentDetailPage({
         method: "PATCH",
         credentials: "include",
       });
-      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (res.status === 403) { void notifyDialog("권한이 없습니다.", "danger"); return; }
       if (!res.ok) throw new Error();
-      showToast("댓글이 숨김 처리되었습니다.", "success");
+      void notifyDialog("댓글이 숨김 처리되었습니다.");
       if (comment) setComment({ ...comment, status: "hidden" });
     } catch {
-      showToast("숨김 처리 중 오류가 발생했습니다.", "error");
+      void notifyDialog("숨김 처리 중 오류가 발생했습니다.", "danger");
     }
   }
 
@@ -214,16 +182,16 @@ export default function CommentDetailPage({
         method: "DELETE",
         credentials: "include",
       });
-      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
+      if (res.status === 403) { void notifyDialog("최고 관리자(super_admin) 권한이 필요합니다.", "danger"); return; }
       if (!res.ok) throw new Error();
-      showToast("댓글이 삭제되었습니다.", "success");
+      void notifyDialog("댓글이 삭제되었습니다.");
       if (comment) setComment({ ...comment, status: "deleted" });
     } catch {
-      showToast("삭제 중 오류가 발생했습니다.", "error");
+      void notifyDialog("삭제 중 오류가 발생했습니다.", "danger");
     }
   }
 
-  const crossLink = comment ? getCrossLink(comment.targetType, comment.targetId) : null;
+  const crossLink = comment ? getCrossLink(comment.targetType, comment.targetId, comment.targetBoard) : null;
 
   return (
     <AdminShell breadcrumb={["관리자", "댓글·후기 관리", "댓글 상세"]} activeKey="comments">
@@ -287,7 +255,18 @@ export default function CommentDetailPage({
                 </div>
                 <div className="detail-row">
                   <div className="detail-label">작성자</div>
-                  <div className="detail-value">{comment.authorNickname ?? "(탈퇴)"}</div>
+                  <div className="detail-value">
+                    <div className="author">
+                      <UserAvatar
+                        avatarUrl={(comment as AdminCommentItem & { authorAvatarUrl?: string | null }).authorAvatarUrl}
+                        image={(comment as AdminCommentItem & { authorImage?: string | null }).authorImage}
+                        defaultAvatarIndex={(comment as AdminCommentItem & { authorDefaultAvatarIndex?: number | null }).authorDefaultAvatarIndex ?? 0}
+                        alt={comment.authorNickname ?? "?"}
+                        size={24}
+                      />
+                      <span>{comment.authorNickname ?? "(탈퇴)"}</span>
+                    </div>
+                  </div>
                 </div>
                 {comment.derivedType === "후기" && (
                   <div className="detail-row">
@@ -350,9 +329,6 @@ export default function CommentDetailPage({
         />
       )}
 
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
     </AdminShell>
   );
 }

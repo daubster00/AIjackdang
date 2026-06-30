@@ -97,6 +97,40 @@ export const adminUserBadgeItemSchema = z.object({
 });
 export type AdminUserBadgeItem = z.infer<typeof adminUserBadgeItemSchema>;
 
+// ── 활동내역 탭 아이템 ─────────────────────────────────────────────────────────
+
+/** 회원 상세 - 최근 게시글 항목 */
+export const adminUserRecentPostItemSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  slug: z.string(),
+  status: z.string(),
+  createdAt: z.string(),
+  /** DB posts.board 값 (예: "vibe-coding-guide"). 관리자 상세 URL 구성에 사용. */
+  board: z.string(),
+});
+export type AdminUserRecentPostItem = z.infer<typeof adminUserRecentPostItemSchema>;
+
+/** 회원 상세 - 최근 댓글 항목 */
+export const adminUserRecentCommentItemSchema = z.object({
+  id: z.string().uuid(),
+  targetType: z.string(),
+  targetId: z.string(),
+  content: z.string(),
+  createdAt: z.string(),
+  /** 댓글 대상이 게시글(post)인 경우 DB posts.board 값. 상세 URL 구성에 사용. */
+  board: z.string().nullable(),
+});
+export type AdminUserRecentCommentItem = z.infer<typeof adminUserRecentCommentItemSchema>;
+
+/** 회원 상세 - 로그인 세션 항목 */
+export const adminUserLoginSessionItemSchema = z.object({
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  expiresAt: z.string(),
+});
+export type AdminUserLoginSessionItem = z.infer<typeof adminUserLoginSessionItemSchema>;
+
 // ── 회원 상세 응답 ──────────────────────────────────────────────────────────────
 
 export const adminUserMemberDetailSchema = z.object({
@@ -121,8 +155,10 @@ export const adminUserMemberDetailSchema = z.object({
   reportCount: z.number(),
   /** 제재 이력 */
   sanctions: z.array(adminUserSanctionItemSchema),
-  /** 보유 뱃지 */
-  badges: z.array(adminUserBadgeItemSchema),
+  /** 활동내역 탭 데이터 (#22) */
+  recentPosts: z.array(adminUserRecentPostItemSchema),
+  recentComments: z.array(adminUserRecentCommentItemSchema),
+  loginSessions: z.array(adminUserLoginSessionItemSchema),
 });
 export type AdminUserMemberDetail = z.infer<typeof adminUserMemberDetailSchema>;
 

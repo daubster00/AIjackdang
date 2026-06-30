@@ -80,6 +80,13 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **로딩**: 첫 로드·섹션=`Skeleton`(레이아웃 일치) / 액션 대기=`Spinner`·버튼 내 로딩. **버튼에 Skeleton 금지.** 빈 상태=`EmptyState`(원인+다음 행동 1개). **무한 스크롤 금지 → `Pagination`.**
 - **행동 게이팅**: 읽기 개방, 행동(다운로드·작성·반응·쪽지·신고)은 로그인 필요. 비회원은 차단 화면이 아니라 **로그인 유도 모달** + URL `redirectTo`로 복귀(메모리 콜백 금지).
 
+### 신고·제재 모더레이션 (Epic 12 — 절대 규칙)
+- **신고 대상엔 회원(`user`)도 포함**(`report_target_type` enum). 콘텐츠 신고와 회원 신고는 **사유 세트가 분리**(혼용 금지). 자기 자신 신고 불가, 동일 대상 중복 신고 차단.
+- **신고 누적은 "처리완료(`resolved`)된 신고" 기준으로만 카운트**한다. 단순 접수(pending) 수로 제재를 트리거하면 허위 다수신고(브리게이딩)에 악용되므로 **금지**.
+- **신고 누적 자동화의 상한은 "자동 경고(warning) + 검토 큐 에스컬레이션"까지.** 자동 일시정지/영구정지는 **절대 생성하지 않는다** — 정지 이상은 운영자 수동 판단(UX-DR-A4 위험 모달).
+- 임계치·자동경고는 **사이트 설정값**(`report_escalation_threshold` 기본 5·`report_auto_warning_enabled` 기본 OFF)으로 제어. 하드코딩 금지.
+- 모든 제재(경고 포함) 부여 시 당사자에게 **알림 통보**(사유·종료일). 제재 엔진은 Epic 9.12 `user_sanctions`·`sanctionMember` 재사용(신규 테이블 만들지 말 것).
+
 ### SEO (NFR-1, 모든 렌더링의 최상위 제약)
 - 공개 페이지는 SSR(서버 컴포넌트 우선). 페이지별 `generateMetadata`(메타·canonical·OG) + 유형별 JSON-LD(Article/QAPage/SoftwareSourceCode/ProfilePage/BreadcrumbList). `sitemap.xml`/`robots.txt` 자동 생성. 공지(`/notice`)도 Article JSON-LD 초기 포함. URL은 초기 고정(검색 유입 보호).
 

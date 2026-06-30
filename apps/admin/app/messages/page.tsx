@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "@/lib/api";
 
 /**
@@ -18,8 +20,14 @@ interface MessageAdminRow {
   id: string;
   senderId: string;
   senderNickname: string;
+  senderAvatarUrl: string | null;
+  senderImage: string | null;
+  senderDefaultAvatarIndex: number;
   receiverId: string;
   receiverNickname: string;
+  receiverAvatarUrl: string | null;
+  receiverImage: string | null;
+  receiverDefaultAvatarIndex: number;
   bodyPreview: string;
   createdAt: string;
   hiddenByAdmin: boolean;
@@ -72,7 +80,7 @@ function RestrictModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -137,7 +145,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -559,13 +567,25 @@ function AdminMessagesContent() {
                           </td>
                           <td>
                             <div className="author">
-                              <span className="author-avatar">{m.senderNickname.slice(0, 1)}</span>
+                              <UserAvatar
+                                size={28}
+                                alt={m.senderNickname}
+                                avatarUrl={m.senderAvatarUrl}
+                                image={m.senderImage}
+                                defaultAvatarIndex={m.senderDefaultAvatarIndex}
+                              />
                               <span>{m.senderNickname}</span>
                             </div>
                           </td>
                           <td>
                             <div className="author">
-                              <span className="author-avatar">{m.receiverNickname.slice(0, 1)}</span>
+                              <UserAvatar
+                                size={28}
+                                alt={m.receiverNickname}
+                                avatarUrl={m.receiverAvatarUrl}
+                                image={m.receiverImage}
+                                defaultAvatarIndex={m.receiverDefaultAvatarIndex}
+                              />
                               <span>{m.receiverNickname}</span>
                             </div>
                           </td>
@@ -581,40 +601,17 @@ function AdminMessagesContent() {
                           </td>
                           <td className="num">{formatDate(m.createdAt)}</td>
                           <td>
-                            <div className="row-actions">
-                              <button className="icon-button row-action-button" aria-label="행 메뉴">
-                                <i className="ri-more-2-fill" />
-                              </button>
-                              <div className="action-menu">
-                                <Link href={`/messages/${m.id}`}>
-                                  <i className="ri-eye-line" />원문보기
-                                </Link>
-                                {m.hiddenByAdmin ? (
-                                  <button type="button" onClick={() => handleUnhide(m.id)}>
-                                    <i className="ri-eye-line" />숨김 복구
-                                  </button>
-                                ) : (
-                                  <button type="button" onClick={() => handleHide(m.id)}>
-                                    <i className="ri-eye-off-line" />숨김
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => setRestrictModal({ messageId: m.id, senderNickname: m.senderNickname })}
-                                >
-                                  <i className="ri-user-forbid-line" />발신제한
-                                </button>
-                                {isSuperAdmin && (
-                                  <button
-                                    className="danger"
-                                    type="button"
-                                    onClick={() => setSingleDeleteId(m.id)}
-                                  >
-                                    <i className="ri-delete-bin-line" />삭제
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                            <RowActionMenu
+                              items={[
+                                { label: "원문보기", icon: "ri-eye-line", href: `/messages/${m.id}` },
+                                ...(m.hiddenByAdmin
+                                  ? [{ label: "숨김 복구", icon: "ri-eye-line", onClick: () => handleUnhide(m.id) } as RowActionItem]
+                                  : [{ label: "숨김", icon: "ri-eye-off-line", onClick: () => handleHide(m.id) } as RowActionItem]),
+                                { label: "발신제한", icon: "ri-user-forbid-line", onClick: () => setRestrictModal({ messageId: m.id, senderNickname: m.senderNickname }) },
+                                ...(isSuperAdmin ? [{ label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setSingleDeleteId(m.id) } as RowActionItem] : []),
+                              ]}
+                              ariaLabel="쪽지 관리 메뉴"
+                            />
                           </td>
                         </tr>
                       );

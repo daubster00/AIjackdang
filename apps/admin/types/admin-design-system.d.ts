@@ -3,7 +3,10 @@
  * 패키지는 순수 JS(타입 없음)라서, 관리자 앱에서 import 할 때 필요한 최소 타입만 둔다.
  */
 declare module "@ai-jakdang/admin-design-system/js" {
-  export function initSelects(root?: Document | HTMLElement): void;
+  export function initSelects(
+    root?: Document | HTMLElement,
+    options?: { reactSafe?: boolean },
+  ): void;
   export function initTabs(root?: Document | HTMLElement): void;
   export function initTables(root?: Document | HTMLElement): void;
   export function initOverlay(root?: Document | HTMLElement): {
@@ -12,7 +15,10 @@ declare module "@ai-jakdang/admin-design-system/js" {
   };
 
   /** 사이드바·셀렉트·오버레이·토스트·탭·테이블 등 공통 인터랙션을 한 번에 연결한다. */
-  export function initAdminUI(root?: Document | HTMLElement): {
+  export function initAdminUI(
+    root?: Document | HTMLElement,
+    options?: { reactSafe?: boolean },
+  ): {
     overlay: { open(id: string): void; closeAll(): void };
     toast: (title: string, desc?: string, type?: "success" | "error") => void;
   };

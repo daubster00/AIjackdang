@@ -25,7 +25,19 @@ export function closeAllSelects(root = document) {
   });
 }
 
-export function initSelects(root = document) {
+/**
+ * @param {Document|HTMLElement} root
+ * @param {{ reactSafe?: boolean }} [options]
+ *   reactSafe=true 면 메뉴 열기/닫기(.open 토글)만 연결하고,
+ *   선택표시(.selected)·체크아이콘·트리거 라벨 텍스트·admin:select-change 이벤트 등
+ *   "DOM 내용을 바꾸는" 동작은 모두 건너뛴다.
+ *   → 관리자 앱(React)은 이 표시들을 React 가 직접 렌더하므로, 레거시 JS 가 같은 노드를
+ *     직접 지우거나(insertAdjacentHTML/remove) 텍스트를 바꾸면 React 재조정과 충돌해
+ *     "Failed to execute 'removeChild' on 'Node'" (NotFoundError) 크래시가 난다(묻고답하기 검색 sort 에러).
+ *   순수 HTML 데모(demo/index.html)는 옵션 없이 호출 → 기존 전체 동작 유지.
+ */
+export function initSelects(root = document, options = {}) {
+  const reactSafe = options.reactSafe === true;
   root.querySelectorAll(".custom-select").forEach((select) => {
     if (select.dataset.selectInitialized === "true") return;
     const trigger = select.querySelector(".select-trigger");
@@ -51,6 +63,13 @@ export function initSelects(root = document) {
 
     select.querySelectorAll(".select-option").forEach((option) => {
       option.addEventListener("click", () => {
+        // 메뉴 닫기는 양쪽 모드 공통(레거시 .open 클래스만 토글 — DOM 구조 불변)
+        menu.classList.remove("open");
+        trigger.setAttribute("aria-expanded", "false");
+
+        // React 제어 셀렉트에서는 아래 DOM 변형을 React 가 담당하므로 건너뛴다(충돌 방지).
+        if (reactSafe) return;
+
         select.querySelectorAll(".select-option").forEach((x) => {
           x.classList.remove("selected");
           x.querySelector(".ri-check-line")?.remove();
@@ -62,8 +81,6 @@ export function initSelects(root = document) {
         const label = option.textContent.trim();
         const triggerLabel = trigger.querySelector("span");
         if (triggerLabel) triggerLabel.textContent = label;
-        menu.classList.remove("open");
-        trigger.setAttribute("aria-expanded", "false");
 
         select.dispatchEvent(
           new CustomEvent("admin:select-change", {

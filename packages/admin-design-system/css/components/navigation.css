@@ -82,7 +82,21 @@
   min-height: 49px;
   padding: 0 18px;
   border-bottom: 1px solid var(--gray-200);
-  overflow-x: auto;
+  /* overflow-x:auto 를 주면 CSS 명세상 overflow-y 가 visible→auto 로 계산되어,
+     활성 탭 밑줄(.line-tab.active::after, bottom:-1px)이 1px 넘쳐 우측 끝에
+     얇은 세로 스크롤바가 항상 떠 보인다(N8+#3). 데스크톱 폭에서는 탭이 가로로
+     넘치지 않으므로 overflow:visible 로 두고, 좁은 화면에서만 가로 스크롤을 복원하되
+     세로 스크롤은 hidden 으로 묶는다(아래 미디어쿼리). */
+  overflow: visible;
+}
+
+/* 좁은 화면(탭이 실제로 넘칠 수 있는 폭)에서만 가로 스크롤 복원.
+   overflow-y:hidden 을 함께 줘서 세로 스크롤바(밑줄 1px 넘침)는 생기지 않게 한다. */
+@media (max-width: 720px) {
+  .line-tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
 }
 
 .line-tab {

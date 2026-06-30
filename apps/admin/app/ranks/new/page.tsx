@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "@/lib/api";
+import { notifyDialog } from "@/lib/dialog";
 
 /**
  * 새 등급 추가 페이지(/ranks/new).
@@ -29,8 +30,39 @@ export default function RankNewPage() {
   const [level, setLevel] = useState("");
   const [minPoints, setMinPoints] = useState("");
   const [maxPoints, setMaxPoints] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/grades/upload-badge`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(d?.error?.message ?? "이미지 업로드에 실패했습니다.");
+      }
+      const { url } = (await res.json()) as { url: string };
+      setImageUrl(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+      // 같은 파일 재선택 허용을 위해 value 초기화
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +76,7 @@ export default function RankNewPage() {
       level: levelNum,
       name: name.trim(),
       minPoints: minPtsNum,
+      imageUrl: imageUrl ?? null,
     };
     if (maxPoints.trim() !== "") {
       const maxPtsNum = parseInt(maxPoints, 10);
@@ -70,6 +103,7 @@ export default function RankNewPage() {
         const d = await res.json().catch(() => ({})) as { error?: { message?: string } };
         throw new Error(d?.error?.message ?? "등급 추가에 실패했습니다.");
       }
+      await notifyDialog("등급이 추가되었습니다.");
       router.push("/ranks");
       router.refresh();
     } catch (err) {
@@ -80,7 +114,7 @@ export default function RankNewPage() {
   }
 
   return (
-    <AdminShell breadcrumb={["관리자", "등급·뱃지 관리", "새 등급"]} activeKey="ranks">
+    <AdminShell breadcrumb={["관리자", "등급 관리", "새 등급"]} activeKey="ranks">
       <form onSubmit={handleSubmit}>
         <div className="page-header">
           <div>
@@ -127,38 +161,59 @@ export default function RankNewPage() {
               alignItems: "start",
             }}
           >
-            {/* 좌: 뱃지 이미지 업로드 자리 (디자인용) */}
+            {/* 좌: 뱃지 이미지 업로드 */}
             <article className="card">
               <div
                 className="card-body component-stack"
                 style={{ alignItems: "center", textAlign: "center" }}
               >
-                <div
-                  style={{
-                    width: 140,
-                    height: 140,
-                    borderRadius: 12,
-                    background: "var(--gray-100)",
-                    border: "2px dashed var(--gray-300)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "column",
-                    gap: 8,
-                    color: "var(--gray-400)",
-                  }}
-                  aria-label="뱃지 이미지 미리보기"
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="뱃지 이미지 미리보기"
+                    width={140}
+                    height={140}
+                    style={{ borderRadius: 12, objectFit: "contain" }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 140,
+                      height: 140,
+                      borderRadius: 12,
+                      background: "var(--gray-100)",
+                      border: "2px dashed var(--gray-300)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "column",
+                      gap: 8,
+                      color: "var(--gray-400)",
+                    }}
+                    aria-label="뱃지 이미지 미리보기"
+                  >
+                    <i className="ri-image-add-line" style={{ fontSize: 36 }} />
+                    <span style={{ fontSize: 12 }}>이미지 없음</span>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  onChange={handleImageSelect}
+                />
+                <button
+                  className="btn btn-outline btn-sm"
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <i className="ri-image-add-line" style={{ fontSize: 36 }} />
-                  <span style={{ fontSize: 12 }}>이미지 없음</span>
-                </div>
-                {/* 뱃지 이미지 업로드: 디자인만 */}
-                <button className="btn btn-outline btn-sm" type="button">
                   <i className="ri-upload-line" />
-                  뱃지 이미지 업로드
+                  {uploading ? "업로드 중..." : "뱃지 이미지 업로드"}
                 </button>
                 <div className="field-help">
-                  권장 규격: 240×240 px · PNG(투명 배경) · 최대 500 KB.
+                  권장 규격: 240×240 px · PNG(투명 배경) · 최대 5 MB.
                 </div>
               </div>
             </article>

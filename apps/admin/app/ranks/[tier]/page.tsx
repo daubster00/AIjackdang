@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "@/lib/api";
+import { confirmDialog, notifyDialog } from "@/lib/dialog";
 import type { AdminGrade } from "@ai-jakdang/contracts";
 
 /**
@@ -50,14 +50,14 @@ export default function RankTierSettingsPage({
   const [name, setName] = useState("");
   const [minPoints, setMinPoints] = useState("");
   const [maxPoints, setMaxPoints] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 저장·삭제 상태
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // 등급 목록을 받아 tier(UUID)로 찾기
   const fetchGrade = useCallback(async () => {
@@ -79,6 +79,7 @@ export default function RankTierSettingsPage({
       setName(found.name);
       setMinPoints(String(found.minPoints));
       setMaxPoints(found.maxPoints != null ? String(found.maxPoints) : "");
+      setImageUrl(found.imageUrl ?? null);
     } catch {
       setNotFound(true);
     } finally {
@@ -96,6 +97,34 @@ export default function RankTierSettingsPage({
   const prev = idx > 0 ? sorted[idx - 1] : null;
   const next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
 
+  // 뱃지 이미지 업로드
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setUploading(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/grades/upload-badge`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(d?.error?.message ?? "이미지 업로드에 실패했습니다.");
+      }
+      const { url } = (await res.json()) as { url: string };
+      setImageUrl(url);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   // 설정 저장 (PATCH)
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -107,6 +136,7 @@ export default function RankTierSettingsPage({
     const body: Record<string, unknown> = {
       name: name.trim(),
       minPoints: minPtsNum,
+      imageUrl: imageUrl ?? null,
     };
     if (maxPoints.trim() !== "") {
       const maxPtsNum = parseInt(maxPoints, 10);
@@ -118,7 +148,6 @@ export default function RankTierSettingsPage({
 
     setSaving(true);
     setSaveError(null);
-    setSaveSuccess(false);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/grades/${grade.id}`, {
         method: "PATCH",
@@ -135,8 +164,8 @@ export default function RankTierSettingsPage({
       setName(updated.name);
       setMinPoints(String(updated.minPoints));
       setMaxPoints(updated.maxPoints != null ? String(updated.maxPoints) : "");
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setImageUrl(updated.imageUrl ?? null);
+      await notifyDialog("설정이 저장되었습니다.");
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "저장에 실패했습니다.");
     } finally {
@@ -144,11 +173,11 @@ export default function RankTierSettingsPage({
     }
   }
 
-  // 등급 삭제 (DELETE)
-  async function handleDelete() {
+  // 등급 삭제 (DELETE) — confirmDialog 모달 확인 후 진행
+  async function handleDeleteClick() {
     if (!grade) return;
+    if (!(await confirmDialog({ title: "등급 삭제", message: "정말 삭제하시겠습니까?", tone: "danger" }))) return;
     setDeleting(true);
-    setDeleteError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/grades/${grade.id}`, {
         method: "DELETE",
@@ -158,11 +187,11 @@ export default function RankTierSettingsPage({
         const d = await res.json().catch(() => ({})) as { error?: { message?: string } };
         throw new Error(d?.error?.message ?? "삭제에 실패했습니다.");
       }
+      await notifyDialog("등급이 삭제되었습니다.");
       router.push("/ranks");
       router.refresh();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
-      setConfirmDelete(false);
+      await notifyDialog(err instanceof Error ? err.message : "삭제에 실패했습니다.", "danger");
     } finally {
       setDeleting(false);
     }
@@ -172,7 +201,7 @@ export default function RankTierSettingsPage({
 
   if (loading) {
     return (
-      <AdminShell breadcrumb={["관리자", "등급·뱃지 관리", "불러오는 중..."]} activeKey="ranks">
+      <AdminShell breadcrumb={["관리자", "등급 관리", "불러오는 중..."]} activeKey="ranks">
         <div style={{ padding: 60, textAlign: "center", color: "var(--gray-400)" }}>
           불러오는 중...
         </div>
@@ -182,7 +211,7 @@ export default function RankTierSettingsPage({
 
   if (notFound || !grade) {
     return (
-      <AdminShell breadcrumb={["관리자", "등급·뱃지 관리", "오류"]} activeKey="ranks">
+      <AdminShell breadcrumb={["관리자", "등급 관리", "오류"]} activeKey="ranks">
         <div className="page-header">
           <div>
             <h1 className="page-title">등급을 찾을 수 없습니다</h1>
@@ -203,7 +232,7 @@ export default function RankTierSettingsPage({
 
   return (
     <AdminShell
-      breadcrumb={["관리자", "등급·뱃지 관리", grade.name]}
+      breadcrumb={["관리자", "등급 관리", grade.name]}
       activeKey="ranks"
     >
       <form onSubmit={handleSave}>
@@ -221,39 +250,16 @@ export default function RankTierSettingsPage({
               목록으로
             </Link>
 
-            {/* 삭제 버튼 — 인라인 2단계 확인 */}
-            {!confirmDelete ? (
-              <button
-                className="btn btn-danger"
-                type="button"
-                onClick={() => { setConfirmDelete(true); setDeleteError(null); }}
-              >
-                <i className="ri-delete-bin-line" />
-                등급 삭제
-              </button>
-            ) : (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: "var(--danger, #dc2626)", fontWeight: 600 }}>
-                  정말 삭제하시겠습니까?
-                </span>
-                <button
-                  className="btn btn-outline btn-sm"
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  disabled={deleting}
-                >
-                  취소
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? "삭제 중..." : "삭제 확인"}
-                </button>
-              </div>
-            )}
+            {/* 삭제 버튼 — confirmDialog 모달 확인 */}
+            <button
+              className="btn btn-danger"
+              type="button"
+              onClick={handleDeleteClick}
+              disabled={deleting}
+            >
+              <i className="ri-delete-bin-line" />
+              {deleting ? "삭제 중..." : "등급 삭제"}
+            </button>
 
             <button className="btn btn-primary" type="submit" disabled={saving}>
               <i className="ri-save-line" />
@@ -277,18 +283,6 @@ export default function RankTierSettingsPage({
             {saveError}
           </div>
         )}
-        {deleteError && (
-          <div className="alert alert-error" style={{ marginBottom: "16px" }}>
-            <i className="ri-error-warning-line" />
-            {deleteError}
-          </div>
-        )}
-        {saveSuccess && (
-          <div className="alert alert-success" style={{ marginBottom: "16px" }}>
-            <i className="ri-checkbox-circle-line" />
-            설정이 저장되었습니다.
-          </div>
-        )}
 
         {/* 뱃지 이미지 + 기본 설정 2단 그리드 */}
         <section className="section">
@@ -300,17 +294,18 @@ export default function RankTierSettingsPage({
               alignItems: "start",
             }}
           >
-            {/* 좌: 뱃지 이미지 미리보기 */}
+            {/* 좌: 뱃지 이미지 미리보기 + 업로드 */}
             <article className="card">
               <div
                 className="card-body component-stack"
                 style={{ alignItems: "center", textAlign: "center" }}
               >
-                <Image
-                  src={badgeForLevel(grade.level)}
+                <img
+                  src={imageUrl ?? badgeForLevel(grade.level)}
                   alt={`${grade.name} 뱃지`}
                   width={140}
                   height={140}
+                  style={{ borderRadius: 12, objectFit: "contain" }}
                 />
                 <div>
                   <div className="card-title">{grade.name}</div>
@@ -318,13 +313,24 @@ export default function RankTierSettingsPage({
                     Lv.{grade.level} · 누적 작당력 {grade.minPoints.toLocaleString()} 이상
                   </div>
                 </div>
-                {/* 뱃지 이미지 등록/교체: 디자인만 */}
-                <button className="btn btn-outline btn-sm" type="button">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  onChange={handleImageSelect}
+                />
+                <button
+                  className="btn btn-outline btn-sm"
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <i className="ri-image-edit-line" />
-                  뱃지 이미지 등록 / 교체
+                  {uploading ? "업로드 중..." : "뱃지 이미지 등록 / 교체"}
                 </button>
                 <div className="field-help">
-                  권장 규격: 240×240 px · PNG(투명 배경) · 최대 500 KB.
+                  권장 규격: 240×240 px · PNG(투명 배경) · 최대 5 MB.
                 </div>
               </div>
             </article>

@@ -1,52 +1,153 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { use, useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { findBoard } from "@/lib/boards";
+import { API_BASE_URL } from "@/lib/api";
 
 /**
  * 게시글 상세 페이지 (/posts/[board]/[id]).
- * 더미 게시글 1건을 카드로 보여준다. 메타(.detail-list) + 본문 + 댓글 목록 섹션으로 구성한다.
- * 모든 데이터는 더미이며, "수정/삭제/목록으로" 중 수정·목록은 링크, 삭제는 디자인만(동작 없음)이다.
+ * GET /api/v1/admin/posts/:id 실데이터 연동(신고 관리 "신고 대상 보기" 진입점).
+ * 메타(.detail-list) + 본문 + 댓글 목록 섹션으로 구성한다.
  */
 
-/** 상세 화면 더미 게시글. 실제로는 id(게시글 식별자)로 조회하지만 여기서는 고정 더미를 쓴다. */
-const POST = {
-  title: "Claude Code로 기존 PHP 프로젝트 한 번에 분석시키는 프롬프트",
-  author: ["김", "김개발"],
-  rank: "마스터",
-  date: "2026.06.18 14:32",
-  views: "3,284",
-  comments: "42",
-  likes: "187",
-  reports: 0,
-  status: ["badge-green", "공개"],
-  tags: ["ClaudeCode", "PHP", "코드분석", "프롬프트"],
-  body: [
-    "기존 레거시 PHP 프로젝트를 Claude Code에 통째로 물려서 구조를 파악시키는 방법을 공유합니다.",
-    "핵심은 한 번에 전체를 읽히지 말고, 디렉터리 단위로 요약 → 의존성 그래프 → 위험 지점 순으로 단계를 쪼개는 것입니다.",
-    "아래 프롬프트를 그대로 붙여넣으면 됩니다. 실제로 5만 줄 규모 프로젝트에서도 안정적으로 동작했습니다.",
-  ],
+// ── API 응답 타입 ─────────────────────────────────────────────────────────────
+type AdminPostDetail = {
+  id: string;
+  board: string;
+  category: string | null;
+  title: string;
+  slug: string;
+  contentJson: unknown;
+  status: string;
+  userId: string | null;
+  authorNickname: string | null;
+  isNotice: boolean;
+  isPinned: boolean;
+  isFeatured: boolean;
+  isMainFeatured: boolean;
+  viewCount: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  tags: string[];
+  comments: AdminPostComment[];
 };
 
-/** 상세 화면 더미 댓글. author=닉네임, date=작성시각, body=내용. */
-const COMMENTS = [
-  { author: "박자동", initial: "박", date: "2026.06.18 15:01", body: "딱 필요했던 내용이네요. 바로 적용해보겠습니다." },
-  { author: "최대표", initial: "최", date: "2026.06.18 16:20", body: "디렉터리 단위로 쪼개는 팁 좋네요. 토큰 절약도 되겠어요." },
-  { author: "이수익", initial: "이", date: "2026.06.18 18:44", body: "혹시 Laravel 프로젝트에도 비슷하게 쓸 수 있을까요?" },
-];
+type AdminPostComment = {
+  id: string;
+  content: string;
+  authorNickname: string | null;
+  authorAvatarUrl?: string | null;
+  authorImage?: string | null;
+  authorDefaultAvatarIndex?: number | null;
+  status: string;
+  createdAt: string;
+};
 
-export default async function PostDetailPage({
+// ── 헬퍼 ─────────────────────────────────────────────────────────────────────
+
+/** 게시글 status → 배지 [className, label]. */
+function statusBadge(status: string): [string, string] {
+  switch (status) {
+    case "published": return ["badge-green", "공개"];
+    case "draft": return ["badge-gray", "임시저장"];
+    case "hidden": return ["badge-orange", "숨김"];
+    case "deleted": return ["badge-red", "삭제됨"];
+    default: return ["badge-gray", status];
+  }
+}
+
+function formatDateTime(iso: string): string {
+  const d = iso.slice(0, 10).replace(/-/g, ".");
+  const t = iso.slice(11, 16);
+  return t ? `${d} ${t}` : d;
+}
+
+/**
+ * contentJson → 렌더 가능한 HTML 문자열.
+ * LightEditor 래퍼 `{ html: "..." }` 우선, 없으면 Tiptap JSON 에서 재귀 추출.
+ * (qna 상세 페이지와 동일 규약)
+ */
+function contentJsonToHtml(json: unknown): string {
+  if (!json || typeof json !== "object") return "";
+  const obj = json as Record<string, unknown>;
+  if (typeof obj.html === "string") return obj.html;
+
+  function extractParagraphs(node: Record<string, unknown>): string[] {
+    if (node.type === "paragraph" || node.type === "heading") {
+      const text = extractText(node);
+      return text ? [`<p>${text}</p>`] : [];
+    }
+    if (Array.isArray(node.content)) {
+      return (node.content as Record<string, unknown>[]).flatMap((child) =>
+        extractParagraphs(child),
+      );
+    }
+    return [];
+  }
+  function extractText(node: Record<string, unknown>): string {
+    if (node.type === "text") return String(node.text ?? "");
+    if (Array.isArray(node.content)) {
+      return (node.content as Record<string, unknown>[])
+        .map((child) => extractText(child))
+        .join("");
+    }
+    return "";
+  }
+
+  const paras = extractParagraphs(obj);
+  if (paras.length > 0) return paras.join("");
+  const fallback = extractText(obj);
+  return fallback ? `<p>${fallback}</p>` : "";
+}
+
+// ── 메인 페이지 ───────────────────────────────────────────────────────────────
+
+export default function PostDetailPage({
   params,
 }: {
   params: Promise<{ board: string; id: string }>;
 }) {
-  const { board, id } = await params;
-  const meta = findBoard(board);
-  if (!meta) notFound();
+  const { board, id } = use(params);
+  // 큐레이션 목록에 없는 board(예: 'talk'/라운지)도 상세는 id로 조회 가능하므로
+  // 폴백 메타로 렌더한다.
+  const meta = findBoard(board) ?? { label: board, badge: "badge-gray" };
+
+  const [post, setPost] = useState<AdminPostDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPost = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/posts/${id}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as AdminPostDetail;
+      setPost(data);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void fetchPost();
+  }, [fetchPost]);
+
+  const bodyHtml = post ? contentJsonToHtml(post.contentJson) : "";
+  const comments = post?.comments ?? [];
 
   return (
     <AdminShell
-      breadcrumb={["관리자", "게시글 관리", meta.label, POST.title]}
+      breadcrumb={["관리자", "게시글 관리", meta.label, post?.title ?? `#${id}`]}
       activeKey="posts"
       activeSubKey={board}
     >
@@ -57,7 +158,7 @@ export default async function PostDetailPage({
             <span className={`badge ${meta.badge}`} style={{ marginRight: 6 }}>
               {meta.label}
             </span>
-            게시글 #{id} 의 내용·메타·댓글을 확인하고 관리합니다.
+            게시글의 내용·메타·댓글을 확인하고 관리합니다.
           </p>
         </div>
         <div className="page-actions">
@@ -69,140 +170,167 @@ export default async function PostDetailPage({
             <i className="ri-edit-line" />
             수정
           </Link>
-          {/* 삭제는 디자인만(동작 없음) */}
-          <button className="btn btn-danger">
-            <i className="ri-delete-bin-line" />
-            삭제
-          </button>
         </div>
       </div>
 
-      <section className="section" aria-label="게시글 내용">
-        <article className="card">
-          <div style={{ padding: 20, display: "grid", gap: 18 }}>
-            {/* 제목 + 상태 배지 */}
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span className={`badge ${POST.status[0]}`}>{POST.status[1]}</span>
-                <span className={`badge ${meta.badge}`}>{meta.label}</span>
-              </div>
-              <h2 style={{ fontSize: 20, fontWeight: 720, color: "var(--gray-900)" }}>{POST.title}</h2>
-            </div>
+      {loading && (
+        <div style={{ padding: "40px", textAlign: "center", color: "var(--gray-500)" }}>
+          불러오는 중...
+        </div>
+      )}
 
-            {/* 메타 정보(.detail-list) */}
-            <div className="detail-list" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-              <div className="detail-row">
-                <div className="detail-label">작성자</div>
-                <div className="detail-value">
-                  <span className="author">
-                    <span className="author-avatar">{POST.author[0]}</span>
-                    <span>{POST.author[1]}</span>
-                  </span>
+      {error && (
+        <div className="alert alert-error">
+          <i className="ri-error-warning-line" />
+          게시글을 불러오지 못했습니다. ({error})
+        </div>
+      )}
+
+      {post && (
+        <>
+          <section className="section" aria-label="게시글 내용">
+            <article className="card">
+              <div style={{ padding: 20, display: "grid", gap: 18 }}>
+                {/* 제목 + 상태 배지 */}
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    {(() => {
+                      const [sb, sl] = statusBadge(post.status);
+                      return <span className={`badge ${sb}`}>{sl}</span>;
+                    })()}
+                    <span className={`badge ${meta.badge}`}>{meta.label}</span>
+                    {post.isNotice && <span className="badge badge-purple">공지</span>}
+                    {post.isPinned && <span className="badge badge-blue">고정</span>}
+                    {post.isFeatured && <span className="badge badge-cyan">추천</span>}
+                  </div>
+                  <h2 style={{ fontSize: 20, fontWeight: 720, color: "var(--gray-900)" }}>
+                    {post.title}
+                  </h2>
                 </div>
-              </div>
-              <div className="detail-row">
-                <div className="detail-label">등급</div>
-                <div className="detail-value">
-                  <span className="badge badge-purple">{POST.rank}</span>
+
+                {/* 메타 정보(.detail-list) */}
+                <div
+                  className="detail-list"
+                  style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+                >
+                  <div className="detail-row">
+                    <div className="detail-label">작성자</div>
+                    <div className="detail-value">
+                      <span className="author">
+                        <UserAvatar
+                          size={28}
+                          alt={post.authorNickname ?? "운영자"}
+                          defaultAvatarIndex={0}
+                        />
+                        <span>{post.authorNickname ?? "(운영자)"}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="detail-row">
+                    <div className="detail-label">상태</div>
+                    <div className="detail-value">
+                      {(() => {
+                        const [sb, sl] = statusBadge(post.status);
+                        return <span className={`badge ${sb}`}>{sl}</span>;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="detail-row">
+                    <div className="detail-label">작성일</div>
+                    <div className="detail-value">{formatDateTime(post.createdAt)}</div>
+                  </div>
+                  <div className="detail-row">
+                    <div className="detail-label">조회수</div>
+                    <div className="detail-value">{post.viewCount.toLocaleString()}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="detail-row">
-                <div className="detail-label">상태</div>
-                <div className="detail-value">
-                  <span className={`badge ${POST.status[0]}`}>{POST.status[1]}</span>
-                </div>
-              </div>
-              <div className="detail-row">
-                <div className="detail-label">작성일</div>
-                <div className="detail-value">{POST.date}</div>
-              </div>
-              <div className="detail-row">
-                <div className="detail-label">조회 / 댓글 / 좋아요</div>
-                <div className="detail-value">
-                  {POST.views} / {POST.comments} / {POST.likes}
-                </div>
-              </div>
-              <div className="detail-row">
-                <div className="detail-label">신고</div>
-                <div className="detail-value">
-                  {POST.reports > 0 ? (
-                    <span className="badge badge-red">{POST.reports}건</span>
+
+                {/* 태그 */}
+                {post.tags.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {post.tags.map((t) => (
+                      <span className="tag" key={t}>
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* 본문 */}
+                <div
+                  style={{
+                    borderTop: "1px solid var(--gray-100)",
+                    paddingTop: 16,
+                    lineHeight: 1.7,
+                    color: "var(--gray-800)",
+                  }}
+                >
+                  {bodyHtml ? (
+                    <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
                   ) : (
-                    <span style={{ color: "var(--gray-400)" }}>0건</span>
+                    <p style={{ color: "var(--gray-400)" }}>(본문 없음)</p>
                   )}
                 </div>
               </div>
-            </div>
+            </article>
+          </section>
 
-            {/* 태그 */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {POST.tags.map((t) => (
-                <span className="tag" key={t}>
-                  #{t}
-                </span>
-              ))}
-            </div>
-
-            {/* 본문 */}
-            <div
-              style={{
-                borderTop: "1px solid var(--gray-100)",
-                paddingTop: 16,
-                display: "grid",
-                gap: 12,
-                lineHeight: 1.7,
-                color: "var(--gray-800)",
-              }}
-            >
-              {POST.body.map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-            </div>
-          </div>
-        </article>
-      </section>
-
-      {/* 댓글 목록 섹션 */}
-      <section className="section" aria-label="댓글 목록">
-        <article className="card">
-          <div
-            style={{
-              padding: "16px 20px",
-              borderBottom: "1px solid var(--gray-200)",
-              fontWeight: 700,
-              color: "var(--gray-900)",
-            }}
-          >
-            댓글 {POST.comments}개
-          </div>
-          <div style={{ padding: 20, display: "grid", gap: 16 }}>
-            {COMMENTS.map((c, i) => (
+          {/* 댓글 목록 섹션 */}
+          <section className="section" aria-label="댓글 목록">
+            <article className="card">
               <div
-                key={i}
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  paddingBottom: 16,
-                  borderBottom: i < COMMENTS.length - 1 ? "1px solid var(--gray-100)" : "none",
+                  padding: "16px 20px",
+                  borderBottom: "1px solid var(--gray-200)",
+                  fontWeight: 700,
+                  color: "var(--gray-900)",
                 }}
               >
-                <span className="author-avatar">{c.initial}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong style={{ color: "var(--gray-900)" }}>{c.author}</strong>
-                    <span style={{ color: "var(--gray-400)", fontSize: 12 }}>{c.date}</span>
-                  </div>
-                  <p style={{ marginTop: 4, color: "var(--gray-800)" }}>{c.body}</p>
-                </div>
-                {/* 댓글 삭제(디자인만) */}
-                <button className="icon-button" aria-label="댓글 삭제">
-                  <i className="ri-delete-bin-line" />
-                </button>
+                댓글 {comments.length}개
               </div>
-            ))}
-          </div>
-        </article>
-      </section>
+              <div style={{ padding: 20, display: "grid", gap: 16 }}>
+                {comments.length === 0 && (
+                  <p style={{ color: "var(--gray-400)" }}>등록된 댓글이 없습니다.</p>
+                )}
+                {comments.map((c, i) => (
+                  <div
+                    key={c.id}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      paddingBottom: 16,
+                      borderBottom:
+                        i < comments.length - 1 ? "1px solid var(--gray-100)" : "none",
+                    }}
+                  >
+                    <UserAvatar
+                      size={28}
+                      alt={c.authorNickname ?? "?"}
+                      avatarUrl={c.authorAvatarUrl}
+                      image={c.authorImage}
+                      defaultAvatarIndex={c.authorDefaultAvatarIndex ?? 0}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <strong style={{ color: "var(--gray-900)" }}>
+                          {c.authorNickname ?? "(알 수 없음)"}
+                        </strong>
+                        <span style={{ color: "var(--gray-400)", fontSize: 12 }}>
+                          {formatDateTime(c.createdAt)}
+                        </span>
+                        {c.status === "hidden" && (
+                          <span className="badge badge-orange">숨김</span>
+                        )}
+                      </div>
+                      <p style={{ marginTop: 4, color: "var(--gray-800)" }}>{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        </>
+      )}
     </AdminShell>
   );
 }

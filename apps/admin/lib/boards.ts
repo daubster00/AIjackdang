@@ -20,20 +20,31 @@ export type Board = {
   apiBoard?: string;
 };
 
-/** 전체 게시판 목록(더미가 아닌 실제 게시판 구성). 라우트는 /posts/{slug}. */
+/**
+ * 전체 게시판 목록(더미가 아닌 실제 게시판 구성). 라우트는 /posts/{slug}.
+ *
+ * apiBoard: DB의 posts.board 컬럼에 실제로 저장된 값.
+ *   웹 앱이 사용하는 board 식별자와 관리자 URL slug 이 다를 경우 이 값을 지정한다.
+ *   미지정 시 slug 와 동일하게 취급.
+ *
+ * DB 실측값 (2026-06-26):
+ *   ai-creation, ai-products, automation-guide, gigs,
+ *   monetization-tips, notice, talk, vibe-coding-guide
+ */
 export const BOARDS: Board[] = [
-  { slug: "vibe-guide", label: "바이브코딩 가이드", badge: "badge-blue", group: "바이브코딩" },
-  { slug: "vibe-tip", label: "바이브코딩 팁", badge: "badge-blue", group: "바이브코딩" },
-  { slug: "auto-guide", label: "자동화 가이드", badge: "badge-purple", group: "자동화" },
-  { slug: "auto-case", label: "자동화 사례", badge: "badge-purple", group: "자동화" },
-  { slug: "auto-tip", label: "자동화 팁", badge: "badge-cyan", group: "자동화" },
-  { slug: "outsource-tip", label: "외주·판매 팁", badge: "badge-cyan", group: "외주·판매" },
-  { slug: "money-case", label: "수익화 사례", badge: "badge-orange", group: "수익화" },
-  { slug: "ai-art", label: "AI 창작마당", badge: "badge-purple", group: "창작" },
-  { slug: "ai-product", label: "내가 만든 AI 제품", badge: "badge-blue", group: "AI 제품" },
+  // slug(admin URL) → apiBoard(DB posts.board 실제값)
+  { slug: "vibe-guide",    label: "바이브코딩 가이드",   badge: "badge-blue",   group: "바이브코딩", apiBoard: "vibe-coding-guide" },
+  { slug: "vibe-tip",      label: "바이브코딩 팁",       badge: "badge-blue",   group: "바이브코딩" },
+  { slug: "auto-guide",    label: "자동화 가이드",       badge: "badge-purple", group: "자동화",    apiBoard: "automation-guide" },
+  { slug: "auto-case",     label: "자동화 사례",         badge: "badge-purple", group: "자동화" },
+  { slug: "auto-tip",      label: "자동화 팁",           badge: "badge-cyan",   group: "자동화" },
+  { slug: "outsource-tip", label: "외주·판매 팁",        badge: "badge-cyan",   group: "외주·판매", apiBoard: "gigs" },
+  { slug: "money-case",    label: "수익화 사례",         badge: "badge-orange", group: "수익화",    apiBoard: "monetization-tips" },
+  { slug: "ai-art",        label: "AI 창작마당",         badge: "badge-purple", group: "창작",      apiBoard: "ai-creation" },
+  { slug: "ai-product",    label: "내가 만든 AI 제품",   badge: "badge-blue",   group: "AI 제품",   apiBoard: "ai-products" },
   // ── 공지 관리 (Story 9.17) ────────────────────────────────────────────────────
   // URL slug 은 복수형 'notices', DB/API board 값은 단수형 'notice'.
-  { slug: "notices", label: "공지사항", badge: "badge-red", group: "공지", apiBoard: "notice" },
+  { slug: "notices",       label: "공지사항",            badge: "badge-red",    group: "공지",      apiBoard: "notice" },
 ];
 
 /** slug(게시판 영문 키)로 게시판 정의를 찾는다. 없으면 undefined. */
@@ -48,4 +59,17 @@ export function findBoard(slug: string): Board | undefined {
 export function boardApiParam(slug: string): string {
   const b = findBoard(slug);
   return b?.apiBoard ?? slug;
+}
+
+/**
+ * DB の posts.board 값(apiBoard)을 관리자 URL slug 로 역변환한다 (G4/N4 fix).
+ * apiBoard 필드가 지정된 board 중 일치하는 것을 찾아 slug 를 반환하고,
+ * 없으면 DB 값 그대로 반환한다 (slug === apiBoard 인 경우).
+ *
+ * 예: "vibe-coding-guide" → "vibe-guide", "gigs" → "outsource-tip",
+ *     "notice" → "notices", "talk" → "talk" (매핑 없음 → 원값)
+ */
+export function dbBoardToAdminSlug(dbBoard: string): string {
+  const b = BOARDS.find((board) => (board.apiBoard ?? board.slug) === dbBoard);
+  return b?.slug ?? dbBoard;
 }

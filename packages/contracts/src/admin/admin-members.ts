@@ -6,6 +6,12 @@
 
 import { z } from "zod";
 
+/**
+ * 역할 키 — staff/super_admin 고정 + 커스텀 역할(M12).
+ * enum 이 아닌 free-form 키(영문 소문자 slug). 존재 여부는 서버(admin_roles)에서 검증.
+ */
+const roleKeySchema = z.string().min(1);
+
 // ── 쿼리 파라미터 ───────────────────────────────────────────────────────────────
 
 /** GET /api/v1/admin/admin-members 쿼리 파라미터 */
@@ -25,7 +31,7 @@ export const adminMemberItemSchema = z.object({
   name: z.string(),
   email: z.string().email(),
   phone: z.string(),
-  role: z.enum(["staff", "super_admin"]),
+  role: roleKeySchema,
   status: z.enum(["pending", "active", "suspended", "disabled"]),
   approvedBy: z.string().nullable(),
   approvedAt: z.string().nullable(),
@@ -51,7 +57,7 @@ export type AdminMembersListResponse = z.infer<typeof adminMembersListResponseSc
 
 /** PATCH /api/v1/admin/admin-members/:id/approve — 승인 */
 export const adminMemberApproveSchema = z.object({
-  role: z.enum(["staff", "super_admin"]),
+  role: roleKeySchema,
   note: z.string().min(1, "사유를 입력하세요"),
 });
 export type AdminMemberApproveInput = z.infer<typeof adminMemberApproveSchema>;
@@ -64,7 +70,7 @@ export type AdminMemberNoteInput = z.infer<typeof adminMemberNoteSchema>;
 
 /** PATCH /api/v1/admin/admin-members/:id/role — 역할 변경 */
 export const adminMemberRoleSchema = z.object({
-  role: z.enum(["staff", "super_admin"]),
+  role: roleKeySchema,
   note: z.string().min(1, "사유를 입력하세요"),
 });
 export type AdminMemberRoleInput = z.infer<typeof adminMemberRoleSchema>;
@@ -73,7 +79,7 @@ export type AdminMemberRoleInput = z.infer<typeof adminMemberRoleSchema>;
 export const adminMemberActionResponseSchema = z.object({
   id: z.string(),
   status: z.enum(["pending", "active", "suspended", "disabled"]),
-  role: z.enum(["staff", "super_admin"]),
+  role: roleKeySchema,
   updatedAt: z.string(),
 });
 export type AdminMemberActionResponse = z.infer<typeof adminMemberActionResponseSchema>;

@@ -18,6 +18,7 @@ import {
   adminQnaStatusSchema,
 } from "@ai-jakdang/contracts";
 import {
+  getQuestion,
   listQuestions,
   listAnswers,
   forceQnaStatus,
@@ -25,9 +26,28 @@ import {
   deleteQuestion,
   hideAnswer,
   deleteAnswer,
+  unhideQuestion,
+  unhideAnswer,
 } from "./service.js";
 
 export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /api/v1/admin/qna/questions/:id — 질문 단건 상세 ──────────────────────
+  app.get("/admin/qna/questions/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await getQuestion(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
   // ── GET /api/v1/admin/qna/questions ──────────────────────────────────────────
   app.get("/admin/qna/questions", async (request, reply) => {
     const parsed = adminQnaQuestionsQuerySchema.safeParse(request.query);
@@ -125,12 +145,46 @@ export async function registerAdminQnaRoutes(app: FastifyInstance): Promise<void
     },
   );
 
+  // ── PATCH /api/v1/admin/qna/questions/:id/unhide — 질문 숨김 복구 ────────────
+  app.patch("/admin/qna/questions/:id/unhide", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await unhideQuestion(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
   // ── PATCH /api/v1/admin/qna/answers/:id/hide ─────────────────────────────────
   app.patch("/admin/qna/answers/:id/hide", async (request, reply) => {
     const { id } = request.params as { id: string };
 
     try {
       const result = await hideAnswer(id);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/qna/answers/:id/unhide — 답변 숨김 복구 ──────────────
+  app.patch("/admin/qna/answers/:id/unhide", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      const result = await unhideAnswer(id);
       return reply.send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

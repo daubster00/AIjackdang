@@ -34,9 +34,10 @@ export { initTagInputs } from "./tag-input.js";
 export { initTables, closeAllActionMenus } from "./table.js";
 export { createLineChart } from "./chart.js";
 
-export function initAdminUI(root = document) {
+export function initAdminUI(root = document, options = {}) {
   initSidebar(root);
-  initSelects(root);
+  // reactSafe: 관리자 React 앱에서 레거시 셀렉트 DOM 변형이 React 재조정과 충돌하는 것을 막는다.
+  initSelects(root, { reactSafe: options.reactSafe === true });
   const overlay = initOverlay(root);
   const toast = createToaster(root);
   initTabs(root);

@@ -20,6 +20,8 @@ import {
   getAdminInquiryDetail,
   updateInquiryStatus,
   createAdminReply,
+  updateAdminReply,
+  deleteAdminReply,
 } from "./service.js";
 import { getDb } from "@ai-jakdang/database";
 import { publishNotification } from "../../../lib/notifications.js";
@@ -176,6 +178,68 @@ export async function registerAdminInquiriesRoutes(app: FastifyInstance): Promis
       if (e.code === "NOT_FOUND") {
         return reply.status(404).send({
           error: { code: "NOT_FOUND", message: e.message },
+        });
+      }
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+      });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/inquiries/:id/replies/:replyId ──────────────────────
+  app.patch("/admin/inquiries/:id/replies/:replyId", async (request, reply) => {
+    const { replyId } = request.params as { id: string; replyId: string };
+    const parsed = adminInquiryReplyCreateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "잘못된 요청입니다.",
+          details: parsed.error.flatten(),
+        },
+      });
+    }
+
+    try {
+      const result = await updateAdminReply(replyId, parsed.data.body);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({
+          error: { code: "NOT_FOUND", message: e.message },
+        });
+      }
+      if (e.code === "FORBIDDEN") {
+        return reply.status(403).send({
+          error: { code: "FORBIDDEN", message: e.message },
+        });
+      }
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+      });
+    }
+  });
+
+  // ── DELETE /api/v1/admin/inquiries/:id/replies/:replyId ─────────────────────
+  app.delete("/admin/inquiries/:id/replies/:replyId", async (request, reply) => {
+    const { replyId } = request.params as { id: string; replyId: string };
+
+    try {
+      await deleteAdminReply(replyId);
+      return reply.send({ success: true });
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({
+          error: { code: "NOT_FOUND", message: e.message },
+        });
+      }
+      if (e.code === "FORBIDDEN") {
+        return reply.status(403).send({
+          error: { code: "FORBIDDEN", message: e.message },
         });
       }
       request.log.error(err);

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import Script from "next/script";
 import { ToastProvider } from "@/components/ui";
 import { SiteFooter, SiteHeader, NotificationAlert } from "@/components/site";
 import { GatingProvider } from "@/contexts/GatingContext";
+import { NotificationCountProvider } from "@/contexts/NotificationCountContext";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 // 사용자 사이트 전역 디자인 시스템 (이 앱 전용)
 import "../styles/index.css";
@@ -24,6 +26,7 @@ async function getPublicSiteSettings(): Promise<{
   site_name?: string;
   seo_title?: string;
   seo_description?: string;
+  favicon_url?: string;
 }> {
   const apiBase = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
   try {
@@ -31,7 +34,12 @@ async function getPublicSiteSettings(): Promise<{
       next: { revalidate: 60 },
     });
     if (!res.ok) return {};
-    return (await res.json()) as { site_name?: string; seo_title?: string; seo_description?: string };
+    return (await res.json()) as {
+      site_name?: string;
+      seo_title?: string;
+      seo_description?: string;
+      favicon_url?: string;
+    };
   } catch {
     return {};
   }
@@ -51,6 +59,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
     ...(gscToken ? { verification: { google: gscToken } } : {}),
+    ...(s.favicon_url
+      ? { icons: { icon: s.favicon_url, shortcut: s.favicon_url } }
+      : {}),
   };
 }
 
@@ -78,15 +89,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           본문 바로가기
         </a>
         <ToastProvider>
-          <GatingProvider>
-            <SiteHeader />
-            {children}
-            <SiteFooter />
-          </GatingProvider>
-          {/* 페이지 이동·새로고침 시 새 알림/쪽지 팝업 — ToastProvider 하위에서만 useToast 동작 */}
-          <NotificationAlert />
-          {/* 방문 로그 적재 — 라우트 변경 시마다 POST /api/v1/analytics/collect */}
-          <PageViewTracker />
+          {/* 미읽음 알림 카운트 전역 공유 — SiteHeader 와 NotificationsPage 가
+              동일 컨텍스트를 consume 해 읽음 처리 시 헤더 배지가 즉시 감소한다. */}
+          <NotificationCountProvider>
+            <GatingProvider>
+              <SiteHeader />
+              {children}
+              <SiteFooter />
+            </GatingProvider>
+            {/* 페이지 이동·새로고침 시 새 알림/쪽지 팝업 — ToastProvider 하위에서만 useToast 동작 */}
+            <NotificationAlert />
+          </NotificationCountProvider>
+          {/* 방문 로그 적재 — 라우트 변경 시마다 POST /api/v1/analytics/collect.
+              useSearchParams 사용 → 정적 프리렌더 CSR bailout 방지 위해 Suspense 래핑. */}
+          <Suspense fallback={null}>
+            <PageViewTracker />
+          </Suspense>
         </ToastProvider>
       </body>
     </html>

@@ -2,7 +2,8 @@
  * 관리자 신원 스키마 (ADR-0003).
  *
  * - users(사이트 회원)와 FK·공유 컬럼 없이 완전 분리.
- * - adminRole: staff(일반 운영자) | super_admin(최고 관리자)
+ * - role: text — staff/super_admin 은 고정 기본 역할(locked), 그 외 커스텀 역할은
+ *   admin_roles 테이블에서 자유롭게 추가/수정/삭제 가능 (M12). enum 이 아닌 text.
  * - adminStatus: pending(승인 대기) | active | suspended | disabled
  * - admin_accounts: credential 전용 (소셜 연동 없음)
  */
@@ -19,7 +20,6 @@ import {
 
 // ── Enum ──────────────────────────────────────────────────────────────────────
 
-export const adminRole = pgEnum("admin_role", ["staff", "super_admin"]);
 export const adminStatus = pgEnum("admin_status", ["pending", "active", "suspended", "disabled"]);
 
 // ── admin_users ───────────────────────────────────────────────────────────────
@@ -33,7 +33,8 @@ export const adminUsers = pgTable("admin_users", {
   /** Better Auth 코어 user 필드(프로필 이미지). 관리자는 미사용이라 nullable. */
   image: text("image"),
   phone: text("phone").notNull(),
-  role: adminRole("role").notNull().default("staff"),
+  /** 역할 키 — admin_roles.key 참조(논리적). staff/super_admin 고정 + 커스텀 역할(M12). */
+  role: text("role").notNull().default("staff"),
   status: adminStatus("status").notNull().default("pending"),
   /** 승인한 관리자 admin_users.id — 크로스 도메인 FK 대신 id 값만 보관 (ADR-0003 §5) */
   approvedBy: uuid("approved_by"),
@@ -114,3 +115,46 @@ export const adminVerifications = pgTable("admin_verifications", {
 
 export type AdminVerificationRow = typeof adminVerifications.$inferSelect;
 export type NewAdminVerificationRow = typeof adminVerifications.$inferInsert;
+
+// ── admin_role_permissions ──────────────────────────────────────────────────
+/**
+ * 역할별 권한 오버라이드 — 권한 설정 화면에서 토글한 결과를 영속한다.
+ * (role, action) 복합 PK. 행이 없으면 코드 기본값(permissions.ts)을 따른다.
+ */
+export const adminRolePermissions = pgTable(
+  "admin_role_permissions",
+  {
+    role: text("role").notNull(),
+    action: text("action").notNull(),
+    allowed: boolean("allowed").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: uniqueIndex("admin_role_permissions_pk").on(t.role, t.action),
+  }),
+);
+
+export type AdminRolePermissionRow = typeof adminRolePermissions.$inferSelect;
+export type NewAdminRolePermissionRow = typeof adminRolePermissions.$inferInsert;
+
+// ── admin_roles ───────────────────────────────────────────────────────────────
+/**
+ * 관리자 역할 정의 (M12).
+ * - staff/super_admin 은 시스템 고정 역할(locked=true, 삭제 불가).
+ * - 그 외 커스텀 역할은 super_admin 이 자유롭게 추가/수정/삭제할 수 있다.
+ * - 각 역할의 액션 권한은 admin_role_permissions(role,action) 오버라이드로 구성한다.
+ *   super_admin 은 항상 모든 권한 보유(오버라이드 무시).
+ */
+export const adminRoles = pgTable("admin_roles", {
+  /** 역할 키 — 영문 slug. admin_users.role / admin_role_permissions.role 가 참조. */
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  /** 고정 역할 여부 — staff/super_admin 만 true. true 면 삭제·키변경 불가. */
+  locked: boolean("locked").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AdminRoleRow = typeof adminRoles.$inferSelect;
+export type NewAdminRoleRow = typeof adminRoles.$inferInsert;

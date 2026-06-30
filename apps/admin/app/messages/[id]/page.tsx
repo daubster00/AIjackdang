@@ -55,7 +55,7 @@ function RestrictModal({
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
       }}
     >
-      <div style={{ background: "var(--surface)", borderRadius: 8, padding: 24, width: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24, width: 420, boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
         <h3 style={{ marginBottom: 8, fontSize: 16 }}>쪽지 발신제한</h3>
         <p style={{ fontSize: 13, color: "var(--gray-600)", marginBottom: 16 }}>
           <strong>{senderNickname}</strong> 회원의 쪽지 발송을 제한합니다.
@@ -102,7 +102,7 @@ function DeleteModal({
 }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-      <div style={{ background: "var(--surface)", borderRadius: 8, padding: 24, width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24, width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
         <h3 style={{ marginBottom: 12, fontSize: 16 }}>쪽지 삭제</h3>
         <p style={{ fontSize: 13, color: "var(--gray-600)", marginBottom: 16 }}>
           이 쪽지를 삭제합니다. 최고관리자 전용 작업입니다.

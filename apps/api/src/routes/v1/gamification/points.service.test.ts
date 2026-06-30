@@ -30,8 +30,6 @@ vi.mock("./gamification.service.js", () => ({
 vi.mock("../../../lib/queues.js", () => ({
   getRankingQueue: vi.fn(() => ({ add: vi.fn().mockResolvedValue({ id: "mock-job" }) })),
   GRADE_UP_JOB_NAME: "gamification.grade-up",
-  // [6.4] badge-check 잡 이름 상수 추가
-  BADGE_CHECK_JOB_NAME: "gamification.badge-check",
 }));
 
 // ── @ai-jakdang/core 모킹 ─────────────────────────────────────────────────────

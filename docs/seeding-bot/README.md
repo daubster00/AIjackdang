@@ -8,7 +8,7 @@
 
 1. **[PRD.md](./PRD.md)** — 무엇을·왜 만드는가. 목표·기능요구(FR-SB)·비기능요구(NFR-SB)·범위·오픈퀘스천.
 2. **[ARCHITECTURE.md](./ARCHITECTURE.md)** — 어떻게 만드는가. DB 스키마(`bot_*`)·공용 도메인 서비스·AI 추상화·검색·이미지·워커/큐·관리자 UI·환경변수. **실제 코드베이스 기준**.
-3. **[EPICS-AND-STORIES.md](./EPICS-AND-STORIES.md)** — **Epic 11~19 / 38 스토리** 전체 분해(AC 포함). 기존 프로젝트 Epic 1~10 다음 번호.
+3. **[EPICS-AND-STORIES.md](./EPICS-AND-STORIES.md)** — **Epic 11 하나 / 스토리 18개**(그룹 A~F). 기존 프로젝트 Epic 1~10 다음 번호. (기능 1개 = Epic 1개)
 4. **[DEPLOYMENT.md](./DEPLOYMENT.md)** — **운영자(당신)가 배포 전 직접 준비할 것**: API 키 발급법·인프라·비용·배포 런북·매일 운영.
 
 ## 핵심 요약
@@ -21,6 +21,6 @@
 
 ## 다음 단계
 
-- 상세 스토리 파일 생성: `EPICS-AND-STORIES.md`를 입력으로 `bmad-create-story`를 Epic 11부터 순차 실행 →
-  `_bmad-output/implementation-artifacts/11-1-*.md` … `19-3-*.md` 생성.
-- 구현 착수: Epic 11(토대)부터. 의존성 그래프는 ARCHITECTURE.md §12 / EPICS 문서 상단 참고.
+- 상세 스토리 파일 생성: `EPICS-AND-STORIES.md`를 입력으로 `bmad-create-story`를 그룹 A→F 순서로 실행 →
+  `_bmad-output/implementation-artifacts/11-1-*.md` … `11-18-*.md` 생성.
+- 구현 착수: 그룹 A(Story 11.1, 토대)부터. 의존성 그래프는 ARCHITECTURE.md §12 / EPICS 문서 상단 참고.

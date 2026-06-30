@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Select } from "@/components/ui/Select";
 import { API_BASE_URL } from "../../../lib/api";
 import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js";
 import type { AdminAdSlotItem, AdminAdStatsDay } from "@ai-jakdang/contracts";
@@ -252,18 +253,22 @@ function EditDrawer({
             </div>
             <div className="form-grid">
               <div className="field">
-                <label className="field-label" htmlFor="editAdType">광고 유형</label>
-                <select className="control" id="editAdType" value={form.adType}
-                  onChange={(e) => set("adType", e.target.value)}>
-                  {Object.entries(TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+                <Select
+                  label="광고 유형"
+                  id="editAdType"
+                  value={form.adType}
+                  onChange={(v) => set("adType", v)}
+                  options={Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l }))}
+                />
               </div>
               <div className="field">
-                <label className="field-label" htmlFor="editAdPlacement">노출 위치</label>
-                <select className="control" id="editAdPlacement" value={form.placement}
-                  onChange={(e) => set("placement", e.target.value)}>
-                  {PLACEMENTS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </select>
+                <Select
+                  label="노출 위치"
+                  id="editAdPlacement"
+                  value={form.placement}
+                  onChange={(v) => set("placement", v)}
+                  options={PLACEMENTS}
+                />
               </div>
             </div>
             <div className="field">

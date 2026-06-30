@@ -18,7 +18,7 @@ import { schema } from "@ai-jakdang/database";
 import { canEarnPoint, pointsForAction, gradeForPoints } from "@ai-jakdang/core";
 import type { PointReason } from "@ai-jakdang/core";
 import { eq, and, gt, sql, gte } from "drizzle-orm";
-import { getRankingQueue, GRADE_UP_JOB_NAME, BADGE_CHECK_JOB_NAME } from "../../../lib/queues.js";
+import { getRankingQueue, GRADE_UP_JOB_NAME } from "../../../lib/queues.js";
 import { fetchGrades } from "./gamification.service.js";
 
 // ── 공용 DB 타입 ────────────────────────────────────────────────────────────
@@ -157,22 +157,6 @@ export async function earnPoints(
     // 포인트 적립은 성공으로 유지 — 큐 enqueue 실패는 로그만 남김
     console.error("[points.service] 등급 변동 큐 enqueue 실패:", (err as Error).message);
   }
-
-  // ── [6.4] badge-check 잡 enqueue (best-effort) ───────────────────────────
-  // 포인트 이벤트 발생 후 뱃지 조건을 비동기로 재평가한다.
-  // jobId: badge-check:{userId}:{date} → 같은 날 같은 유저 중복 체크 skip
-  try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    await getRankingQueue().add(
-      BADGE_CHECK_JOB_NAME,
-      { userId },
-      { jobId: `badge-check:${userId}:${today}` },
-    );
-  } catch (err) {
-    // badge-check enqueue 실패는 포인트 적립에 영향 없음 (best-effort)
-    console.error("[points.service] badge-check 큐 enqueue 실패:", (err as Error).message);
-  }
-  // ── [6.4] END ─────────────────────────────────────────────────────────────
 
   return true;
 }

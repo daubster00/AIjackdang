@@ -19,10 +19,15 @@ function parsePositiveInt(val: string | undefined, fallback: number): number {
 }
 
 interface ContentRow {
+  id: string;
+  slug: string;
   type: "post" | "resource" | "question";
   title: string;
   board: string | null;
   authorNickname: string | null;
+  authorAvatarUrl: string | null;
+  authorImage: string | null;
+  authorDefaultAvatarIndex: number;
   status: string;
   views: number;
   createdAt: Date;
@@ -44,14 +49,18 @@ export async function registerRecentContentRoute(app: FastifyInstance): Promise<
     const [posts, resources, questions] = await Promise.all([
       db
         .select({
-          id:       schema.posts.id,
-          title:    schema.posts.title,
-          board:    schema.posts.board,
-          userId:   schema.posts.userId,
-          status:   schema.posts.status,
-          views:    schema.posts.viewCount,
-          createdAt: schema.posts.createdAt,
-          nickname: schema.users.nickname,
+          id:                   schema.posts.id,
+          slug:                 schema.posts.slug,
+          title:                schema.posts.title,
+          board:                schema.posts.board,
+          userId:               schema.posts.userId,
+          status:               schema.posts.status,
+          views:                schema.posts.viewCount,
+          createdAt:            schema.posts.createdAt,
+          nickname:             schema.users.nickname,
+          avatarUrl:            schema.users.avatarUrl,
+          image:                schema.users.image,
+          defaultAvatarIndex:   schema.users.defaultAvatarIndex,
         })
         .from(schema.posts)
         .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
@@ -61,13 +70,17 @@ export async function registerRecentContentRoute(app: FastifyInstance): Promise<
 
       db
         .select({
-          id:       schema.resources.id,
-          title:    schema.resources.title,
-          userId:   schema.resources.userId,
-          status:   schema.resources.status,
-          views:    schema.resources.viewCount,
-          createdAt: schema.resources.createdAt,
-          nickname: schema.users.nickname,
+          id:                   schema.resources.id,
+          slug:                 schema.resources.slug,
+          title:                schema.resources.title,
+          userId:               schema.resources.userId,
+          status:               schema.resources.status,
+          views:                schema.resources.viewCount,
+          createdAt:            schema.resources.createdAt,
+          nickname:             schema.users.nickname,
+          avatarUrl:            schema.users.avatarUrl,
+          image:                schema.users.image,
+          defaultAvatarIndex:   schema.users.defaultAvatarIndex,
         })
         .from(schema.resources)
         .leftJoin(schema.users, eq(schema.resources.userId, schema.users.id))
@@ -77,13 +90,17 @@ export async function registerRecentContentRoute(app: FastifyInstance): Promise<
 
       db
         .select({
-          id:       schema.questions.id,
-          title:    schema.questions.title,
-          userId:   schema.questions.userId,
-          status:   schema.questions.status,
-          views:    schema.questions.viewCount,
-          createdAt: schema.questions.createdAt,
-          nickname: schema.users.nickname,
+          id:                   schema.questions.id,
+          slug:                 schema.questions.slug,
+          title:                schema.questions.title,
+          userId:               schema.questions.userId,
+          status:               schema.questions.status,
+          views:                schema.questions.viewCount,
+          createdAt:            schema.questions.createdAt,
+          nickname:             schema.users.nickname,
+          avatarUrl:            schema.users.avatarUrl,
+          image:                schema.users.image,
+          defaultAvatarIndex:   schema.users.defaultAvatarIndex,
         })
         .from(schema.questions)
         .leftJoin(schema.users, eq(schema.questions.userId, schema.users.id))
@@ -95,28 +112,43 @@ export async function registerRecentContentRoute(app: FastifyInstance): Promise<
     // 병합 + 정렬 + 슬라이싱
     const merged: ContentRow[] = [
       ...posts.map((p) => ({
+        id: p.id,
+        slug: p.slug,
         type: "post" as const,
         title: p.title,
         board: p.board,
         authorNickname: p.nickname ?? null,
+        authorAvatarUrl: p.avatarUrl ?? null,
+        authorImage: p.image ?? null,
+        authorDefaultAvatarIndex: p.defaultAvatarIndex ?? 0,
         status: p.status,
         views: Number(p.views),
         createdAt: p.createdAt,
       })),
       ...resources.map((r) => ({
+        id: r.id,
+        slug: r.slug,
         type: "resource" as const,
         title: r.title,
         board: null,
         authorNickname: r.nickname ?? null,
+        authorAvatarUrl: r.avatarUrl ?? null,
+        authorImage: r.image ?? null,
+        authorDefaultAvatarIndex: r.defaultAvatarIndex ?? 0,
         status: r.status,
         views: Number(r.views),
         createdAt: r.createdAt,
       })),
       ...questions.map((q) => ({
+        id: q.id,
+        slug: q.slug,
         type: "question" as const,
         title: q.title,
         board: null,
         authorNickname: q.nickname ?? null,
+        authorAvatarUrl: q.avatarUrl ?? null,
+        authorImage: q.image ?? null,
+        authorDefaultAvatarIndex: q.defaultAvatarIndex ?? 0,
         status: q.status,
         views: Number(q.views),
         createdAt: q.createdAt,
@@ -126,13 +158,18 @@ export async function registerRecentContentRoute(app: FastifyInstance): Promise<
       .slice(0, limit);
 
     const items = merged.map((c) => ({
-      type:            c.type,
-      title:           c.title,
-      board:           c.board,
-      authorNickname:  c.authorNickname,
-      status:          c.status,
-      views:           c.views,
-      createdAt:       c.createdAt.toISOString(),
+      id:                       c.id,
+      slug:                     c.slug,
+      type:                     c.type,
+      title:                    c.title,
+      board:                    c.board,
+      authorNickname:           c.authorNickname,
+      authorAvatarUrl:          c.authorAvatarUrl,
+      authorImage:              c.authorImage,
+      authorDefaultAvatarIndex: c.authorDefaultAvatarIndex,
+      status:                   c.status,
+      views:                    c.views,
+      createdAt:                c.createdAt.toISOString(),
     }));
 
     return reply.code(200).send({ items });

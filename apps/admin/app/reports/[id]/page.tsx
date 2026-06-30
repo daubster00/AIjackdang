@@ -3,14 +3,26 @@
 import Link from "next/link";
 import { use, useState, useEffect, useCallback } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { API_BASE_URL } from "../../../lib/api";
 import { getCrossLink } from "@/lib/contentCrossLink";
+import { notifyDialog } from "@/lib/dialog";
 import type { AdminReportDetail } from "@ai-jakdang/contracts";
+
+// 서비스가 추가로 반환하는 필드
+type ReportDetailExtended = AdminReportDetail & {
+  targetBoard?: string | null;
+  targetStatus?: string | null;
+  reportedUserId?: string | null;
+  reporterAvatarUrl?: string | null;
+  reporterImage?: string | null;
+  reporterDefaultAvatarIndex?: number | null;
+};
 
 /**
  * 신고 상세 페이지 (Story 9.10).
  * GET /api/v1/admin/reports/:id 실제 API 연동.
- * 상태 변경 버튼: 확인중(즉시+토스트)·숨김(즉시+토스트)·반려(모달+사유 필수).
+ * 상태 변경 버튼: 확인중·숨김·반려(모달+사유 필수)·자동숨김복구.
  */
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
@@ -41,48 +53,6 @@ function formatDate(iso: string): string {
   return iso.slice(0, 10).replace(/-/g, ".");
 }
 
-// ── 토스트 ────────────────────────────────────────────────────────────────────
-
-function Toast({
-  message,
-  type,
-  onClose,
-}: {
-  message: string;
-  type: "success" | "error";
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3500);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        zIndex: 99999,
-        background: type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
-        color: "#fff",
-        borderRadius: 8,
-        padding: "12px 20px",
-        fontSize: 14,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        pointerEvents: "none",
-      }}
-    >
-      <i className={type === "success" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
-      {message}
-    </div>
-  );
-}
-
 // ── 반려 모달 ─────────────────────────────────────────────────────────────────
 
 function RejectModal({
@@ -110,7 +80,7 @@ function RejectModal({
     >
       <div
         style={{
-          background: "var(--surface)",
+          background: "var(--gray-0, #fff)",
           borderRadius: 8,
           padding: 24,
           width: 420,
@@ -174,20 +144,12 @@ export default function ReportDetailPage({
 }) {
   const { id } = use(params);
 
-  const [report, setReport] = useState<AdminReportDetail | null>(null);
+  const [report, setReport] = useState<ReportDetailExtended | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-
-  const showToast = useCallback(
-    (message: string, type: "success" | "error" = "success") => {
-      setToast({ message, type });
-    },
-    [],
-  );
 
   // ── 상세 조회 ──────────────────────────────────────────────────────────────
   const fetchReport = useCallback(async () => {
@@ -199,7 +161,7 @@ export default function ReportDetailPage({
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as AdminReportDetail;
+      const data = await res.json() as ReportDetailExtended;
       setReport(data);
     } catch (err) {
       setError((err as Error).message);
@@ -222,10 +184,10 @@ export default function ReportDetailPage({
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("확인중으로 변경되었습니다.");
+      await notifyDialog("확인중으로 변경되었습니다.");
       void fetchReport();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     } finally {
       setActionLoading(false);
     }
@@ -242,10 +204,10 @@ export default function ReportDetailPage({
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("숨김 처리되었습니다.");
+      await notifyDialog("숨김 처리되었습니다.");
       void fetchReport();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     } finally {
       setActionLoading(false);
     }
@@ -262,21 +224,43 @@ export default function ReportDetailPage({
         body: JSON.stringify({ note }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast("신고가 반려되었습니다.");
+      await notifyDialog("신고가 반려되었습니다.");
       setRejectOpen(false);
       void fetchReport();
     } catch {
-      showToast("처리 중 오류가 발생했습니다.", "error");
+      await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const crossLink = report ? getCrossLink(report.targetType, report.targetId) : null;
+  // 숨김 해제(수동/자동 숨김 모두) — 대상 콘텐츠를 정상 복구하고 신고를 reviewing 으로.
+  // 수동 "대상 숨김" 후 status='resolved'가 되어 조치 버튼이 사라져 되돌릴 수 없던 문제 해결.
+  const handleUnhide = async () => {
+    if (!report || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports/${id}/unhide`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await notifyDialog("숨김이 해제되어 콘텐츠가 복구되었습니다.");
+      void fetchReport();
+    } catch {
+      await notifyDialog("복구 중 오류가 발생했습니다.", "danger");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const crossLink = report ? getCrossLink(report.targetType, report.targetId, report.targetBoard) : null;
   const canAct =
     report &&
     report.status !== "resolved" &&
     report.status !== "dismissed";
+  // 대상 콘텐츠가 현재 숨김 상태면(수동/자동 무관) status 와 상관없이 해제 버튼을 노출한다.
+  const targetHidden = report?.targetStatus === "hidden";
 
   return (
     <AdminShell breadcrumb={["관리자", "신고 관리", "신고 상세"]} activeKey="reports">
@@ -292,6 +276,17 @@ export default function ReportDetailPage({
             <i className="ri-arrow-left-line" />
             목록으로
           </Link>
+          {/* 숨김 해제: 대상이 현재 숨김이면 신고 status(resolved 포함)와 무관하게 노출 */}
+          {report && targetHidden && (
+            <button
+              className="btn btn-primary"
+              disabled={actionLoading}
+              onClick={() => void handleUnhide()}
+            >
+              <i className="ri-refresh-line" />
+              {report.autoHidden ? "자동 숨김 복구" : "숨김 해제"}
+            </button>
+          )}
           {canAct && (
             <>
               {report.status === "pending" && (
@@ -304,14 +299,16 @@ export default function ReportDetailPage({
                   확인중으로 변경
                 </button>
               )}
-              <button
-                className="btn btn-secondary"
-                disabled={actionLoading}
-                onClick={() => void handleHide()}
-              >
-                <i className="ri-eye-off-line" />
-                대상 숨김
-              </button>
+              {!targetHidden && (
+                <button
+                  className="btn btn-secondary"
+                  disabled={actionLoading}
+                  onClick={() => void handleHide()}
+                >
+                  <i className="ri-eye-off-line" />
+                  대상 숨김
+                </button>
+              )}
               <button
                 className="btn btn-outline"
                 disabled={actionLoading}
@@ -387,7 +384,14 @@ export default function ReportDetailPage({
                     <div className="detail-value">
                       {(() => {
                         const [sb, sl] = statusBadge(report.status);
-                        return <span className={`badge ${sb}`}>{sl}</span>;
+                        return (
+                          <>
+                            <span className={`badge ${sb}`}>{sl}</span>
+                            {report.autoHidden && (
+                              <span className="badge badge-orange" style={{ marginLeft: 6 }}>자동 숨김</span>
+                            )}
+                          </>
+                        );
                       })()}
                     </div>
                   </div>
@@ -395,13 +399,32 @@ export default function ReportDetailPage({
                     <div className="detail-label">신고자</div>
                     <div className="detail-value">
                       <div className="author">
-                        <span className="author-avatar">
-                          {(report.reporterNickname ?? "?")[0]}
-                        </span>
+                        <UserAvatar
+                          avatarUrl={report.reporterAvatarUrl}
+                          image={report.reporterImage}
+                          defaultAvatarIndex={report.reporterDefaultAvatarIndex ?? 0}
+                          alt={report.reporterNickname ?? "?"}
+                          size={24}
+                        />
                         <span>{report.reporterNickname ?? "(알 수 없음)"}</span>
                       </div>
                     </div>
                   </div>
+                  {report.reportedUserId && (
+                    <div className="detail-row">
+                      <div className="detail-label">신고당한 회원</div>
+                      <div className="detail-value">
+                        <Link
+                          href={`/members/${report.reportedUserId}`}
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: "2px 10px" }}
+                        >
+                          <i className="ri-user-line" />
+                          회원 상세
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                   <div className="detail-row">
                     <div className="detail-label">최초 신고일</div>
                     <div className="detail-value">{formatDate(report.createdAt)}</div>
@@ -431,15 +454,6 @@ export default function ReportDetailPage({
           reportId={report.id}
           onConfirm={(rid, note) => void handleReject(rid, note)}
           onClose={() => setRejectOpen(false)}
-        />
-      )}
-
-      {/* 토스트 */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
         />
       )}
     </AdminShell>

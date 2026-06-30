@@ -1,0 +1,81 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 122px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-300, #d1d5db);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--gray-0, #ffffff);
+  color: var(--gray-800, #1f2937);
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  border-color: var(--primary-400, #818cf8);
+  outline: none;
+}
+
+.triggerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--gray-0, #ffffff);
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-popover, 0 8px 24px rgba(15, 23, 42, 0.16));
+
+  /* 얇은 보라 스크롤바 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.45) transparent;
+}
+
+.menu::-webkit-scrollbar {
+  width: 6px;
+}
+.menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.menu::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.45);
+  border-radius: 99px;
+}
+.menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.7);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  color: var(--gray-800, #1f2937);
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--gray-100, #f3f4f6);
+}
+
+.selected {
+  color: var(--primary-600, #4f46e5);
+  font-weight: 600;
+}

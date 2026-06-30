@@ -31,6 +31,8 @@ import {
   rejectAdmin,
   suspendAdmin,
 } from "./service.js";
+import { registerAdminPermissionsRoutes } from "../permissions/index.js";
+import { registerAdminRolesRoutes, roleExists } from "../roles/index.js";
 
 const idParamsSchema = z.object({ id: z.string().uuid("올바른 관리자 ID가 아닙니다") });
 
@@ -114,6 +116,10 @@ export async function registerAdminMembersRoutes(app: FastifyInstance): Promise<
       const { id } = request.params;
       const { role, note } = request.body;
       const approverId = request.adminSession!.adminUserId;
+
+      if (!(await roleExists(role))) {
+        return reply.code(400).send({ error: { code: "VALIDATION_ERROR", message: "존재하지 않는 역할입니다." } });
+      }
 
       try {
         const updated = await approveAdmin(id, approverId, role, note);
@@ -268,6 +274,10 @@ export async function registerAdminMembersRoutes(app: FastifyInstance): Promise<
       const { role, note } = request.body;
       const requesterId = request.adminSession!.adminUserId;
 
+      if (!(await roleExists(role))) {
+        return reply.code(400).send({ error: { code: "VALIDATION_ERROR", message: "존재하지 않는 역할입니다." } });
+      }
+
       try {
         const updated = await changeAdminRole(id, requesterId, role, note);
         return reply.code(200).send({
@@ -288,4 +298,53 @@ export async function registerAdminMembersRoutes(app: FastifyInstance): Promise<
       }
     },
   );
+
+  // ── GET /admin/admin-members/:id ─────────────────────────────────────────────
+
+  typed.get(
+    "/admin/admin-members/:id",
+    {
+      preHandler: [requireSuperAdmin],
+      schema: {
+        description: "관리자(운영자) 단건 조회. super_admin 전용.",
+        tags: ["admin-members"],
+        params: idParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const db = getDb();
+
+      const [u] = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.id, id))
+        .limit(1);
+
+      if (!u) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "관리자를 찾을 수 없습니다." },
+        });
+      }
+
+      return reply.code(200).send({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+        status: u.status,
+        approvedBy: u.approvedBy ?? null,
+        approvedAt: u.approvedAt ? u.approvedAt.toISOString() : null,
+        note: u.note ?? null,
+        createdAt: u.createdAt.toISOString(),
+        updatedAt: u.updatedAt.toISOString(),
+      });
+    },
+  );
+
+  // 권한 매트릭스 라우트 (GET/PATCH /admin/permissions) — admin/index.ts 편집 없이 여기서 등록
+  await registerAdminPermissionsRoutes(app);
+  // 역할 관리 라우트 (GET/POST/PATCH/DELETE /admin/roles) — M12
+  await registerAdminRolesRoutes(app);
 }

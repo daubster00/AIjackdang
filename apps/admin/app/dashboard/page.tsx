@@ -5,6 +5,8 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { TrafficChart } from "@/components/dashboard/TrafficChart";
 import { SkeletonCard, SkeletonTable } from "@/components/ui/Skeleton";
 import { DashboardExportButton } from "./DashboardExportButton";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { dbBoardToAdminSlug } from "@/lib/boards";
 import type {
   DashboardKpiResponse,
   DashboardAlertsResponse,
@@ -87,6 +89,18 @@ function fmtDate(iso: string): string {
   return iso.slice(0, 10).replace(/-/g, ".");
 }
 
+/** 최근 콘텐츠 항목 → 어드민 상세 페이지 URL.
+ *  item.board 는 DB posts.board 실젯값(예: "vibe-coding-guide", "gigs")이므로
+ *  dbBoardToAdminSlug 로 관리자 URL slug(예: "vibe-guide", "outsource-tip")로 변환한다.
+ */
+function contentDetailHref(item: { type: "post" | "resource" | "question"; id: string; board: string | null }): string {
+  switch (item.type) {
+    case "post":     return `/posts/${dbBoardToAdminSlug(item.board ?? "general")}/${item.id}`;
+    case "resource": return `/resources/${item.id}`;
+    case "question": return `/qna/${item.id}`;
+  }
+}
+
 export default async function AdminDashboardPage() {
   const cookieHeader = await getCookieHeader();
   const [kpi, alerts, recentContent] = await Promise.all([
@@ -130,10 +144,6 @@ export default async function AdminDashboardPage() {
         </div>
         <div className="page-actions">
           <DashboardExportButton recentItems={recentItems} />
-          <Link href="/posts/new" className="btn btn-primary">
-            <i className="ri-add-line" />
-            새 게시글
-          </Link>
         </div>
       </div>
 
@@ -201,17 +211,25 @@ export default async function AdminDashboardPage() {
                     recentItems.map((r) => {
                       const { cls: typeCls, label: typeLabel } = typeBadge(r.type);
                       const { cls: stCls, label: stLabel }    = statusBadge(r.status);
-                      const avatarLetter = r.authorNickname?.[0] ?? "?";
+                      const href = contentDetailHref(r);
+                      // API 응답에 avatar 필드가 포함되므로 extra 캐스팅으로 접근
+                      const extra = r as unknown as { authorAvatarUrl?: string | null; authorImage?: string | null; authorDefaultAvatarIndex?: number };
                       return (
-                        <tr key={`${r.type}-${r.title}-${r.createdAt}`}>
+                        <tr key={r.id}>
                           <td>
-                            <div className="content-title">{r.title}</div>
+                            <Link href={href} className="content-title" style={{ textDecoration: "none", color: "inherit" }}>{r.title}</Link>
                             {r.board && <div className="content-meta">{r.board}</div>}
                           </td>
                           <td><span className={`badge ${typeCls}`}>{typeLabel}</span></td>
                           <td>
                             <div className="author">
-                              <span className="author-avatar">{avatarLetter}</span>
+                              <UserAvatar
+                                size={28}
+                                alt={r.authorNickname ?? "프로필"}
+                                avatarUrl={extra.authorAvatarUrl}
+                                image={extra.authorImage}
+                                defaultAvatarIndex={extra.authorDefaultAvatarIndex}
+                              />
                               <span>{r.authorNickname ?? "(탈퇴)"}</span>
                             </div>
                           </td>

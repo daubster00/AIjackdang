@@ -278,7 +278,7 @@ export function InquiryDrawer({ inquiryId, onClose, onStatusChanged }: InquiryDr
           right: 0,
           bottom: 0,
           width: 520,
-          background: "var(--surface)",
+          background: "var(--gray-0, #fff)",
           zIndex: 9998,
           display: "flex",
           flexDirection: "column",
@@ -402,7 +402,7 @@ export function InquiryDrawer({ inquiryId, onClose, onStatusChanged }: InquiryDr
               {/* 문의 본문 */}
               <div
                 style={{
-                  background: "var(--surface)",
+                  background: "var(--gray-0, #fff)",
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   padding: "14px 16px",
@@ -541,7 +541,7 @@ export function InquiryDrawer({ inquiryId, onClose, onStatusChanged }: InquiryDr
                 flexDirection: "column",
                 gap: 10,
                 flexShrink: 0,
-                background: "var(--surface)",
+                background: "var(--gray-0, #fff)",
               }}
             >
               <label

@@ -8,6 +8,7 @@
  * 게시글 성과: GET /api/v1/admin/analytics/post-performance?from=&to=&limit=
  * 자료 성과:   GET /api/v1/admin/analytics/resource-performance?from=&to=&limit=
  * 최근 콘텐츠: GET /api/v1/admin/dashboard/recent-content?limit=
+ * 페이지 체류: GET /api/v1/admin/analytics/page-dwell-time
  */
 
 import { z } from "zod";
@@ -23,6 +24,8 @@ export const pageViewCollectBodySchema = z.object({
   searchKeyword: z.string().max(500).optional(),
   /** 브라우저 localStorage에 저장된 익명 방문자 ID (crypto.randomUUID). */
   visitorId: z.string().min(1).max(100),
+  /** 페이지 체류 시간(ms). 이탈 시 sendBeacon으로 전송. 없으면 생략. */
+  dwellMs: z.number().int().positive().optional(),
 });
 export type PageViewCollectBody = z.infer<typeof pageViewCollectBodySchema>;
 
@@ -115,9 +118,28 @@ export const resourcePerformanceResponseSchema = z.object({
 });
 export type ResourcePerformanceResponse = z.infer<typeof resourcePerformanceResponseSchema>;
 
+// ── 페이지별 체류시간 (GET /api/v1/admin/analytics/page-dwell-time) ──────────
+
+export const pageDwellTimeItemSchema = z.object({
+  /** 방문 경로 (쿼리스트링 제외). 예: /automation/some-slug */
+  path: z.string(),
+  /** dwell_ms IS NOT NULL 행 수 (체류시간 기록된 뷰 수) */
+  views: z.number().int().nonnegative(),
+  /** AVG(dwell_ms) — 밀리초 단위 평균 체류시간 */
+  avgDwellMs: z.number().nonnegative(),
+});
+export type PageDwellTimeItem = z.infer<typeof pageDwellTimeItemSchema>;
+
+export const pageDwellTimeResponseSchema = z.object({
+  items: z.array(pageDwellTimeItemSchema),
+});
+export type PageDwellTimeResponse = z.infer<typeof pageDwellTimeResponseSchema>;
+
 // ── 최근 콘텐츠 (GET /api/v1/admin/dashboard/recent-content) ─────────────────
 
 export const recentContentItemSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
   type: z.enum(["post", "resource", "question"]),
   title: z.string(),
   board: z.string().nullable(),                          // 게시글: board slug. 자료/질문: null.

@@ -18,6 +18,7 @@ import { registerReferrersRoute } from "../analytics/referrers.js";
 import { registerKeywordsRoute } from "../analytics/keywords.js";
 import { registerPostPerformanceRoute } from "../analytics/post-performance.js";
 import { registerResourcePerformanceRoute } from "../analytics/resource-performance.js";
+import { registerAdminAnalyticsRoutes } from "../analytics/index.js";
 import { registerRecentContentRoute } from "./recent-content.js";
 
 export async function registerAdminDashboardRoutes(app: FastifyInstance): Promise<void> {
@@ -31,6 +32,9 @@ export async function registerAdminDashboardRoutes(app: FastifyInstance): Promis
   await registerKeywordsRoute(app);
   await registerPostPerformanceRoute(app);
   await registerResourcePerformanceRoute(app);
+
+  // 접속통계 신규 API (page-dwell-time 등)
+  await registerAdminAnalyticsRoutes(app);
 
   // 대시보드 최근 콘텐츠
   await registerRecentContentRoute(app);

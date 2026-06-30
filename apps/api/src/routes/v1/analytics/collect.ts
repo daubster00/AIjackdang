@@ -50,6 +50,7 @@ export async function registerAnalyticsCollectRoute(
       referrer?: string;
       searchKeyword?: string;
       visitorId?: string;
+      dwellMs?: number;
     };
 
     // 필수 파라미터 검증
@@ -76,6 +77,10 @@ export async function registerAnalyticsCollectRoute(
     }
 
     // 4. page_views INSERT
+    // dwellMs: 이탈 비콘(exit beacon)으로 전달된 체류시간(ms). null 이면 미기록.
+    const dwellMs =
+      typeof body.dwellMs === "number" && body.dwellMs > 0 ? body.dwellMs : null;
+
     const db = getDb();
     await db.insert(schema.pageViews).values({
       path,
@@ -84,6 +89,7 @@ export async function registerAnalyticsCollectRoute(
       referrer,
       referrerHost,
       searchKeyword: body.searchKeyword ?? null,
+      dwellMs,
     });
 
     // 5. 204 No Content

@@ -8,20 +8,22 @@ import { AnalyticsOverviewChart } from "@/components/stats/AnalyticsOverviewChar
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { StatsTopExportButtons, StatsKeywordCsvButton } from "./StatsExportButtons";
+import { ContentPerformanceTable } from "./ContentPerformanceTable";
 import type {
   AnalyticsOverviewResponse,
   ReferrersResponse,
   KeywordsResponse,
   PostPerformanceResponse,
   ResourcePerformanceResponse,
+  PageDwellTimeResponse,
 } from "@ai-jakdang/contracts";
 
 /**
  * 접속 통계 페이지 (Story 9.5).
  * 목업 상수를 모두 제거하고 실제 API 데이터를 사용한다.
  *
- * 유입 경로(referrers), 검색 키워드(keywords), 게시글 성과(post-performance),
- * 실전자료 성과(resource-performance)는 서버에서 fetch.
+ * 유입 경로(referrers), 검색 키워드(keywords), 콘텐츠 성과(post-performance +
+ * resource-performance 통합), 페이지별 체류시간(page-dwell-time)은 서버에서 fetch.
  * 방문자 추이(visitor-trend)는 VisitorTrendChart 내부에서 클라이언트 fetch.
  */
 
@@ -68,30 +70,15 @@ function sourceIcon(source: string): { icon: string; style: Record<string, strin
   }
 }
 
-// ── 게시글 유형·상태 뱃지 ─────────────────────────────────────────────────────
+// ── 체류시간 포맷 ─────────────────────────────────────────────────────────────
 
-function boardLabel(board: string): string {
-  // board slug → 표시명 (필요 시 확장)
-  const MAP: Record<string, string> = {
-    automation: "자동화", lounge: "라운지", monetize: "수익화",
-    "vibe-coding": "바이브코딩", notice: "공지",
-  };
-  return MAP[board] ?? board;
-}
-
-function statusBadge(status: string): { cls: string; label: string } {
-  switch (status) {
-    case "published": return { cls: "badge-green",  label: "공개" };
-    case "draft":     return { cls: "badge-gray",   label: "초안" };
-    case "hidden":    return { cls: "badge-orange", label: "숨김" };
-    default:          return { cls: "badge-gray",   label: status };
-  }
-}
-
-// ── 날짜 표시 ─────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10).replace(/-/g, ".");
+function fmtDwell(avgMs: number): string {
+  const totalSec = Math.round(avgMs / 1000);
+  if (totalSec <= 0) return "—";
+  if (totalSec < 60) return `${totalSec}초`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return sec > 0 ? `${min}분 ${sec}초` : `${min}분`;
 }
 
 // ── 페이지 props ──────────────────────────────────────────────────────────────
@@ -126,8 +113,8 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
 
   const base = `${API_BASE}/api/v1/admin/analytics`;
 
-  // 병렬 fetch
-  const [overview, referrers, keywords, postPerf, resourcePerf] = await Promise.all([
+  // 병렬 fetch (게시글·실전자료 모두 limit=10, 체류시간은 기간 무관 전체 집계)
+  const [overview, referrers, keywords, postPerf, resourcePerf, dwellTime] = await Promise.all([
     apiFetch<AnalyticsOverviewResponse>(
       `${API_BASE}/api/v1/admin/analytics/overview?from=${from}&to=${to}`,
       cookieHeader,
@@ -141,11 +128,15 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
       cookieHeader,
     ),
     apiFetch<PostPerformanceResponse>(
-      `${base}/post-performance?from=${from}&to=${to}&limit=20`,
+      `${base}/post-performance?from=${from}&to=${to}&limit=10`,
       cookieHeader,
     ),
     apiFetch<ResourcePerformanceResponse>(
-      `${base}/resource-performance?from=${from}&to=${to}&limit=20`,
+      `${base}/resource-performance?from=${from}&to=${to}&limit=10`,
+      cookieHeader,
+    ),
+    apiFetch<PageDwellTimeResponse>(
+      `${base}/page-dwell-time`,
       cookieHeader,
     ),
   ]);
@@ -179,11 +170,12 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
     return `/stats${qs ? `?${qs}` : ""}`;
   };
 
-  // ── post-performance ──
-  const postItems = postPerf?.items ?? [];
-
-  // ── resource-performance ──
+  // ── post-performance / resource-performance (통합 테이블에 전달) ──
+  const postItems     = postPerf?.items     ?? [];
   const resourceItems = resourcePerf?.items ?? [];
+
+  // ── page-dwell-time ──
+  const dwellItems = dwellTime?.items ?? [];
 
   return (
     <AdminShell breadcrumb={["관리자", "접속 통계"]} activeKey="stats">
@@ -351,63 +343,16 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
         </article>
       </section>
 
-      {/* 게시글별 성과 */}
-      <section className="section">
-        <div className="section-heading">
-          <div>
-            <h2 className="section-title">게시글별 성과</h2>
-            <p className="section-description">콘텐츠별 조회·댓글·좋아요·신고 지표입니다. (조회수 기준 정렬)</p>
-          </div>
-        </div>
-        <article className="card">
-          <div className="table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr><th>게시글</th><th>게시판</th><th>작성자</th><th>상태</th><th>조회수</th><th>댓글</th><th>좋아요</th><th>신고</th><th>등록일</th></tr>
-              </thead>
-              <tbody>
-                {postItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
-                      선택한 기간에 게시글 데이터가 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  postItems.map((p) => {
-                    const { cls: stCls, label: stLabel } = statusBadge(p.status);
-                    return (
-                      <tr key={p.id}>
-                        <td><div className="content-title">{p.title}</div></td>
-                        <td><span className="badge badge-blue">{boardLabel(p.board)}</span></td>
-                        <td>{p.authorNickname ?? <span style={{ color: "var(--gray-400)" }}>(탈퇴)</span>}</td>
-                        <td><span className={`badge ${stCls}`}>{stLabel}</span></td>
-                        <td className="num">{p.viewCount.toLocaleString("ko-KR")}</td>
-                        <td className="num">{p.commentCount.toLocaleString("ko-KR")}</td>
-                        <td className="num">{p.likeCount.toLocaleString("ko-KR")}</td>
-                        <td className="num">
-                          {p.reportCount > 0
-                            ? <span className="badge badge-red">{p.reportCount}</span>
-                            : <span>0</span>}
-                        </td>
-                        <td className="num">{fmtDate(p.createdAt)}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </section>
+      {/* 콘텐츠별 성과 (게시글 + 실전자료 통합, 정렬 가능) */}
+      <ContentPerformanceTable postItems={postItems} resourceItems={resourceItems} />
 
-      {/* 실전자료별 성과 */}
+      {/* 페이지별 머문시간 */}
       <section className="section">
         <div className="section-heading">
           <div>
-            <h2 className="section-title">실전자료별 성과</h2>
+            <h2 className="section-title">페이지별 머문시간</h2>
             <p className="section-description">
-              자료별 다운로드·평점·후기·신고 지표입니다.{" "}
-              <strong>다운로드 전환율 = 다운로드수 / 조회수</strong>.
+              체류시간이 기록된 방문 기준 평균 체류시간입니다. (전체 누적, 상위 15개 경로)
             </p>
           </div>
         </div>
@@ -415,41 +360,33 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
           <div className="table-wrap">
             <table className="admin-table">
               <thead>
-                <tr><th>실전자료</th><th>유형</th><th>조회수</th><th>다운로드수</th><th>다운로드 전환율</th><th>평점</th><th>후기</th><th>신고</th></tr>
+                <tr>
+                  <th>경로</th>
+                  <th>평균 체류시간</th>
+                  <th>조회수</th>
+                </tr>
               </thead>
               <tbody>
-                {resourceItems.length === 0 ? (
+                {dwellItems.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
-                      선택한 기간에 실전자료 데이터가 없습니다.
+                    <td colSpan={3} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2rem" }}>
+                      체류시간 데이터가 없습니다. 방문 로그가 누적되면 표시됩니다.
                     </td>
                   </tr>
                 ) : (
-                  resourceItems.map((r) => {
-                    const convTone =
-                      r.conversionRate >= 30 ? "badge-green"
-                      : r.conversionRate >= 15 ? "badge-cyan"
-                      : "badge-orange";
-                    return (
-                      <tr key={r.id}>
-                        <td><div className="content-title">{r.title}</div><div className="content-meta">{r.resourceType}</div></td>
-                        <td><span className="badge badge-cyan">{r.resourceType}</span></td>
-                        <td className="num">{r.viewCount.toLocaleString("ko-KR")}</td>
-                        <td className="num">{r.downloadCount.toLocaleString("ko-KR")}</td>
-                        <td className="num"><span className={`badge ${convTone}`}>{r.conversionRate}%</span></td>
-                        <td className="num">
-                          <i className="ri-star-fill" style={{ color: "var(--warning)", marginRight: 4 }} />
-                          {r.avgRating.toFixed(1)}
-                        </td>
-                        <td className="num">{r.ratingCount.toLocaleString("ko-KR")}</td>
-                        <td className="num">
-                          {r.reportCount > 0
-                            ? <span className="badge badge-red">{r.reportCount}</span>
-                            : <span>0</span>}
-                        </td>
-                      </tr>
-                    );
-                  })
+                  dwellItems.map((d) => (
+                    <tr key={d.path}>
+                      <td>
+                        <div className="content-title" style={{ fontFamily: "monospace", fontSize: 13 }}>
+                          {d.path}
+                        </div>
+                      </td>
+                      <td className="num">
+                        <strong>{fmtDwell(d.avgDwellMs)}</strong>
+                      </td>
+                      <td className="num">{d.views.toLocaleString("ko-KR")}</td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

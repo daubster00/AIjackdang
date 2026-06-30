@@ -16,6 +16,11 @@ import {
   getAllSiteSettings,
   invalidateSiteSetting,
 } from "../../../lib/siteSettings.js";
+import {
+  uploadImage,
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+} from "../../../services/storage/index.js";
 
 /**
  * 사이트 설정 PATCH 스키마 (로컬 정의).
@@ -29,6 +34,7 @@ const adminSettingsPatchSchema = z.object({
   seo_title: z.string().max(100).optional(),
   seo_description: z.string().max(300).optional(),
   og_image: z.string().max(500).optional(),
+  favicon_url: z.string().max(500).optional(),
   auto_hide_enabled: z.boolean().optional(),
   auto_hide_threshold: z.number().int().min(1).max(1000).optional(),
   report_reasons: z.array(z.string().min(1).max(50)).optional(),
@@ -102,6 +108,76 @@ export async function registerAdminSettingsRoutes(app: FastifyInstance): Promise
       }
 
       return reply.send({ updated: updatedKeys });
+    },
+  );
+
+  // ── POST /api/v1/admin/settings/upload-image ─────────────────────────────────
+  // OG 이미지·파비콘 등 사이트 설정용 이미지를 업로드하고 URL을 반환한다.
+  // multipart 플러그인은 app.ts에서 전역 등록됨.
+  app.post(
+    "/admin/settings/upload-image",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const reqWithFile = request as typeof request & {
+        isMultipart?: () => boolean;
+        file?: () => Promise<
+          | {
+              filename: string;
+              mimetype: string;
+              file: { truncated: boolean };
+              toBuffer: () => Promise<Buffer>;
+            }
+          | undefined
+        >;
+      };
+
+      if (!reqWithFile.isMultipart?.()) {
+        return reply.status(400).send({
+          error: {
+            code: "INVALID_CONTENT_TYPE",
+            message: "multipart/form-data 형식으로 전송해주세요.",
+          },
+        });
+      }
+
+      const part = await reqWithFile.file?.();
+      if (!part) {
+        return reply.status(400).send({
+          error: { code: "NO_FILE", message: "업로드할 파일이 없습니다." },
+        });
+      }
+
+      if (!ALLOWED_IMAGE_TYPES.has(part.mimetype)) {
+        return reply.status(400).send({
+          error: {
+            code: "INVALID_FILE_TYPE",
+            message: "jpg·png·webp·gif 형식만 허용됩니다.",
+          },
+        });
+      }
+
+      const buffer = await part.toBuffer();
+      if (part.file.truncated || buffer.length > MAX_UPLOAD_BYTES) {
+        return reply.status(400).send({
+          error: {
+            code: "FILE_TOO_LARGE",
+            message: "파일 크기는 5MB 이하여야 합니다.",
+          },
+        });
+      }
+
+      try {
+        const result = await uploadImage(
+          { filename: part.filename, mimetype: part.mimetype, data: buffer },
+          "editor-images",
+        );
+        return reply.send({ url: result.url });
+      } catch (err) {
+        request.log.error(err);
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "이미지 업로드에 실패했습니다." },
+        });
+      }
     },
   );
 }

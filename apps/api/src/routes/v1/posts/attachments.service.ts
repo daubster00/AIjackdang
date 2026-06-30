@@ -14,8 +14,14 @@ import type { AttachmentInput } from "@ai-jakdang/contracts";
 import { getSiteSetting } from "../../../lib/siteSettings.js";
 import { uploadAttachment } from "../../../services/storage/index.js";
 
-/** 관리자 설정 미지정 시 기본 허용 확장자 (관리자 UI 기본값과 동일). */
+/** 게시글 첨부파일 기본 허용 확장자 (관리자 UI 기본값·file_allowed_extensions 미지정 시). */
 const DEFAULT_ALLOWED_EXTENSIONS = ["zip", "pdf", "json", "md", "txt", "csv", "xlsx"];
+
+/** 실전자료 첨부파일 기본 허용 확장자 (resource_extensions·file_allowed_extensions 미지정 시). */
+const DEFAULT_RESOURCE_EXTENSIONS = ["zip", "docx", "xlsx", "pdf", "md", "txt", "json"];
+
+/** 기본 업로드 크기 제한 (MB). max_upload_mb 미지정 시 사용. */
+const DEFAULT_MAX_UPLOAD_MB = 10;
 
 /** 멀티파트에서 수집한 업로드 파일 1개. */
 export interface UploadedAttachmentData {
@@ -55,6 +61,44 @@ export async function getAllowedAttachmentExtensions(): Promise<string[]> {
     .map((e) => e.trim().replace(/^\./, "").toLowerCase())
     .filter((e) => e.length > 0);
   return parsed.length > 0 ? parsed : DEFAULT_ALLOWED_EXTENSIONS;
+}
+
+/**
+ * 관리자 설정(resource_extensions)에서 실전자료 허용 확장자 목록을 읽는다.
+ * resource_extensions 미설정 시 file_allowed_extensions 로 폴백, 그것도 미설정이면 기본값 사용.
+ */
+export async function getAllowedResourceExtensions(): Promise<string[]> {
+  // resource_extensions 전용 설정 우선 조회
+  const resRaw = await getSiteSetting<string>("resource_extensions");
+  if (typeof resRaw === "string" && resRaw.trim() !== "") {
+    const parsed = resRaw
+      .split(",")
+      .map((e) => e.trim().replace(/^\./, "").toLowerCase())
+      .filter((e) => e.length > 0);
+    if (parsed.length > 0) return parsed;
+  }
+
+  // resource_extensions 미설정 → file_allowed_extensions 폴백
+  const raw = await getSiteSetting<string>("file_allowed_extensions");
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const parsed = raw
+      .split(",")
+      .map((e) => e.trim().replace(/^\./, "").toLowerCase())
+      .filter((e) => e.length > 0);
+    if (parsed.length > 0) return parsed;
+  }
+
+  return DEFAULT_RESOURCE_EXTENSIONS;
+}
+
+/**
+ * 관리자 설정(max_upload_mb)에서 파일당 최대 업로드 크기를 바이트 단위로 읽는다.
+ * @param fallbackMb max_upload_mb 미설정 시 사용할 기본값(MB). 기본 10MB.
+ */
+export async function getMaxUploadBytes(fallbackMb = DEFAULT_MAX_UPLOAD_MB): Promise<number> {
+  const raw = await getSiteSetting<number>("max_upload_mb");
+  const mb = typeof raw === "number" && raw > 0 ? raw : fallbackMb;
+  return mb * 1024 * 1024;
 }
 
 /**

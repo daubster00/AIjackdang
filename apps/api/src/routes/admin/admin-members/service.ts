@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 export async function approveAdmin(
   targetId: string,
   approverId: string,
-  role: "staff" | "super_admin",
+  role: string,
   note: string,
 ) {
   const db = getDb();
@@ -169,7 +169,7 @@ export async function activateAdmin(targetId: string, note: string) {
 export async function changeAdminRole(
   targetId: string,
   requesterId: string,
-  role: "staff" | "super_admin",
+  role: string,
   note: string,
 ) {
   // 자기 자신의 역할은 변경 불가

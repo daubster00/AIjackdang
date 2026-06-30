@@ -112,6 +112,7 @@ export const userSanctions = pgTable("user_sanctions", {
 
 ### 설계 노트
 - **포인트·등급**: `users`에 저장하지 않고 `points_ledger`(원장) + `packages/core`의 `gradeForPoints`로 도출. 랭킹 성능 위해 `current_points`/`grade` 캐시 컬럼은 선택적(필요 시 추가).
+- **회원 직접 신고 & 누적 제재 연동(Epic 12, 2026-06-30)**: `report_target_type` 다형 enum(engagement 스키마, Epic 5 소유)에 **`user` 값 추가** — 콘텐츠뿐 아니라 회원 자체를 신고 대상으로 삼는다. 신고 누적 제재는 **신규 테이블 없이** 본 ADR의 `user_sanctions`를 그대로 재사용한다: 관리자가 **처리완료(resolved)** 한 신고를 작성자/피신고 회원에게 귀속·누적 → 임계치(`site_settings.report_escalation_threshold`) 도달 시 **자동 `user_sanctions(type='warning')` 1건 + 검토 요망 에스컬레이션**까지만 자동화한다. **`type='suspend'|'permaban'` 자동 생성 금지**(운영자 수동 — 브리게이딩 방어). 모든 제재 부여 시 당사자 알림 통보.
 - **유저 측 역할 없음**: 사이트 회원은 전원 일반 회원(권한 분기는 status·게이팅으로 충분). 운영자/최고관리자 역할·권한맵은 **관리자 신원(ADR-0003)** 에 별도 존재. 현행 `packages/auth`의 `Role(member|admin)`은 **유저용/관리자용으로 분리 리팩터링** 필요(ADR-0003 참조).
 - **Better Auth 매핑**: `socialProviders.{google,naver,kakao}` + 이메일/비밀번호 + 이메일 인증 + account linking(trustedProviders) + 커스텀 Argon2id 해셔. 정확한 컬럼은 인증 Story에서 Better Auth 산출 스키마와 대조.
 - **인증 마운트 & 콜백 규약(확정)**: Better Auth 서버는 `apps/api`에서 동작(DB 접근 권위)하되, 브라우저에는 **유저 사이트와 같은 출처로 프록시**(Next rewrite: 유저 출처 `/api/v1/auth/*` → API)해 노출 → **first-party 쿠키**(로컬 크로스-포트/운영 크로스-서브도메인 쿠키 문제 회피). 소셜 콜백 = **유저 출처 기준**: 로컬 `http://localhost:3003/api/v1/auth/callback/{google|naver|kakao}`, 운영 `https://www.<도메인>/api/v1/auth/callback/{provider}`. (관리자는 소셜 없음 — ADR-0003.) 프록시는 HTTP 포워딩일 뿐 Next가 DB에 접근하지 않으므로 "DB는 api/worker만" 원칙 위배 아님.

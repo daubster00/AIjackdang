@@ -22,6 +22,7 @@ import {
   hideTarget,
   rejectReport,
   restoreAutoHidden,
+  unhideTarget,
 } from "./service.js";
 
 export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<void> {
@@ -194,6 +195,34 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
 
     try {
       const result = await restoreAutoHidden(id, adminId);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+      });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/reports/:id/unhide ────────────────────────────────
+  // 숨김(수동/자동) 해제: 대상 콘텐츠를 정상 상태로 복구하고 신고를 reviewing 으로
+  // 되돌린다. 수동 "대상 숨김" 후 되돌릴 수 없던 문제 해결.
+  app.patch("/admin/reports/:id/unhide", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const adminId = request.adminSession?.adminUserId;
+
+    if (!adminId) {
+      return reply.status(401).send({
+        error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." },
+      });
+    }
+
+    try {
+      const result = await unhideTarget(id, adminId);
       return reply.send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

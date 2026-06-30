@@ -24,6 +24,8 @@ export function resolveNotificationUrl(
       return `/resources/${targetId}`;
     case "message":
       return "/messages";
+    case "inquiry":
+      return `/inquiries/${targetId}`;
     case "post":
       // post는 board+slug 정보가 별도 필요. null 반환 → 상위에서 body URL 파싱 시도
       return null;

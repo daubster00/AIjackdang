@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
 import type { AdminResourceItem } from "@ai-jakdang/contracts/admin/resources";
@@ -99,7 +101,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -318,6 +320,10 @@ function AdminResourcesContent() {
             <i className="ri-file-excel-2-line" />
             CSV 다운로드
           </button>
+          <Link className="btn btn-primary" href="/resources/new">
+            <i className="ri-add-line" />
+            새 자료 등록
+          </Link>
         </div>
       </div>
 
@@ -528,32 +534,14 @@ function AdminResourcesContent() {
                             <span className={`badge ${badgeClass}`}>{statusLabel}</span>
                           </td>
                           <td>
-                            <div className="row-actions">
-                              <button className="icon-button row-action-button" aria-label="행 메뉴">
-                                <i className="ri-more-2-fill" />
-                              </button>
-                              <div className="action-menu">
-                                <Link href={`/resources/${r.id}`}>
-                                  <i className="ri-eye-line" />
-                                  자료 상세 보기
-                                </Link>
-                                {r.status !== "hidden" && r.status !== "deleted" && (
-                                  <button onClick={() => handleHide(r.id)}>
-                                    <i className="ri-eye-off-line" />
-                                    숨김
-                                  </button>
-                                )}
-                                {isSuperAdmin && r.status !== "deleted" && (
-                                  <button
-                                    className="danger"
-                                    onClick={() => setDeleteModal({ id: r.id, title: r.title })}
-                                  >
-                                    <i className="ri-delete-bin-line" />
-                                    삭제
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                            <RowActionMenu
+                              items={[
+                                { label: "자료 상세 보기", icon: "ri-eye-line", href: `/resources/${r.id}` },
+                                ...(r.status !== "hidden" && r.status !== "deleted" ? [{ label: "숨김", icon: "ri-eye-off-line", onClick: () => handleHide(r.id) } as RowActionItem] : []),
+                                ...(isSuperAdmin && r.status !== "deleted" ? [{ label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteModal({ id: r.id, title: r.title }) } as RowActionItem] : []),
+                              ]}
+                              ariaLabel="자료 관리 메뉴"
+                            />
                           </td>
                         </tr>
                       );

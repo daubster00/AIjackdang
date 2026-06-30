@@ -13,16 +13,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
+import { notifyDialog } from "@/lib/dialog";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import type { AdminSessionUser } from "@/lib/adminSession";
 import type { AdminMemberItem } from "@ai-jakdang/contracts";
 
-// ── 배지 매핑 ─────────────────────────────────────────────────────────────────
+// ── 배지 매핑 (기본 역할 폴백; 커스텀 역할은 API에서 불러온 name 사용) ────────
 
 const ROLE_BADGE: Record<string, string> = {
   staff: "badge-blue",
   super_admin: "badge-orange",
 };
-const ROLE_LABEL: Record<string, string> = {
+const ROLE_LABEL_FALLBACK: Record<string, string> = {
   staff: "운영자",
   super_admin: "마스터",
 };
@@ -39,14 +42,6 @@ const STATUS_LABEL: Record<string, string> = {
   disabled: "비활성",
 };
 
-// ── 토스트 헬퍼 ───────────────────────────────────────────────────────────────
-
-function showToast(title: string, desc: string, type: "success" | "error") {
-  // adminUI toast는 DOMContentLoaded 이후에만 사용 가능하므로 data-toast 이벤트 방식으로 처리
-  const event = new CustomEvent("admin:toast", { detail: { title, desc, type } });
-  document.dispatchEvent(event);
-}
-
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
 interface Meta {
@@ -62,9 +57,14 @@ interface ModalState {
   type: ModalType;
   target: AdminMemberItem | null;
   note: string;
-  role: "staff" | "super_admin";
+  role: string; // 동적 역할 key (staff, super_admin, 커스텀 역할 등)
   loading: boolean;
   error: string;
+}
+
+interface RoleOption {
+  key: string;
+  name: string;
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
@@ -77,6 +77,12 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
   const pageParam = Number(searchParams.get("page") ?? "1");
   const statusParam = searchParams.get("status") ?? "";
   const qParam = searchParams.get("q") ?? "";
+
+  // 역할 옵션 (API에서 동적 로드)
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([
+    { key: "staff", name: "운영자" },
+    { key: "super_admin", name: "마스터" },
+  ]);
 
   // 목록 상태
   const [items, setItems] = useState<AdminMemberItem[]>([]);
@@ -99,6 +105,30 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
   });
 
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // ── 역할 목록 조회 (모달 드롭다운용) ─────────────────────────────────────
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/v1/admin/roles`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((data: { roles?: RoleOption[] }) => {
+        if (data.roles && data.roles.length > 0) {
+          setRoleOptions(data.roles);
+        }
+      })
+      .catch(() => {
+        // 실패 시 기본값(staff/super_admin) 유지
+      });
+  }, []);
+
+  /** 역할 key → 표시 이름 변환 */
+  function getRoleName(key: string): string {
+    const found = roleOptions.find((r) => r.key === key);
+    return found?.name ?? ROLE_LABEL_FALLBACK[key] ?? key;
+  }
 
   // ── 목록 조회 ─────────────────────────────────────────────────────────────
 
@@ -170,12 +200,22 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
   // ── 모달 열기/닫기 ────────────────────────────────────────────────────────
 
   function openModal(type: ModalType, target: AdminMemberItem) {
-    setModal({ type, target, note: "", role: target.role, loading: false, error: "" });
+    // approve 모달은 첫 번째 역할로 초기화, 그 외는 대상의 현재 역할
+    const initialRole =
+      type === "approve" ? (roleOptions[0]?.key ?? "staff") : target.role;
+    setModal({ type, target, note: "", role: initialRole, loading: false, error: "" });
   }
 
   function closeModal() {
     if (modal.loading) return;
-    setModal({ type: null, target: null, note: "", role: "staff", loading: false, error: "" });
+    setModal({
+      type: null,
+      target: null,
+      note: "",
+      role: roleOptions[0]?.key ?? "staff",
+      loading: false,
+      error: "",
+    });
   }
 
   // ── 모달 액션 (API 호출) ─────────────────────────────────────────────────
@@ -219,8 +259,8 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
         activate: "재활성",
         role: "역할 변경",
       };
-      showToast(`${actionLabel[modal.type!]} 완료`, `${modal.target.name} 계정이 처리되었습니다.`, "success");
       closeModal();
+      void notifyDialog(`${actionLabel[modal.type!]} 완료: ${modal.target.name} 계정이 처리되었습니다.`);
       void fetchList(); // 목록 갱신
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "오류가 발생했습니다.";
@@ -350,7 +390,7 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
                       <tr key={m.id}>
                         <td>
                           <Link className="author" href={`/admin-members/${m.id}`}>
-                            <span className="author-avatar">{m.name.charAt(0)}</span>
+                            <UserAvatar size={28} alt={m.name} defaultAvatarIndex={0} />
                             <span>{m.name}</span>
                           </Link>
                         </td>
@@ -358,7 +398,7 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
                         <td>{m.phone || "—"}</td>
                         <td>
                           <span className={`badge ${ROLE_BADGE[m.role] ?? "badge-gray"}`}>
-                            {ROLE_LABEL[m.role] ?? m.role}
+                            {getRoleName(m.role)}
                           </span>
                         </td>
                         <td>
@@ -372,45 +412,55 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
                         </td>
                         <td>{m.approvedBy ?? "—"}</td>
                         <td>
-                          <div className="row-actions">
-                            <button className="icon-button row-action-button" aria-label="행 메뉴">
-                              <i className="ri-more-2-fill" />
-                            </button>
-                            <div className="action-menu">
-                              <Link href={`/admin-members/${m.id}`}>
-                                <i className="ri-eye-line" />상세보기
-                              </Link>
-                              {m.status === "pending" && (
-                                <>
-                                  <button onClick={() => openModal("approve", m)}>
-                                    <i className="ri-checkbox-circle-line" />승인 처리
-                                  </button>
-                                  <button className="danger" onClick={() => openModal("reject", m)}>
-                                    <i className="ri-close-circle-line" />반려
-                                  </button>
-                                </>
-                              )}
-                              {m.status === "active" && (
-                                <>
-                                  <button
-                                    onClick={() => openModal("role", m)}
-                                    disabled={isSelf}
-                                    title={isSelf ? "자신의 역할은 변경할 수 없습니다" : undefined}
-                                  >
-                                    <i className="ri-shield-line" />역할 변경
-                                  </button>
-                                  <button className="danger" onClick={() => openModal("suspend", m)}>
-                                    <i className="ri-user-forbid-line" />정지
-                                  </button>
-                                </>
-                              )}
-                              {m.status === "suspended" && (
-                                <button onClick={() => openModal("activate", m)}>
-                                  <i className="ri-user-follow-line" />재활성
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          <RowActionMenu
+                            ariaLabel="관리회원 메뉴"
+                            items={[
+                              { label: "상세보기", icon: "ri-eye-line", href: `/admin-members/${m.id}` },
+                              ...(m.status === "pending"
+                                ? [
+                                    {
+                                      label: "승인 처리",
+                                      icon: "ri-checkbox-circle-line",
+                                      onClick: () => openModal("approve", m),
+                                    },
+                                    {
+                                      label: "반려",
+                                      icon: "ri-close-circle-line",
+                                      danger: true,
+                                      onClick: () => openModal("reject", m),
+                                    },
+                                  ]
+                                : []),
+                              ...(m.status === "active"
+                                ? [
+                                    ...(!isSelf
+                                      ? [
+                                          {
+                                            label: "역할 변경",
+                                            icon: "ri-shield-line",
+                                            onClick: () => openModal("role", m),
+                                          },
+                                        ]
+                                      : []),
+                                    {
+                                      label: "정지",
+                                      icon: "ri-user-forbid-line",
+                                      danger: true,
+                                      onClick: () => openModal("suspend", m),
+                                    },
+                                  ]
+                                : []),
+                              ...(m.status === "suspended"
+                                ? [
+                                    {
+                                      label: "재활성",
+                                      icon: "ri-user-follow-line",
+                                      onClick: () => openModal("activate", m),
+                                    },
+                                  ]
+                                : []),
+                            ] satisfies RowActionItem[]}
+                          />
                         </td>
                       </tr>
                     );
@@ -464,17 +514,16 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
           {/* 오버레이 */}
           <div
             ref={overlayRef}
-            className="overlay"
-            style={{ display: "block" }}
+            className="overlay open"
             onClick={closeModal}
           />
 
-          {/* 모달 공통 래퍼 */}
+          {/* 모달 공통 래퍼 — .open 없으면 opacity:0/pointer-events:none 로 숨겨짐(디자인시스템 overlay.css) */}
           <section
-            className="modal"
+            className="modal open"
             role="dialog"
             aria-modal="true"
-            style={{ display: "flex" }}
+            style={{ background: "var(--gray-0, #fff)" }}
           >
             {/* ── 승인 모달 ── */}
             {modal.type === "approve" && (
@@ -495,26 +544,18 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
                     <div className="field">
                       <span className="field-label">부여할 역할</span>
                       <div className="choice-row">
-                        <label className="choice">
-                          <input
-                            type="radio"
-                            name="approveRole"
-                            value="staff"
-                            checked={modal.role === "staff"}
-                            onChange={() => setModal((p) => ({ ...p, role: "staff" }))}
-                          />
-                          운영자 (staff)
-                        </label>
-                        <label className="choice">
-                          <input
-                            type="radio"
-                            name="approveRole"
-                            value="super_admin"
-                            checked={modal.role === "super_admin"}
-                            onChange={() => setModal((p) => ({ ...p, role: "super_admin" }))}
-                          />
-                          마스터 (super_admin)
-                        </label>
+                        {roleOptions.map((r) => (
+                          <label key={r.key} className="choice">
+                            <input
+                              type="radio"
+                              name="approveRole"
+                              value={r.key}
+                              checked={modal.role === r.key}
+                              onChange={() => setModal((p) => ({ ...p, role: r.key }))}
+                            />
+                            {r.name} ({r.key})
+                          </label>
+                        ))}
                       </div>
                     </div>
                     <div className="field">
@@ -688,26 +729,18 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
                     <div className="field">
                       <span className="field-label">새 역할</span>
                       <div className="choice-row">
-                        <label className="choice">
-                          <input
-                            type="radio"
-                            name="roleChange"
-                            value="staff"
-                            checked={modal.role === "staff"}
-                            onChange={() => setModal((p) => ({ ...p, role: "staff" }))}
-                          />
-                          운영자 (staff)
-                        </label>
-                        <label className="choice">
-                          <input
-                            type="radio"
-                            name="roleChange"
-                            value="super_admin"
-                            checked={modal.role === "super_admin"}
-                            onChange={() => setModal((p) => ({ ...p, role: "super_admin" }))}
-                          />
-                          마스터 (super_admin)
-                        </label>
+                        {roleOptions.map((r) => (
+                          <label key={r.key} className="choice">
+                            <input
+                              type="radio"
+                              name="roleChange"
+                              value={r.key}
+                              checked={modal.role === r.key}
+                              onChange={() => setModal((p) => ({ ...p, role: r.key }))}
+                            />
+                            {r.name} ({r.key})
+                          </label>
+                        ))}
                       </div>
                     </div>
                     <div className="field">
@@ -739,53 +772,6 @@ export function AdminMembersClient({ adminUser }: { adminUser: AdminSessionUser 
         </>
       )}
 
-      {/* 토스트 렌더링 — adminUI toast 이벤트 수신 */}
-      <ToastListener />
     </>
   );
-}
-
-// ── 토스트 리스너 (admin-design-system toast API 래퍼) ────────────────────────
-
-function ToastListener() {
-  useEffect(() => {
-    // admin-design-system의 initAdminUI().toast를 직접 호출할 수 없으므로
-    // 커스텀 이벤트를 통해 간접 호출한다.
-    // AdminInteractions의 initAdminUI가 이미 실행된 상태에서 toast를 노출하는 방법:
-    // initAdminUI()를 다시 호출하면 ui를 재초기화하므로 대신 DOM API로 직접 토스트를 만든다.
-    function handleToast(e: Event) {
-      const { title, desc, type } = (e as CustomEvent).detail;
-
-      // admin-design-system의 toast DOM 구조를 직접 생성
-      const stack = document.querySelector(".toast-stack") ?? (() => {
-        const el = document.createElement("div");
-        el.className = "toast-stack";
-        document.body.appendChild(el);
-        return el;
-      })();
-
-      const toast = document.createElement("div");
-      toast.className = `toast toast-${type === "success" ? "success" : "error"}`;
-      toast.setAttribute("role", "alert");
-      toast.innerHTML = `
-        <i class="ri-${type === "success" ? "checkbox-circle" : "error-warning"}-line"></i>
-        <div class="toast-content">
-          <div class="toast-title">${title}</div>
-          ${desc ? `<div class="toast-desc">${desc}</div>` : ""}
-        </div>
-        <button class="toast-close icon-button" aria-label="닫기"><i class="ri-close-line"></i></button>
-      `;
-
-      const closeBtn = toast.querySelector(".toast-close");
-      closeBtn?.addEventListener("click", () => toast.remove());
-
-      stack.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
-    }
-
-    document.addEventListener("admin:toast", handleToast);
-    return () => document.removeEventListener("admin:toast", handleToast);
-  }, []);
-
-  return null;
 }

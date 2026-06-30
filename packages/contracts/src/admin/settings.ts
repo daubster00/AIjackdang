@@ -21,6 +21,7 @@ export const adminSettingsPatchSchema = z.object({
   seo_title: z.string().max(100).optional(),
   seo_description: z.string().max(300).optional(),
   og_image: z.string().max(500).optional(),
+  favicon_url: z.string().max(500).optional(),
 
   // 신고 설정
   auto_hide_enabled: z.boolean().optional(),
@@ -56,6 +57,7 @@ export const adminSettingsResponseSchema = z.object({
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
   og_image: z.string().optional(),
+  favicon_url: z.string().optional(),
 
   // 신고 설정
   auto_hide_enabled: z.boolean().optional(),

@@ -4,10 +4,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
 import { getCrossLink } from "../../lib/contentCrossLink";
+import { notifyDialog } from "@/lib/dialog";
 import type { AdminCommentItem } from "@ai-jakdang/contracts/admin/comments";
+// ⚠️ AdminCommentItem 계약에 아바타 필드 없음(authorAvatarUrl/image/defaultAvatarIndex).
+// 댓글 API(/api/v1/admin/comments)에서 해당 필드를 추가해야 실제 프로필 사진이 표시된다.
 
 /**
  * 댓글·후기 통합 관리 페이지 (Story 9.9).
@@ -85,7 +90,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -142,7 +147,7 @@ function BulkDeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -178,37 +183,6 @@ function BulkDeleteModal({
   );
 }
 
-// ── 토스트 ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div
-      style={{
-        position: "fixed", bottom: 24, right: 24, zIndex: 99999,
-        background: type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
-        color: "#fff", borderRadius: 8, padding: "12px 20px",
-        fontSize: 14, boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        display: "flex", alignItems: "center", gap: 10,
-      }}
-    >
-      <i className={type === "success" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
-      {message}
-      <button
-        onClick={onClose}
-        style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", marginLeft: 8 }}
-        aria-label="닫기"
-      >
-        <i className="ri-close-line" />
-      </button>
-    </div>
-  );
-}
-
 // ── 메인 페이지 컴포넌트 ───────────────────────────────────────────────────────
 
 function AdminCommentsContent() {
@@ -231,14 +205,9 @@ function AdminCommentsContent() {
   // super_admin 여부: 삭제 버튼 노출 제어
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [deleteModal, setDeleteModal] = useState<string | null>(null); // commentId
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const showToast = useCallback((message: string, type: "success" | "error") => {
-    setToast({ message, type });
-  }, []);
 
   // API 호출
   const fetchComments = useCallback(async () => {
@@ -262,11 +231,11 @@ function AdminCommentsContent() {
       setCommentItems(data.items ?? []);
       setMeta(data.meta ?? { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
     } catch {
-      showToast("댓글 목록을 불러오지 못했습니다.", "error");
+      void notifyDialog("댓글 목록을 불러오지 못했습니다.", "danger");
     } finally {
       setLoading(false);
     }
-  }, [pageParam, typeParam, statusParam, hasReportsParam, dateFromParam, dateToParam, qParam, showToast]);
+  }, [pageParam, typeParam, statusParam, hasReportsParam, dateFromParam, dateToParam, qParam]);
 
   // 현재 관리자 role 조회
   useEffect(() => {
@@ -307,12 +276,12 @@ function AdminCommentsContent() {
         method: "PATCH",
         credentials: "include",
       });
-      if (res.status === 403) { showToast("권한이 없습니다.", "error"); return; }
+      if (res.status === 403) { void notifyDialog("권한이 없습니다.", "danger"); return; }
       if (!res.ok) throw new Error();
-      showToast("댓글이 숨김 처리되었습니다.", "success");
+      void notifyDialog("댓글이 숨김 처리되었습니다.");
       fetchComments();
     } catch {
-      showToast("숨김 처리 중 오류가 발생했습니다.", "error");
+      void notifyDialog("숨김 처리 중 오류가 발생했습니다.", "danger");
     }
   }
 
@@ -323,12 +292,12 @@ function AdminCommentsContent() {
         method: "DELETE",
         credentials: "include",
       });
-      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
+      if (res.status === 403) { void notifyDialog("최고 관리자(super_admin) 권한이 필요합니다.", "danger"); return; }
       if (!res.ok) throw new Error();
-      showToast("댓글이 삭제되었습니다.", "success");
+      void notifyDialog("댓글이 삭제되었습니다.");
       fetchComments();
     } catch {
-      showToast("삭제 중 오류가 발생했습니다.", "error");
+      void notifyDialog("삭제 중 오류가 발생했습니다.", "danger");
     }
   }
 
@@ -342,11 +311,11 @@ function AdminCommentsContent() {
         body: JSON.stringify({ ids: Array.from(selectedIds), action: "hide" }),
       });
       if (!res.ok) throw new Error();
-      showToast(`${selectedIds.size}개 댓글이 숨김 처리되었습니다.`, "success");
+      void notifyDialog(`${selectedIds.size}개 댓글이 숨김 처리되었습니다.`);
       setSelectedIds(new Set());
       fetchComments();
     } catch {
-      showToast("일괄 숨김 처리 중 오류가 발생했습니다.", "error");
+      void notifyDialog("일괄 숨김 처리 중 오류가 발생했습니다.", "danger");
     }
   }
 
@@ -360,13 +329,13 @@ function AdminCommentsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedIds), action: "delete", note: reason }),
       });
-      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
+      if (res.status === 403) { void notifyDialog("최고 관리자(super_admin) 권한이 필요합니다.", "danger"); return; }
       if (!res.ok) throw new Error();
-      showToast(`${selectedIds.size}개 댓글이 삭제되었습니다.`, "success");
+      void notifyDialog(`${selectedIds.size}개 댓글이 삭제되었습니다.`);
       setSelectedIds(new Set());
       fetchComments();
     } catch {
-      showToast("일괄 삭제 중 오류가 발생했습니다.", "error");
+      void notifyDialog("일괄 삭제 중 오류가 발생했습니다.", "danger");
     }
   }
 
@@ -389,7 +358,7 @@ function AdminCommentsContent() {
 
   function handleDownloadCsv() {
     if (commentItems.length === 0) {
-      showToast("다운로드할 댓글이 없습니다.", "error");
+      void notifyDialog("다운로드할 댓글이 없습니다.", "danger");
       return;
     }
     downloadCsv("admin-comments.csv", commentItems.map((comment) => ({
@@ -403,7 +372,7 @@ function AdminCommentsContent() {
       reports: comment.reportCount,
       createdAt: comment.createdAt,
     })));
-    showToast("CSV 다운로드를 시작했습니다.", "success");
+    void notifyDialog("CSV 다운로드를 시작했습니다.");
   }
 
   const hasSelection = selectedIds.size > 0;
@@ -612,7 +581,7 @@ function AdminCommentsContent() {
                     commentItems.map((c) => {
                       const [statusClass, statusLabel] = statusBadge(c.status);
                       const [typeClass, typeLabel] = typeBadge(c.derivedType);
-                      const crossLink = getCrossLink(c.targetType, c.targetId);
+                      const crossLink = getCrossLink(c.targetType, c.targetId, c.targetBoard);
                       return (
                         <tr key={c.id}>
                           <td>
@@ -634,9 +603,13 @@ function AdminCommentsContent() {
                           </td>
                           <td>
                             <div className="author">
-                              <span className="author-avatar">
-                                {c.authorNickname ? c.authorNickname.slice(0, 1) : "?"}
-                              </span>
+                              <UserAvatar
+                                avatarUrl={(c as AdminCommentItem & { authorAvatarUrl?: string | null }).authorAvatarUrl}
+                                image={(c as AdminCommentItem & { authorImage?: string | null }).authorImage}
+                                defaultAvatarIndex={(c as AdminCommentItem & { authorDefaultAvatarIndex?: number | null }).authorDefaultAvatarIndex ?? 0}
+                                alt={c.authorNickname ?? "?"}
+                                size={24}
+                              />
                               <span>{c.authorNickname ?? "(탈퇴)"}</span>
                             </div>
                           </td>
@@ -655,35 +628,15 @@ function AdminCommentsContent() {
                           </td>
                           <td className="num">{formatDate(c.createdAt)}</td>
                           <td>
-                            <div className="row-actions">
-                              <button className="icon-button row-action-button" aria-label="행 메뉴">
-                                <i className="ri-more-2-fill" />
-                              </button>
-                              <div className="action-menu">
-                                <Link href={`/comments/${c.id}`}>
-                                  <i className="ri-file-text-line" />원문 보기
-                                </Link>
-                                {crossLink ? (
-                                  <Link href={crossLink}>
-                                    <i className="ri-external-link-line" />관련 글로 이동
-                                  </Link>
-                                ) : null}
-                                {c.status !== "hidden" && (
-                                  <button type="button" onClick={() => handleHide(c.id)}>
-                                    <i className="ri-eye-off-line" />댓글 숨김
-                                  </button>
-                                )}
-                                {isSuperAdmin && c.status !== "deleted" && (
-                                  <button
-                                    className="danger"
-                                    type="button"
-                                    onClick={() => setDeleteModal(c.id)}
-                                  >
-                                    <i className="ri-delete-bin-line" />댓글 삭제
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                            <RowActionMenu
+                              items={[
+                                { label: "원문 보기", icon: "ri-file-text-line", href: `/comments/${c.id}` },
+                                ...(crossLink ? [{ label: "관련 글로 이동", icon: "ri-external-link-line", href: crossLink } as RowActionItem] : []),
+                                ...(c.status !== "hidden" ? [{ label: "댓글 숨김", icon: "ri-eye-off-line", onClick: () => handleHide(c.id) } as RowActionItem] : []),
+                                ...(isSuperAdmin && c.status !== "deleted" ? [{ label: "댓글 삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteModal(c.id) } as RowActionItem] : []),
+                              ]}
+                              ariaLabel="댓글 관리 메뉴"
+                            />
                           </td>
                         </tr>
                       );
@@ -753,10 +706,6 @@ function AdminCommentsContent() {
         />
       )}
 
-      {/* 토스트 */}
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
     </AdminShell>
   );
 }

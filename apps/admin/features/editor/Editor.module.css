@@ -1,0 +1,296 @@
+/* ===========================================================================
+ * Tiptap 에디터 — Admin CSS Module
+ * 어드민 디자인 토큰(--gray-*, --primary-*, --radius-*, etc.) 사용.
+ * =========================================================================== */
+
+/* ─── 에디터 전체 컨테이너 ─────────────────────────────────────────────────── */
+.editorContainer {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--gray-0);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.editorContainer:focus-within {
+  border-color: var(--primary-500);
+  box-shadow: var(--focus-ring);
+}
+
+/* ─── 툴바 ───────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-0);
+}
+
+/* 툴바 버튼 공통 */
+.toolbarBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--gray-500);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 100ms ease, color 100ms ease;
+  flex-shrink: 0;
+}
+
+.toolbarBtn:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.toolbarBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.toolbarBtnActive {
+  background: var(--primary-600);
+  color: #fff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toolbarBtnActive:hover {
+  background: var(--primary-700);
+  color: #fff;
+}
+
+/* 폰트 크기 드롭다운 (툴바 내 네이티브 셀렉트 — 에디터 내부 전용 허용) */
+.fontSizeSelect {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--gray-0);
+  color: var(--gray-500);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 100ms ease, color 100ms ease;
+  flex-shrink: 0;
+}
+
+.fontSizeSelect:hover,
+.fontSizeSelect:focus {
+  border-color: var(--primary-500);
+  color: var(--gray-800);
+}
+
+/* 툴바 구분선 */
+.toolbarDivider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--gray-200);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 글자 색상 'A' 버튼 */
+.colorBtn {
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1;
+}
+
+.colorLetter {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.colorBar {
+  display: block;
+  width: 16px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+/* 색상 스워치 */
+.colorSwatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 100ms ease;
+}
+
+.colorSwatch:hover {
+  transform: scale(1.15);
+}
+
+.colorSwatch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* 색상 팔레트 팝오버 */
+.colorPalette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background: var(--gray-0);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  width: 116px;
+}
+
+.colorPickerWrap {
+  position: relative;
+}
+
+/* ─── 에디터 본문 영역 ────────────────────────────────────────────────────── */
+.editorContent {
+  padding: 16px;
+  min-height: 320px;
+  cursor: text;
+  flex: 1;
+}
+
+.editorContent :global(.ProseMirror) {
+  outline: none;
+  min-height: 300px;
+  line-height: 1.7;
+  color: var(--gray-800);
+  font-size: 14px;
+}
+
+.editorContent :global(.ProseMirror):focus,
+.editorContent :global(.ProseMirror):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* 빈 에디터 placeholder */
+.editorContent :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  color: var(--gray-400);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ─── 인라인 서식 ─────────────────────────────────────────────────────────── */
+.editorContent :global(.ProseMirror h2) {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 20px 0 8px;
+}
+
+.editorContent :global(.ProseMirror h3) {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 16px 0 8px;
+}
+
+.editorContent :global(.ProseMirror p) {
+  margin: 0 0 12px;
+}
+
+.editorContent :global(.ProseMirror ul) {
+  list-style: disc;
+  padding-left: 24px;
+  margin: 0 0 12px;
+}
+
+.editorContent :global(.ProseMirror ol) {
+  list-style: decimal;
+  padding-left: 24px;
+  margin: 0 0 12px;
+}
+
+.editorContent :global(.ProseMirror ul ul) {
+  list-style: circle;
+}
+
+.editorContent :global(.ProseMirror ul ul ul) {
+  list-style: square;
+}
+
+.editorContent :global(.ProseMirror li) {
+  margin-bottom: 4px;
+}
+
+.editorContent :global(.ProseMirror blockquote) {
+  border-left: 3px solid var(--gray-300);
+  padding-left: 16px;
+  margin: 0 0 12px;
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+.editorContent :global(.ProseMirror pre) {
+  background: #1e1e1e;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+}
+
+.editorContent :global(.ProseMirror pre code) {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  background: none;
+  padding: 0;
+  color: #d4d4d4;
+}
+
+.editorContent :global(.ProseMirror code) {
+  background: var(--gray-100);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+.editorContent :global(.ProseMirror a) {
+  color: var(--primary-600);
+  text-decoration: underline;
+}
+
+.editorContent :global(.ProseMirror a:hover) {
+  color: var(--primary-700);
+}
+
+.editorContent :global(.ProseMirror img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.editorContent :global(.ProseMirror div[data-youtube-video]) {
+  margin: 0 0 12px;
+}
+
+.editorContent :global(.ProseMirror div[data-youtube-video] iframe) {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
+  border-radius: var(--radius-sm);
+}

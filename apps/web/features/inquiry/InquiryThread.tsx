@@ -1,11 +1,24 @@
 "use client";
 
+/**
+ * InquiryThread — 1:1 문의 상세 (Story 7.5)
+ *
+ * 디자인: 일반 게시판 상세(lounge/notice)와 동일한 레이아웃
+ * - lounge.module.css 의 detailLayout / postDetail / detailHeader / articleBody 재사용
+ * - 댓글 섹션 없음 (문의 특성상 댓글 비적용)
+ * - 운영진 ↔ 회원 답변 교환은 commentSection 자리에 표시 (bubble 스타일 유지)
+ * - 좋아요·공유·신고·북마크 바 없음
+ */
+
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, Card, Icon, Skeleton } from "@/components/ui";
+import { Badge, Icon, Skeleton } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui";
 import { TiptapRenderer } from "./TiptapRenderer";
+// 게시판 상세 레이아웃 공유 (lounge/notice 와 동일한 구조)
+import loungeStyles from "@/app/lounge/lounge.module.css";
+// 문의 전용 스타일 (reply bubble, badge 등)
 import styles from "./inquiry.module.css";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -79,7 +92,6 @@ interface InquiryThreadProps {
 }
 
 export function InquiryThread({ inquiryId }: InquiryThreadProps) {
-  const router = useRouter();
   const [data, setData] = useState<InquiryThreadData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFoundError, setNotFoundError] = useState(false);
@@ -123,69 +135,64 @@ export function InquiryThread({ inquiryId }: InquiryThreadProps) {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.inner}>
-        {/* 뒤로가기 */}
-        <a
-          href="/inquiries"
-          className={styles.threadBack}
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/inquiries");
-          }}
-          aria-label="문의 목록으로"
-        >
-          ← 문의 목록
-        </a>
-
+    <main id="main" className={loungeStyles.page}>
+      <div className={loungeStyles.detailLayout}>
         {loading ? (
           <ThreadSkeleton />
         ) : error ? (
           <div className={styles.noReplies}>{error}</div>
         ) : data ? (
-          <>
-            {/* 스레드 헤더 */}
-            <div className={styles.threadHeader}>
-              <h1 className={styles.threadHeaderTitle}>{data.inquiry.title}</h1>
-              <Badge tone={STATUS_TONE[data.inquiry.status]} variant="soft">
-                {STATUS_LABEL[data.inquiry.status]}
-              </Badge>
+          <article className={loungeStyles.postDetail}>
+
+            {/* ── 상세 헤더: 상태 배지 + 제목 + 메타 ── */}
+            <header className={loungeStyles.detailHeader}>
+              <div className={loungeStyles.detailCategoryRow}>
+                <Badge tone={STATUS_TONE[data.inquiry.status]} variant="soft">
+                  {STATUS_LABEL[data.inquiry.status]}
+                </Badge>
+              </div>
+
+              <h1>{data.inquiry.title}</h1>
+
+              <div className={loungeStyles.detailMeta}>
+                <span>{formatDateTime(data.inquiry.createdAt)}</span>
+              </div>
+            </header>
+
+            {/* ── 문의 원문 본문 ── */}
+            <div className={loungeStyles.articleBody}>
+              <TiptapRenderer content={data.inquiry.body} />
             </div>
 
-            {/* 원문 카드 */}
-            <Card className={styles.originalCard}>
-              <p className={styles.originalMeta}>
-                {formatDateTime(data.inquiry.createdAt)}
-              </p>
-              <div className={styles.originalBody}>
-                <TiptapRenderer content={data.inquiry.body} />
-              </div>
-            </Card>
+            {/* ── 운영진 답변 스레드 (댓글 영역 자리, 일반 댓글 폼 없음) ── */}
+            <section className={styles.repliesWrapper} aria-labelledby="reply-title">
+              <h3 id="reply-title" className={styles.repliesSectionTitle}>
+                {data.replies.length === 0
+                  ? "답변 대기중"
+                  : `운영진 답변 ${data.replies.length}건`}
+              </h3>
 
-            {/* 답변 스레드 */}
-            <div className={styles.repliesSection}>
               {data.replies.length === 0 ? (
                 <div className={styles.noReplies}>
                   아직 운영진 답변이 없습니다. 빠른 시일 내에 답변드리겠습니다.
                 </div>
               ) : (
-                <>
-                  <p className={styles.repliesSectionTitle}>
-                    답변 {data.replies.length}건
-                  </p>
+                <div className={styles.repliesSection}>
                   {data.replies.map((reply) =>
                     reply.authorType === "admin" ? (
-                      // 운영진 답변 — 좌측
+                      // 운영진 답변 — 전체폭 카드
                       <div key={reply.id} className={styles.adminReply}>
                         <div className={styles.adminBubble}>
-                          <span className={styles.adminLabel}>운영진</span>
+                          <div className={styles.adminHeader}>
+                            <span className={styles.adminLabel}>운영진</span>
+                            <time className={styles.replyTime} dateTime={reply.createdAt}>
+                              {formatDateTime(reply.createdAt)}
+                            </time>
+                          </div>
                           <div className={styles.adminBody}>
                             <TiptapRenderer content={reply.body} />
                           </div>
                         </div>
-                        <time className={styles.replyTime} dateTime={reply.createdAt}>
-                          {formatDateTime(reply.createdAt)}
-                        </time>
                       </div>
                     ) : (
                       // 회원 메시지 — 우측
@@ -204,27 +211,20 @@ export function InquiryThread({ inquiryId }: InquiryThreadProps) {
                       </div>
                     ),
                   )}
-                </>
+                </div>
               )}
-            </div>
+            </section>
 
-            {/* 하단 목록 버튼 */}
-            <div className={styles.threadFooter}>
-              <a
-                href="/inquiries"
-                className={styles.listButton}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push("/inquiries");
-                }}
-              >
+            {/* ── 하단 목록 버튼 (게시판 상세 패턴) ── */}
+            <footer className={loungeStyles.detailFooter}>
+              <Link href="/inquiries" className={loungeStyles.listButton}>
                 <Icon name="list-check" />
                 목록으로
-              </a>
-            </div>
-          </>
+              </Link>
+            </footer>
+          </article>
         ) : null}
       </div>
-    </div>
+    </main>
   );
 }

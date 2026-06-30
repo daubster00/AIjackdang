@@ -5,13 +5,13 @@
  *
  * - type별 아이콘 매핑 (색 + 아이콘 + 텍스트로 상태 전달 — 색만으로 상태 전달 금지)
  * - 미읽음: 강조 스타일 + 점 인디케이터 + 스크린리더용 텍스트
- * - 클릭: ① PATCH /{id}/read ② targetUrl 있으면 라우터 이동
+ * - 클릭: ① PATCH /{id}/read ② NotificationModal 열기 (직접 이동 대신 모달)
+ * - 모달 내 "이동하기" 버튼으로 관련 페이지 이동 (inquiry.replied → /inquiries/{id})
  */
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 import { Icon } from "@/components/ui";
-import { resolveNotificationUrl } from "@/lib/resolveNotificationUrl";
+import { NotificationModal } from "./NotificationModal";
 import styles from "./notifications.module.css";
 
 /** 알림 1건 타입 (API 응답 직렬화 결과) */
@@ -86,11 +86,12 @@ export interface NotificationItemProps {
 }
 
 export function NotificationItem({ item, onRead }: NotificationItemProps) {
-  const router = useRouter();
   const meta = TYPE_META[item.type] ?? DEFAULT_META;
   const toneClass = styles[meta.toneClass] ?? styles.toneDefault;
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleClick = useCallback(async () => {
+    // 읽음 처리 (미읽음인 경우만)
     if (!item.isRead) {
       try {
         await fetch(`/api/v1/notifications/${item.id}/read`, {
@@ -99,47 +100,51 @@ export function NotificationItem({ item, onRead }: NotificationItemProps) {
         });
         onRead(item.id);
       } catch {
-        // 읽음 처리 실패 시 이동은 계속 진행
+        // 읽음 처리 실패 시 모달은 계속 열림
       }
     }
+    setIsModalOpen(true);
+  }, [item, onRead]);
 
-    // targetUrl 해석
-    const targetUrl = resolveNotificationUrl(item.targetType, item.targetId);
-    if (targetUrl) {
-      router.push(targetUrl);
-    }
-  }, [item, onRead, router]);
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
 
   const relativeTime = timeAgo(item.createdAt);
 
   return (
-    <li className={`${styles.item} ${item.isRead ? "" : styles.itemUnread}`}>
-      <button
-        type="button"
-        className={styles.itemButton}
-        onClick={handleClick}
-        aria-label={`${meta.ariaLabel} 알림: ${item.title}${item.isRead ? "" : " (안 읽음)"}`}
-      >
-        {/* 타입 아이콘 — 색 + 아이콘 + ariaLabel 로 상태 전달 */}
-        <span className={`${styles.typeIcon} ${toneClass}`} aria-hidden="true">
-          <Icon name={meta.icon} />
-        </span>
-
-        <div className={styles.body}>
-          <p className={styles.itemTitle}>{item.title}</p>
-          <p className={styles.itemBody}>{item.body}</p>
-          <time className={styles.time} dateTime={item.createdAt}>
-            {relativeTime}
-          </time>
-        </div>
-
-        {!item.isRead && (
-          <span className={styles.unreadIndicator}>
-            <span className={styles.unreadDot} aria-hidden="true" />
-            <span className={styles.unreadLabel}>안 읽은 알림</span>
+    <>
+      <li className={`${styles.item} ${item.isRead ? "" : styles.itemUnread}`}>
+        <button
+          type="button"
+          className={styles.itemButton}
+          onClick={handleClick}
+          aria-label={`${meta.ariaLabel} 알림: ${item.title}${item.isRead ? "" : " (안 읽음)"}`}
+        >
+          {/* 타입 아이콘 — 색 + 아이콘 + ariaLabel 로 상태 전달 */}
+          <span className={`${styles.typeIcon} ${toneClass}`} aria-hidden="true">
+            <Icon name={meta.icon} />
           </span>
-        )}
-      </button>
-    </li>
+
+          <div className={styles.body}>
+            <p className={styles.itemTitle}>{item.title}</p>
+            <p className={styles.itemBody}>{item.body}</p>
+            <time className={styles.time} dateTime={item.createdAt}>
+              {relativeTime}
+            </time>
+          </div>
+
+          {!item.isRead && (
+            <span className={styles.unreadIndicator}>
+              <span className={styles.unreadDot} aria-hidden="true" />
+              <span className={styles.unreadLabel}>안 읽은 알림</span>
+            </span>
+          )}
+        </button>
+      </li>
+
+      {/* 알림 상세 모달 — createPortal 로 body에 렌더되어 ul 안에 삽입되지 않음 */}
+      <NotificationModal item={item} open={isModalOpen} onClose={handleModalClose} />
+    </>
   );
 }

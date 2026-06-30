@@ -11,6 +11,11 @@
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import {
+  uploadImage,
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+} from "../../../services/storage/index.js";
 
 export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/account/me ────────────────────────────────────────────
@@ -29,6 +34,7 @@ export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<
         phone: schema.adminUsers.phone,
         role: schema.adminUsers.role,
         status: schema.adminUsers.status,
+        image: schema.adminUsers.image,
       })
       .from(schema.adminUsers)
       .where(eq(schema.adminUsers.id, adminUserId))
@@ -48,8 +54,8 @@ export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<
       return reply.status(401).send({ error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." } });
     }
 
-    const body = (request.body ?? {}) as { name?: unknown; phone?: unknown };
-    const patch: { name?: string; phone?: string; updatedAt: Date } = { updatedAt: new Date() };
+    const body = (request.body ?? {}) as { name?: unknown; phone?: unknown; imageUrl?: unknown };
+    const patch: { name?: string; phone?: string; image?: string | null; updatedAt: Date } = { updatedAt: new Date() };
 
     if (body.name !== undefined) {
       const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -65,6 +71,9 @@ export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<
       }
       patch.phone = phone;
     }
+    if (body.imageUrl !== undefined) {
+      patch.image = typeof body.imageUrl === "string" ? body.imageUrl || null : null;
+    }
 
     const db = getDb();
     const [updated] = await db
@@ -78,6 +87,7 @@ export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<
         phone: schema.adminUsers.phone,
         role: schema.adminUsers.role,
         status: schema.adminUsers.status,
+        image: schema.adminUsers.image,
       });
 
     if (!updated) {
@@ -85,5 +95,65 @@ export async function registerAdminAccountRoutes(app: FastifyInstance): Promise<
     }
 
     return reply.send({ admin: updated });
+  });
+
+  // ── POST /api/v1/admin/account/upload-image ──────────────────────────────────
+  // 관리자 프로필 이미지를 MinIO(avatars 버킷)에 업로드하고 URL 을 반환한다.
+  // multipart 플러그인은 app.ts 에서 전역 등록됨.
+  app.post("/admin/account/upload-image", async (request, reply) => {
+    const adminUserId = request.adminSession?.adminUserId;
+    if (!adminUserId) {
+      return reply.status(401).send({ error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." } });
+    }
+
+    const reqWithFile = request as typeof request & {
+      isMultipart?: () => boolean;
+      file?: () => Promise<
+        | {
+            filename: string;
+            mimetype: string;
+            file: { truncated: boolean };
+            toBuffer: () => Promise<Buffer>;
+          }
+        | undefined
+      >;
+    };
+
+    if (!reqWithFile.isMultipart?.()) {
+      return reply.status(400).send({
+        error: { code: "INVALID_CONTENT_TYPE", message: "multipart/form-data 형식으로 전송해주세요." },
+      });
+    }
+
+    const part = await reqWithFile.file?.();
+    if (!part) {
+      return reply.status(400).send({ error: { code: "NO_FILE", message: "업로드할 파일이 없습니다." } });
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.has(part.mimetype)) {
+      return reply.status(400).send({
+        error: { code: "INVALID_FILE_TYPE", message: "jpg·png·webp·gif 형식만 허용됩니다." },
+      });
+    }
+
+    const buffer = await part.toBuffer();
+    if (part.file.truncated || buffer.length > MAX_UPLOAD_BYTES) {
+      return reply.status(400).send({
+        error: { code: "FILE_TOO_LARGE", message: "파일 크기는 5MB 이하여야 합니다." },
+      });
+    }
+
+    try {
+      const result = await uploadImage(
+        { filename: part.filename, mimetype: part.mimetype, data: buffer },
+        "avatars",
+      );
+      return reply.status(200).send({ url: result.url });
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "이미지 업로드에 실패했습니다." },
+      });
+    }
   });
 }

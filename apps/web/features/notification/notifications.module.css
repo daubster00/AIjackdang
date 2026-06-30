@@ -287,6 +287,49 @@
   50% { opacity: 0.5; }
 }
 
+/* ── 알림 상세 모달 내부 ── */
+.modalContent {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.modalTypeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.modalTypeTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.modalTime {
+  color: var(--color-placeholder);
+  font-size: var(--font-size-xs);
+}
+
+.modalTitle {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  margin: 0;
+}
+
+.modalBody {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
 /* ── 반응형 ── */
 @media (max-width: 768px) {
   .headInner {

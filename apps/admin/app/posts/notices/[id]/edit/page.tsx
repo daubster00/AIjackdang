@@ -2,42 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, use } from "react";
+import type { JSONContent } from "@tiptap/core";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { Editor, textToTiptapJson } from "@/features/editor";
 import { API_BASE_URL } from "@/lib/api";
 
 /**
  * 공지 수정 페이지 (/posts/notices/[id]/edit) — Story 9.17.
  *
- * 1. GET /api/v1/admin/posts?board=notice 에서 게시글 단건을 id 로 찾아 폼에 채운다.
+ * 1. GET /api/v1/admin/posts/:id 로 게시글 단건을 조회해 폼에 채운다.
  * 2. PATCH /api/v1/admin/posts/:id (본문·제목 수정) — 토스트.
  * 3. PATCH /api/v1/admin/posts/:id/flags (상단고정·메인배너 토글) — 즉시+토스트.
- * 4. PATCH /api/v1/admin/posts/:id/hide  (숨김) — 즉시+토스트 undo.
+ * 4. PATCH /api/v1/admin/posts/:id/hide  (숨김) — 즉시+토스트.
  * 5. DELETE /api/v1/admin/posts/:id       (삭제, super_admin) — 모달+사유.
  */
-
-// Tiptap doc → plain text 역변환 헬퍼
-function tiptapToText(doc: unknown): string {
-  if (!doc || typeof doc !== "object") return "";
-  const d = doc as { content?: unknown[] };
-  if (!Array.isArray(d.content)) return "";
-  return d.content
-    .map((node) => {
-      const n = node as { content?: Array<{ text?: string }> };
-      return Array.isArray(n.content) ? n.content.map((c) => c.text ?? "").join("") : "";
-    })
-    .join("\n");
-}
-
-// plain text → Tiptap doc JSON 변환 헬퍼
-function textToTiptapJson(text: string): Record<string, unknown> {
-  const paragraphs = text
-    .split("\n")
-    .map((line) => ({
-      type: "paragraph",
-      content: line.trim() ? [{ type: "text", text: line }] : [],
-    }));
-  return { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph" }] };
-}
 
 function Toast({
   message,
@@ -107,7 +85,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)",
+          background: "var(--gray-0, #fff)",
           borderRadius: 8,
           padding: 24,
           width: 400,
@@ -175,7 +153,7 @@ export default function NoticeEditPage({
   const [post, setPost] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [contentJson, setContentJson] = useState<JSONContent>(() => textToTiptapJson(""));
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [isPinned, setIsPinned] = useState(false);
@@ -186,25 +164,20 @@ export default function NoticeEditPage({
 
   const showToast = (message: string, type: "success" | "error") => setToast({ message, type });
 
-  // 게시글 로드 — admin posts API 로 id 일치 항목 조회
+  // 게시글 로드 — GET /api/v1/admin/posts/:id 단건 조회
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/v1/admin/posts?board=notice&pageSize=200`,
+          `${API_BASE_URL}/api/v1/admin/posts/${id}`,
           { credentials: "include" },
         );
         if (!res.ok) throw new Error();
-        const data = await res.json();
-        const found = (data.items ?? []).find((p: { id: string }) => p.id === id) as PostData | undefined;
-        if (!found) {
-          showToast("공지를 찾을 수 없습니다.", "error");
-          return;
-        }
+        const found = (await res.json()) as PostData;
         setPost(found);
         setTitle(found.title);
-        setContent(tiptapToText(found.contentJson));
+        setContentJson((found.contentJson as JSONContent) ?? textToTiptapJson(""));
         setTags(found.tags ?? []);
         setIsPinned(found.isPinned);
         setIsMainFeatured(found.isMainFeatured);
@@ -234,7 +207,6 @@ export default function NoticeEditPage({
     }
     setSaving(true);
     try {
-      const contentJson = textToTiptapJson(content);
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/posts/${id}`, {
         method: "PATCH",
         credentials: "include",
@@ -391,20 +363,8 @@ export default function NoticeEditPage({
 
               {/* 본문 */}
               <div className="field">
-                <label className="field-label" htmlFor="notice-content">
-                  본문
-                </label>
-                <textarea
-                  id="notice-content"
-                  className="control"
-                  style={{ minHeight: 300, resize: "vertical" }}
-                  placeholder="공지 내용을 입력하세요"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
-                <p className="field-help">
-                  입력된 텍스트는 Tiptap 단락(paragraph) JSON 포맷으로 변환되어 저장됩니다.
-                </p>
+                <label className="field-label">본문</label>
+                <Editor preset="full" value={contentJson} onChange={(json) => setContentJson(json)} />
               </div>
 
               {/* 태그 */}

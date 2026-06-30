@@ -236,6 +236,13 @@
 
 /* ── 답변 스레드 영역 ──────────────────────────────────────────────────────── */
 
+/* 외부 래퍼 — commentSection 대신 배경 없는 래퍼로 대체 (이중 박스 방지) */
+.repliesWrapper {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-8);
+}
+
 .repliesSection {
   display: flex;
   flex-direction: column;
@@ -249,20 +256,27 @@
   margin: 0 0 var(--space-2) 0;
 }
 
-/* 운영진 답변 — 좌측 정렬 */
+/* 운영진 답변 — 전체폭 카드 */
 .adminReply {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--space-2);
 }
 
 .adminBubble {
-  background: var(--color-neutral-soft);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-5);
-  max-width: 85%;
+  width: 100%;
+}
+
+/* 운영진 라벨 + 날짜 헤더 행 */
+.adminHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
 }
 
 .adminLabel {
@@ -271,8 +285,6 @@
   color: var(--color-text-sub);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
-  display: block;
 }
 
 .adminBody {
@@ -284,7 +296,6 @@
 .replyTime {
   font-size: var(--font-size-xs);
   color: var(--color-text-sub);
-  padding-left: var(--space-2);
 }
 
 /* 회원 메시지 — 우측 정렬 */
@@ -362,7 +373,6 @@
     gap: var(--space-3);
   }
 
-  .adminBubble,
   .userBubble {
     max-width: 95%;
   }

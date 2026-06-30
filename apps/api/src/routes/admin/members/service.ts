@@ -1,13 +1,17 @@
 /**
  * 유저 회원 관리 서비스 레이어 (Story 9.12).
  *
- * sanctionMember, grantPoints, deductPoints, changeGrade, grantBadge, revokeBadge
+ * sanctionMember, grantPoints, deductPoints, changeGrade
  *
  * 스키마 실제 기준:
  *  - user_sanctions: type("warning"|"suspend"|"permaban"), reason(NOT note)
  *  - users: status("active"|"suspended"|"withdrawn"), suspendedUntil(nullable timestamptz)
  *  - points_ledger: delta(int +/-), reason(text), sourceType(text)
  *  - grade는 users 컬럼 없음 — points_ledger SUM으로 도출, changeGrade는 포인트 조정으로 구현
+ *
+ * 수정요청 #20: badges/user_badges 테이블 DROP → 뱃지 관련 함수 전부 제거
+ * 수정요청 #21: 성별/생년월일/마케팅동의/약관동의/연락처 반환
+ * 수정요청 #22: 최근 게시글·댓글·로그인 세션 반환
  */
 
 import { getDb } from "@ai-jakdang/database";
@@ -16,12 +20,13 @@ import {
   userSanctions,
   pointsLedger,
   grades,
-  badges,
-  userBadges,
+  sessions,
+  posts,
+  comments,
 } from "@ai-jakdang/database/schema";
 import { eq, sql, and, count, ilike, or, gte, lte, asc, desc } from "drizzle-orm";
 
-/** 목록 쿼리 파라미터 타입 (contracts/admin/members.ts 미노출 시 로컬 정의) */
+/** 목록 쿼리 파라미터 타입 */
 interface AdminUserMembersQuery {
   status?: "active" | "suspended" | "withdrawn";
   grade?: number;
@@ -34,10 +39,6 @@ interface AdminUserMembersQuery {
 
 // ── 내부 헬퍼: 사용자 포인트 합계 + 등급 도출 ────────────────────────────────────
 
-/**
- * 사용자의 현재 총 포인트와 등급을 계산한다.
- * points_ledger SUM(delta) → grades 테이블에서 minPoints <= total < (다음 등급 minPoints) 범위 탐색.
- */
 async function getUserPointsAndGrade(userId: string): Promise<{
   totalPoints: number;
   gradeLevel: number;
@@ -47,7 +48,6 @@ async function getUserPointsAndGrade(userId: string): Promise<{
 }> {
   const db = getDb();
 
-  // 포인트 합계
   const [ledgerSum] = await db
     .select({ total: sql<number>`COALESCE(SUM(${pointsLedger.delta}), 0)::int` })
     .from(pointsLedger)
@@ -55,7 +55,6 @@ async function getUserPointsAndGrade(userId: string): Promise<{
 
   const totalPoints = Number(ledgerSum?.total ?? 0);
 
-  // 전체 등급 목록 (레벨 오름차순)
   const allGrades = await db
     .select()
     .from(grades)
@@ -65,7 +64,6 @@ async function getUserPointsAndGrade(userId: string): Promise<{
     return { totalPoints, gradeLevel: 1, gradeName: "새내기", gradeId: "", gradeMinPoints: 0 };
   }
 
-  // 포인트에 해당하는 등급 탐색 (내림차순으로 첫 번째 minPoints <= total)
   let matched = allGrades[0];
   for (const g of allGrades) {
     if (totalPoints >= g.minPoints) {
@@ -112,7 +110,6 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  // 총 개수
   const [{ value: totalItems }] = await db
     .select({ value: count() })
     .from(users)
@@ -120,7 +117,6 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
 
   const offset = (page - 1) * pageSize;
 
-  // 목록 + 활동 수치 서브쿼리
   const rows = await db
     .select({
       id: users.id,
@@ -129,10 +125,12 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
       status: users.status,
       suspendedUntil: users.suspendedUntil,
       createdAt: users.createdAt,
+      // 아바타 필드 (#5)
+      avatarUrl: users.avatarUrl,
+      image: users.image,
+      defaultAvatarIndex: users.defaultAvatarIndex,
       totalPoints: sql<number>`COALESCE((SELECT SUM(pl.delta)::int FROM points_ledger pl WHERE pl.user_id = ${users.id}), 0)`,
       postCount: sql<number>`(SELECT COUNT(*)::int FROM posts WHERE user_id = ${users.id} AND status != 'deleted')`,
-      // 신고 테이블에는 "신고당한 유저" 컬럼이 없고 target_type/target_id로 콘텐츠를 가리킨다.
-      // → 이 유저가 작성한 게시글·댓글을 대상으로 한 신고 수를 합산한다.
       reportCount: sql<number>`(
         SELECT COUNT(*)::int FROM reports r
         WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${users.id}))
@@ -145,7 +143,6 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
     .limit(pageSize)
     .offset(offset);
 
-  // 전체 등급 목록 (레벨 오름차순)
   const allGrades = await db.select().from(grades).orderBy(asc(grades.level));
 
   const deriveGrade = (totalPoints: number): { gradeLevel: number; gradeName: string } => {
@@ -157,7 +154,6 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
     return { gradeLevel: matched.level, gradeName: matched.name };
   };
 
-  // 등급 필터 적용 (포인트 기반 파생값이므로 DB where로 불가, 메모리 필터)
   let items = rows.map((r) => {
     const { gradeLevel, gradeName } = deriveGrade(Number(r.totalPoints));
     return {
@@ -167,6 +163,9 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
       status: r.status,
       suspendedUntil: r.suspendedUntil ? r.suspendedUntil.toISOString() : null,
       createdAt: r.createdAt.toISOString(),
+      avatarUrl: r.avatarUrl ?? null,
+      image: r.image ?? null,
+      defaultAvatarIndex: r.defaultAvatarIndex,
       totalPoints: Number(r.totalPoints),
       gradeLevel,
       gradeName,
@@ -230,29 +229,67 @@ export async function getUserMemberDetail(userId: string) {
     .where(eq(userSanctions.userId, userId))
     .orderBy(desc(userSanctions.createdAt));
 
-  // 보유 뱃지 (badges join)
-  const badgeRows = await db
+  // 최근 게시글 (최대 20건, deleted 제외) — #22
+  const postRows = await db
     .select({
-      id: userBadges.id,
-      badgeId: userBadges.badgeId,
-      slug: badges.slug,
-      name: badges.name,
-      iconUrl: badges.iconUrl,
-      grantedAt: userBadges.grantedAt,
-      grantedBy: userBadges.grantedBy,
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      status: posts.status,
+      createdAt: posts.createdAt,
+      board: posts.board,
     })
-    .from(userBadges)
-    .innerJoin(badges, eq(userBadges.badgeId, badges.id))
-    .where(eq(userBadges.userId, userId))
-    .orderBy(desc(userBadges.grantedAt));
+    .from(posts)
+    .where(and(eq(posts.userId, userId), sql`${posts.status} != 'deleted'`))
+    .orderBy(desc(posts.createdAt))
+    .limit(20);
+
+  // 최근 댓글 (최대 20건) — #22
+  // postBoard: 댓글 대상이 게시글(post)인 경우 해당 게시글의 board 값을 서브쿼리로 조회.
+  // getCrossLink 에서 게시글 상세 URL(/posts/{boardSlug}/{postId}) 을 구성할 때 사용한다.
+  const commentRows = await db
+    .select({
+      id: comments.id,
+      targetType: comments.targetType,
+      targetId: comments.targetId,
+      content: comments.content,
+      createdAt: comments.createdAt,
+      postBoard: sql<string | null>`(CASE WHEN ${comments.targetType} = 'post' THEN (SELECT board FROM posts WHERE id = ${comments.targetId}) ELSE NULL END)`,
+    })
+    .from(comments)
+    .where(eq(comments.authorId, userId))
+    .orderBy(desc(comments.createdAt))
+    .limit(20);
+
+  // 로그인 세션 이력 (최대 20건, 최신순) — #22
+  // 명시적 로그아웃 이력은 없으므로 createdAt=로그인 시각, updatedAt=마지막 갱신, expiresAt=만료로 표시
+  const sessionRows = await db
+    .select({
+      createdAt: sessions.createdAt,
+      updatedAt: sessions.updatedAt,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.createdAt))
+    .limit(20);
 
   return {
     id: user.id,
     nickname: user.nickname,
     email: user.email,
     name: user.name ?? null,
+    // 아바타 필드 (#5)
+    avatarUrl: user.avatarUrl ?? null,
     image: user.image ?? null,
+    defaultAvatarIndex: user.defaultAvatarIndex,
     bio: user.bio ?? null,
+    // 추가 기본정보 (#21)
+    phone: user.phone ?? null,
+    gender: user.gender ?? null,
+    birthDate: user.birthDate ?? null,
+    termsAgreedAt: user.termsAgreedAt ? user.termsAgreedAt.toISOString() : null,
+    marketingAgreedAt: user.marketingAgreedAt ? user.marketingAgreedAt.toISOString() : null,
     status: user.status,
     suspendedUntil: user.suspendedUntil ? user.suspendedUntil.toISOString() : null,
     createdAt: user.createdAt.toISOString(),
@@ -270,28 +307,33 @@ export async function getUserMemberDetail(userId: string) {
       endsAt: s.endsAt ? s.endsAt.toISOString() : null,
       createdAt: s.createdAt.toISOString(),
     })),
-    badges: badgeRows.map((b) => ({
-      id: b.id,
-      badgeId: b.badgeId,
-      slug: b.slug,
-      name: b.name,
-      iconUrl: b.iconUrl,
-      grantedAt: b.grantedAt.toISOString(),
-      grantedBy: b.grantedBy ?? null,
+    // 활동내역 탭 데이터 (#22)
+    recentPosts: postRows.map((p) => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      status: p.status,
+      createdAt: p.createdAt.toISOString(),
+      board: p.board,
+    })),
+    recentComments: commentRows.map((c) => ({
+      id: c.id,
+      targetType: c.targetType,
+      targetId: c.targetId,
+      content: c.content,
+      createdAt: c.createdAt.toISOString(),
+      board: c.postBoard ?? null,
+    })),
+    loginSessions: sessionRows.map((s) => ({
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
     })),
   };
 }
 
 // ── 제재 생성 ──────────────────────────────────────────────────────────────────
 
-/**
- * 회원 제재 생성.
- *
- * - warning: user_sanctions INSERT, users.status 변경 없음
- * - suspend: user_sanctions INSERT + users.status="suspended" + suspendedUntil=endsAt
- * - permaban: user_sanctions INSERT + users.status="suspended" + suspendedUntil=null (영구)
- *   (endsAt=null → 사실상 영구 정지. 해제하려면 DELETE /sanctions/:id 사용)
- */
 export async function sanctionMember(
   userId: string,
   type: "warning" | "suspend" | "permaban",
@@ -301,7 +343,6 @@ export async function sanctionMember(
 ) {
   const db = getDb();
 
-  // 대상 회원 확인
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) {
     throw Object.assign(new Error("회원을 찾을 수 없습니다."), { code: "NOT_FOUND" });
@@ -318,12 +359,10 @@ export async function sanctionMember(
     newSuspendedUntil = endsAt;
   } else if (type === "permaban") {
     newStatus = "suspended";
-    newSuspendedUntil = null; // null = 영구
+    newSuspendedUntil = null;
   }
-  // warning: 상태 변경 없음
 
   return await db.transaction(async (tx) => {
-    // 1. user_sanctions 삽입
     const [sanction] = await tx
       .insert(userSanctions)
       .values({
@@ -335,7 +374,6 @@ export async function sanctionMember(
       })
       .returning();
 
-    // 2. users 상태 갱신 (warning 이외)
     if (type !== "warning") {
       await tx
         .update(users)
@@ -358,9 +396,6 @@ export async function sanctionMember(
 
 // ── 제재 해제 ──────────────────────────────────────────────────────────────────
 
-/**
- * 제재 레코드 삭제 + users.status="active" + suspendedUntil=null 복구.
- */
 export async function removeSanction(userId: string, sanctionId: string) {
   const db = getDb();
 
@@ -377,7 +412,6 @@ export async function removeSanction(userId: string, sanctionId: string) {
   return await db.transaction(async (tx) => {
     await tx.delete(userSanctions).where(eq(userSanctions.id, sanctionId));
 
-    // 남은 suspend/permaban 제재가 없으면 상태 복구
     const [remaining] = await tx
       .select({ cnt: count() })
       .from(userSanctions)
@@ -401,10 +435,6 @@ export async function removeSanction(userId: string, sanctionId: string) {
 
 // ── 포인트 지급 ────────────────────────────────────────────────────────────────
 
-/**
- * 포인트 수동 지급.
- * points_ledger INSERT: delta=+amount, reason="admin.grant", sourceType="admin"
- */
 export async function grantPoints(
   userId: string,
   amount: number,
@@ -427,7 +457,6 @@ export async function grantPoints(
     })
     .returning();
 
-  // 최신 총 포인트 계산
   const [{ total }] = await db
     .select({ total: sql<number>`COALESCE(SUM(${pointsLedger.delta}), 0)::int` })
     .from(pointsLedger)
@@ -443,11 +472,6 @@ export async function grantPoints(
 
 // ── 포인트 차감 ────────────────────────────────────────────────────────────────
 
-/**
- * 포인트 수동 차감 (super_admin 전용).
- * points_ledger INSERT: delta=-amount, reason="admin.deduct", sourceType="admin"
- * 음수 잔액 허용 (이벤트소싱 패턴).
- */
 export async function deductPoints(
   userId: string,
   amount: number,
@@ -488,19 +512,6 @@ export async function deductPoints(
 
 // ── 등급 수동 변경 ─────────────────────────────────────────────────────────────
 
-/**
- * 등급 수동 변경 (super_admin 전용).
- *
- * grade는 users에 컬럼이 없고 points_ledger SUM으로 도출된다.
- * 따라서 "등급 변경"은 포인트 조정으로 구현:
- *   1. 현재 포인트 합계 계산
- *   2. 목표 등급(targetLevel)의 minPoints 조회
- *   3. delta = targetMinPoints - currentTotal 의 포인트 행 삽입
- *   → 이후 SUM이 targetMinPoints 이상이 되어 해당 등급에 진입
- *
- * 주의: 같은 등급 범위 내 포인트 조정은 delta=0 이 될 수 있으므로
- * 그 경우에도 reason "admin.grade_set" 행을 삽입해 변경 이력을 남긴다.
- */
 export async function changeGrade(
   userId: string,
   targetLevel: number,
@@ -516,7 +527,6 @@ export async function changeGrade(
     throw Object.assign(new Error("사유를 입력하세요."), { code: "VALIDATION_ERROR" });
   }
 
-  // 목표 등급 조회
   const [targetGrade] = await db
     .select()
     .from(grades)
@@ -527,17 +537,14 @@ export async function changeGrade(
     throw Object.assign(new Error("존재하지 않는 등급 레벨입니다."), { code: "NOT_FOUND" });
   }
 
-  // 현재 포인트 합계
   const [{ total }] = await db
     .select({ total: sql<number>`COALESCE(SUM(${pointsLedger.delta}), 0)::int` })
     .from(pointsLedger)
     .where(eq(pointsLedger.userId, userId));
 
   const currentTotal = Number(total);
-  // targetMinPoints가 현재보다 낮으면 음수 delta(차감)도 허용
   const adjustedDelta = targetGrade.minPoints - currentTotal;
 
-  // delta = 0 이어도 이력 삽입 (사유 기록 목적)
   const [ledger] = await db
     .insert(pointsLedger)
     .values({
@@ -559,15 +566,20 @@ export async function changeGrade(
   };
 }
 
-// ── 뱃지 지급 ──────────────────────────────────────────────────────────────────
+// ── 포인트 내역 조회 (Item 27) ─────────────────────────────────────────────────
 
 /**
- * 뱃지 수동 지급.
- * (userId, badgeId) UNIQUE 충돌 시 이미 보유 → 에러.
- * user_badges.granted_by 는 현재 users FK 이므로 관리자 admin_users.id 를 넣지 않는다.
- * 운영자 지급 이력은 별도 감사 로그가 생기기 전까지 null 로 저장한다.
+ * 회원 포인트 원장 페이지네이션 조회.
+ *
+ * - 최신순 정렬.
+ * - balance: 각 행 시점의 누적 잔액 (window function으로 계산).
+ * - totalBalance: 전체 현재 잔액.
  */
-export async function grantBadge(userId: string, badgeId: string, _grantedBy: string) {
+export async function getMemberPointsHistory(
+  userId: string,
+  page: number,
+  pageSize: number,
+) {
   const db = getDb();
 
   const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
@@ -575,79 +587,46 @@ export async function grantBadge(userId: string, badgeId: string, _grantedBy: st
     throw Object.assign(new Error("회원을 찾을 수 없습니다."), { code: "NOT_FOUND" });
   }
 
-  const [badge] = await db
-    .select({ id: badges.id, name: badges.name })
-    .from(badges)
-    .where(eq(badges.id, badgeId))
-    .limit(1);
-
-  if (!badge) {
-    throw Object.assign(new Error("존재하지 않는 뱃지입니다."), { code: "NOT_FOUND" });
-  }
-
-  // 이미 보유 확인
-  const [existing] = await db
-    .select({ id: userBadges.id })
-    .from(userBadges)
-    .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)))
-    .limit(1);
-
-  if (existing) {
-    throw Object.assign(new Error("이미 보유한 뱃지입니다."), { code: "CONFLICT" });
-  }
-
-  const [ub] = await db
-    .insert(userBadges)
-    .values({
-      userId,
-      badgeId,
-      grantedBy: null,
+  // 전체 건수 + 잔액
+  const [summary] = await db
+    .select({
+      totalCount: sql<number>`COUNT(*)::int`,
+      totalBalance: sql<number>`COALESCE(SUM(${pointsLedger.delta}), 0)::int`,
     })
-    .returning();
+    .from(pointsLedger)
+    .where(eq(pointsLedger.userId, userId));
+
+  const totalItems = Number(summary?.totalCount ?? 0);
+  const totalBalance = Number(summary?.totalBalance ?? 0);
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const offset = (page - 1) * pageSize;
+
+  // 페이지된 행 + 누적 잔액 (ascending window → outer DESC sort)
+  const rows = await db
+    .select({
+      id: pointsLedger.id,
+      delta: pointsLedger.delta,
+      reason: pointsLedger.reason,
+      sourceType: pointsLedger.sourceType,
+      createdAt: pointsLedger.createdAt,
+      balance: sql<number>`SUM(${pointsLedger.delta}) OVER (ORDER BY ${pointsLedger.createdAt} ASC, ${pointsLedger.id} ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int`,
+    })
+    .from(pointsLedger)
+    .where(eq(pointsLedger.userId, userId))
+    .orderBy(desc(pointsLedger.createdAt), desc(pointsLedger.id))
+    .limit(pageSize)
+    .offset(offset);
 
   return {
-    userBadgeId: ub.id,
-    userId,
-    badgeId,
-    badgeName: badge.name,
+    items: rows.map((r) => ({
+      id: r.id,
+      delta: Number(r.delta),
+      reason: r.reason,
+      sourceType: r.sourceType,
+      createdAt: r.createdAt.toISOString(),
+      balance: Number(r.balance),
+    })),
+    totalBalance,
+    meta: { page, pageSize, totalItems, totalPages },
   };
-}
-
-// ── 뱃지 회수 ──────────────────────────────────────────────────────────────────
-
-export async function revokeBadge(userId: string, badgeId: string) {
-  const db = getDb();
-
-  const [ub] = await db
-    .select({ id: userBadges.id })
-    .from(userBadges)
-    .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)))
-    .limit(1);
-
-  if (!ub) {
-    throw Object.assign(new Error("보유하지 않은 뱃지입니다."), { code: "NOT_FOUND" });
-  }
-
-  await db.delete(userBadges).where(eq(userBadges.id, ub.id));
-
-  return { deleted: true, userId, badgeId };
-}
-
-// ── 뱃지 마스터 목록 ──────────────────────────────────────────────────────────
-
-export async function listBadges() {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(badges)
-    .orderBy(asc(badges.slug));
-
-  return rows.map((b) => ({
-    id: b.id,
-    slug: b.slug,
-    name: b.name,
-    description: b.description,
-    iconUrl: b.iconUrl,
-    isAuto: b.isAuto,
-  }));
 }

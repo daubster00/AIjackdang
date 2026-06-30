@@ -16,10 +16,6 @@ export type { PointReason, CanEarnPointOpts } from "./points";
 export { gradeForPoints, nextGrade, pointsToNextGrade } from "./grades";
 export type { GradeRow } from "./grades";
 
-// ── badges ────────────────────────────────────────────────────────────────────
-export { BADGE_CONDITIONS, shouldAwardBadge } from "./badges";
-export type { BadgeSlug, BadgeCheckOpts } from "./badges";
-
 // ── ranking ───────────────────────────────────────────────────────────────────
 export { rankingWindowDates, computeRanking } from "./ranking";
 export type { PeriodType, RankEntry } from "./ranking";

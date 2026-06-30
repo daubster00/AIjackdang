@@ -39,6 +39,10 @@ import {
   UploadValidationError,
   type UploadedFileData,
 } from "../../v1/resources/upload.service.js";
+import {
+  getAllowedResourceExtensions,
+  getMaxUploadBytes,
+} from "../../v1/posts/attachments.service.js";
 
 const resourceTypes = ["prompt", "claude-code-skill", "mcp", "rules-config", "template-checklist"] as const;
 const difficulties = ["beginner", "intermediate", "advanced"] as const;
@@ -268,14 +272,29 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
 
   // ── POST /api/v1/admin/resources/:id/files — 관리자 파일 업로드 ─────────────
   // adminGuardHook은 app.ts에서 전역 preHandler로 등록되어 자동 적용됨.
-  // multipart 플러그인도 전역 등록; per-request limits으로 50MB/3파일 확장.
+  // multipart 플러그인도 전역 등록; per-request limits은 관리자 파일설정에서 읽음.
+  //
+  // 확장자·크기 제한: 관리자 파일관리 설정(site_settings)에서 동적으로 읽는다.
+  //   - 허용 확장자: resource_extensions → file_allowed_extensions → 기본값
+  //   - 파일 크기:   max_upload_mb → 기본값 50MB (자료실은 대용량 지원)
+  //
+  // ⚠️ uploadResourceFiles() 내부의 ALLOWED_EXTENSIONS(utilities 패키지 하드코딩)와
+  // 충돌 가능성: site_settings에 추가한 확장자가 utilities 목록에 없으면
+  // 이 pre-validation을 통과해도 uploadResourceFiles에서 INVALID_FILE_TYPE 반환.
+  // 근본 해결은 upload.service.ts에서 utilities 의존 대신 getSiteSetting 사용으로 교체.
   app.post<{ Params: { id: string } }>(
     "/admin/resources/:id/files",
     {},
     async (request, reply) => {
       const { id } = request.params;
       const MAX_FILES = 3;
-      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+      // 관리자 파일관리 설정에서 허용 확장자·크기 제한을 동적으로 읽는다.
+      // multipart 스트림 소비 전에 미리 fetch해야 limits를 적용할 수 있다.
+      const [MAX_FILE_SIZE, allowedExts] = await Promise.all([
+        getMaxUploadBytes(50), // 자료실 기본 50MB
+        getAllowedResourceExtensions(),
+      ]);
 
       const uploadedFiles: UploadedFileData[] = [];
 
@@ -303,7 +322,7 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
             return reply.status(400).send({
               error: {
                 code: "FILE_TOO_LARGE",
-                message: `파일 크기 초과: ${part.filename ?? "unknown"} (최대 50MB)`,
+                message: `파일 크기 초과: ${part.filename ?? "unknown"} (최대 ${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB)`,
               },
             });
           }
@@ -341,6 +360,21 @@ export async function registerAdminResourcesRoutes(app: FastifyInstance): Promis
         return reply.status(400).send({
           error: { code: "NO_FILES", message: "업로드할 파일이 없습니다." },
         });
+      }
+
+      // ── 확장자 pre-validation (관리자 파일관리 설정 기준) ─────────────────────
+      // site_settings.resource_extensions / file_allowed_extensions 에서 읽은
+      // allowedExts 를 기준으로 먼저 검사한다.
+      for (const file of uploadedFiles) {
+        const ext = file.originalName.split(".").pop()?.toLowerCase() ?? "";
+        if (!ext || !allowedExts.includes(ext)) {
+          return reply.status(400).send({
+            error: {
+              code: "INVALID_FILE_TYPE",
+              message: `허용되지 않는 파일 형식입니다: ${file.originalName}. 허용 확장자: ${allowedExts.join(", ")}`,
+            },
+          });
+        }
       }
 
       try {

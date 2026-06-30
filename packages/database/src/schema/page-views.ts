@@ -11,7 +11,7 @@
  * 신규 데이터는 적재 시점부터 누적되므로, 도입 직후에는 추이가 희소할 수 있다.
  */
 
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 export const pageViews = pgTable(
@@ -30,6 +30,8 @@ export const pageViews = pgTable(
     referrerHost: text("referrer_host"),
     /** 사이트 내부 검색 유입 키워드 (검색 결과 페이지 진입 시) */
     searchKeyword: text("search_keyword"),
+    /** 페이지 체류 시간(ms) — 페이지 이탈 시 sendBeacon 으로 갱신. 미측정은 null */
+    dwellMs: integer("dwell_ms"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

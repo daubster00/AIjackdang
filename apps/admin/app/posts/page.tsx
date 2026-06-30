@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
 import type { AdminPostItem } from "@ai-jakdang/contracts";
@@ -107,7 +109,7 @@ function DeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -229,7 +231,7 @@ function SeoDrawer({
       <div
         style={{
           position: "fixed", top: 0, right: 0, bottom: 0, width: 400,
-          background: "var(--surface)", zIndex: 9998, padding: 28,
+          background: "var(--gray-0, #fff)", zIndex: 9998, padding: 28,
           display: "flex", flexDirection: "column", gap: 20,
           overflowY: "auto", boxShadow: "-4px 0 24px rgba(0,0,0,.12)",
         }}
@@ -302,7 +304,7 @@ function BulkDeleteModal({
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -798,9 +800,13 @@ function AdminPostsContent() {
                           </td>
                           <td>
                             <div className="author">
-                              <span className="author-avatar">
-                                {p.authorNickname ? p.authorNickname.slice(0, 1) : "?"}
-                              </span>
+                              <UserAvatar
+                                size={28}
+                                alt={p.authorNickname ?? "탈퇴"}
+                                avatarUrl={p.authorAvatarUrl}
+                                image={p.authorImage}
+                                defaultAvatarIndex={p.authorDefaultAvatarIndex ?? 0}
+                              />
                               <span>{p.authorNickname ?? "(탈퇴)"}</span>
                             </div>
                           </td>
@@ -810,61 +816,24 @@ function AdminPostsContent() {
                             <span className={`badge ${badgeClass}`}>{statusLabel}</span>
                           </td>
                           <td>
-                            <div className="row-actions">
-                              <button className="icon-button row-action-button" aria-label="행 메뉴">
-                                <i className="ri-more-2-fill" />
-                              </button>
-                              <div className="action-menu">
-                                <Link className="view-detail" href={`/posts/${p.board}/${p.id}`}>
-                                  <i className="ri-eye-line" />
-                                  보기
-                                </Link>
-                                <Link href={`/posts/${p.board}/${p.id}/edit`}>
-                                  <i className="ri-edit-line" />
-                                  수정
-                                </Link>
-                                <button onClick={() => handleFlag(p.id, "isNotice", p.isNotice)}>
-                                  <i className="ri-megaphone-line" />
-                                  {p.isNotice ? "공지 해제" : "공지 설정"}
-                                </button>
-                                <button onClick={() => handleFlag(p.id, "isPinned", p.isPinned)}>
-                                  <i className="ri-pushpin-2-line" />
-                                  {p.isPinned ? "상단고정 해제" : "상단고정 설정"}
-                                </button>
-                                <button onClick={() => handleFlag(p.id, "isFeatured", p.isFeatured)}>
-                                  <i className="ri-star-line" />
-                                  {p.isFeatured ? "추천 해제" : "추천 지정"}
-                                </button>
-                                <button onClick={() => handleFlag(p.id, "isMainFeatured", p.isMainFeatured)}>
-                                  <i className="ri-home-4-line" />
-                                  {p.isMainFeatured ? "메인노출 해제" : "메인노출 설정"}
-                                </button>
-                                <button onClick={() => setSeoPost(p)}>
-                                  <i className="ri-seo-line" />
-                                  SEO 수정
-                                </button>
-                                {p.status !== "hidden" && (
-                                  <button onClick={() => handleHide(p.id)}>
-                                    <i className="ri-eye-off-line" />
-                                    숨김
-                                  </button>
-                                )}
-                                {p.status === "deleted" ? (
-                                  <button onClick={() => handleRestore(p.id)}>
-                                    <i className="ri-arrow-go-back-line" />
-                                    복구
-                                  </button>
-                                ) : isSuperAdmin ? (
-                                  <button
-                                    className="danger"
-                                    onClick={() => setDeleteModal({ id: p.id, title: p.title })}
-                                  >
-                                    <i className="ri-delete-bin-line" />
-                                    삭제
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
+                            <RowActionMenu
+                              items={[
+                                { label: "보기", icon: "ri-eye-line", href: `/posts/${p.board}/${p.id}` },
+                                { label: "수정", icon: "ri-edit-line", href: `/posts/${p.board}/${p.id}/edit` },
+                                { label: p.isNotice ? "공지 해제" : "공지 설정", icon: "ri-megaphone-line", onClick: () => handleFlag(p.id, "isNotice", p.isNotice) },
+                                { label: p.isPinned ? "상단고정 해제" : "상단고정 설정", icon: "ri-pushpin-2-line", onClick: () => handleFlag(p.id, "isPinned", p.isPinned) },
+                                { label: p.isFeatured ? "추천 해제" : "추천 지정", icon: "ri-star-line", onClick: () => handleFlag(p.id, "isFeatured", p.isFeatured) },
+                                { label: p.isMainFeatured ? "메인노출 해제" : "메인노출 설정", icon: "ri-home-4-line", onClick: () => handleFlag(p.id, "isMainFeatured", p.isMainFeatured) },
+                                { label: "SEO 수정", icon: "ri-seo-line", onClick: () => setSeoPost(p) },
+                                ...(p.status !== "hidden" ? [{ label: "숨김", icon: "ri-eye-off-line", onClick: () => handleHide(p.id) } as RowActionItem] : []),
+                                ...(p.status === "deleted"
+                                  ? [{ label: "복구", icon: "ri-arrow-go-back-line", onClick: () => handleRestore(p.id) } as RowActionItem]
+                                  : isSuperAdmin
+                                  ? [{ label: "삭제", icon: "ri-delete-bin-line", danger: true, onClick: () => setDeleteModal({ id: p.id, title: p.title }) } as RowActionItem]
+                                  : []),
+                              ]}
+                              ariaLabel="게시글 관리 메뉴"
+                            />
                           </td>
                         </tr>
                       );

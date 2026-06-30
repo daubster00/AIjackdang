@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { MemberActivityTabs } from "../_components/MemberActivityTabs";
 import { API_BASE_URL } from "../../../lib/api";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { dbBoardToAdminSlug } from "@/lib/boards";
+import { getCrossLink } from "@/lib/contentCrossLink";
 
-// ── 로컬 타입 (contracts/src/admin/members.ts 미노출 시 임시) ─────────────────
+// ── 로컬 타입 ──────────────────────────────────────────────────────────────────
+
 interface AdminUserSanctionItem {
   id: string;
   type: "warning" | "suspend" | "permaban";
@@ -18,14 +22,30 @@ interface AdminUserSanctionItem {
   createdAt: string;
 }
 
-interface AdminUserBadgeItem {
+interface AdminUserPostItem {
   id: string;
-  badgeId: string;
+  title: string;
   slug: string;
-  name: string;
-  iconUrl: string;
-  grantedAt: string;
-  grantedBy: string | null;
+  status: string;
+  createdAt: string;
+  /** DB posts.board 값 (예: "vibe-coding-guide"). 관리자 상세 URL 구성에 사용. */
+  board: string;
+}
+
+interface AdminUserCommentItem {
+  id: string;
+  targetType: string;
+  targetId: string;
+  content: string;
+  createdAt: string;
+  /** 댓글 대상이 게시글(post)인 경우 DB posts.board 값. getCrossLink 에서 사용. */
+  board?: string | null;
+}
+
+interface AdminUserSessionItem {
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
 }
 
 interface AdminUserMemberDetail {
@@ -33,8 +53,15 @@ interface AdminUserMemberDetail {
   nickname: string;
   email: string;
   name: string | null;
+  avatarUrl: string | null;
   image: string | null;
+  defaultAvatarIndex: number;
   bio: string | null;
+  phone: string | null;
+  gender: "male" | "female" | "other" | null;
+  birthDate: string | null;
+  termsAgreedAt: string | null;
+  marketingAgreedAt: string | null;
   status: "active" | "suspended" | "withdrawn";
   suspendedUntil: string | null;
   createdAt: string;
@@ -44,21 +71,18 @@ interface AdminUserMemberDetail {
   postCount: number;
   reportCount: number;
   sanctions: AdminUserSanctionItem[];
-  badges: AdminUserBadgeItem[];
-}
-
-interface AdminBadgeListItem {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  iconUrl: string;
-  isAuto: boolean;
+  recentPosts: AdminUserPostItem[];
+  recentComments: AdminUserCommentItem[];
+  loginSessions: AdminUserSessionItem[];
 }
 
 /**
  * 유저 회원 상세 페이지 (Story 9.12).
- * 실제 API 연동 + 제재/포인트/등급/뱃지 모달 액션.
+ * 실제 API 연동 + 제재/포인트/등급 모달 액션.
+ * #5: 프로필 아바타 실이미지 표시
+ * #20: 보유 뱃지 섹션 제거 (badges/user_badges 테이블 DROP)
+ * #21: 기본정보에 성별/생년월일/마케팅동의/약관동의/연락처 추가 (2줄 그리드)
+ * #22: 활동내역을 4탭으로 분리 (게시글/댓글/로그인기록/제재이력)
  */
 
 // 등급 레벨 → 배지 색
@@ -88,8 +112,26 @@ function sanctionTypeBadge(type: string): [string, string] {
   }
 }
 
+function postStatusBadge(status: string): [string, string] {
+  switch (status) {
+    case "published": return ["badge-green", "게시됨"];
+    case "draft": return ["badge-gray", "임시저장"];
+    case "hidden": return ["badge-orange", "숨김"];
+    default: return ["badge-gray", status];
+  }
+}
+
 function formatDate(iso: string): string {
   return iso.slice(0, 10).replace(/-/g, ".");
+}
+
+function formatDatetime(iso: string): string {
+  return iso.slice(0, 16).replace("T", " ");
+}
+
+function formatGender(g: "male" | "female" | "other" | null): string {
+  if (!g) return "—";
+  return g === "male" ? "남성" : g === "female" ? "여성" : "기타";
 }
 
 // ── 토스트 ────────────────────────────────────────────────────────────────────
@@ -133,7 +175,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
     >
       <div
         style={{
-          background: "var(--surface)", borderRadius: 8, padding: 24,
+          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
           width: 460, maxWidth: "95vw", boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
@@ -388,79 +430,6 @@ function GradeModal({
   );
 }
 
-// ── 뱃지 지급 모달 ────────────────────────────────────────────────────────────
-
-function GrantBadgeModal({
-  allBadges,
-  ownedBadgeIds,
-  onClose,
-  onConfirm,
-}: {
-  allBadges: AdminBadgeListItem[];
-  ownedBadgeIds: Set<string>;
-  onClose: () => void;
-  onConfirm: (badgeId: string) => void;
-}) {
-  const [selected, setSelected] = useState("");
-  const available = allBadges.filter((b) => !ownedBadgeIds.has(b.id));
-
-  return (
-    <Modal title="뱃지 지급" onClose={onClose}>
-      <div className="component-stack">
-        <div className="field">
-          <label className="field-label" htmlFor="badgeSelect">지급할 뱃지</label>
-          <select
-            className="control"
-            id="badgeSelect"
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-          >
-            <option value="">-- 뱃지를 선택하세요 --</option>
-            {available.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-          {available.length === 0 && (
-            <div className="field-help">지급 가능한 뱃지가 없습니다.</div>
-          )}
-        </div>
-      </div>
-      <ModalFooter
-        onClose={onClose}
-        onConfirm={() => onConfirm(selected)}
-        confirmLabel="지급"
-        disabled={!selected}
-      />
-    </Modal>
-  );
-}
-
-// ── 뱃지 회수 모달 ────────────────────────────────────────────────────────────
-
-function RevokeBadgeModal({
-  badge,
-  onClose,
-  onConfirm,
-}: {
-  badge: AdminUserBadgeItem;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Modal title="뱃지 회수 [최고관리자]" onClose={onClose}>
-      <p style={{ fontSize: 14, color: "var(--gray-600)", marginBottom: 16 }}>
-        <strong>{badge.name}</strong> 뱃지를 회수합니다. 이 작업은 되돌릴 수 없습니다.
-      </p>
-      <ModalFooter
-        onClose={onClose}
-        onConfirm={onConfirm}
-        confirmLabel="회수 확정"
-        danger
-      />
-    </Modal>
-  );
-}
-
 // ── 제재 해제 모달 ────────────────────────────────────────────────────────────
 
 function RemoveSanctionModal({
@@ -492,20 +461,18 @@ function RemoveSanctionModal({
 
 export default function MemberDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const userId = params?.id as string;
 
   const [member, setMember] = useState<AdminUserMemberDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [allBadges, setAllBadges] = useState<AdminBadgeListItem[]>([]);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [sanctionOpen, setSanctionOpen] = useState(false);
   const [pointsOpen, setPointsOpen] = useState(false);
   const [gradeOpen, setGradeOpen] = useState(false);
-  const [grantBadgeOpen, setGrantBadgeOpen] = useState(false);
-  const [revokeBadge, setRevokeBadge] = useState<AdminUserBadgeItem | null>(null);
-  const [removeSanction, setRemoveSanction] = useState<AdminUserSanctionItem | null>(null);
+  const [removeSanctionItem, setRemoveSanctionItem] = useState<AdminUserSanctionItem | null>(null);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -529,15 +496,9 @@ export default function MemberDetailPage() {
 
   useEffect(() => {
     fetchMember();
-    // 현재 관리자 role 조회
     fetch(`${API_BASE_URL}/api/v1/admin/auth/get-session`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => { if (d?.user?.role === "super_admin") setIsSuperAdmin(true); })
-      .catch(() => {});
-    // 뱃지 마스터 목록
-    fetch(`${API_BASE_URL}/api/v1/admin/members/badges`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data: AdminBadgeListItem[]) => setAllBadges(data))
       .catch(() => {});
   }, [fetchMember]);
 
@@ -562,7 +523,7 @@ export default function MemberDetailPage() {
 
   // ── 제재 해제 ───────────────────────────────────────────────────────────────
   async function handleRemoveSanction(sanctionId: string) {
-    setRemoveSanction(null);
+    setRemoveSanctionItem(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/admin/members/${userId}/sanctions/${sanctionId}`, {
         method: "DELETE",
@@ -633,42 +594,6 @@ export default function MemberDetailPage() {
     }
   }
 
-  // ── 뱃지 지급 ───────────────────────────────────────────────────────────────
-  async function handleGrantBadge(badgeId: string) {
-    setGrantBadgeOpen(false);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/admin/members/${userId}/badges`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ badgeId }),
-      });
-      if (res.status === 409) { showToast("이미 보유한 뱃지입니다.", "error"); return; }
-      if (!res.ok) throw new Error();
-      showToast("뱃지가 지급되었습니다.", "success");
-      fetchMember();
-    } catch {
-      showToast("뱃지 지급 중 오류가 발생했습니다.", "error");
-    }
-  }
-
-  // ── 뱃지 회수 ───────────────────────────────────────────────────────────────
-  async function handleRevokeBadge(badgeId: string) {
-    setRevokeBadge(null);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/admin/members/${userId}/badges/${badgeId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.status === 403) { showToast("최고 관리자(super_admin) 권한이 필요합니다.", "error"); return; }
-      if (!res.ok) throw new Error();
-      showToast("뱃지가 회수되었습니다.", "success");
-      fetchMember();
-    } catch {
-      showToast("뱃지 회수 중 오류가 발생했습니다.", "error");
-    }
-  }
-
   if (loading) {
     return (
       <AdminShell breadcrumb={["관리자", "유저 회원 관리", "상세"]} activeKey="members">
@@ -693,7 +618,6 @@ export default function MemberDetailPage() {
 
   const [statusCls, statusLabel] = statusBadge(member.status);
   const gradeCls = GRADE_BADGE[member.gradeLevel] ?? "badge-gray";
-  const ownedBadgeIds = new Set<string>(member.badges.map((b: AdminUserBadgeItem) => b.badgeId));
 
   return (
     <AdminShell breadcrumb={["관리자", "유저 회원 관리", member.nickname]} activeKey="members">
@@ -723,22 +647,23 @@ export default function MemberDetailPage() {
         </div>
       </div>
 
-      {/* 프로필 헤더 */}
+      {/* 프로필 헤더 — #5: 실이미지 표시 */}
       <section className="section">
         <article className="card">
           <div className="card-body">
             <div style={{ display: "flex", alignItems: "flex-start", gap: "24px" }}>
               <div style={{ display: "flex", gap: "20px", flex: 1, alignItems: "center" }}>
-                <span
-                  className="author-avatar"
-                  style={{ width: "72px", height: "72px", fontSize: "28px", flexShrink: 0 }}
-                >
-                  {member.nickname.slice(0, 1)}
-                </span>
+                <UserAvatar
+                  size={72}
+                  alt={member.nickname}
+                  avatarUrl={member.avatarUrl}
+                  image={member.image}
+                  defaultAvatarIndex={member.defaultAvatarIndex}
+                />
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
                     <span style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1.2 }}>{member.nickname}</span>
-                    <span className={`badge ${gradeCls}`}>{member.gradeName}</span>
+                    <span className={`badge ${gradeCls}`}>Lv.{member.gradeLevel} {member.gradeName}</span>
                   </div>
                   <div className="content-meta" style={{ marginBottom: "10px" }}>
                     <span>{member.email}</span>
@@ -774,7 +699,7 @@ export default function MemberDetailPage() {
         </article>
       </section>
 
-      {/* 기본 정보 */}
+      {/* 기본 정보 — #21: 성별/생년월일/마케팅동의/약관동의/연락처 추가 (2줄 그리드) */}
       <section className="section">
         <div className="section-heading">
           <div>
@@ -812,68 +737,220 @@ export default function MemberDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </article>
-      </section>
 
-      {/* 보유 뱃지 */}
-      <section className="section">
-        <div className="section-heading">
-          <div>
-            <h2 className="section-title">보유 뱃지 ({member.badges.length}개)</h2>
-          </div>
-          <div>
-            <button className="btn btn-outline btn-sm" onClick={() => setGrantBadgeOpen(true)}>
-              <i className="ri-medal-line" />뱃지 지급
-            </button>
-          </div>
-        </div>
-        <article className="card">
-          <div className="card-body">
-            {member.badges.length === 0 ? (
-              <p style={{ color: "var(--gray-400)", textAlign: "center", padding: 20 }}>보유한 뱃지가 없습니다.</p>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {member.badges.map((b) => (
-                  <div
-                    key={b.id}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px",
-                    }}
-                  >
-                    <span className="badge badge-blue">{b.name}</span>
-                    {isSuperAdmin && (
-                      <button
-                        className="icon-button"
-                        aria-label={`${b.name} 회수`}
-                        title="뱃지 회수"
-                        onClick={() => setRevokeBadge(b)}
-                        style={{ color: "var(--danger)" }}
-                      >
-                        <i className="ri-close-line" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+            {/* 추가 정보 2줄 그리드 */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                borderTop: "1px solid var(--border)",
+                marginTop: 16,
+                paddingTop: 12,
+              }}
+            >
+              {/* 1줄: 연락처 / 성별 / 생년월일 */}
+              <div className="detail-row" style={{ borderRight: "1px solid var(--border)" }}>
+                <div className="detail-label">연락처</div>
+                <div className="detail-value">{member.phone || "—"}</div>
               </div>
-            )}
+              <div className="detail-row" style={{ borderRight: "1px solid var(--border)", paddingLeft: 16 }}>
+                <div className="detail-label">성별</div>
+                <div className="detail-value">{formatGender(member.gender)}</div>
+              </div>
+              <div className="detail-row" style={{ paddingLeft: 16 }}>
+                <div className="detail-label">생년월일</div>
+                <div className="detail-value">{member.birthDate || "—"}</div>
+              </div>
+              {/* 2줄: 약관 동의 / 마케팅 동의 */}
+              <div className="detail-row" style={{ borderRight: "1px solid var(--border)" }}>
+                <div className="detail-label">약관 동의</div>
+                <div className="detail-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={`badge ${member.termsAgreedAt ? "badge-green" : "badge-gray"}`}>
+                    {member.termsAgreedAt ? "동의" : "미동의"}
+                  </span>
+                  {member.termsAgreedAt && (
+                    <span style={{ fontSize: 11, opacity: 0.6 }}>{formatDate(member.termsAgreedAt)}</span>
+                  )}
+                </div>
+              </div>
+              <div className="detail-row" style={{ paddingLeft: 16 }}>
+                <div className="detail-label">마케팅 동의</div>
+                <div className="detail-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className={`badge ${member.marketingAgreedAt ? "badge-green" : "badge-gray"}`}>
+                    {member.marketingAgreedAt ? "동의" : "미동의"}
+                  </span>
+                  {member.marketingAgreedAt && (
+                    <span style={{ fontSize: 11, opacity: 0.6 }}>{formatDate(member.marketingAgreedAt)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </article>
       </section>
 
-      {/* 활동 내역 탭 */}
+      {/* 활동 내역 — #22: 4탭 (작성한 게시글 / 작성한 댓글 / 로그인 기록 / 제재 이력) */}
       <section className="section">
         <div className="section-heading">
           <div>
             <h2 className="section-title">활동 내역</h2>
-            <p className="section-description">제재 이력을 포함한 활동 내역을 탭으로 확인합니다.</p>
+            <p className="section-description">작성 게시글·댓글, 로그인 기록, 제재 이력을 탭으로 확인합니다.</p>
           </div>
         </div>
 
         <article className="card" id="member-activity-tabs">
           <div className="line-tabs" role="tablist" aria-label="활동 내역">
-            <button className="line-tab active" data-tab="sanctions">제재 이력</button>
+            <button className="line-tab active" data-tab="posts">
+              작성한 게시글 ({member.recentPosts.length})
+            </button>
+            <button className="line-tab" data-tab="comments">
+              작성한 댓글 ({member.recentComments.length})
+            </button>
+            <button className="line-tab" data-tab="sessions">
+              로그인 기록 ({member.loginSessions.length})
+            </button>
+            <button className="line-tab" data-tab="sanctions">
+              제재 이력 ({member.sanctions.length})
+            </button>
+          </div>
+
+          {/* 작성한 게시글 패널 */}
+          <div data-tab-panel="posts">
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>제목</th>
+                    <th style={{ width: 90 }}>상태</th>
+                    <th style={{ width: 100 }}>작성일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.recentPosts.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: 24, opacity: 0.5 }}>
+                        작성한 게시글이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    member.recentPosts.map((p) => {
+                      const [sCls, sLabel] = postStatusBadge(p.status);
+                      const href = `/posts/${dbBoardToAdminSlug(p.board)}/${p.id}`;
+                      return (
+                        <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => router.push(href)}>
+                          <td>
+                            <Link
+                              href={href}
+                              className="content-title"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {p.title}
+                            </Link>
+                          </td>
+                          <td>
+                            <span className={`badge ${sCls}`}>{sLabel}</span>
+                          </td>
+                          <td className="num">{formatDate(p.createdAt)}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 작성한 댓글 패널 */}
+          <div data-tab-panel="comments">
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>내용</th>
+                    <th style={{ width: 100 }}>대상 유형</th>
+                    <th style={{ width: 100 }}>작성일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.recentComments.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: 24, opacity: 0.5 }}>
+                        작성한 댓글이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    member.recentComments.map((c) => {
+                      // getCrossLink: post → /posts/{boardSlug}/{postId}, question/answer → /qna/:id, resource → /resources/:id
+                      const href = getCrossLink(c.targetType, c.targetId, c.board);
+                      return (
+                        <tr
+                          key={c.id}
+                          style={{ cursor: href ? "pointer" : undefined }}
+                          onClick={() => { if (href) router.push(href); }}
+                        >
+                          <td>
+                            {href ? (
+                              <Link
+                                href={href}
+                                className="content-title"
+                                style={{ maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {c.content}
+                              </Link>
+                            ) : (
+                              <div className="content-title" style={{ maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {c.content}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span className="badge badge-blue">{c.targetType}</span>
+                          </td>
+                          <td className="num">{formatDate(c.createdAt)}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 로그인 기록 패널 */}
+          <div data-tab-panel="sessions">
+            <div style={{ padding: "12px 16px 8px", fontSize: 12, color: "var(--gray-500)", background: "var(--surface-subtle, var(--gray-50))", borderBottom: "1px solid var(--border)" }}>
+              <i className="ri-information-line" style={{ marginRight: 4 }} />
+              명시적 로그아웃 이력은 기록되지 않습니다. 로그인 시각과 세션 갱신·만료 정보를 표시합니다.
+            </div>
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>로그인 시각</th>
+                    <th>마지막 갱신</th>
+                    <th>세션 만료</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.loginSessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: "center", padding: 24, opacity: 0.5 }}>
+                        로그인 기록이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    member.loginSessions.map((s, i) => (
+                      <tr key={i}>
+                        <td className="num">{formatDatetime(s.createdAt)}</td>
+                        <td className="num">{formatDatetime(s.updatedAt)}</td>
+                        <td className="num">{formatDatetime(s.expiresAt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* 제재 이력 패널 */}
@@ -909,7 +986,7 @@ export default function MemberDetailPage() {
                             <td>
                               <button
                                 className="btn btn-outline btn-sm"
-                                onClick={() => setRemoveSanction(s)}
+                                onClick={() => setRemoveSanctionItem(s)}
                               >
                                 해제
                               </button>
@@ -950,28 +1027,11 @@ export default function MemberDetailPage() {
         />
       )}
 
-      {grantBadgeOpen && (
-        <GrantBadgeModal
-          allBadges={allBadges}
-          ownedBadgeIds={ownedBadgeIds}
-          onClose={() => setGrantBadgeOpen(false)}
-          onConfirm={handleGrantBadge}
-        />
-      )}
-
-      {revokeBadge && (
-        <RevokeBadgeModal
-          badge={revokeBadge}
-          onClose={() => setRevokeBadge(null)}
-          onConfirm={() => handleRevokeBadge(revokeBadge.badgeId)}
-        />
-      )}
-
-      {removeSanction && (
+      {removeSanctionItem && (
         <RemoveSanctionModal
-          sanction={removeSanction}
-          onClose={() => setRemoveSanction(null)}
-          onConfirm={() => handleRemoveSanction(removeSanction.id)}
+          sanction={removeSanctionItem}
+          onClose={() => setRemoveSanctionItem(null)}
+          onConfirm={() => handleRemoveSanction(removeSanctionItem.id)}
         />
       )}
 

@@ -43,11 +43,14 @@
 <!-- 사용자가 여기에 한 줄씩 추가. Claude가 읽고 '수정 중'으로 내림.
 - [ ] [대상 위치/파일] - 무엇을 어떻게
 -->
-_(없음 — 10건은 아래 검수 대기 125~134로 이동)_
+_(없음 — 9차 배치 신규 3건 모두 검수 대기로 이동 — 2026-06-30)_
+
 
 ## 수정 중 (IN PROGRESS)
 
 <!-- Claude가 작업 중인 항목. 완료하면 '검수 대기'로 이동. -->
+
+_(없음 — 7차 배치 전 항목 검수 대기로 이동 — 2026-06-30)_
 
 
 ## 보류 (HOLD)
@@ -56,18 +59,344 @@ _(없음)_
 
 ---
 
+
 ## 검수 대기 (사용자 확인 필요)
 
 > Claude가 수정 + 자체 검증을 마쳤으나 **사용자 검수 전**인 항목.
 > 사용자가 확인 후 통과면 `검수` 박스를 v로 체크해 주세요. 여전히 문제면 그대로 비워두세요.
 
-_(없음 — 131 검수 통과로 CLOSED 이동)_
+_(없음 — 10차 배치 1건 검수 통과로 이관 — 2026-06-30)_
+
 
 ---
 
 ## 검수 통과 (CLOSED)
 
 > 사용자가 `검수` 박스를 체크해 통과시킨 항목을 Claude가 여기로 옮긴다.
+
+> **10차 배치 1건(재검증 신규#1 = 관리회원 등급/역할 변경 모달 `.modal.open` 누락) — 2026-06-30 검수 통과.** 8차 미통과 1건을 4번째 재진단(`overlay.css` 직접 판독)으로 해결.
+
+### 재검증 신규#1(10차 = 8차 미통과 재수정). (관리자) "관리회원 등급/역할 변경 모달이 안 뜸" — 진짜 원인은 디자인시스템 `.modal` 에 `.open` 미부착 → opacity:0
+- [x] `Claude`   [x] `검수`
+- 수정 : 오류 화면 폴더에 등급변경 에러 이미지 봐봐 뿌옇게 블럭만 생성되고 등급 변경 모달이 안나와. 등급 변경 누르면 아예 아무것도 안나와 모달이 안나와.
+- 1차 (6차, 2026-06-29): "상세페이지 실데이터 재작성" 가설 → 미통과.
+- 2차 (7차, 2026-06-30): "라이브 E2E로 등급변경 모달 라디오 측정 → 역할 3개 표시, 정상" 결론 + 모달 열 때 역할 재조회·빌트인 역할 코드보장 보강 → **여전히 미통과**.
+- 3차 (8차, 2026-06-30): **앞선 2번의 "등급변경 모달" 가설을 전면 폐기.** 사용자가 첨부한 `자료/오류화면/관리회원 등급수정 에러.png`를 **직접 열어 판독** → 실제 에러는 모달이 아니라 **Next.js Console Error: "A tree hydrated but some attributes … didn't match"**, 위치 `app/admin-members/AdminMembersClient.tsx (298:11)` 의 `<div className="line-tabs" role="tablist" aria-label="관리 상태">`, diff = `- data-tabs-initialized="true"`(서버에만 존재). **진짜 원인** = 이 `.line-tabs`(전체/승인대기/활성/정지/비활성 빠른상태 탭)는 **React가 onClick으로 완전 제어**(`data-tab` 속성 없음)인데, `AdminInteractions`의 `MutationObserver`(목록 렌더마다 발화)가 레거시 디자인시스템 `tabs.js`의 `initTabs()`를 재실행 → 이 React 탭 컨테이너에 `data-tabs-initialized="true"`를 주입 → React 트리엔 없는 속성이라 hydration 불일치 + onClick 이중 바인딩까지 유발. → **수정**: `tabs.js`의 `initTabs()`가 **`data-tab`(line-tabs) / `data-range`(segmented) 항목이 없는 그룹은 건너뛰도록** 가드 추가. 레거시 패턴 페이지(`settings`·`members/[id]`·`messages`·차트 segmented = `data-tab`/`data-range` 보유)는 그대로 wire되고, React 제어 탭(`admin-members`·`reports`·`qna`·`comments`)은 더 이상 속성 주입을 받지 않음. → ✅ 마스터 실로그인 Playwright 검수: (1) `/admin-members` 로드 시 `.line-tabs[aria-label="관리 상태"]`의 `data-tabs-initialized` = **null**(이전 `"true"`), **hydration console error 0·pageerror 0**(이전엔 298줄 Console Error 발생). (2) 회귀확인 — `/settings`는 `data-tabs-initialized="true"` 유지, 탭 클릭 시 "기본 설정 → 콘텐츠 설정" 정상 전환, hydration error 0. → ⚠️ 사용자께: 등급변경 모달 자체는 7차에서 이미 정상 확인됨. 이번엔 그 화면(관리회원 목록)에서 콘솔에 뜨던 빨간 hydration 에러를 제거했습니다.
+- 4차 (10차, 2026-06-30): **3차의 hydration 가설로도 미통과** — 사용자 재증상 "뿌옇게 블럭만 생기고 모달이 안 나옴, 등급/역할 변경 눌러도 아무것도 안 나옴". **3번 모두(상세 재작성·E2E 라디오측정·hydration)와 다른 경로로 재접근** → 디자인시스템 `overlay.css` 직접 판독. **진짜 원인** = 디자인시스템 `.modal`(`packages/admin-design-system/.../overlay.css:35`)은 기본값이 `opacity:0; pointer-events:none; transform:translate(-50%,-48%)`이고 **`.modal.open` 이 붙어야** `opacity:1`이 됨. 그런데 `AdminMembersClient.tsx`(목록)·`AdminMemberDetailClient.tsx`(상세) 두 React 제어 모달이 `className="modal"`(`.open` 누락) + 인라인 `style={{display:"flex"}}` 만 줬다 → **인라인 `display`는 `opacity:0`/`pointer-events:none`을 못 덮음** → 오버레이(인라인 `display:block`)만 보여 "뿌옇게 블럭", 모달 본체는 opacity 0 으로 투명. (※ 7차 E2E "라디오 3개 정상"은 opacity:0 으로 **시각적으로만 숨겨진** DOM 요소의 속성을 Playwright가 읽은 것 — 시각 가시성을 검증하지 못한 함정.) → **수정**: 두 파일의 오버레이 `className="overlay open"`, 모달 `className="modal open"` 로 교체 + 레이아웃 깨뜨리던 인라인 `display:flex` 제거(`.modal` 기본 `display:block` 으로 header/body/footer 세로 정렬). 배경 흰색 인라인은 유지. (points 페이지 모달은 레거시 `data-admin-open`/overlay.js 가 `.open`을 토글하는 별도 정상 경로라 무손상.) → ✅ 마스터 실로그인 Playwright 검수: `/admin-members` 행 메뉴 → 모달 트리거 클릭 → `section.modal` computed **opacity `1`·pointer-events `auto`·visibility `visible`·display `block`·`.open` 클래스 true·rect 540×399 중앙·제목 렌더**(이전엔 opacity 0 으로 안 보였음), console/pageerror 0. 스크린샷(`scripts/shots/gm-2-role-modal.png`)으로 흰 패널·세로 레이아웃 육안 확인. admin typecheck 통과.
+
+> **9차 배치 3건(신규TODO-49 알림 항목별 읽음 · 신규TODO-50 알림 footer 제거+항목별 바로가기 · 신규TODO-51 Q&A 검색 select removeChild) — 2026-06-30 검수 통과.**
+
+### 신규TODO-51(9차). (관리자) 묻고답하기 검색 select(Q&A상태/콘텐츠 상태) 클릭 시 removeChild 에러
+- [x] `Claude`   [x] `검수`
+- 1차 (6차, 2026-06-29): "Google 번역 확장 충돌" 가설 → admin 레이아웃 `translate="no"`/`notranslate` → 미통과.
+- 2차 (9차, 2026-06-30): 번역 가설 폐기. **진짜 원인** = Q&A 필터의 레거시 디자인시스템 select 마크업에 `AdminInteractions` MutationObserver가 레거시 `select.js initSelects()`를 연결 → 옵션 클릭 시 select.js가 React 렌더 체크아이콘을 `.remove()`+`insertAdjacentHTML` → 동시 발화한 React onClick 재렌더가 이미 떼어진 노드를 `removeChild`하다 NotFoundError. 같은 패턴이 admin 7페이지(qna·comments·inquiries·messages·posts·posts/[board]·resources)에 잠복. → **수정**: `select.js initSelects(root,{reactSafe})` 추가 — 메뉴 열기/닫기만 연결, DOM 내용 변형(.selected·체크아이콘·라벨·admin:select-change) 전부 skip(React 담당). `AdminInteractions`가 `{reactSafe:true}` 호출, 순수 HTML 데모는 옵션 없이 호출해 무손상. → ✅ 마스터 실로그인 Playwright: `/qna` 두 select 옵션 클릭 → URL 갱신·removeChild/console error 0건.
+
+### 신규TODO-49(9차). (관리자) 알림 항목 하나만 확인해도 전부 읽음 처리됨
+- [x] `Claude`   [x] `검수`
+- 1차 (9차, 2026-06-30): **원인** = `NotificationMenu`가 읽음 상태를 단일 시그니처로 관리 → 항목 하나 클릭 시 `acknowledgeAll()`이 전체 읽음 처리. → **수정**: id별 맵(`{reports,inquiries,qna}` 확인 시점 카운트)으로 전환(localStorage `aj_admin_alerts_ack_v2`), `acknowledgeOne(id)`로 단일 항목만 읽음 + 각 항목 "읽음" 버튼. → ✅ Playwright: 읽음 버튼 1개 클릭 → 미읽음 1건만 남고 벨 배지 2→1.
+
+### 신규TODO-50(9차). (관리자) 알림 하단 "신고 관리 바로가기" 제거 + 항목별 바로가기 버튼
+- [x] `Claude`   [x] `검수`
+- 1차 (9차, 2026-06-30): 하단 고정 `신고 관리 바로가기` Link 제거. 각 알림 항목을 해당 관리 페이지(신고→/reports·문의→/inquiries·Q&A→/qna)로 가는 `<Link>`로 + 하단 "바로가기 →" 라벨(클릭 시 이동 + 그 항목만 읽음, #49 연동). → ✅ Playwright: footer 제거 확인, 항목별 "바로가기" 버튼 렌더.
+
+> **7차 배치 3건(신규TODO-A 신고대상보기 정적페이지 · 신규TODO-B 숨김 복구 · 재검증 신규#2 removeChild) — 2026-06-30 검수 통과.** (미통과였던 재검증 신규#1은 8차·10차에서 재진단 → 검수 대기.)
+
+### 신규TODO-A(7차). (관리자) 신고관리 상세 "신고 대상 보기" 클릭 시 이동 페이지가 정적(더미)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-30): **진짜 원인 = 관리자 게시글 상세(`/posts/[board]/[id]/page.tsx`)가 100% 더미 상수**(`POST`/`COMMENTS` 하드코딩, URL `id` 무시). → 실데이터 클라이언트 컴포넌트로 재작성(`GET /api/v1/admin/posts/:id`) + `getPostDetail`에 댓글 조회 추가. → ✅ 마스터 실로그인 Playwright: 신고 "신고 대상 보기" → 실제 글 표시·실제 상태 배지·pageerror 0.
+
+### 신규TODO-B(7차). (관리자) 신고관리에서 숨김 처리 후 다시 되돌릴 수 없음
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-30): **진짜 원인 = 수동 "대상 숨김"이 `reports.status='resolved'`로 바꾸는데 조치버튼 노출조건 `canAct`이 `status!=='resolved'`라 숨김 직후 모든 버튼 소멸 + 복구 버튼은 `autoHidden===true`에만 노출.** → `getReport`에 `targetStatus`(::text) 추가 + `PATCH /admin/reports/:id/unhide`·`unhideTarget` 신설 + `targetStatus==='hidden'`이면 "숨김 해제" 버튼 노출. → ✅ 마스터 실로그인 Playwright: "숨김 해제" 클릭 시 게시글 published 복구·신고 reviewing 전환·pageerror 0.
+
+### 재검증 신규#2(7차 = 6차 removeChild). (관리자) 묻고답하기 removeChild — translate="no" 라이브 차단 확인
+- [x] `Claude`   [x] `검수`
+- 원인 (2026-06-29): 관리자 `/qna` + 페이지 자동 번역(Google 번역 등) 켜짐 → 번역 확장이 한국어 텍스트 노드를 `<font>`로 바꿔치기 → React 재렌더 시 부모-자식 불일치로 removeChild 크래시(환경 의존, 번역 OFF에선 재현 불가).
+- 수정 (2026-06-29~30): admin 루트 레이아웃 `<html lang="ko" translate="no">` + `<body className="notranslate">`로 번역 도구가 admin 앱을 통째로 건너뛰게 함(HTML 표준 translate 속성). → ✅ Playwright 실측: `/qna`의 `document.documentElement.translate==="no"`·body `notranslate` 적용, pageerror 0.
+
+> **6차 배치 1건(신규#3 쪽지 모달 흰배경) — 2026-06-30 검수 통과.**
+
+### 신규#3(6차). (관리자) 쪽지 상세에서 나오는 모든 모달 배경 투명 → 흰색
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): **진짜 원인 = 모달 컨텐츠 div들이 `background: var(--surface)`인데 `--surface` 토큰이 admin 디자인시스템에 정의돼 있지 않아 transparent로 폴백.** (G13·M14에서 공용 Dialog·`.modal`은 흰색화했지만 이 인라인 스타일 모달들은 누락.) → admin 전역에서 `var(--surface)` → `var(--gray-0, #fff)`로 교체(쪽지 list/상세 RestrictModal·DeleteModal 4곳 포함 12개 파일 21곳). → ✅ 마스터 실로그인 Playwright 검수: 쪽지 상세 `발신제한`·`삭제` 모달 모두 computed 배경 `rgb(255,255,255)`.
+
+> **5차 배치 6건(N8+#3·N10+#2·M12 + 신규#1·#2·#3) — 2026-06-29 검수 통과.**
+
+### N8+신규#3. 관리자 목록 탭바 우측 끝 짧은 보라 세로 스크롤바 삭제 (재수정 4차)
+- [x] `Claude`   [x] `검수`
+- 4차 (2026-06-29): 원인 = `navigation.css .line-tabs{overflow-x:auto}` → overflow-y도 auto 계산 + 활성탭 밑줄 1px 넘침. → `.line-tabs`를 `overflow:visible`(데스크톱), 좁은화면(≤720px)만 `overflow-x:auto;overflow-y:hidden`. → ✅ computed `overflowY:visible`, 보라 스크롤 0.
+
+### N10+신규#2. 관리자 알림 — 구분선 가시성 + 읽음 처리 영속(빨간점·파란색 사라짐)
+- [x] `Claude`   [x] `검수`
+- 4차 (2026-06-29): 읽음 카운트 조합을 localStorage 시그니처(`aj_admin_alerts_ack`)로 영속, 빨간점 클래스를 `unreadCount>0`일 때만 부착, 구분선 `gray-100`→`gray-200`. 항목 클릭 단건만 읽음 + 전부 읽어야 빨간점 사라짐. → ✅ 새로고침해도 빨간점·파란배경 미복귀.
+
+### M12. 커스텀 관리자 역할 추가/수정/삭제 (재수정 3차 — 실제 기능 구축)
+- [x] `Claude`   [x] `검수`
+- 3차 (2026-06-29): `admin_role` enum→text + `admin_roles` 테이블(마이그 0025) + `GET/POST/PATCH/DELETE /admin/roles` + `/admin-members/grades` CRUD UI + 권한 매트릭스 동적 컬럼 + 관리회원 역할 드롭다운 동적화. → ✅ 마스터 실로그인 검수: 역할 추가·권한 토글·삭제 동작, API E2E + 17 유닛테스트 통과.
+
+### 신규#1. (관리자) Q&A 질문 상세 답변 박스 개별 구분
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 각 답변을 개별 `article.card`(흰배경·1px 테두리·라운드·그림자)로 분리. → ✅ 답변 2개 분리 카드 렌더.
+
+### 신규#2. (관리자) 알림 확인 후 읽음 처리 안 됨
+- [x] `Claude`   [x] `검수`
+- → N10+신규#2 4차에 통합 처리(localStorage 읽음 영속 + 빨간점 조건부).
+
+### 신규#3. (관리자) 신고 목록에 조치 버튼이 전혀 없음
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 진짜 원인 = admin React 앱에 디자인시스템 `table.js` 미로드 → 전 목록 kebab 먹통. React 제어 `components/ui/RowActionMenu` 신설, 전 관리자 목록에 적용. → ✅ reports kebab 클릭 시 조치 메뉴 열림.
+
+> **4차 배치 6건(M8·M9·M10·M11+#4·신규#1·신규#5) — 2026-06-29 검수 통과.** 미통과 3건(N8+#3·N10+#2·M12)은 검수 대기에 잔존(사용자 추가 코멘트·신규 TODO).
+
+### M8. (관리자 Q&A) 질문 상세에 답변 본문 직접 표시 (재수정 2차)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): `/qna/[id]` 답변 카드에 contentJson 본문을 펼친 상태로 즉시 렌더(클릭 진입 제거).
+
+### M9. (관리자 Q&A) 답변 클릭 → 답변 상세 뷰 (재수정 2차)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): M8 인라인 본문으로 목록↔상세 차이 명확화 + 항목에 "답변 상세 →" 링크.
+
+### M10. (관리자 Q&A) 삭제 답변 완전 제거 (재수정 2차)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): 백엔드 listAnswers가 `ne(status,'deleted')` 자동 제외 + 프론트 deleted 필터.
+
+### M11+신규#4. (관리자 Q&A) 숨김 삼점 투명도 제거 + 다시보기 (재수정 2차)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): 행 opacity를 컨텐츠 td에만 적용(드롭다운 불투명) + 숨김 항목에 "다시 보이기".
+
+### 신규#1. (유저웹) 1:1 문의 운영진 답변 흰박스 가로 100% + 날짜 박스 안에
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): `.adminBubble` width:100% 전체폭 카드, `<time>`을 박스 안 헤더로 이동.
+
+### 신규#5. 신고관리 목록 삼점 클릭 시 처리 버튼
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): reports 목록 행에 `.action-menu`(처리 액션) 추가, table.js 위임 단일화.
+
+> **3차 배치 12건(N1·N14·N16·M1·M2·M3·M5·M6·M7·M13·M14·M15) — 2026-06-29 검수 통과.** 미통과 7건(N8·N10·M8·M9·M10·M11·M12)은 4차 배치에서 재수정 → 검수 대기.
+
+### N1. (유저웹) 알림 클릭 → 1:1 문의 답글이면 해당 글로 이동 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): NotificationModal.handleNavigate async 전환, inquiry 이동 전 존재확인 → 404면 중단+토스트.
+
+### N14. 포인트 회원검색 입력 자체가 안 됨 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): 히스토리 onSelect 콜백이 타이핑마다 setHistSearch("")로 덮어쓰던 것 → `onSelect={setHistMember}`로 단순화.
+
+### N16. 콘텐츠/파일/신고 설정 + 인기 기준 지표 선택박스 (재검증)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-29): 인기지표 디자인시스템 Select·콘텐츠/파일/신고 설정 탭별 저장 정상 재확인.
+
+### M1. 신고관리 항목 클릭 → 상세페이지 이동 + 처리 버튼
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 행 클릭 → /reports/{id}, "자동 숨김 복구" 상세로 이관, notifyDialog.
+
+### M2. 등급관리 삭제확인·저장 완료 알림을 모달로
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): ranks 인라인 삭제 → confirmDialog, 완료 → notifyDialog, 목록 행 삭제 버튼.
+
+### M3. 관리자 모든 시스템 알림을 모달로
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 공용 lib/dialog.tsx 신설, 전 admin window.confirm/alert·중앙토스트를 모달로 교체.
+
+### M5. (유저웹) 1:1 문의 운영진 답변 별도 박스 + 회색박스 제거
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 외부 흰박스→배경없는 wrapper, adminBubble 회색→흰색 독립 카드.
+
+### M6. (유저웹) 알림 확인 즉시 헤더 미읽음 카운트 감소
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): NotificationCountContext(SSE·카운트 단일관리)를 layout에 마운트, 헤더·페이지 공유.
+
+### M7. (유저웹) 공지 상세 "목록으로"와 댓글 사이 회색 구분선 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 공지 전용 `.footerNoBorder`로 공지에서만 border-top 제거.
+
+### M13. 회원 상세 활동내역 작성글/댓글 클릭 → 상세로 이동
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): members API recentPosts/Comments board 추가, 게시글·댓글 → 원본 콘텐츠 상세.
+
+### M14. 관리자 모든 모달 배경 투명 → 흰색
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): 공용 Dialog·자체 모달 배경 `var(--gray-0,#fff)` 명시.
+
+### M15. 관리자 계정 프로필 이미지 수정 적용
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-29): POST /admin/account/upload-image + PATCH /account/me imageUrl, 헤더 아바타 즉시 반영.
+
+> **2차 배치 16건(G4·G5·G16·G17·G23·N2·N3·N4·N5·N6·N7·N9·N11·N12·N13·N15) — 2026-06-29 검수 통과.** 미통과 5건(N1·N8·N10·N14·N16)은 3·4차에서 재수정.
+
+### G4. 대시보드 최근 콘텐츠 클릭 → 상세 이동 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): 상세페이지가 `findBoard(board)` 미스 시 notFound인데 recent-content board가 DB 원본값이라 admin 슬러그와 불일치 → `lib/boards.ts` dbBoardToAdminSlug 역매핑 + 큐레이션 외 board는 폴백 메타 렌더(notFound 제거).
+
+### G5. 모든 유저 프로필 이미지 표시 (재수정 — 한 곳에서 관리)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): 공통 `components/ui/UserAvatar`(resolveAvatarUrl 래핑) 신설·전 관리자 페이지 적용, 백엔드 list/detail API에 avatarUrl·image·defaultAvatarIndex 추가.
+
+### G16. 댓글·후기 관리 상세 → 대상 콘텐츠 "상세"로 이동 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): `getCrossLink`를 목록→상세로 변경, 댓글 API targetBoard 서브쿼리·계약 추가 → post는 게시글 상세, question/answer→/qna, resource→/resources 상세.
+
+### G17. 신고 관리 신고 항목 표시 + 대상 클릭 → 신고당한 회원 상세 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): 진짜 원인 = reportedUserId CASE 서브쿼리가 comments에 없는 user_id를 SELECT(실제 author_id) → 댓글 신고 1건이라도 있으면 500·목록 전멸. author_id로 교정 + 상세에 "신고당한 회원" 링크.
+
+### G23. 등급 추가 — 생성 반영 + 뱃지 이미지 업로드 (재수정)
+- [x] `Claude`   [x] `검수`
+- 2차 (2026-06-26): "생성 안됨" 원인 = 목록 level<=5 필터가 신규 등급 숨김 → 필터 제거. `grades.image_url`(마이그 0024)·`POST /admin/grades/upload-badge`·new/[tier] 업로드 실연동.
+
+### N2. (유저웹) 1:1 문의 상세를 게시판 상세 디자인과 통일
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `InquiryThread`를 lounge 상세 레이아웃으로 재구성(헤더·본문 TiptapRenderer·목록 푸터), 문의 답변 스레드만 유지.
+
+### N3. 접속통계 조회순 Select 가로폭을 다운로드 버튼에 맞춤
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 정렬 Select를 min-width:140px 컨테이너로 감싸 다운로드 버튼 폭과 정렬.
+
+### N4. 콘텐츠별 성과 게시글 제목 클릭 → 상세 이동
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 성과 테이블 제목을 `<Link>`로(post→/posts/{dbBoardToAdminSlug}/{id}·resource→/resources/{id}).
+
+### N5. (유저웹) 공지 상세에서 좋아요/공유/신고/북마크 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `notice/[slug]`의 `<ReactionBar/>` JSX·import 제거, 본문·댓글·메타 유지.
+
+### N6. 첨부파일 통합관리 + 관리자 파일설정 연동 + 관리자 첨부 등록 디자인 유저화
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공통 `components/ui/AttachmentUpload` 신설, admin ResourceForm/PostForm 드롭존 교체·관리자 파일설정에서 확장자/용량 읽음, `POST /admin/posts/attachments` 실업로드.
+
+### N7. 댓글 후기 관리 상세 관련글 → 게시글 상세 이동
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): G16과 동일(getCrossLink 상세화 + 댓글 API targetBoard).
+
+### N9. 문의 관리 답변 가로 가득 + 답변 수정/삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 답변 버블 75% 폭·우정렬 제거→전체폭, 각 답변 수정/삭제 버튼 + `PATCH/DELETE /admin/inquiries/:id/replies/:replyId`.
+
+### N11. 등급 상세 뱃지 이미지 수정
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): G23 인프라로 `/ranks/[tier]` 뱃지 업로드 실연동(선택→업로드→미리보기→PATCH 영속).
+
+### N12. 회원상세 연락처 줄 상단 구분선 여백을 하단과 동일하게
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `members/[id]` 상단 borderTop marginTop 0→16·paddingTop 12로 하단 여백과 대칭.
+
+### N13. 회원 상세에 등급 표기
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 상세 헤더 뱃지를 `Lv.{gradeLevel} {gradeName}`로 표기.
+
+### N15. 사이트 설정 파비콘·OG 이미지를 URL 입력 → 이미지 업로드
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): favicon_url·og_image를 파일 업로드+미리보기로 교체, `POST /admin/settings/upload-image` 신설.
+
+> **Epic9 관리자 27건(G1·G2·G3·G6·G7·G8·G9·G10·G11·G12·G13·G14·G15·G18·G19·G20·G21·G22·G24·G25·G26·G27·G28·G29·G30·G31·G32) — 2026-06-26 검수 통과.** 미통과 5건(G4·G5·G16·G17·G23)은 위 검수 대기에서 2차 재수정.
+
+### G1. 대시보드 "게시글 작성" 버튼 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `dashboard/page.tsx` 헤더의 `<Link href="/posts/new">새 게시글</Link>` 제거.
+
+### G2. 관리자 "알림" 기능 먹통 → 실데이터 연동
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `NotificationMenu.tsx` 하드코딩 더미·죽은 링크 제거 → 미처리 신고·미답변 문의 실집계, 항목별 실링크, 벨 뱃지=실카운트.
+
+### G3. 리포트 내보내기 CSV → 엑셀(xlsx), 컬럼 겹침 방지
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공유 `lib/xlsx.ts`(exceljs) 신설 — 컬럼별 명시 폭+헤더 볼드/음영, `DashboardExportButton`을 `downloadXlsx`로 교체.
+
+### G6. 접속통계 게시글별 성과 상위10 + 정렬
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): post-performance limit 20→10, `ContentPerformanceTable`에 정렬 Select(조회수/댓글/다운로드순) 클라 정렬.
+
+### G7. 실전자료별 성과를 게시글별 성과에 통합
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 분리됐던 2개 섹션을 "콘텐츠별 성과" 단일 테이블로 병합(유형 컬럼, 결측 —).
+
+### G8. 접속통계 페이지별 머문시간 추가
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): page_views.dwell_ms(0023), PageViewTracker sendBeacon, collect 적재, `GET /admin/analytics/page-dwell-time`+stats UI.
+
+### G9. (유저웹) 공지 상세를 일반 게시글 구성과 통일
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `notice/[slug]/page.tsx`를 라운지 상세 구성과 동일화(BoardHero·메타·본문·댓글). (※ N5에서 ReactionBar는 별도 제거.)
+
+### G10. 게시글 관리 게시판별 페이지가 빈 목록
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 원인 = admin URL 슬러그와 DB `posts.board` 불일치. `lib/boards.ts`에 apiBoard 매핑 추가.
+
+### G11. 모든 선택박스 = 디자인 시스템 드롭다운 + 얇은 보라 스크롤
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공유 `components/ui/Select` 신설, admin 전 native `<select>` 교체(폼/필터·등급필터·에디터 글자크기 포털 드롭다운).
+
+### G12. Q&A 관리 답변 상세 "질문을 찾을 수 없음"
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 신규 `GET /admin/qna/questions/:id` 단건 조회 추가, `qna/[id]`가 이를 호출.
+
+### G13. 모든 모달 배경 투명 → 흰색
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공유 `overlay.css` `.modal-backdrop`(어두운 스크림)·`.modal` 불투명 흰배경 보강.
+
+### G14. 실전자료 관리에 글 등록 기능 추가
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `resources/page.tsx` 헤더에 "새 자료 등록"(/resources/new) 버튼 추가.
+
+### G15. 모든 글쓰기 영역에 리치 에디터 삽입
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 공유 `features/editor`(Tiptap) 신설, 본문 textarea를 `<Editor preset="full">`로 교체(PostForm·ResourceForm·공지).
+
+### G18. 문의 관리 모달 → 별도 상세 페이지
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 신규 `inquiries/[id]/page.tsx` 생성, 목록 행 클릭을 `/inquiries/[id]` 이동으로 변경.
+
+### G19. 업적 뱃지 개념 전체 삭제 (등급은 유지)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 뱃지 테이블 DROP(0023)+스키마/API/worker/core/contracts 전량 삭제. 등급/RankBadge/lib/ranks 유지.
+
+### G20. 회원 상세 "보유 뱃지" 섹션 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `members/[id]` 보유뱃지 섹션·모달·핸들러·API 라우트 제거.
+
+### G21. 회원 상세 기본정보에 성별·생년월일·마케팅·약관·연락처 2줄 표기
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): API detail에 phone·gender·birthDate·termsAgreedAt·marketingAgreedAt 추가, 기본정보 2줄 그리드.
+
+### G22. 회원 상세 활동내역 탭 분리
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): API에 recentPosts·recentComments·loginSessions 쿼리 추가, 4탭 UI.
+
+### G24. 권한 설정 토글 작동(영속)
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `admin_role_permissions`(0023)+`GET/PATCH /admin/permissions`(코드기본값+DB오버라이드 병합), PermissionsMatrix 즉시 저장.
+
+### G25. 포인트 수동 지급/차감 회원검색 자동완성
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `MemberSearchInput`(디바운스→`/admin/members?q=`) 아바타/닉네임/이메일/포인트 드롭다운.
+
+### G26. 포인트 수동 지급/차감 동작
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 모달 폼·핸들러 — 지급 POST·차감 DELETE `/admin/members/:id/points`, 토스트, 내역 새로고침.
+
+### G27. 회원별 포인트 내역 표시
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `GET /admin/members/:id/points-history`(누적잔액), 회원 검색→내역 테이블+페이지네이션.
+
+### G28. 등급 목록에 관리자 등급 미노출
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `ranks/page.tsx` 하드코딩 "운영자" 행 제거(유저 등급만). (※ G23 2차에서 상한 필터는 제거됨.)
+
+### G29. 등급/뱃지 관리에서 뱃지 목록 삭제
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): `ranks/page.tsx` 뱃지 목록 섹션·모달·"새 뱃지 추가" 제거, 제목 "등급 관리".
+
+### G30. 등급 목록에서 등록된 등급 수정 가능
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 각 등급 행에 "설정"(/ranks/[id], PATCH) 링크+필요 포인트 인라인 편집.
+
+### G31. 사이트 설정 콘텐츠/파일/신고 탭 동작
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 탭 초기화 레이스 → React `activeTab` 상태 기반 패널 전환으로 리팩터, 각 패널 실 필드 바인딩.
+
+### G32. 사이트 설정 기본설정에 파비콘 등록
+- [x] `Claude`   [x] `검수`
+- 1차 (2026-06-26): 파비콘 필드·`favicon_url` 저장·공개설정 API·유저웹 generateMetadata 연동. (※ N15에서 URL→이미지 업로드로 개선.)
 
 > 관리자 5건(130·131·132·133·134) — 2026-06-26 2차, 검수 통과. 진짜 원인은 **라우트 이중 prefix 404**(curl 격리검증으로는 못 잡고 실 브라우저 Playwright로만 잡힘) + get-session CORS 차단. 교훈: 관리자 검수는 반드시 실 브라우저 로그인 흐름으로.
 

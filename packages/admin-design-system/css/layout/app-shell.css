@@ -9,7 +9,8 @@
  *     └─ .main > .page (스크롤 본문)
  * =========================================================================== */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;    /* 뷰포트 정확히 고정 (min-height → height 로 변경해 넘침 방지) */
+  overflow: hidden; /* 셸 자체가 스크롤되지 않도록; 스크롤은 .main 이 담당 */
 }
 
 /* ---- 사이드바 ---- */
@@ -249,10 +250,36 @@
 
 /* ---- 본문 ---- */
 .main {
-  min-height: 100vh;
+  /* 이중 스크롤 완전 차단 설계:
+     - body/html: overflow:hidden (reset.css) → 문서 수준 스크롤 없음
+     - .app-shell: height:100vh; overflow:hidden → 셸이 넘치지 않음
+     - .main: height:100vh; overflow-y:auto → 유일한 스크롤 컨테이너
+     padding-top(탑바 높이)는 border-box 에 포함되므로 실제 스크롤 영역 = 100vh - topbar-height */
   margin-left: var(--sidebar-width);
   padding-top: var(--topbar-height);
   transition: margin-left 180ms ease;
+  height: 100vh;
+  overflow-y: auto;
+  /* 메인 스크롤바: 얇고 연한 보라색 (사이드바와 동일) */
+  scrollbar-width: thin;
+  scrollbar-color: #c4b5fd transparent;
+}
+
+.main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main::-webkit-scrollbar-thumb {
+  background: #c4b5fd;
+  border-radius: 999px;
+}
+
+.main::-webkit-scrollbar-thumb:hover {
+  background: #a78bfa;
 }
 
 .page {
