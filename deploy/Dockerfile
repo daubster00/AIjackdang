@@ -24,6 +24,18 @@ WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=https://api.aijackdang.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+# ── 웹 서버→API 내부 프록시 목적지 (빌드 타임 주입 필수) ──
+# Next.js rewrites() 목적지는 build 시점에 routes-manifest.json 으로 구워진다.
+# 여기서 안 주면 next.config.ts 의 fallback http://localhost:4003 이 박혀
+# 운영 web 컨테이너가 자기 자신 4003 으로 프록시→ECONNREFUSED→소셜/세션 500.
+ARG API_INTERNAL_URL=http://api:4003
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+
+# ── 카카오 로그인 버튼 활성 플래그 (클라이언트 번들에 인라인) ──
+# LoginForm/SignupForm 이 NEXT_PUBLIC_KAKAO_ENABLED==="true" 일 때만 카카오 버튼 활성.
+ARG NEXT_PUBLIC_KAKAO_ENABLED=true
+ENV NEXT_PUBLIC_KAKAO_ENABLED=${NEXT_PUBLIC_KAKAO_ENABLED}
+
 # 전체 워크스페이스 복사 후 의존성 설치
 COPY . .
 RUN pnpm install --frozen-lockfile

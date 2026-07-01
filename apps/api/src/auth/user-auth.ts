@@ -47,6 +47,46 @@ const argon2idHasher = {
 const MAX_NICKNAME_RETRIES = 15 as const;
 
 /**
+ * 소셜 프로필의 성별 문자열을 users.gender enum(male/female/other)으로 정규화.
+ * 네이버는 "M"/"F"/"U", 카카오는 "male"/"female" 을 준다. 매핑 불가/미제공이면 undefined.
+ */
+function normalizeGender(raw?: string | null): "male" | "female" | "other" | undefined {
+  if (!raw) return undefined;
+  const v = String(raw).toLowerCase();
+  if (v === "m" || v === "male") return "male";
+  if (v === "f" || v === "female") return "female";
+  if (v === "u" || v === "other") return "other";
+  return undefined;
+}
+
+/**
+ * 출생연도(YYYY) + 생일(네이버 'MM-DD' | 카카오 'MMDD') → 'YYYY-MM-DD' (users.birthDate date 컬럼).
+ * 연도나 생일이 없으면(제공 항목 미동의 등) undefined 를 반환해 기존 값을 덮어쓰지 않는다.
+ */
+function buildBirthDate(birthyear?: string | null, birthday?: string | null): string | undefined {
+  if (!birthyear || !birthday || !/^\d{4}$/.test(String(birthyear))) return undefined;
+  const digits = String(birthday).replace(/[^0-9]/g, ""); // 'MMDD'
+  if (digits.length !== 4) return undefined;
+  return `${birthyear}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
+}
+
+/**
+ * 카카오 phone_number("+82 10-1234-5678") 를 국내 표기("01012345678")로 정규화. 미제공이면 undefined.
+ * 네이버 mobile 은 이미 "010-..." 형식이라 별도 정규화 없이 사용한다.
+ */
+function normalizeKrPhone(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  let p = String(raw).replace(/[\s-]/g, "");
+  if (p.startsWith("+82")) p = "0" + p.slice(3);
+  return p || undefined;
+}
+
+/** undefined/null 값을 제거 — mapProfileToUser 결과가 미제공 항목으로 기존 값을 덮어쓰지 않게 한다. */
+function pruneEmpty<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null && v !== "")) as Partial<T>;
+}
+
+/**
  * 닉네임 UNIQUE 충돌 시 재시도하여 유니크 닉네임을 DB에 업데이트한다.
  * user.create.before 훅에서는 데이터를 반환하지만 닉네임 중복 확인은
  * DB insert 실패 후에만 알 수 있으므로, after 훅에서 재시도 기반으로 처리한다.
@@ -108,6 +148,23 @@ export const userAuth = betterAuth({
 
   /** Better Auth URL (소셜 콜백 등에 사용) */
   baseURL: env.BETTER_AUTH_URL ?? env.WEB_PUBLIC_URL,
+
+  /**
+   * 신뢰 출처(trustedOrigins) — 소셜 로그인 callbackURL 검증에 사용.
+   * 기본값은 baseURL(=api 서브도메인)뿐이라, 웹(aijackdang.com·www)·관리자 도메인을
+   * 명시하지 않으면 프론트가 보내는 절대 callbackURL(window.location.origin)이
+   * 403 INVALID_CALLBACK_URL 로 거부된다(소셜 버튼이 아무 반응 없이 실패).
+   */
+  trustedOrigins: Array.from(
+    new Set(
+      [
+        env.WEB_PUBLIC_URL,
+        env.WEB_PUBLIC_URL.replace("://", "://www."),
+        env.ADMIN_PUBLIC_URL,
+        env.BETTER_AUTH_URL,
+      ].filter((v): v is string => Boolean(v)),
+    ),
+  ),
 
   /** AUTH_SECRET — 세션 서명·암호화 */
   secret: env.AUTH_SECRET,
@@ -245,12 +302,40 @@ export const userAuth = betterAuth({
         required: false,
         fieldName: "avatarUrl",
       },
+      /**
+       * 회원정보 필드 — 소셜(네이버·카카오) 가입 시 mapProfileToUser 로 채워진다.
+       * additionalFields 로 선언해야 Better Auth 어댑터가 실제로 DB(users.phone/gender/birthDate)에 기록한다.
+       * 이메일 가입은 값이 없으면 null 로 남고 회원정보 화면에서 입력한다.
+       */
+      phone: {
+        type: "string" as const,
+        required: false,
+        fieldName: "phone",
+      },
+      gender: {
+        type: "string" as const,
+        required: false,
+        fieldName: "gender",
+      },
+      birthDate: {
+        type: "string" as const,
+        required: false,
+        fieldName: "birthDate",
+      },
     },
   },
 
   /**
    * 소셜 Provider 슬롯 — 환경변수 미설정 시 해당 provider 비활성.
    * 카카오: KAKAO_ENABLED=true && 키 설정 시에만 활성 (ADR-0002 §카카오 정책 — 비즈앱 검수 필요).
+   *
+   * 네이버·카카오는 이름·전화번호·성별·생년월일을 추가로 요청해 users(name/phone/gender/birthDate)에 저장한다.
+   * ⚠️ 실제 제공 여부는 각 개발자센터 설정에 달려 있다:
+   *   - 네이버: 개발자센터 "네이버 로그인 > 제공 정보 선택"에서 이름/휴대전화번호/성별/생일·출생연도를 필수(또는 추가) 항목으로 활성화해야
+   *     동의 화면에 표시되고 프로필 API 가 값을 돌려준다. (이름·연락처 등 민감정보는 검수 필요)
+   *     scope 파라미터로는 제어되지 않으므로 코드에서는 mapProfileToUser 로 값을 매핑하기만 한다.
+   *   - 카카오: 아래 scope 항목(name·gender·birthday·birthyear·phone_number)은 카카오 개발자센터에서 동의항목을 켜고
+   *     "비즈니스 앱" 검수를 통과해야 실제로 요청·수신된다. 검수 전 이 scope 로 로그인하면 KOE 오류가 날 수 있다.
    */
   socialProviders: {
     ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -266,6 +351,16 @@ export const userAuth = betterAuth({
           naver: {
             clientId: env.NAVER_CLIENT_ID,
             clientSecret: env.NAVER_CLIENT_SECRET,
+            /** 네이버 프로필(response.name/mobile/gender/birthyear/birthday) → users 회원정보 매핑 */
+            mapProfileToUser: (profile) => {
+              const r = profile.response;
+              return pruneEmpty({
+                name: r?.name,
+                phone: r?.mobile,
+                gender: normalizeGender(r?.gender),
+                birthDate: buildBirthDate(r?.birthyear, r?.birthday),
+              });
+            },
           },
         }
       : {}),
@@ -275,6 +370,18 @@ export const userAuth = betterAuth({
           kakao: {
             clientId: env.KAKAO_REST_API_KEY,
             clientSecret: env.KAKAO_CLIENT_SECRET,
+            /** 이름·성별·생일·출생연도·전화번호 추가 동의항목 (기본 account_email·profile 에 더해짐). 비즈앱 검수 필요. */
+            scope: ["name", "gender", "birthday", "birthyear", "phone_number"],
+            /** 카카오 프로필(kakao_account.name/phone_number/gender/birthyear/birthday) → users 회원정보 매핑 */
+            mapProfileToUser: (profile) => {
+              const a = profile.kakao_account;
+              return pruneEmpty({
+                name: a?.name,
+                phone: normalizeKrPhone(a?.phone_number),
+                gender: normalizeGender(a?.gender),
+                birthDate: buildBirthDate(a?.birthyear, a?.birthday),
+              });
+            },
           },
         }
       : {}),
