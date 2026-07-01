@@ -1,0 +1,128 @@
+# ===========================================================================
+# AI작당 운영 배포 (단일 서버 · Docker 전부)
+#   실행: deploy/deploy.sh (권장) 또는
+#         docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d
+#   상태 저장(postgres/redis/minio) + 앱 4개(api/worker/web/admin) + Caddy(자동 HTTPS)
+# ===========================================================================
+
+x-app-image: &app-image aijakdang-app:latest
+
+services:
+  # ── 상태 저장 의존성 ─────────────────────────────────────────────────────
+  postgres:
+    build: ../infra/postgres        # PostgreSQL 17 + pg_bigm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    volumes: ["miniodata:/data"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-setup:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID} ${S3_SECRET_ACCESS_KEY}; do sleep 2; done;
+      mc mb -p local/${S3_BUCKET_PUBLIC};
+      mc anonymous set download local/${S3_BUCKET_PUBLIC};
+      mc mb -p local/${S3_BUCKET_PRIVATE};
+      exit 0;
+      "
+
+  clamav:
+    image: clamav/clamav:latest     # 업로드 파일 스캔(NFR-2). 최초 부팅 시 시그니처 DB 다운로드로 수분 소요.
+    restart: unless-stopped
+    volumes: ["clamdb:/var/lib/clamav"]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+
+  # ── 앱 (같은 이미지, command 만 다름) ───────────────────────────────────
+  api:
+    image: *app-image
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    env_file: [.env]
+    command: ["pnpm", "--filter", "@ai-jakdang/api", "start"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    image: *app-image
+    restart: unless-stopped
+    env_file: [.env]
+    command: ["pnpm", "--filter", "@ai-jakdang/worker", "start"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    image: *app-image
+    restart: unless-stopped
+    env_file: [.env]
+    command: ["pnpm", "--filter", "@ai-jakdang/web", "start"]
+    depends_on: [api]
+
+  admin:
+    image: *app-image
+    restart: unless-stopped
+    env_file: [.env]
+    command: ["pnpm", "--filter", "@ai-jakdang/admin", "start"]
+    depends_on: [api]
+
+  # ── 리버스 프록시 + 자동 TLS ────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [web, admin, api, minio]
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  clamdb:
+  caddydata:
+  caddyconfig:

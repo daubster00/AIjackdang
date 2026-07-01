@@ -1,0 +1,37 @@
+# ===========================================================================
+# AI작당 Caddy 리버스 프록시 (자동 HTTPS · Let's Encrypt)
+# 이메일은 인증서 만료 알림용 — deploy/.env 의 ACME_EMAIL 을 envsubst 하지 않고
+# 여기 직접 두면 되지만, 운영자 이메일로 바꿔도 무방하다.
+# ===========================================================================
+{
+	email admin@aijackdang.com
+}
+
+# ── 사용자 사이트 ──────────────────────────────────────────────────────────
+aijackdang.com, www.aijackdang.com {
+	encode gzip zstd
+	reverse_proxy web:3003
+}
+
+# ── 관리자 ────────────────────────────────────────────────────────────────
+admin.aijackdang.com {
+	encode gzip zstd
+	reverse_proxy admin:3004
+}
+
+# ── API (Fastify) — OAuth 콜백 · SSE · 쿠키 호스트 ─────────────────────────
+api.aijackdang.com {
+	encode gzip
+	# SSE(실시간 알림) 응답이 버퍼링되지 않도록 flush 유지
+	reverse_proxy api:4003 {
+		flush_interval -1
+	}
+}
+
+# ── 공개 파일(MinIO 공개 버킷) ─────────────────────────────────────────────
+# cdn.aijackdang.com/<key> → minio:9000/ai-jakdang-public/<key>
+cdn.aijackdang.com {
+	encode gzip
+	rewrite * /ai-jakdang-public{uri}
+	reverse_proxy minio:9000
+}

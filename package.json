@@ -24,6 +24,7 @@
     "test": "vitest run",
     "turbo": "turbo",
     "seed:super-admin": "tsx packages/database/src/seeds/super-admin.ts",
+    "seed:grades": "tsx scripts/seed-grades.ts",
     "seed:bots": "tsx scripts/seed-bots.ts"
   },
   "devDependencies": {
