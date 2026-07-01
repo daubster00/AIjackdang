@@ -136,6 +136,36 @@ export function getOgFetchQueue(): Queue {
 }
 // ── [8.6] END ─────────────────────────────────────────────────────────────────
 
+/** bot 큐 이름 (Story 11.13) — worker QUEUE_NAMES.bot와 동일해야 함 */
+export const BOT_QUEUE_NAME = "bot" as const;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _botQueue: Queue<any> | null = null;
+
+/**
+ * 봇 통합 큐 인스턴스를 반환한다(지연 초기화 싱글톤).
+ * 관리자 봇 라우트(11.14~11.16)·일일 계획 processor가 bot.write / bot.comment 잡 발행에 사용.
+ *
+ * 잡 이름: bot.daily-plan / bot.write / bot.comment / bot.daily-report / bot.refill-topics
+ * Worker 소비: apps/worker (SEEDING_BOT_ENABLED=true 시에만 활성)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getBotQueue(): Queue<any> {
+  if (!_botQueue) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _botQueue = new Queue<any>(BOT_QUEUE_NAME, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: { count: 500 },
+        removeOnFail: { count: 200 },
+      },
+    });
+  }
+  return _botQueue;
+}
+
 /** ranking 큐 이름 (Story 6.3) — worker QUEUE_NAMES.ranking와 동일해야 함 */
 export const RANKING_QUEUE_NAME = "ranking" as const;
 

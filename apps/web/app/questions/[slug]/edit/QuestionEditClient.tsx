@@ -18,6 +18,7 @@ import { Icon } from "@/components/ui";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "@/components/board/PostWriteForm.module.css";
 
 const MAX_FILES = 5;
@@ -70,6 +71,7 @@ export function QuestionEditClient({
 }: QuestionEditClientProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { fileExtensions, toAccept } = useUploadConfig();
 
   const [title, setTitle] = useState(initialTitle);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -304,14 +306,14 @@ export function QuestionEditClient({
               에러 로그·스크린샷을 끌어다 놓거나 클릭해서 선택하세요
             </p>
             <p className={styles.dropzoneHint}>
-              jpg, png, gif, pdf, zip, md, txt, json, docx, xlsx 지원
+              jpg, png, gif, {fileExtensions.join(", ")} 지원 (허용 형식은 운영자 설정 기준)
             </p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,.pdf,.zip,.md,.txt,.json,.docx,.xlsx"
+            accept={`image/*,${toAccept(fileExtensions)}`}
             className={styles.hiddenInput}
             onChange={(e) => handleFileSelect(e.target.files)}
             aria-hidden="true"

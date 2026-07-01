@@ -1,6 +1,6 @@
 # Story 10.3: 가입 시 약관 동의 흐름 + 동의 기록 API
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

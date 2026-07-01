@@ -3,7 +3,7 @@ export const revalidate = 60;
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AuthorName, Avatar, Button, Icon, Select, Tag } from "@/components/ui";
+import { AuthorName, Button, Icon, Select, Tag } from "@/components/ui";
 import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import styles from "./talk.module.css";
 import type { PostCard } from "@ai-jakdang/contracts";
@@ -133,8 +133,7 @@ export default async function LoungeTalkPage({ searchParams }: { searchParams: S
 
                   <div className={styles.postFooter}>
                     <div className={styles.postAuthor}>
-                      <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-                      <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} className={styles.authorName} />
+                      <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} avatarUrl={post.authorAvatarUrl} className={styles.authorName} />
                       <span className={styles.footerDivider} aria-hidden="true">|</span>
                       <span className={styles.postDate}>
                         {new Date(post.createdAt).toLocaleDateString("ko-KR")}

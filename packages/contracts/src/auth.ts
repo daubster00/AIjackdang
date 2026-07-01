@@ -66,9 +66,25 @@ export const publicUserSchema = z.object({
   marketingAgreed: z.boolean(),
   /** 약관 동의 시각 ISO (없으면 null). */
   termsAgreedAt: z.string().nullable(),
+  /** 동의한 약관 버전 (없으면 null). */
+  termsVersion: z.string().nullable(),
+  /** 약관 재동의 필요 여부. termsVersion !== CURRENT_TERMS_VERSION 이면 true. */
+  termsUpdateRequired: z.boolean(),
   createdAt: z.string(),
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;
+
+// ── 약관 재동의 응답 (Story 10.4) ────────────────────────────────────────────
+/**
+ * POST /api/v1/users/me/terms-consent 성공 응답.
+ * termsUpdateRequired 는 항상 false — 동의 완료 상태.
+ */
+export const termsConsentResponseSchema = z.object({
+  termsAgreedAt: z.string(),
+  termsVersion: z.string(),
+  termsUpdateRequired: z.literal(false),
+});
+export type TermsConsentResponse = z.infer<typeof termsConsentResponseSchema>;
 
 // ── 세션 응답 (AC #1, #2, #8) ─────────────────────────────────────────────────
 /**

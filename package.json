@@ -23,7 +23,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,css,json,md}\"",
     "test": "vitest run",
     "turbo": "turbo",
-    "seed:super-admin": "tsx packages/database/src/seeds/super-admin.ts"
+    "seed:super-admin": "tsx packages/database/src/seeds/super-admin.ts",
+    "seed:bots": "tsx scripts/seed-bots.ts"
   },
   "devDependencies": {
     "@ai-jakdang/config": "workspace:*",

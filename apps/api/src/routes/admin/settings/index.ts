@@ -37,6 +37,9 @@ const adminSettingsPatchSchema = z.object({
   favicon_url: z.string().max(500).optional(),
   auto_hide_enabled: z.boolean().optional(),
   auto_hide_threshold: z.number().int().min(1).max(1000).optional(),
+  // [12.4] 신고 누적 자동경고 — 임계치(기본 5)·자동경고 활성화(기본 false)
+  report_escalation_threshold: z.number().int().min(1).max(1000).optional(),
+  report_auto_warning_enabled: z.boolean().optional(),
   report_reasons: z.array(z.string().min(1).max(50)).optional(),
   forbidden_words: z.array(z.string().min(1).max(100)).optional(),
   content_retention_days: z.number().int().min(1).max(36500).optional(),

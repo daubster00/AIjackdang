@@ -19,12 +19,15 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { eq, and, isNull, inArray, sql, desc, asc } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
-import { requireAuthHook } from "../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../plugins/require-auth.js";
 import { contentGuard } from "../../middleware/contentGuard.js";
-import { getNotificationsQueue } from "../../lib/queues.js";
+import { publishNotification } from "../../lib/notifications.js";
+import { buildPostDetailPath } from "../../lib/postUrl.js";
+import { getRedisPublisher } from "../../lib/redis.js";
 import { userAuth } from "../../auth/user-auth.js";
-import { earnPoints, revokePoints, getTodayCount } from "./gamification/points.service.js";
+import { revokePoints } from "./gamification/points.service.js";
 import { getDefaultAvatarUrl } from "@ai-jakdang/core";
+import { createComment, CommentServiceError } from "./comments/service.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -286,7 +289,7 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
   typed.post(
     "/comments",
     {
-      preHandler: [requireAuthHook, contentGuard],
+      preHandler: [requireAuthHook, checkSuspendedHook, contentGuard],
       schema: {
         description: "댓글 또는 대댓글 등록. parentId 있으면 대댓글(2단계 중첩 불가).",
         tags: ["comments"],
@@ -308,84 +311,90 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
       };
       const db = getDb();
 
-      if (!content.trim()) {
-        return reply.code(400).send({
-          error: { code: "VALIDATION_ERROR", message: "댓글 내용을 입력해주세요." },
-        });
-      }
-
-      // 대댓글 검증 (Story 5.5 AC#2): 2단계 중첩 차단
-      let parentCommentAuthorId: string | null = null;
-      if (parentId) {
-        const parentRows = await db
-          .select({
-            id: schema.comments.id,
-            parentId: schema.comments.parentId,
-            authorId: schema.comments.authorId,
-          })
-          .from(schema.comments)
-          .where(eq(schema.comments.id, parentId))
-          .limit(1);
-
-        const parent = parentRows[0];
-        if (!parent) {
-          return reply.code(400).send({
-            error: { code: "VALIDATION_ERROR", message: "부모 댓글을 찾을 수 없습니다." },
-          });
-        }
-        if (parent.parentId !== null) {
-          return reply.code(400).send({
-            error: {
-              code: "NESTING_NOT_ALLOWED",
-              message: "2단계 이상의 대댓글은 허용되지 않습니다.",
-            },
-          });
-        }
-        parentCommentAuthorId = parent.authorId;
-      }
-
-      const inserted = await db
-        .insert(schema.comments)
-        .values({
-          authorId: user.id,
-          targetType,
-          targetId,
-          parentId: parentId ?? null,
-          content: content.trim(),
-        })
-        .returning({ id: schema.comments.id });
-
-      const row = inserted[0];
-      if (!row) throw new Error("INSERT comment returned no row");
-
-      // 포인트 적립 (실패해도 댓글 저장 유지)
+      // ── 도메인 로직 위임: createComment (Story 11.3) ──────────────────────────
+      // 불변식 1~5(빈내용/parentId검증/INSERT/포인트/알림큐)는 service에서 처리.
+      let commentResult: { id: string; parentCommentAuthorId: string | null };
       try {
-        const todayCount = await getTodayCount(db, { userId: user.id, reason: "comment.created" });
-        await earnPoints(db, {
-          userId: user.id,
-          reason: "comment.created",
-          sourceType: "comment",
-          sourceId: row.id,
-          todayCount,
-        });
+        commentResult = await createComment({ userId: user.id, targetType, targetId, content, parentId });
       } catch (err) {
-        console.error("[points] 댓글 적립 실패 (무시):", (err as Error).message);
+        if (err instanceof CommentServiceError) {
+          return reply.code(400).send({
+            error: { code: err.code, message: err.message },
+          });
+        }
+        throw err;
       }
 
-      // notifications 큐 발행 (Epic 7 알림 전송 담당)
-      try {
-        await getNotificationsQueue().add("comment.created", {
-          commentId: row.id,
-          authorId: user.id,
-          targetType,
-          targetId,
-          ...(parentCommentAuthorId ? { parentCommentAuthorId } : {}),
-        });
-      } catch {
-        console.error("[comments] notifications 큐 발행 실패");
+      const { id: commentId, parentCommentAuthorId } = commentResult;
+
+      // 게시글 댓글이면 board+slug를 조회해 알림 클릭 시 글로 이동할 상세경로를 만든다.
+      // (targetId 에 상세경로를 저장 → resolveNotificationUrl 이 그대로 사용)
+      let postNotificationTarget: string | null = null;
+      if (targetType === "post") {
+        try {
+          const postRows = await db
+            .select({
+              userId: schema.posts.userId,
+              board: schema.posts.board,
+              slug: schema.posts.slug,
+            })
+            .from(schema.posts)
+            .where(eq(schema.posts.id, targetId))
+            .limit(1);
+          const postRow = postRows[0];
+          // 상세경로 빌드 실패(알 수 없는 board 등) 시엔 글 UUID로 폴백
+          postNotificationTarget = buildPostDetailPath(postRow?.board, postRow?.slug) ?? targetId;
+
+          // 알림 직접 발행: 최상위 댓글 → 게시글 작성자에게 comment.created (본인 제외)
+          if (!parentId) {
+            const postAuthorId = postRow?.userId ?? null;
+            if (postAuthorId && postAuthorId !== user.id) {
+              await publishNotification(
+                postAuthorId,
+                {
+                  type: "comment.created",
+                  title: "게시글에 새 댓글이 달렸습니다.",
+                  body: content.trim().length > 60
+                    ? content.trim().slice(0, 60) + "…"
+                    : content.trim(),
+                  targetType: "post",
+                  targetId: postNotificationTarget,
+                },
+                db,
+                getRedisPublisher(),
+              );
+            }
+          }
+        } catch (err) {
+          console.error("[comments] comment.created 알림 발행 실패 (무시):", (err as Error).message);
+        }
       }
 
-      return reply.code(201).send({ id: row.id });
+      // 알림 직접 발행: 대댓글 → 부모 댓글 작성자에게 comment.replied (본인 제외)
+      // 게시글 작성자 comment.created 와 중복되지 않도록 parentId 있을 때만 발행
+      if (parentId && parentCommentAuthorId && parentCommentAuthorId !== user.id) {
+        try {
+          await publishNotification(
+            parentCommentAuthorId,
+            {
+              type: "comment.replied",
+              title: "댓글에 답글이 달렸습니다.",
+              body: content.trim().length > 60
+                ? content.trim().slice(0, 60) + "…"
+                : content.trim(),
+              targetType: targetType,
+              // 게시글 댓글의 답글이면 상세경로로 이동, 그 외 대상은 기존 식별자 유지
+              targetId: targetType === "post" ? (postNotificationTarget ?? targetId) : targetId,
+            },
+            db,
+            getRedisPublisher(),
+          );
+        } catch (err) {
+          console.error("[comments] comment.replied 알림 발행 실패 (무시):", (err as Error).message);
+        }
+      }
+
+      return reply.code(201).send({ id: commentId });
     },
   );
 
@@ -393,7 +402,7 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
   typed.patch(
     "/comments/:id",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description: "댓글 수정. 소유자만 가능.",
         tags: ["comments"],

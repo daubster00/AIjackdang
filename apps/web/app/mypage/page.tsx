@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AuthorName,
   Avatar,
   Badge,
   Button,
@@ -350,24 +351,25 @@ export default function MyPage() {
     return { info, next, pct, remaining, points, tier: profile.rank as RankTier };
   }, [profile, gradeData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 팔로잉/팔로워/북마크: 실API 조회
-  const [followingList, setFollowingList] = useState<{ id: string; nickname: string; avatarUrl: string | null }[]>([]);
-  const [followerList, setFollowerList] = useState<{ id: string; nickname: string; avatarUrl: string | null }[]>([]);
+  // 팔로잉/팔로워/북마크/좋아요: 실API 조회
+  const [followingList, setFollowingList] = useState<{ id: string; nickname: string; avatarUrl: string | null; image: string | null; defaultAvatarIndex: number | null }[]>([]);
+  const [followerList, setFollowerList] = useState<{ id: string; nickname: string; avatarUrl: string | null; image: string | null; defaultAvatarIndex: number | null }[]>([]);
   const [bookmarkList, setBookmarkList] = useState<{ id: string; title: string; href: string; savedAt: string }[]>([]);
+  const [likesList, setLikesList] = useState<{ id: string; postId: string; title: string; board: string; slug: string; likedAt: string }[]>([]);
 
   useEffect(() => {
     if (!user) return;
     if (activeTab === "following") {
       void fetch(`/api/v1/users/${encodeURIComponent(user.nickname)}/following?pageSize=50`, { credentials: "include" })
         .then((res) => (res.ok ? res.json() : null))
-        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null }[] } | null) => {
+        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null; image: string | null; defaultAvatarIndex: number | null }[] } | null) => {
           if (data) setFollowingList(data.items);
         })
         .catch(() => null);
     } else if (activeTab === "followers") {
       void fetch(`/api/v1/users/${encodeURIComponent(user.nickname)}/followers?pageSize=50`, { credentials: "include" })
         .then((res) => (res.ok ? res.json() : null))
-        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null }[] } | null) => {
+        .then((data: { items: { id: string; nickname: string; avatarUrl: string | null; image: string | null; defaultAvatarIndex: number | null }[] } | null) => {
           if (data) setFollowerList(data.items);
         })
         .catch(() => null);
@@ -377,6 +379,17 @@ export default function MyPage() {
         .then((data: { items: { id: string; title: string; href: string; savedAt: string }[] } | null) => {
           if (data) setBookmarkList(data.items);
         })
+        .catch(() => null);
+    } else if (activeTab === "likes") {
+      void fetch("/api/v1/users/me/likes?pageSize=50", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then(
+          (data: {
+            items: { id: string; postId: string; title: string; board: string; slug: string; likedAt: string }[];
+          } | null) => {
+            if (data) setLikesList(data.items);
+          },
+        )
         .catch(() => null);
     }
   }, [user, activeTab]);
@@ -394,7 +407,9 @@ export default function MyPage() {
           ? followersCount
           : activeTab === "bookmarks"
             ? bookmarkList.length
-            : 0;
+            : activeTab === "likes"
+              ? likesList.length
+              : 0;
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "";
 
@@ -548,10 +563,15 @@ export default function MyPage() {
                 <ul className={styles.followList}>
                   {followingList.map((u) => (
                     <li key={u.id} className={styles.followItem}>
-                      <a href={`/u/${encodeURIComponent(u.nickname)}`} className={styles.followItemLink}>
-                        <Icon name="user-3-line" />
-                        <span>{u.nickname}</span>
-                      </a>
+                      <AuthorName
+                        name={u.nickname}
+                        authorId={u.id}
+                        avatarUrl={u.avatarUrl}
+                        image={u.image}
+                        defaultAvatarIndex={u.defaultAvatarIndex}
+                        showAvatar
+                        avatarSize={36}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -563,10 +583,15 @@ export default function MyPage() {
                 <ul className={styles.followList}>
                   {followerList.map((u) => (
                     <li key={u.id} className={styles.followItem}>
-                      <a href={`/u/${encodeURIComponent(u.nickname)}`} className={styles.followItemLink}>
-                        <Icon name="user-3-line" />
-                        <span>{u.nickname}</span>
-                      </a>
+                      <AuthorName
+                        name={u.nickname}
+                        authorId={u.id}
+                        avatarUrl={u.avatarUrl}
+                        image={u.image}
+                        defaultAvatarIndex={u.defaultAvatarIndex}
+                        showAvatar
+                        avatarSize={36}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -754,8 +779,39 @@ export default function MyPage() {
                   </ul>
                 )}
               </>
+            ) : activeTab === "likes" ? (
+              likesList.length === 0 ? (
+                <EmptyState
+                  icon="heart-3-line"
+                  title="좋아요한 글이 없습니다"
+                  description="마음에 드는 글에 좋아요를 눌러보세요."
+                />
+              ) : (
+                <ul className={styles.activityList}>
+                  {likesList.map((item) => {
+                    const boardKey = toBoardKey(item.board);
+                    const board = BOARDS[boardKey];
+                    const href = `${board.base}/${item.slug}`;
+                    return (
+                      <li key={item.id} className={styles.activityItem}>
+                        <div className={styles.activityTop}>
+                          <Badge tone={board.tone} variant="soft" className={styles.boardBadge}>
+                            {board.label}
+                          </Badge>
+                        </div>
+                        <a href={href} className={styles.activityTitle}>{item.title}</a>
+                        <div className={styles.activityFooter}>
+                          <span className={styles.activityDate}>
+                            {new Date(item.likedAt).toLocaleDateString("ko-KR")}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )
             ) : (
-              /* 댓글/북마크/좋아요 탭 — Epic 2~4에서 활성화 */
+              /* 댓글 탭 — 추후 활성화 */
               <EmptyState
                 icon="inbox-line"
                 title={`아직 ${activeTabLabel}이 없습니다`}

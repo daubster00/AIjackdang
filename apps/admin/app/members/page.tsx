@@ -21,11 +21,13 @@ interface AdminUserMemberItem {
   avatarUrl: string | null;
   image: string | null;
   defaultAvatarIndex: number;
+  isBot: boolean;
   totalPoints: number;
   gradeLevel: number;
   gradeName: string;
   postCount: number;
   reportCount: number;
+  resolvedReportCount: number;
 }
 
 /**
@@ -100,6 +102,7 @@ function AdminMembersContent() {
   const dateFromParam = searchParams.get("dateFrom") ?? "";
   const dateToParam = searchParams.get("dateTo") ?? "";
   const qParam = searchParams.get("q") ?? "";
+  const escalatedParam = searchParams.get("escalated") === "true";
 
   const [members, setMembers] = useState<AdminUserMemberItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
@@ -117,7 +120,12 @@ function AdminMembersContent() {
       const params = new URLSearchParams();
       params.set("page", String(pageParam));
       params.set("pageSize", "20");
-      if (statusParam && statusParam !== "all") params.set("status", statusParam);
+      if (escalatedParam) {
+        // 검토 요망 필터: status 필터 무시, escalated=true 전달
+        params.set("escalated", "true");
+      } else {
+        if (statusParam && statusParam !== "all") params.set("status", statusParam);
+      }
       if (gradeParam && gradeParam !== "all") params.set("grade", gradeParam);
       if (dateFromParam) params.set("dateFrom", dateFromParam);
       if (dateToParam) params.set("dateTo", dateToParam);
@@ -135,7 +143,7 @@ function AdminMembersContent() {
     } finally {
       setLoading(false);
     }
-  }, [pageParam, statusParam, gradeParam, dateFromParam, dateToParam, qParam, showToast]);
+  }, [pageParam, statusParam, gradeParam, dateFromParam, dateToParam, qParam, escalatedParam, showToast]);
 
   useEffect(() => {
     fetchMembers();
@@ -172,6 +180,7 @@ function AdminMembersContent() {
       grade: member.gradeName,
       posts: member.postCount,
       reports: member.reportCount,
+      resolvedReports: member.resolvedReportCount,
     })));
     showToast("CSV 다운로드를 시작했습니다.", "success");
   }
@@ -211,12 +220,19 @@ function AdminMembersContent() {
             ].map((tab) => (
               <button
                 key={tab.value}
-                className={`line-tab${statusParam === tab.value || (tab.value === "all" && statusParam === "all") ? " active" : ""}`}
-                onClick={() => updateParams({ status: tab.value })}
+                className={`line-tab${!escalatedParam && (statusParam === tab.value || (tab.value === "all" && statusParam === "all")) ? " active" : ""}`}
+                onClick={() => updateParams({ status: tab.value, escalated: "" })}
               >
                 {tab.label}
               </button>
             ))}
+            {/* 검토 요망 탭 (Story 12.5 — 누적 신고 임계치 도달 회원) */}
+            <button
+              className={`line-tab${escalatedParam ? " active" : ""}`}
+              onClick={() => updateParams({ status: "", escalated: "true" })}
+            >
+              검토 요망
+            </button>
           </div>
 
           {/* 필터/검색 패널 */}
@@ -311,7 +327,8 @@ function AdminMembersContent() {
                     <th>포인트</th>
                     <th>등급</th>
                     <th>작성글</th>
-                    <th>신고</th>
+                    <th>접수 신고</th>
+                    <th>처리완료 신고</th>
                     <th>상태</th>
                     <th style={{ width: 60 }}>관리</th>
                   </tr>
@@ -319,7 +336,7 @@ function AdminMembersContent() {
                 <tbody>
                   {members.length === 0 ? (
                     <tr>
-                      <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>
+                      <td colSpan={10} style={{ textAlign: "center", padding: 40, color: "var(--gray-400)" }}>
                         회원이 없습니다.
                       </td>
                     </tr>
@@ -338,7 +355,12 @@ function AdminMembersContent() {
                                 image={m.image}
                                 defaultAvatarIndex={m.defaultAvatarIndex}
                               />
-                              <span>{m.nickname}</span>
+                              <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
+                                {m.isBot && (
+                                  <span className="badge badge-purple" style={{ minHeight: "16px", padding: "0 6px", fontSize: "10px", lineHeight: "16px" }}>AI</span>
+                                )}
+                                <span>{m.nickname}</span>
+                              </span>
                             </Link>
                           </td>
                           <td>{m.email}</td>
@@ -351,6 +373,11 @@ function AdminMembersContent() {
                           <td className="num">
                             {m.reportCount > 0
                               ? <span className="badge badge-red">{m.reportCount}</span>
+                              : 0}
+                          </td>
+                          <td className="num">
+                            {m.resolvedReportCount > 0
+                              ? <span className="badge badge-orange">{m.resolvedReportCount}</span>
                               : 0}
                           </td>
                           <td>

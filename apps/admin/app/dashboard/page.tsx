@@ -7,6 +7,7 @@ import { SkeletonCard, SkeletonTable } from "@/components/ui/Skeleton";
 import { DashboardExportButton } from "./DashboardExportButton";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { dbBoardToAdminSlug } from "@/lib/boards";
+import { AiCostWidget } from "./_components/AiCostWidget";
 import type {
   DashboardKpiResponse,
   DashboardAlertsResponse,
@@ -126,11 +127,15 @@ export default async function AdminDashboardPage() {
   const alertReports     = alerts?.reports      ?? pendingReports;
   const alertQna         = alerts?.pendingQna   ?? 0;
   const alertNewResources = alerts?.newResources ?? 0;
+  const alertFlaggedUsers = alerts?.flaggedUsers ?? 0;
 
   const OPERATIONS = [
     { icon: "ri-question-line",        style: { background: "var(--warning-bg)", color: "var(--warning)" },                                                                                              title: "답변대기 질문",  desc: "미해결 질문이 있습니다.",              count: alertQna.toLocaleString("ko-KR"),         href: "/qna",      isDanger: false },
     { icon: "ri-alarm-warning-line",   style: alertReports > 0 ? { background: "var(--danger-bg)", color: "var(--danger)" } : { background: "var(--success-bg)", color: "var(--success)" },            title: "미처리 신고",    desc: alertReports > 0 ? "운영자 확인이 필요합니다." : "모든 신고가 처리됐습니다.", count: alertReports.toLocaleString("ko-KR"),    href: "/reports",  isDanger: alertReports > 0 },
     { icon: "ri-folder-download-line", style: { background: "var(--primary-50)", color: "var(--primary-600)" },                                                                                          title: "오늘 신규 자료", desc: "오늘 새로 등록된 자료입니다.",          count: alertNewResources.toLocaleString("ko-KR"), href: "/resources", isDanger: false },
+    ...(alertFlaggedUsers > 0
+      ? [{ icon: "ri-user-follow-line", style: { background: "var(--danger-bg)", color: "var(--danger)" }, title: "검토 요망 회원", desc: "처리완료 신고 누적 회원이 있습니다.", count: alertFlaggedUsers.toLocaleString("ko-KR"), href: "/reports?targetType=user", isDanger: true }]
+      : []),
   ];
 
   const recentItems = recentContent?.items ?? [];
@@ -187,6 +192,11 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
         </article>
+      </section>
+
+      {/* AI 비용 위젯 (Story 11.19) — client 컴포넌트, RSC 경계 분리 */}
+      <section className="grid dashboard-grid">
+        <AiCostWidget />
       </section>
 
       <section className="section">

@@ -7,9 +7,12 @@ import { resolveRank, rankTierFromGradeLevel, type RankTier } from "@/lib/ranks"
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast/Toast";
+import { useGating } from "@/hooks/useGating";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import { RankBadge } from "../RankBadge";
 import { MessageModal } from "../MessageModal";
 import { Icon } from "../Icon";
+import { MemberReportModal } from "@/features/report/MemberReportModal";
 import styles from "./AuthorName.module.css";
 
 
@@ -43,6 +46,16 @@ export interface AuthorNameProps {
   className?: string;
   /** 쪽지 모달 아바타에 사용할 작성자 프로필 이미지 URL */
   authorAvatarUrl?: string | null;
+  /** 직접 업로드 프로필 이미지 URL. resolveAvatarUrl 1순위 */
+  avatarUrl?: string | null;
+  /** 소셜 provider 이미지. resolveAvatarUrl 2순위 */
+  image?: string | null;
+  /** 기본 아바타 인덱스. resolveAvatarUrl 3순위 */
+  defaultAvatarIndex?: number | null;
+  /** 아바타 표시 여부. 미지정 시 avatarUrl/image/defaultAvatarIndex 중 하나라도 전달되면 true */
+  showAvatar?: boolean;
+  /** 아바타 이미지 크기(px). 기본 28 */
+  avatarSize?: number;
 }
 
 /**
@@ -52,9 +65,10 @@ export interface AuthorNameProps {
  * - 닉네임 옆에 항상 등급 뱃지를 함께 표기한다(lib/ranks + RankBadge 사용).
  * - 메뉴는 카드의 overflow:hidden 에 잘리지 않도록 body 포털에 fixed 로 렌더한다.
  */
-export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, showLabel = false, className, authorAvatarUrl }: AuthorNameProps) {
+export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, showLabel = false, className, authorAvatarUrl, avatarUrl, image, defaultAvatarIndex, showAvatar, avatarSize }: AuthorNameProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { requireAuth } = useGating();
   // 본인 여부 — 닉네임 일치(항상 사용 가능) 또는 userId 일치(authorId 전달 시) 중 하나라도 맞으면 본인.
   // authorId 없이 name만 넘기는 호출부도 닉네임 비교로 커버한다.
   const isSelf = !!user && (
@@ -63,6 +77,7 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [following, setFollowing] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -74,6 +89,13 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
   const resolved: RankTier | string = gradeLevel !== undefined
     ? rankTierFromGradeLevel(gradeLevel)
     : (rank && resolveRank(rank) ? rank : rankFromName(name));
+
+  const hasAvatarData = avatarUrl !== undefined || image !== undefined || defaultAvatarIndex !== undefined;
+  const shouldShowAvatar = showAvatar !== undefined ? showAvatar : hasAvatarData;
+  const resolvedAvatarSrc = shouldShowAvatar
+    ? resolveAvatarUrl({ avatarUrl: avatarUrl ?? authorAvatarUrl, image, defaultAvatarIndex })
+    : null;
+  const finalAvatarSize = avatarSize ?? 28;
 
   function openMenu() {
     const r = triggerRef.current?.getBoundingClientRect();
@@ -118,6 +140,16 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
         onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
         title={`${name} 님`}
       >
+        {shouldShowAvatar && resolvedAvatarSrc && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolvedAvatarSrc}
+            alt=""
+            aria-hidden="true"
+            className={styles.avatarImg}
+            style={{ width: finalAvatarSize, height: finalAvatarSize }}
+          />
+        )}
         <span className={styles.name}>{name}</span>
         <RankBadge
           rank={resolved}
@@ -237,6 +269,25 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
               <Icon name="user-forbid-line" />
               {blocking ? "처리 중..." : "차단하기"}
             </button>
+            {!isSelf && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.menuItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (!authorId) {
+                    toast({ tone: "warning", title: "신고 대상 정보를 찾을 수 없습니다." });
+                    return;
+                  }
+                  if (!requireAuth("report")) return;
+                  setReportOpen(true);
+                }}
+              >
+                <Icon name="spam-2-line" />
+                신고하기
+              </button>
+            )}
             <Link
               href={`/u/${encodeURIComponent(name)}`}
               role="menuitem"
@@ -255,7 +306,13 @@ export function AuthorName({ name, authorId, rank, gradeLevel, badgeSize = 16, s
         onClose={() => setDmOpen(false)}
         recipient={name}
         recipientId={authorId ?? ""}
-        recipientAvatarUrl={authorAvatarUrl ?? undefined}
+        recipientAvatarUrl={(authorAvatarUrl ?? avatarUrl) ?? undefined}
+      />
+      <MemberReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetUserId={authorId ?? ""}
+        targetNickname={name}
       />
     </span>
   );

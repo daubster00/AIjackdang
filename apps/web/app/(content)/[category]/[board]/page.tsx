@@ -22,7 +22,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostCard, PaginatedPosts } from "@ai-jakdang/contracts";
 import { buildPageMeta, buildCollectionPageJsonLd, buildBreadcrumbJsonLd, buildBoardBreadcrumb } from "@/lib/seo";
-import { AuthorName, Avatar, Icon, Tag, EmptyState } from "@/components/ui";
+import { AuthorName, Icon, Tag, EmptyState } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
 import { resolveHeroKey } from "@/components/board";
 import { SortTabs } from "./SortTabs";
@@ -249,10 +249,10 @@ function PostCard({ post, boardUrlPath }: PostCardProps) {
 
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
-            <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
             <AuthorName
               name={post.authorNickname ?? "익명"}
               authorId={post.userId ?? undefined}
+              avatarUrl={post.authorAvatarUrl}
               className={styles.authorName}
             />
             <span className={styles.footerDivider} aria-hidden="true">|</span>

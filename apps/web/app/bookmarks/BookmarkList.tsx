@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { AuthorName, Avatar, Button, EmptyState, Icon, Pagination, Select, Tag } from "@/components/ui";
+import { AuthorName, Button, EmptyState, Icon, Pagination, Select, Tag } from "@/components/ui";
 import styles from "./bookmarks.module.css";
 
 export interface BookmarkItem {
@@ -190,8 +190,7 @@ export function BookmarkList({ items }: Props) {
 
                   <div className={styles.postFooter}>
                     <div className={styles.postAuthor}>
-                      <Avatar name={item.author} size="sm" />
-                      <AuthorName name={item.author} className={styles.authorName} />
+                      <AuthorName name={item.author} showAvatar className={styles.authorName} />
                       <span className={styles.footerDivider} aria-hidden="true">
                         |
                       </span>

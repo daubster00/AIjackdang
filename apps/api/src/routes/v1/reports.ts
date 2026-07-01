@@ -40,20 +40,55 @@ const reportTargetTypeSchema = z.enum([
   "resource",
   "comment",
   "message",
+  "user",
 ]);
 type ReportTargetType = z.infer<typeof reportTargetTypeSchema>;
-const reportReasonCodeSchema = z.enum(["spam", "abuse", "privacy", "misinformation", "other"]);
+// 콘텐츠 신고 사유와 회원 신고 사유는 분리(혼용 금지 — Epic 12 절대 규칙).
+const contentReportReasonCodeSchema = z.enum([
+  "spam",
+  "abuse",
+  "privacy",
+  "misinformation",
+  "other",
+]);
+const userReportReasonCodeSchema = z.enum([
+  "profile",
+  "impersonation",
+  "spam",
+  "abuse",
+  "other",
+]);
 
+// targetType 에 따라 reasonCode 검증 세트를 분기한다.
+// 콘텐츠(post/question/answer/resource/comment/message) → contentReportReasonCodeSchema
+// 회원(user)                                            → userReportReasonCodeSchema
+// reasonCode 는 양쪽 합집합으로 받고, targetType 별 허용 세트를 superRefine 으로 강제한다.
 const createReportBodySchema = z
   .object({
     targetType: reportTargetTypeSchema,
     targetId: z.string().uuid(),
-    reasonCode: reportReasonCodeSchema,
+    reasonCode: z.union([userReportReasonCodeSchema, contentReportReasonCodeSchema]),
     detail: z.string().max(500).optional(),
   })
-  .refine((d) => d.reasonCode !== "other" || (d.detail && d.detail.trim().length > 0), {
-    message: "기타 사유 선택 시 상세 내용을 입력해주세요.",
-    path: ["detail"],
+  .superRefine((d, ctx) => {
+    const allowed =
+      d.targetType === "user"
+        ? userReportReasonCodeSchema.options
+        : contentReportReasonCodeSchema.options;
+    if (!(allowed as readonly string[]).includes(d.reasonCode)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "선택한 신고 대상에 허용되지 않는 사유입니다.",
+        path: ["reasonCode"],
+      });
+    }
+    if (d.reasonCode === "other" && !(d.detail && d.detail.trim().length > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "기타 사유 선택 시 상세 내용을 입력해주세요.",
+        path: ["detail"],
+      });
+    }
   });
 
 export async function reportsRoutes(app: FastifyInstance) {
@@ -69,6 +104,7 @@ export async function reportsRoutes(app: FastifyInstance) {
         body: createReportBodySchema,
         response: {
           201: z.object({ id: z.string().uuid(), status: z.literal("pending") }),
+          400: z.object({ error: z.object({ code: z.string(), message: z.string() }) }),
           409: z.object({ error: z.object({ code: z.string(), message: z.string() }) }),
         },
       },
@@ -77,6 +113,13 @@ export async function reportsRoutes(app: FastifyInstance) {
       const { user } = request as RequestWithUser;
       const { targetType, targetId, reasonCode, detail } = request.body;
       const db = getDb();
+
+      // 자기 자신 신고 차단 (회원 신고 — Epic 12)
+      if (targetType === "user" && targetId === user.id) {
+        return reply.code(400).send({
+          error: { code: "SELF_REPORT", message: "자기 자신은 신고할 수 없습니다." },
+        });
+      }
 
       const existing = await db
         .select({ id: schema.reports.id })
@@ -129,6 +172,8 @@ export async function reportsRoutes(app: FastifyInstance) {
 
           const action = deriveReportAction(Number(reportCount), autoHideThreshold);
 
+          // 'user' targetType 은 AUTO_HIDE_TABLE_MAP 에 포함되지 않아 자동 숨김 제외됨
+          // (회원에는 hidden 상태가 없음 — Story 12.1 AC #4)
           if (action === "auto_hide" && targetType in AUTO_HIDE_TABLE_MAP) {
             const now = new Date();
             const table = AUTO_HIDE_TABLE_MAP[targetType as AutoHideTargetType];

@@ -22,6 +22,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
 import type { PostDetail } from "@ai-jakdang/contracts";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "@/components/board/PostWriteForm.module.css";
 
 interface PostEditFormProps {
@@ -124,6 +125,7 @@ function iconForName(name: string): string {
 export function PostEditForm({ post, detailHref }: PostEditFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { fileExtensions, toAccept } = useUploadConfig();
 
   const [title, setTitle] = useState(post.title);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -463,14 +465,14 @@ export function PostEditForm({ post, detailHref }: PostEditFormProps) {
                 <Icon name="upload-cloud-2-line" className={styles.dropzoneIcon} />
                 <p className={styles.dropzoneText}>클릭하거나 파일을 끌어다 놓으세요</p>
                 <p className={styles.dropzoneHint}>
-                  zip, pdf, json, md, txt, csv, xlsx 지원 (허용 형식은 운영자 설정 기준)
+                  {fileExtensions.join(", ")} 지원 (허용 형식은 운영자 설정 기준)
                 </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".zip,.pdf,.json,.md,.txt,.csv,.xlsx,.docx"
+                accept={toAccept(fileExtensions)}
                 className={styles.hiddenInput}
                 onChange={(e) => handleFileSelect(e.target.files)}
                 aria-hidden="true"

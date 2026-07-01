@@ -26,4 +26,5 @@ export const QUEUE_NAMES = {
   notifications: "notifications",
   ranking: "ranking", // Story 6.3: 등급 변동 감지 + 뱃지/랭킹 집계 (6.4/6.5 확장)
   ogFetch: "og-fetch", // Story 8.6: OG 메타 자동 수집
+  bot: "bot", // Story 11.13: 봇 통합 큐. 잡 이름: bot.daily-plan / bot.write / bot.comment / bot.daily-report / bot.refill-topics
 } as const;

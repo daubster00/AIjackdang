@@ -1,6 +1,6 @@
 # Story 12.5: 관리자 신고관리 — 회원 신고 큐 처리 · 대상 보기 라우팅 · 제재 직접 연결
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

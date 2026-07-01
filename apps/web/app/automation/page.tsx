@@ -12,7 +12,7 @@ export const revalidate = 60;
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { AuthorName, Avatar, Button, Icon, Tag, EmptyState } from "@/components/ui";
+import { AuthorName, Button, Icon, Tag, EmptyState } from "@/components/ui";
 import { AskButton, BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
 import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
 import { BOARDS } from "@ai-jakdang/contracts";
@@ -212,8 +212,7 @@ function PostItem({ post, basePath }: { post: PostCard; basePath: string }) {
 
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
-            <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-            <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} className={styles.authorName} />
+            <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} avatarUrl={post.authorAvatarUrl} className={styles.authorName} />
             <span className={styles.footerDivider} aria-hidden="true">|</span>
             <span className={styles.postDate}>{formattedDate}</span>
           </div>

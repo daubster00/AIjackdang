@@ -25,6 +25,7 @@ import {
   comments,
 } from "@ai-jakdang/database/schema";
 import { eq, sql, and, count, ilike, or, gte, lte, asc, desc } from "drizzle-orm";
+import { getSiteSetting } from "../../../lib/siteSettings.js";
 
 /** 목록 쿼리 파라미터 타입 */
 interface AdminUserMembersQuery {
@@ -35,6 +36,8 @@ interface AdminUserMembersQuery {
   q?: string;
   page: number;
   pageSize: number;
+  /** Story 12.5: resolvedReportCount >= threshold AND status='active' 인 회원만 */
+  escalated?: boolean;
 }
 
 // ── 내부 헬퍼: 사용자 포인트 합계 + 등급 도출 ────────────────────────────────────
@@ -84,13 +87,49 @@ async function getUserPointsAndGrade(userId: string): Promise<{
 
 export async function listUserMembers(query: AdminUserMembersQuery) {
   const db = getDb();
-  const { status, grade, dateFrom, dateTo, q, page, pageSize } = query;
+
+  // 만료된 기간제 정지를 일괄 해제하여 관리자 목록에 정확한 상태를 표시한다
+  await db.execute(
+    sql`UPDATE users SET status='active', suspended_until=NULL, updated_at=now() WHERE status='suspended' AND suspended_until IS NOT NULL AND suspended_until <= now()`,
+  );
+
+  const { status, grade, dateFrom, dateTo, q, page, pageSize, escalated } = query;
+
+  // 상관 서브쿼리에서 외부 users 행을 참조할 때 반드시 테이블 한정 식별자를 써야 한다.
+  // drizzle 의 sql 템플릿은 `${usersId}` 를 SELECT 프로젝션 안에서 비한정 `"id"` 로 렌더링하는데,
+  // 서브쿼리 FROM(예: reports r) 안의 `"id"` 는 그 테이블의 id 로 바인딩돼 상관이 깨진다
+  // (postCount/totalPoints/reportCount/resolvedReportCount 가 전부 0 으로 잘못 집계되던 원인).
+  const usersId = sql.raw('"users"."id"');
 
   const conditions = [];
 
-  if (status) {
-    conditions.push(eq(users.status, status));
+  if (escalated === true) {
+    // 검토 요망: resolvedReportCount >= threshold AND status='active'
+    // threshold는 site_settings에서 조회(없으면 5)
+    const thresholdRaw = await getSiteSetting<number>("report_escalation_threshold");
+    const threshold = typeof thresholdRaw === "number" ? thresholdRaw : 5;
+    // WHERE: status='active' + 누적 처리완료 신고 >= 임계치 (서브쿼리)
+    conditions.push(eq(users.status, "active"));
+    conditions.push(
+      sql`(
+        SELECT COUNT(*)::int FROM reports r
+        WHERE r.status = 'resolved'
+        AND (
+          (r.target_type = 'post'     AND r.target_id IN (SELECT id FROM posts     WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'comment'  AND r.target_id IN (SELECT id FROM comments  WHERE author_id = ${usersId}))
+          OR (r.target_type = 'question' AND r.target_id IN (SELECT id FROM questions WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'answer'   AND r.target_id IN (SELECT id FROM answers   WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'resource' AND r.target_id IN (SELECT id FROM resources WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'user'     AND r.target_id = ${usersId})
+        )
+      ) >= ${threshold}`,
+    );
+  } else {
+    if (status) {
+      conditions.push(eq(users.status, status));
+    }
   }
+
   if (dateFrom) {
     conditions.push(gte(users.createdAt, new Date(dateFrom)));
   }
@@ -129,12 +168,25 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
       avatarUrl: users.avatarUrl,
       image: users.image,
       defaultAvatarIndex: users.defaultAvatarIndex,
-      totalPoints: sql<number>`COALESCE((SELECT SUM(pl.delta)::int FROM points_ledger pl WHERE pl.user_id = ${users.id}), 0)`,
-      postCount: sql<number>`(SELECT COUNT(*)::int FROM posts WHERE user_id = ${users.id} AND status != 'deleted')`,
+      isBot: users.isBot,
+      totalPoints: sql<number>`COALESCE((SELECT SUM(pl.delta)::int FROM points_ledger pl WHERE pl.user_id = ${usersId}), 0)`,
+      postCount: sql<number>`(SELECT COUNT(*)::int FROM posts WHERE user_id = ${usersId} AND status != 'deleted')`,
       reportCount: sql<number>`(
         SELECT COUNT(*)::int FROM reports r
-        WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${users.id}))
-           OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM comments WHERE author_id = ${users.id}))
+        WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${usersId}))
+           OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM comments WHERE author_id = ${usersId}))
+      )`,
+      resolvedReportCount: sql<number>`(
+        SELECT COUNT(*)::int FROM reports r
+        WHERE r.status = 'resolved'
+        AND (
+          (r.target_type = 'post'     AND r.target_id IN (SELECT id FROM posts     WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'comment'  AND r.target_id IN (SELECT id FROM comments  WHERE author_id = ${usersId}))
+          OR (r.target_type = 'question' AND r.target_id IN (SELECT id FROM questions WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'answer'   AND r.target_id IN (SELECT id FROM answers   WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'resource' AND r.target_id IN (SELECT id FROM resources WHERE user_id   = ${usersId}))
+          OR (r.target_type = 'user'     AND r.target_id = ${usersId})
+        )
       )`,
     })
     .from(users)
@@ -166,11 +218,13 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
       avatarUrl: r.avatarUrl ?? null,
       image: r.image ?? null,
       defaultAvatarIndex: r.defaultAvatarIndex,
+      isBot: r.isBot ?? false,
       totalPoints: Number(r.totalPoints),
       gradeLevel,
       gradeName,
       postCount: Number(r.postCount),
       reportCount: Number(r.reportCount),
+      resolvedReportCount: Number(r.resolvedReportCount),
     };
   });
 
@@ -196,6 +250,11 @@ export async function listUserMembers(query: AdminUserMembersQuery) {
 export async function getUserMemberDetail(userId: string) {
   const db = getDb();
 
+  // 만료된 기간제 정지를 해제하여 상세 조회 시 정확한 상태를 반환한다
+  await db.execute(
+    sql`UPDATE users SET status='active', suspended_until=NULL, updated_at=now() WHERE status='suspended' AND suspended_until IS NOT NULL AND suspended_until <= now()`,
+  );
+
   const [user] = await db
     .select()
     .from(users)
@@ -217,6 +276,18 @@ export async function getUserMemberDetail(userId: string) {
         SELECT COUNT(*)::int FROM reports r
         WHERE (r.target_type = 'post' AND r.target_id IN (SELECT id FROM posts WHERE user_id = ${userId}))
            OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM comments WHERE author_id = ${userId}))
+      )`,
+      resolvedReportCount: sql<number>`(
+        SELECT COUNT(*)::int FROM reports r
+        WHERE r.status = 'resolved'
+        AND (
+          (r.target_type = 'post'     AND r.target_id IN (SELECT id FROM posts     WHERE user_id   = ${userId}))
+          OR (r.target_type = 'comment'  AND r.target_id IN (SELECT id FROM comments  WHERE author_id = ${userId}))
+          OR (r.target_type = 'question' AND r.target_id IN (SELECT id FROM questions WHERE user_id   = ${userId}))
+          OR (r.target_type = 'answer'   AND r.target_id IN (SELECT id FROM answers   WHERE user_id   = ${userId}))
+          OR (r.target_type = 'resource' AND r.target_id IN (SELECT id FROM resources WHERE user_id   = ${userId}))
+          OR (r.target_type = 'user'     AND r.target_id = ${userId})
+        )
       )`,
     })
     .from(users)
@@ -274,6 +345,35 @@ export async function getUserMemberDetail(userId: string) {
     .orderBy(desc(sessions.createdAt))
     .limit(20);
 
+  // 신고 임계치 (site_settings, 없으면 fallback 5)
+  const thresholdRaw = await getSiteSetting<number>("report_escalation_threshold");
+  const reportEscalationThreshold = typeof thresholdRaw === "number" ? thresholdRaw : 5;
+
+  // 처리완료 신고 목록 (최대 20건, 최신순) — 12.3
+  const receivedReportRows = await db
+    .select({
+      id: sql<string>`r.id`,
+      targetType: sql<string>`r.target_type`,
+      reasonCode: sql<string>`r.reason_code`,
+      reviewedAt: sql<Date | null>`r.reviewed_at`,
+      reviewedByName: sql<string | null>`au.name`,
+    })
+    .from(sql`reports r`)
+    .leftJoin(sql`admin_users au`, sql`au.id = r.reviewed_by`)
+    .where(sql`
+      r.status = 'resolved'
+      AND (
+        (r.target_type = 'post'     AND r.target_id IN (SELECT id FROM posts     WHERE user_id   = ${userId}))
+        OR (r.target_type = 'comment'  AND r.target_id IN (SELECT id FROM comments  WHERE author_id = ${userId}))
+        OR (r.target_type = 'question' AND r.target_id IN (SELECT id FROM questions WHERE user_id   = ${userId}))
+        OR (r.target_type = 'answer'   AND r.target_id IN (SELECT id FROM answers   WHERE user_id   = ${userId}))
+        OR (r.target_type = 'resource' AND r.target_id IN (SELECT id FROM resources WHERE user_id   = ${userId}))
+        OR (r.target_type = 'user'     AND r.target_id = ${userId})
+      )
+    `)
+    .orderBy(sql`r.reviewed_at DESC NULLS LAST`)
+    .limit(20);
+
   return {
     id: user.id,
     nickname: user.nickname,
@@ -283,6 +383,7 @@ export async function getUserMemberDetail(userId: string) {
     avatarUrl: user.avatarUrl ?? null,
     image: user.image ?? null,
     defaultAvatarIndex: user.defaultAvatarIndex,
+    isBot: user.isBot ?? false,
     bio: user.bio ?? null,
     // 추가 기본정보 (#21)
     phone: user.phone ?? null,
@@ -298,6 +399,15 @@ export async function getUserMemberDetail(userId: string) {
     gradeName,
     postCount: Number(stats?.postCount ?? 0),
     reportCount: Number(stats?.reportCount ?? 0),
+    resolvedReportCount: Number(stats?.resolvedReportCount ?? 0),
+    reportEscalationThreshold,
+    receivedReports: receivedReportRows.map((r) => ({
+      id: r.id,
+      targetType: r.targetType,
+      reasonCode: r.reasonCode,
+      reviewedAt: r.reviewedAt ? new Date(r.reviewedAt).toISOString() : null,
+      reviewedByName: r.reviewedByName ?? null,
+    })),
     sanctions: sanctionRows.map((s) => ({
       id: s.id,
       type: s.type,

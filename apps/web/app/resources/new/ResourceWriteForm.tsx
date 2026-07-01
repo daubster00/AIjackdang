@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "./resource-new.module.css";
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
@@ -142,6 +143,7 @@ export function ResourceWriteForm({
   const pathname = usePathname();
   const { user, ready } = useAuth();
   const { toast } = useToast();
+  const { resourceExtensions, toAccept } = useUploadConfig();
 
   const isEditMode = !!resourceId;
 
@@ -203,8 +205,8 @@ export function ResourceWriteForm({
       const next: AttachedFile[] = [];
       for (const f of Array.from(incoming)) {
         const ext = extOf(f.name);
-        if (!isAllowedExt(ext)) {
-          setFileError(`허용되지 않는 형식입니다: .${ext} (가능: ${ALLOWED_EXTS.join(", ")})`);
+        if (!resourceExtensions.includes(ext) && !isAllowedExt(ext)) {
+          setFileError(`허용되지 않는 형식입니다: .${ext} (가능: ${resourceExtensions.join(", ")})`);
           continue;
         }
         if (f.size > MAX_FILE_SIZE) {
@@ -222,7 +224,7 @@ export function ResourceWriteForm({
         return combined;
       });
     },
-    [primaryFileIndex],
+    [primaryFileIndex, resourceExtensions],
   );
 
   function removeFile(index: number) {
@@ -584,14 +586,14 @@ export function ResourceWriteForm({
             </span>
             <strong>파일을 끌어다 놓거나 클릭해서 선택하세요</strong>
             <span className={styles.dropzoneHint}>
-              가능한 형식: {ALLOWED_EXTS.map((e) => `.${e}`).join(" ")} · 최대 {MAX_FILES}개 · 개당 50MB 이내
+              가능한 형식: {resourceExtensions.map((e) => `.${e}`).join(" ")} · 최대 {MAX_FILES}개 · 개당 50MB 이내
             </span>
             <input
               ref={fileInputRef}
               type="file"
               multiple
               className={styles.fileInput}
-              accept={ALLOWED_EXTS.map((e) => `.${e}`).join(",")}
+              accept={toAccept(resourceExtensions)}
               onChange={(e) => addFiles(e.target.files)}
             />
           </div>

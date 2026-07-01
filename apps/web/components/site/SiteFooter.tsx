@@ -60,8 +60,9 @@ export function SiteFooter() {
         <span>© 2026 AI작당. All rights reserved.</span>
         <div>
           <Link href="/notice">공지사항</Link>
-          <a href="#">이용약관</a>
-          <a href="#">개인정보처리방침</a>
+          <Link href="/terms">이용약관</Link>
+          <Link href="/privacy">개인정보처리방침</Link>
+          <Link href="/operation-policy">운영정책</Link>
         </div>
       </div>
     </footer>

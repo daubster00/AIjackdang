@@ -18,7 +18,7 @@ import {
   buildCollectionPageJsonLd,
   buildBreadcrumbJsonLd,
 } from "@/lib/seo";
-import { AuthorName, Avatar, Icon, Tag, EmptyState } from "@/components/ui";
+import { AuthorName, Icon, Tag, EmptyState } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
 import { BoardPagination } from "@/app/(content)/[category]/[board]/BoardPagination";
 import type { SortValue } from "@/app/(content)/[category]/[board]/SortTabs";
@@ -215,10 +215,10 @@ function NoticeCard({ post }: NoticeCardProps) {
 
         <div className={styles.postFooter}>
           <div className={styles.postAuthor}>
-            <Avatar name={post.authorNickname ?? "운영자"} src={post.authorAvatarUrl ?? undefined} size="sm" />
             <AuthorName
               name={post.authorNickname ?? "운영자"}
               authorId={post.userId ?? undefined}
+              avatarUrl={post.authorAvatarUrl}
               className={styles.authorName}
             />
             <span className={styles.footerDivider} aria-hidden="true">|</span>

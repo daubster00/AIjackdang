@@ -1,0 +1,588 @@
+/**
+ * 봇 보류 큐 목록 조회 + 통과/폐기 액션 API — Story 11.17 Task 3·4
+ *
+ * GET   /api/v1/admin/bots/hold-queue               — 보류 항목 목록 (미결정 위주)
+ * PATCH /api/v1/admin/bots/hold-queue/:id/approve   — 보류 항목 통과 (게시 처리)
+ * PATCH /api/v1/admin/bots/hold-queue/:id/discard   — 보류 항목 폐기
+ *
+ * 모든 라우트: requireSuperAdmin 전용 (ARCHITECTURE §10).
+ *
+ * 트랜잭션 경계 주의 (approve):
+ *   createXxxAsBot() 호출은 내부에서 도메인 서비스를 거치므로 외부 트랜잭션에 포함하면
+ *   중첩 트랜잭션이 된다. 호출 성공 후 bot_hold_queue + bot_activity_log만 트랜잭션으로 묶는다.
+ *
+ * 텔레그램 푸시 (Story 11.18):
+ *   sendReportPush() 는 TELEGRAM_BOT_TOKEN 미설정 시 no-op stub. throw 금지.
+ *
+ * [Source: _bmad-output/implementation-artifacts/11-17-daily-report-api-hold-queue-actions.md]
+ * [Source: docs/seeding-bot/ARCHITECTURE.md#10-관리자-대시보드]
+ */
+
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { and, count, desc, eq } from "drizzle-orm";
+import { getDb, schema } from "@ai-jakdang/database";
+import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
+import {
+  adminBotHoldQueueQuerySchema,
+} from "@ai-jakdang/contracts";
+import type { BotDailyReport } from "@ai-jakdang/contracts";
+import {
+  createPostAsBot,
+  createCommentAsBot,
+  createReplyAsBot,
+  createQuestionAsBot,
+  createResourceAsBot,
+} from "../../../services/bot/write.js";
+import type {
+  CreatePostAsBotInput,
+  CreateCommentAsBotInput,
+  CreateReplyAsBotInput,
+  CreateQuestionAsBotInput,
+  CreateResourceAsBotInput,
+} from "../../../services/bot/write.js";
+
+// ── 텔레그램 푸시 stub (Story 11.18 구현 예정) ────────────────────────────────
+
+/**
+ * 일일 리포트 텔레그램 푸시 stub.
+ *
+ * TELEGRAM_BOT_TOKEN(또는 bot_settings.bot_push_channel) 미설정 시 no-op + 로그만.
+ * Story 11.18에서 실제 전송 로직으로 교체된다. throw 금지.
+ *
+ * [Source: Story 11.17 ★ 텔레그램 제외 원칙]
+ */
+export async function sendReportPush(report: BotDailyReport): Promise<void> {
+  const hasTelegramEnv = !!(
+    process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_PUSH_CHANNEL
+  );
+  if (!hasTelegramEnv) {
+    console.info(
+      "[bot-report] TELEGRAM 채널 미설정 — 텔레그램 푸시 skip (Story 11.18 구현 예정)",
+    );
+    return;
+  }
+  // Story 11.18에서 실제 전송 구현
+  console.info(
+    "[bot-report] 텔레그램 푸시 stub (미구현 — Story 11.18 예정):",
+    { date: report.date, status: report.status },
+  );
+}
+
+// ── draft_content 파싱 스키마 ─────────────────────────────────────────────────
+
+/** post 잡 초안 구조 (11.9 글 생성 파이프라인이 저장하는 형태) */
+const postDraftSchema = z.object({
+  board: z.string().min(1),
+  title: z.string().min(1),
+  contentJson: z.record(z.string(), z.unknown()),
+  tags: z.array(z.string()).optional(),
+  creativeSpec: z.unknown().optional(),
+  recruitPost: z.unknown().optional(),
+});
+
+/** comment / reply 잡 초안 구조 */
+const commentDraftSchema = z.object({
+  targetType: z.enum(["post", "question", "answer", "resource", "comment"]),
+  targetId: z.string().min(1),
+  content: z.string().min(1),
+  parentId: z.string().optional(),
+});
+
+/** question 잡 초안 구조 */
+const questionDraftSchema = z.object({
+  title: z.string().min(1),
+  contentJson: z.record(z.string(), z.unknown()),
+  tags: z.array(z.string()).optional(),
+  status: z.enum(["published", "draft"]).optional(),
+});
+
+/** resource 잡 초안 구조 */
+const resourceDraftSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  resourceType: z.enum([
+    "prompt",
+    "claude-code-skill",
+    "mcp",
+    "rules-config",
+    "template-checklist",
+  ]),
+  environment: z.array(z.string()),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+  descriptionJson: z.record(z.string(), z.unknown()),
+  usageJson: z.record(z.string(), z.unknown()),
+  cautionJson: z.record(z.string(), z.unknown()).optional(),
+  version: z.string().optional(),
+  referenceLinks: z
+    .array(z.object({ label: z.string(), url: z.string() }))
+    .optional(),
+  tags: z.array(z.string()).optional(),
+  status: z.enum(["published", "draft"]).optional(),
+});
+
+// ── 초안 미리보기 추출 ────────────────────────────────────────────────────────
+
+function extractDraftPreview(draftContent: unknown): string | null {
+  if (!draftContent || typeof draftContent !== "object") return null;
+  const d = draftContent as Record<string, unknown>;
+  if (typeof d.title === "string") return d.title.slice(0, 200);
+  if (typeof d.content === "string") return d.content.slice(0, 200);
+  return null;
+}
+
+// ── 라우트 등록 ───────────────────────────────────────────────────────────────
+
+export async function registerAdminBotHoldQueueActionRoutes(
+  app: FastifyInstance,
+): Promise<void> {
+  // ── GET /api/v1/admin/bots/hold-queue ───────────────────────────────────────
+  //    보류 큐 목록 (페이지네이션 + reason/decided 필터)
+  app.get(
+    "/admin/bots/hold-queue",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const parsed = adminBotHoldQueueQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "잘못된 쿼리 파라미터입니다.",
+            details: parsed.error.flatten(),
+          },
+        });
+      }
+
+      const { reason, decided, page, pageSize } = parsed.data;
+      const db = getDb();
+
+      try {
+        // where 조건 구성
+        const conditions = [];
+        if (reason !== undefined) {
+          conditions.push(eq(schema.botHoldQueue.reason, reason));
+        }
+        if (decided !== undefined) {
+          conditions.push(eq(schema.botHoldQueue.decided, decided));
+        }
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        // 총 개수
+        const [countResult] = await db
+          .select({ total: count() })
+          .from(schema.botHoldQueue)
+          .where(whereClause);
+        const totalItems = Number(countResult?.total ?? 0);
+
+        // 목록 (joined)
+        const offset = (page - 1) * pageSize;
+        const rows = await db
+          .select({
+            id: schema.botHoldQueue.id,
+            jobId: schema.botHoldQueue.jobId,
+            reason: schema.botHoldQueue.reason,
+            decided: schema.botHoldQueue.decided,
+            decision: schema.botHoldQueue.decision,
+            decidedAt: schema.botHoldQueue.decidedAt,
+            decidedBy: schema.botHoldQueue.decidedBy,
+            draftContent: schema.botGenerationJobs.draftContent,
+            personaNickname: schema.botPersonas.nickname,
+            createdAt: schema.botHoldQueue.createdAt,
+          })
+          .from(schema.botHoldQueue)
+          .innerJoin(
+            schema.botGenerationJobs,
+            eq(schema.botHoldQueue.jobId, schema.botGenerationJobs.id),
+          )
+          .innerJoin(
+            schema.botPersonas,
+            eq(schema.botGenerationJobs.personaId, schema.botPersonas.id),
+          )
+          .where(whereClause)
+          .orderBy(desc(schema.botHoldQueue.createdAt))
+          .limit(pageSize)
+          .offset(offset);
+
+        const items = rows.map((r) => ({
+          id: r.id,
+          jobId: r.jobId,
+          reason: r.reason,
+          decided: r.decided,
+          decision: r.decision ?? null,
+          decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
+          decidedBy: r.decidedBy ?? null,
+          draftPreview: extractDraftPreview(r.draftContent),
+          personaNickname: r.personaNickname ?? null,
+          createdAt: r.createdAt.toISOString(),
+        }));
+
+        return reply.send({
+          items,
+          meta: {
+            page,
+            pageSize,
+            totalItems,
+            totalPages: Math.ceil(totalItems / pageSize),
+          },
+        });
+      } catch (err) {
+        request.log.error(err, "[bot-hold-queue] 목록 조회 실패");
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+        });
+      }
+    },
+  );
+
+  // ── PATCH /api/v1/admin/bots/hold-queue/:id/approve ─────────────────────────
+  //    보류 항목 통과: job_kind에 따라 5종 작성 함수 분기 → 게시 → hold_queue 업데이트
+  app.patch(
+    "/admin/bots/hold-queue/:id/approve",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const adminId = request.adminSession?.adminUserId;
+      if (!adminId) {
+        return reply.status(401).send({
+          error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." },
+        });
+      }
+
+      const db = getDb();
+
+      try {
+        // ── 보류 항목 + 잡 + 페르소나 단건 조회 (결정 안 된 항목만) ─────────────
+        const [holdWithJob] = await db
+          .select({
+            holdId: schema.botHoldQueue.id,
+            holdJobId: schema.botHoldQueue.jobId,
+            holdReason: schema.botHoldQueue.reason,
+            jobKind: schema.botGenerationJobs.jobKind,
+            draftContent: schema.botGenerationJobs.draftContent,
+            targetPostId: schema.botGenerationJobs.targetPostId,
+            personaId: schema.botGenerationJobs.personaId,
+            personaUserId: schema.botPersonas.userId,
+            personaNickname: schema.botPersonas.nickname,
+          })
+          .from(schema.botHoldQueue)
+          .innerJoin(
+            schema.botGenerationJobs,
+            eq(schema.botHoldQueue.jobId, schema.botGenerationJobs.id),
+          )
+          .innerJoin(
+            schema.botPersonas,
+            eq(schema.botGenerationJobs.personaId, schema.botPersonas.id),
+          )
+          .where(
+            and(
+              eq(schema.botHoldQueue.id, id),
+              eq(schema.botHoldQueue.decided, false),
+            ),
+          )
+          .limit(1);
+
+        if (!holdWithJob) {
+          return reply.status(404).send({
+            error: {
+              code: "NOT_FOUND",
+              message: "해당 보류 항목을 찾을 수 없거나 이미 결정되었습니다.",
+            },
+          });
+        }
+
+        const botUserId = holdWithJob.personaUserId;
+        if (!botUserId) {
+          return reply.status(422).send({
+            error: {
+              code: "INVALID_DRAFT_CONTENT",
+              message: "봇 계정(userId)이 페르소나에 연결되어 있지 않습니다.",
+            },
+          });
+        }
+
+        // ── draft_content 역직렬화 (job_kind별 방어적 파싱) ─────────────────────
+        const jobKind = holdWithJob.jobKind;
+        const draftContent = holdWithJob.draftContent;
+
+        // ── job_kind별 작성 함수 분기 ───────────────────────────────────────────
+        let writeResult: { status: "published" | "blocked"; refId?: string };
+
+        if (jobKind === "post") {
+          const parsedDraft = postDraftSchema.safeParse(draftContent);
+          if (!parsedDraft.success) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "post 초안 내용이 유효하지 않습니다.",
+                details: parsedDraft.error.flatten(),
+              },
+            });
+          }
+          const input: CreatePostAsBotInput = {
+            botUserId,
+            personaId: holdWithJob.personaId,
+            jobId: holdWithJob.holdJobId,
+            postInput: {
+              board: parsedDraft.data.board,
+              title: parsedDraft.data.title,
+              contentJson: parsedDraft.data.contentJson,
+              tags: parsedDraft.data.tags ?? [],
+              status: "published",
+            },
+          };
+          writeResult = await createPostAsBot(input);
+        } else if (jobKind === "comment") {
+          const parsedDraft = commentDraftSchema.safeParse(draftContent);
+          if (!parsedDraft.success) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "comment 초안 내용이 유효하지 않습니다.",
+                details: parsedDraft.error.flatten(),
+              },
+            });
+          }
+          const input: CreateCommentAsBotInput = {
+            botUserId,
+            personaId: holdWithJob.personaId,
+            jobId: holdWithJob.holdJobId,
+            targetType: parsedDraft.data.targetType,
+            targetId: parsedDraft.data.targetId,
+            content: parsedDraft.data.content,
+          };
+          writeResult = await createCommentAsBot(input);
+        } else if (jobKind === "reply") {
+          const parsedDraft = commentDraftSchema.safeParse(draftContent);
+          if (!parsedDraft.success) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "reply 초안 내용이 유효하지 않습니다.",
+                details: parsedDraft.error.flatten(),
+              },
+            });
+          }
+          const parentId = parsedDraft.data.parentId;
+          if (!parentId) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "reply 잡에 parentId가 없습니다.",
+              },
+            });
+          }
+          const input: CreateReplyAsBotInput = {
+            botUserId,
+            personaId: holdWithJob.personaId,
+            jobId: holdWithJob.holdJobId,
+            targetType: parsedDraft.data.targetType,
+            targetId: parsedDraft.data.targetId,
+            content: parsedDraft.data.content,
+            parentId,
+          };
+          writeResult = await createReplyAsBot(input);
+        } else if (jobKind === "question") {
+          const parsedDraft = questionDraftSchema.safeParse(draftContent);
+          if (!parsedDraft.success) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "question 초안 내용이 유효하지 않습니다.",
+                details: parsedDraft.error.flatten(),
+              },
+            });
+          }
+          const input: CreateQuestionAsBotInput = {
+            botUserId,
+            personaId: holdWithJob.personaId,
+            jobId: holdWithJob.holdJobId,
+            questionInput: {
+              title: parsedDraft.data.title,
+              contentJson: parsedDraft.data.contentJson,
+              tags: parsedDraft.data.tags,
+              status: parsedDraft.data.status ?? "published",
+            },
+          };
+          writeResult = await createQuestionAsBot(input);
+        } else if (jobKind === "resource") {
+          const parsedDraft = resourceDraftSchema.safeParse(draftContent);
+          if (!parsedDraft.success) {
+            return reply.status(422).send({
+              error: {
+                code: "INVALID_DRAFT_CONTENT",
+                message: "resource 초안 내용이 유효하지 않습니다.",
+                details: parsedDraft.error.flatten(),
+              },
+            });
+          }
+          const input: CreateResourceAsBotInput = {
+            botUserId,
+            personaId: holdWithJob.personaId,
+            jobId: holdWithJob.holdJobId,
+            resourceInput: {
+              title: parsedDraft.data.title,
+              summary: parsedDraft.data.summary,
+              resourceType: parsedDraft.data.resourceType,
+              environment: parsedDraft.data.environment,
+              difficulty: parsedDraft.data.difficulty,
+              descriptionJson: parsedDraft.data.descriptionJson,
+              usageJson: parsedDraft.data.usageJson,
+              cautionJson: parsedDraft.data.cautionJson,
+              version: parsedDraft.data.version,
+              referenceLinks: parsedDraft.data.referenceLinks,
+              tags: parsedDraft.data.tags,
+              status: parsedDraft.data.status ?? "published",
+            },
+          };
+          writeResult = await createResourceAsBot(input);
+        } else {
+          return reply.status(422).send({
+            error: {
+              code: "INVALID_DRAFT_CONTENT",
+              message: `지원하지 않는 job_kind: ${jobKind}`,
+            },
+          });
+        }
+
+        // ── ContentGuard 차단 시 — hold_queue decided=false 유지 ──────────────
+        if (writeResult.status === "blocked") {
+          return reply.status(422).send({
+            error: {
+              code: "CONTENT_BLOCKED",
+              message:
+                "콘텐츠 가드에 의해 차단되었습니다. 초안을 수정한 후 재판단하세요.",
+            },
+          });
+        }
+
+        // ── 게시 성공 — hold_queue 업데이트 + activity_log 추가 (트랜잭션) ──────
+        // createXxxAsBot()는 이미 완료됐으므로 hold_queue + activity_log만 묶는다.
+        const refId = writeResult.refId!;
+        const isCommentKind = jobKind === "comment" || jobKind === "reply";
+        const eventType = isCommentKind ? "comment.published" : "post.published";
+
+        await db.transaction(async (tx) => {
+          // bot_hold_queue 업데이트
+          await tx
+            .update(schema.botHoldQueue)
+            .set({
+              decided: true,
+              decision: "approved",
+              decidedAt: new Date(),
+              decidedBy: adminId,
+            })
+            .where(eq(schema.botHoldQueue.id, id));
+
+          // bot_activity_log — 관리자 승인 맥락 추가 기록
+          await tx.insert(schema.botActivityLog).values({
+            personaId: holdWithJob.personaId,
+            eventType,
+            refId,
+            payload: {
+              kind: jobKind,
+              decidedBy: adminId,
+              holdQueueId: id,
+              adminApproval: true,
+            },
+          });
+        });
+
+        return reply.send({ status: "approved", refId });
+      } catch (err) {
+        request.log.error(err, "[bot-hold-queue] approve 처리 실패");
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+        });
+      }
+    },
+  );
+
+  // ── PATCH /api/v1/admin/bots/hold-queue/:id/discard ─────────────────────────
+  //    보류 항목 폐기: 게시 없이 job.status='discarded' + hold_queue 결정 기록
+  app.patch(
+    "/admin/bots/hold-queue/:id/discard",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const adminId = request.adminSession?.adminUserId;
+      if (!adminId) {
+        return reply.status(401).send({
+          error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." },
+        });
+      }
+
+      const db = getDb();
+
+      try {
+        // ── 보류 항목 + 잡 단건 조회 (결정 안 된 항목만) ─────────────────────────
+        const [holdWithJob] = await db
+          .select({
+            holdId: schema.botHoldQueue.id,
+            holdJobId: schema.botHoldQueue.jobId,
+            holdReason: schema.botHoldQueue.reason,
+            personaId: schema.botGenerationJobs.personaId,
+          })
+          .from(schema.botHoldQueue)
+          .innerJoin(
+            schema.botGenerationJobs,
+            eq(schema.botHoldQueue.jobId, schema.botGenerationJobs.id),
+          )
+          .where(
+            and(
+              eq(schema.botHoldQueue.id, id),
+              eq(schema.botHoldQueue.decided, false),
+            ),
+          )
+          .limit(1);
+
+        if (!holdWithJob) {
+          return reply.status(404).send({
+            error: {
+              code: "NOT_FOUND",
+              message: "해당 보류 항목을 찾을 수 없거나 이미 결정되었습니다.",
+            },
+          });
+        }
+
+        // ── 트랜잭션: job discarded + hold_queue 업데이트 + activity_log ─────────
+        await db.transaction(async (tx) => {
+          // bot_generation_jobs 폐기
+          await tx
+            .update(schema.botGenerationJobs)
+            .set({ status: "discarded", updatedAt: new Date() })
+            .where(eq(schema.botGenerationJobs.id, holdWithJob.holdJobId));
+
+          // bot_hold_queue 업데이트
+          await tx
+            .update(schema.botHoldQueue)
+            .set({
+              decided: true,
+              decision: "discarded",
+              decidedAt: new Date(),
+              decidedBy: adminId,
+            })
+            .where(eq(schema.botHoldQueue.id, id));
+
+          // bot_activity_log — 폐기 결정 기록
+          await tx.insert(schema.botActivityLog).values({
+            personaId: holdWithJob.personaId,
+            eventType: "discarded",
+            refId: holdWithJob.holdJobId,
+            payload: {
+              decidedBy: adminId,
+              holdReason: holdWithJob.holdReason,
+              holdQueueId: id,
+            },
+          });
+        });
+
+        return reply.send({ status: "discarded" });
+      } catch (err) {
+        request.log.error(err, "[bot-hold-queue] discard 처리 실패");
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+        });
+      }
+    },
+  );
+}

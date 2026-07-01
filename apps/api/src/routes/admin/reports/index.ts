@@ -14,6 +14,7 @@ import {
   adminReportsQuerySchema,
   adminReportHideSchema,
   adminReportRejectSchema,
+  adminSanctionFromReportSchema,
 } from "@ai-jakdang/contracts";
 import {
   listReports,
@@ -23,6 +24,7 @@ import {
   rejectReport,
   restoreAutoHidden,
   unhideTarget,
+  resolveReportWithMemberSanction,
 } from "./service.js";
 
 export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<void> {
@@ -223,6 +225,53 @@ export async function registerAdminReportsRoutes(app: FastifyInstance): Promise<
 
     try {
       const result = await unhideTarget(id, adminId);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const e = err as Error & { code?: string };
+      if (e.code === "NOT_FOUND") {
+        return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+      }
+      request.log.error(err);
+      return reply.status(500).send({
+        error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+      });
+    }
+  });
+
+  // ── PATCH /api/v1/admin/reports/:id/sanction-member (Story 12.5) ──────────
+  // 회원 신고 처리: 제재 생성(sanctionMember) + 해당 신고 resolved 원자 처리.
+  app.patch("/admin/reports/:id/sanction-member", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const adminId = request.adminSession?.adminUserId ?? "";
+
+    if (!adminId) {
+      return reply.status(401).send({
+        error: { code: "ADMIN_UNAUTHORIZED", message: "관리자 인증이 필요합니다." },
+      });
+    }
+
+    const parsed = adminSanctionFromReportSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "잘못된 요청입니다.",
+          details: parsed.error.flatten(),
+        },
+      });
+    }
+
+    const { targetUserId, type, reason, endsAt } = parsed.data;
+
+    try {
+      const result = await resolveReportWithMemberSanction(
+        id,
+        targetUserId,
+        type,
+        reason,
+        endsAt ? new Date(endsAt) : null,
+        adminId,
+      );
       return reply.send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

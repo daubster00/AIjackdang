@@ -24,6 +24,8 @@ import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { getStatsQueue } from "../../lib/queues.js";
 import { earnPoints, revokePoints, getTodayCount } from "./gamification/points.service.js";
+import { publishNotification } from "../../lib/notifications.js";
+import { getRedisPublisher } from "../../lib/redis.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -235,6 +237,27 @@ export async function reactionsRoutes(app: FastifyInstance): Promise<void> {
       } catch {
         // 큐 발행 실패는 반응 자체를 실패시키지 않는다
         console.error("[reactions] stats 큐 발행 실패");
+      }
+
+      // 알림 발행: 게시글 작성자에게 reaction.received 알림 (post 좋아요만, 본인 제외)
+      // 자가추천 차단(위 409)으로 authorId !== user.id 는 이미 보장됨
+      if (reactionType === "like" && targetType === "post" && authorId) {
+        try {
+          await publishNotification(
+            authorId,
+            {
+              type: "reaction.received",
+              title: "게시글에 좋아요가 달렸습니다.",
+              body: "회원님의 게시글에 좋아요가 달렸습니다.",
+              targetType: "post",
+              targetId,
+            },
+            db,
+            getRedisPublisher(),
+          );
+        } catch (err) {
+          console.error("[reactions] 알림 발행 실패 (무시):", (err as Error).message);
+        }
       }
 
       return reply.code(201).send({

@@ -24,6 +24,7 @@ export const reportTargetTypeEnum = z.enum([
   "resource",
   "comment",
   "message",
+  "user",
 ]);
 export type AdminReportTargetType = z.infer<typeof reportTargetTypeEnum>;
 
@@ -127,3 +128,14 @@ export const adminReportActionResponseSchema = z.object({
   reviewedAt: z.string().nullable(),
 });
 export type AdminReportActionResponse = z.infer<typeof adminReportActionResponseSchema>;
+
+// ── 회원 신고 → 제재 일체 처리 (Story 12.5) ──────────────────────────────────
+
+/** PATCH /api/v1/admin/reports/:id/sanction-member 요청 */
+export const adminSanctionFromReportSchema = z.object({
+  targetUserId: z.string().uuid(),
+  type: z.enum(["warning", "suspend", "permaban"]),
+  reason: z.string().min(1, "사유를 입력해주세요."),
+  endsAt: z.string().datetime().nullable().optional(),
+});
+export type AdminSanctionFromReportInput = z.infer<typeof adminSanctionFromReportSchema>;

@@ -1,6 +1,6 @@
 # Story 10.4: 약관 버전 변경 대응
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

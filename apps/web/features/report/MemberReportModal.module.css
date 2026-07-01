@@ -1,0 +1,241 @@
+/* MemberReportModal — 회원 신고 모달
+   모든 색·여백·radius는 디자인 시스템 토큰 var(--...) 사용. 하드코딩 금지. */
+
+/* ── dialog 백드롭 ─────────────────────────────────────── */
+
+.dialog {
+  /* showModal() 기본 중앙 정렬이 전역 리셋(dialog{margin:0} 등)에 덮이지 않도록
+     fixed + inset:0 + margin:auto 로 화면 정중앙 고정을 명시한다. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xl, 16px);
+  background: transparent;
+  box-shadow: none;
+  max-width: 480px;
+  width: calc(100vw - var(--space-8, 32px));
+  height: fit-content;
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* ── 모달 박스 ──────────────────────────────────────────── */
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  border-radius: var(--radius-xl, 16px);
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  padding: var(--space-6, 24px);
+  box-shadow: 0 16px 48px rgba(9, 10, 20, 0.18);
+}
+
+/* ── 헤더 (제목 + 닫기 버튼) ────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: var(--font-weight-bold, 700);
+  line-height: 1.2;
+  color: var(--color-text, #0f1117);
+}
+
+.subtitle {
+  margin: var(--space-1, 4px) 0 0;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-sub, #6b7280);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--color-text-sub, #6b7280);
+  cursor: pointer;
+  transition: background var(--transition-base, 0.15s ease);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.closeBtn:hover {
+  background: var(--color-bg-hover, rgba(0, 0, 0, 0.06));
+  color: var(--color-text, #0f1117);
+}
+
+/* ── 설명 문구 ───────────────────────────────────────────── */
+
+.desc {
+  margin: 0;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-sub, #6b7280);
+  line-height: var(--line-height-relaxed, 1.6);
+}
+
+/* ── 사유 선택 fieldset ──────────────────────────────────── */
+
+.reasons {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.reasonItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg, #f9fafb);
+  cursor: pointer;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text, #0f1117);
+  transition:
+    border-color var(--transition-base, 0.15s ease),
+    background var(--transition-base, 0.15s ease);
+  user-select: none;
+}
+
+.reasonItem:hover {
+  border-color: var(--color-primary, #3b82f6);
+  background: var(--color-primary-soft, rgba(59, 130, 246, 0.06));
+}
+
+/* 선택된 사유 항목 */
+.reasonSelected {
+  border-color: var(--color-primary, #3b82f6);
+  background: var(--color-primary-soft, rgba(59, 130, 246, 0.06));
+}
+
+.reasonItem input[type="radio"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary, #3b82f6);
+  cursor: pointer;
+}
+
+/* ── 기타 사유 textarea ──────────────────────────────────── */
+
+.detailInput {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg, #f9fafb);
+  color: var(--color-text, #0f1117);
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: var(--line-height-relaxed, 1.6);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-base, 0.15s ease);
+}
+
+.detailInput::placeholder {
+  color: var(--color-text-placeholder, #9ca3af);
+}
+
+.detailInput:focus {
+  border-color: var(--color-primary, #3b82f6);
+}
+
+/* ── 인라인 에러 메시지 ──────────────────────────────────── */
+
+.errorMsg {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-danger, #ef4444);
+  font-weight: var(--font-weight-medium, 500);
+}
+
+/* ── 푸터 (취소 / 신고하기 버튼) ────────────────────────── */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3, 12px);
+  padding-top: var(--space-2, 8px);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+}
+
+.cancelBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 var(--space-5, 20px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--color-surface, #fff);
+  color: var(--color-text-sub, #6b7280);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  cursor: pointer;
+  transition:
+    background var(--transition-base, 0.15s ease),
+    border-color var(--transition-base, 0.15s ease);
+  white-space: nowrap;
+}
+
+.cancelBtn:hover {
+  background: var(--color-bg, #f9fafb);
+  border-color: var(--color-border-strong, #9ca3af);
+}
+
+.submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 var(--space-5, 20px);
+  border: none;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--color-danger, #ef4444);
+  color: var(--color-white, #fff);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  cursor: pointer;
+  transition:
+    background var(--transition-base, 0.15s ease),
+    opacity var(--transition-base, 0.15s ease);
+  white-space: nowrap;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: var(--color-danger-dark, #dc2626);
+}
+
+.submitBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

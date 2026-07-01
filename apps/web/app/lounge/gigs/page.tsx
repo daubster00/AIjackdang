@@ -8,7 +8,7 @@ export const revalidate = 60;
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Avatar, AuthorName, Badge, Button, Icon } from "@/components/ui";
+import { AuthorName, Badge, Button, Icon } from "@/components/ui";
 import { AskButton, BoardHero } from "@/components/board";
 import { GigsFilter } from "./GigsFilter";
 import styles from "./gigs.module.css";
@@ -215,9 +215,8 @@ function GigCard({ post }: { post: PostCard }) {
       <div className={styles.gigMeta}>
         {/* 작성자 + 날짜 */}
         <div className={styles.gigMetaAuthor}>
-          <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
           <div className={styles.gigMetaAuthorText}>
-            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} className={styles.authorName} />
+            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.userId ?? undefined} avatarUrl={post.authorAvatarUrl} className={styles.authorName} />
             <span className={styles.gigMetaDate}>
               {new Date(post.createdAt).toLocaleDateString("ko-KR")}
             </span>

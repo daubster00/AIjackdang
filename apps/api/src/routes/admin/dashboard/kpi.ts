@@ -10,8 +10,9 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import { count, gte, inArray, ne, sum } from "drizzle-orm";
+import { and, count, eq, gte, inArray, ne, sum } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import { getBotExcludeFromRanking } from "../../../services/bot/settings.js";
 
 export async function registerDashboardKpiRoute(app: FastifyInstance): Promise<void> {
   app.get("/admin/dashboard/kpi", {
@@ -25,16 +26,24 @@ export async function registerDashboardKpiRoute(app: FastifyInstance): Promise<v
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // 전체 사용자 수 (삭제된 계정 포함 — users 테이블에 softdelete 있지만 전체 카운트)
+    // 봇 계정 제외 여부 조회 (bot_settings.bot_exclude_from_ranking, 기본 true)
+    const excludeBots = await getBotExcludeFromRanking();
+
+    // 전체 사용자 수 (봇 제외 설정 시 is_bot=false 조건 추가)
     const [usersTotal] = await db
       .select({ value: count() })
-      .from(schema.users);
+      .from(schema.users)
+      .where(excludeBots ? eq(schema.users.isBot, false) : undefined);
 
-    // 오늘 신규 가입
+    // 오늘 신규 가입 (봇 제외 설정 시 is_bot=false 조건 추가)
     const [usersTodayNew] = await db
       .select({ value: count() })
       .from(schema.users)
-      .where(gte(schema.users.createdAt, todayStart));
+      .where(
+        excludeBots
+          ? and(gte(schema.users.createdAt, todayStart), eq(schema.users.isBot, false))
+          : gte(schema.users.createdAt, todayStart),
+      );
 
     // 전체 게시글 (deleted 제외)
     const [postsTotal] = await db

@@ -57,6 +57,7 @@ export const reportTargetType = pgEnum("report_target_type", [
   "resource",
   "comment",
   "message",
+  "user",
 ]);
 
 export const reportStatus = pgEnum("report_status", [

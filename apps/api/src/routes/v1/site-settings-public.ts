@@ -16,10 +16,23 @@
 import type { FastifyInstance } from "fastify";
 import { getSiteSetting } from "../../lib/siteSettings.js";
 
-const PUBLIC_SETTING_KEYS = ["site_name", "seo_title", "seo_description", "og_image", "favicon_url"] as const;
+const PUBLIC_SETTING_KEYS = [
+  "site_name",
+  "seo_title",
+  "seo_description",
+  "og_image",
+  "favicon_url",
+  "file_allowed_extensions",
+  "resource_extensions",
+  "image_extensions",
+  "max_upload_mb",
+] as const;
 
 export async function registerPublicSiteSettingsRoute(app: FastifyInstance): Promise<void> {
-  app.get("/api/v1/settings/public", async (_request, reply) => {
+  // 이 함수는 v1Routes(prefix "/api/v1") 스코프 안에서 호출되므로 상대 경로로 등록해야 한다.
+  // 절대경로("/api/v1/settings/public")로 등록하면 prefix가 한 번 더 붙어
+  // /api/v1/api/v1/settings/public 이 되어 404(이중 prefix 버그)가 난다.
+  app.get("/settings/public", async (_request, reply) => {
     try {
       const entries = await Promise.all(
         PUBLIC_SETTING_KEYS.map(async (key) => {

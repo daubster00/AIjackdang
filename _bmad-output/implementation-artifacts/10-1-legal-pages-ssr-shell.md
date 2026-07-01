@@ -1,6 +1,6 @@
 # Story 10.1: 약관 페이지 SSR 셸 — `/terms` · `/privacy` · `/operation-policy` + 푸터 링크
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

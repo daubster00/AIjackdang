@@ -9,6 +9,7 @@ import { API_BASE_URL } from "../../../lib/api";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { dbBoardToAdminSlug } from "@/lib/boards";
 import { getCrossLink } from "@/lib/contentCrossLink";
+import { SanctionModal, Modal, ModalFooter } from "../_components/SanctionModal";
 
 // ── 로컬 타입 ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ interface AdminUserMemberDetail {
   avatarUrl: string | null;
   image: string | null;
   defaultAvatarIndex: number;
+  isBot: boolean;
   bio: string | null;
   phone: string | null;
   gender: "male" | "female" | "other" | null;
@@ -70,6 +72,15 @@ interface AdminUserMemberDetail {
   gradeName: string;
   postCount: number;
   reportCount: number;
+  resolvedReportCount: number;
+  reportEscalationThreshold: number;
+  receivedReports: Array<{
+    id: string;
+    targetType: string;
+    reasonCode: string;
+    reviewedAt: string | null;
+    reviewedByName: string | null;
+  }>;
   sanctions: AdminUserSanctionItem[];
   recentPosts: AdminUserPostItem[];
   recentComments: AdminUserCommentItem[];
@@ -160,123 +171,6 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
         aria-label="닫기"
       ><i className="ri-close-line" /></button>
     </div>
-  );
-}
-
-// ── 공통 모달 래퍼 ────────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
-      }}
-    >
-      <div
-        style={{
-          background: "var(--gray-0, #fff)", borderRadius: 8, padding: 24,
-          width: 460, maxWidth: "95vw", boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>{title}</h3>
-          <button className="icon-button" onClick={onClose} aria-label="닫기"><i className="ri-close-line" /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function ModalFooter({ onClose, onConfirm, confirmLabel, danger, disabled }: {
-  onClose: () => void;
-  onConfirm: () => void;
-  confirmLabel: string;
-  danger?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
-      <button className="btn btn-outline" onClick={onClose}>취소</button>
-      <button
-        className={danger ? "btn btn-danger" : "btn btn-primary"}
-        onClick={onConfirm}
-        disabled={disabled}
-      >
-        {confirmLabel}
-      </button>
-    </div>
-  );
-}
-
-// ── 이용제한 모달 ─────────────────────────────────────────────────────────────
-
-function SanctionModal({
-  onClose,
-  onConfirm,
-}: {
-  onClose: () => void;
-  onConfirm: (type: "warning" | "suspend" | "permaban", reason: string, endsAt: string | null) => void;
-}) {
-  const [type, setType] = useState<"warning" | "suspend" | "permaban">("warning");
-  const [reason, setReason] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-
-  return (
-    <Modal title="이용제한 / 제재" onClose={onClose}>
-      <div className="component-stack">
-        <div className="field">
-          <span className="field-label">제재 유형</span>
-          <div className="choice-row">
-            <label className="choice">
-              <input type="radio" name="sanctionType" checked={type === "warning"} onChange={() => setType("warning")} />
-              경고
-            </label>
-            <label className="choice">
-              <input type="radio" name="sanctionType" checked={type === "suspend"} onChange={() => setType("suspend")} />
-              일시정지
-            </label>
-            <label className="choice">
-              <input type="radio" name="sanctionType" checked={type === "permaban"} onChange={() => setType("permaban")} />
-              영구정지
-            </label>
-          </div>
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="sanctionReason">사유 <span style={{ color: "var(--danger)" }}>*</span></label>
-          <textarea
-            className="control"
-            id="sanctionReason"
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="제재 사유를 입력하세요 (필수)"
-          />
-        </div>
-
-        {type === "suspend" && (
-          <div className="field">
-            <label className="field-label" htmlFor="sanctionEndsAt">정지 종료일</label>
-            <input
-              className="control"
-              id="sanctionEndsAt"
-              type="datetime-local"
-              value={endsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
-            />
-          </div>
-        )}
-      </div>
-      <ModalFooter
-        onClose={onClose}
-        onConfirm={() => onConfirm(type, reason, type === "suspend" && endsAt ? new Date(endsAt).toISOString() : null)}
-        confirmLabel="제재 적용"
-        danger
-        disabled={!reason.trim()}
-      />
-    </Modal>
   );
 }
 
@@ -661,6 +555,11 @@ export default function MemberDetailPage() {
                   defaultAvatarIndex={member.defaultAvatarIndex}
                 />
                 <div>
+                  {member.isBot && (
+                    <span className="badge badge-purple" style={{ marginBottom: "6px" }}>
+                      <i className="ri-robot-2-line" style={{ marginRight: 4 }} />AI 봇
+                    </span>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
                     <span style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1.2 }}>{member.nickname}</span>
                     <span className={`badge ${gradeCls}`}>Lv.{member.gradeLevel} {member.gradeName}</span>
@@ -690,7 +589,7 @@ export default function MemberDetailPage() {
                   </span>
                   <span className="content-meta" style={{ fontSize: "12px" }}>
                     <i className="ri-flag-line" style={{ marginRight: "4px" }} />
-                    신고 {member.reportCount}
+                    접수 신고 {member.reportCount} · 처리완료 {member.resolvedReportCount}
                   </span>
                 </div>
               </div>
@@ -999,6 +898,74 @@ export default function MemberDetailPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </article>
+      </section>
+
+      {/* 피신고 이력 (Story 12.3) */}
+      <section className="section">
+        <div className="section-heading">
+          <div>
+            <h2 className="section-title">피신고 이력</h2>
+            <p className="section-description">
+              처리완료된 신고 누적 — 반복 위반 패턴 확인용.
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {member.resolvedReportCount >= member.reportEscalationThreshold && member.reportEscalationThreshold > 0 && (
+              <span className="badge badge-red">
+                <i className="ri-error-warning-line" style={{ marginRight: 4 }} />
+                임계치 도달
+              </span>
+            )}
+            {member.resolvedReportCount >= Math.ceil(member.reportEscalationThreshold * 0.8) &&
+              member.resolvedReportCount < member.reportEscalationThreshold &&
+              member.reportEscalationThreshold > 0 && (
+              <span className="badge badge-orange">
+                <i className="ri-alert-line" style={{ marginRight: 4 }} />
+                임계치 근접
+              </span>
+            )}
+          </div>
+        </div>
+        <article className="card">
+          <div className="card-body" style={{ paddingBottom: 8 }}>
+            <p style={{ fontSize: 13, color: "var(--gray-600)" }}>
+              처리완료된 신고 총 <strong>{member.resolvedReportCount}건</strong>
+              {member.reportEscalationThreshold > 0 && ` (임계치: ${member.reportEscalationThreshold}건)`}
+            </p>
+          </div>
+          <div className="table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>대상 유형</th>
+                  <th>사유</th>
+                  <th style={{ width: 110 }}>처리일</th>
+                  <th style={{ width: 120 }}>처리자</th>
+                </tr>
+              </thead>
+              <tbody>
+                {member.receivedReports.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", padding: 24, opacity: 0.5 }}>
+                      피신고 내역이 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  member.receivedReports.map((r) => (
+                    <tr key={r.id}>
+                      <td><span className="badge badge-blue">{r.targetType}</span></td>
+                      <td>{r.reasonCode}</td>
+                      <td className="num">
+                        {r.reviewedAt ? formatDate(r.reviewedAt) : "—"}
+                      </td>
+                      <td>{r.reviewedByName ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </article>
       </section>

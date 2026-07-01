@@ -4,14 +4,15 @@ export const revalidate = 60;
 /**
  * 작당 라운지 카테고리 랜딩 페이지 — Story 2.3 (API 연동)
  *
- * talk 게시판의 게시글을 API에서 SSR로 불러온다.
+ * AI 창작마당(ai-creation 게시판)의 게시글을 API에서 SSR로 불러온다.
+ * (작당 수다방 talk 게시판은 /lounge/talk 별도 라우트가 담당한다.)
  * 레이아웃·컴포넌트 구조는 Story 2.3 이전과 동일하게 유지한다.
  */
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { Avatar, AuthorName, Button, Icon, Tag, EmptyState } from "@/components/ui";
+import { AuthorName, Button, Icon, Tag, EmptyState } from "@/components/ui";
 import { AskButton, BoardHero, SearchAutocomplete } from "@/components/board";
 import type { PaginatedPosts, PostCard } from "@ai-jakdang/contracts";
 import styles from "./lounge.module.css";
@@ -52,7 +53,7 @@ const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 async function fetchPosts(sort: string, page: number, cookie: string): Promise<PaginatedPosts> {
   try {
     const res = await fetch(
-      `${API_URL}/api/v1/posts?board=talk&sort=${sort}&page=${page}&pageSize=20`,
+      `${API_URL}/api/v1/posts?board=ai-creation&sort=${sort}&page=${page}&pageSize=20`,
       { headers: { cookie }, cache: "no-store" },
     );
     if (res.ok) return (await res.json()) as PaginatedPosts;
@@ -169,8 +170,7 @@ function PostCard({ post }: { post: PostCard }) {
       </Link>
       <div className={styles.cardBody}>
         <div className={styles.cardAuthor}>
-          <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-          <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} className={styles.authorName} />
+          <AuthorName name={post.authorNickname ?? "익명"} authorId={post.userId ?? undefined} avatarUrl={post.authorAvatarUrl} className={styles.authorName} />
         </div>
 
         <h3 className={styles.cardHeading}>

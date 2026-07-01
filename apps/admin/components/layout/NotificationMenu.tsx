@@ -67,6 +67,7 @@ export function NotificationMenu() {
   const [reportCount, setReportCount] = useState<number>(0);
   const [inquiryCount, setInquiryCount] = useState<number>(0);
   const [qnaCount, setQnaCount] = useState<number>(0);
+  const [newMemberCount, setNewMemberCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   /**
    * 읽음 처리한 알림 — **id별** "확인한 시점의 카운트"를 localStorage 에 영속한다.
@@ -91,9 +92,11 @@ export function NotificationMenu() {
         const data = (await alertsRes.json()) as {
           reports?: number;
           pendingQna?: number;
+          newMembers?: number;
         };
         setReportCount(data.reports ?? 0);
         setQnaCount(data.pendingQna ?? 0);
+        setNewMemberCount(data.newMembers ?? 0);
       }
 
       if (inquiriesRes.ok) {
@@ -123,9 +126,25 @@ export function NotificationMenu() {
     }
   }, []);
 
-  // 앱 로드 시 한 번 가져와서 배지를 표시한다
+  // 앱 로드 시 한 번 가져와서 배지를 표시하고, 이후 30초마다 폴링한다.
+  // (폴링이 없으면 관리자가 페이지에 머무는 동안 새 신고가 들어와도 벨 배지/빨간점이
+  //  켜지지 않아 "새 알림 표시 안 됨"으로 보인다 — 신규 회원 신고 알림 미표시 해결.)
   useEffect(() => {
     fetchAlerts();
+    const timer = setInterval(() => {
+      // 탭이 백그라운드일 땐 폴링을 건너뛰어 불필요한 요청을 줄인다
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetchAlerts();
+    }, 30_000);
+    // 탭이 다시 보이게 될 때 즉시 한 번 갱신(백그라운드 동안 쌓인 알림 반영)
+    function onVisible() {
+      if (document.visibilityState === "visible") fetchAlerts();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [fetchAlerts]);
 
   // 드롭다운이 열릴 때마다 최신 데이터를 가져온다 (읽음 상태는 시그니처로 영속되므로 초기화하지 않는다)
@@ -199,6 +218,18 @@ export function NotificationMenu() {
           },
         ]
       : []),
+    ...(newMemberCount > 0
+      ? [
+          {
+            id: "newMembers",
+            icon: "ri-user-add-line",
+            tone: "primary" as const,
+            title: "신규 가입 회원",
+            body: `최근 7일 내 신규 가입 회원이 ${newMemberCount}명 있습니다.`,
+            href: "/members",
+          },
+        ]
+      : []),
   ];
 
   // id별 현재 카운트
@@ -206,6 +237,7 @@ export function NotificationMenu() {
     reports: reportCount,
     inquiries: inquiryCount,
     qna: qnaCount,
+    newMembers: newMemberCount,
   };
   /** 특정 알림 항목이 읽음 상태인지 — 확인한 카운트가 현재 카운트 이상이면 읽음. */
   const isAlertRead = useCallback(
@@ -215,7 +247,7 @@ export function NotificationMenu() {
     },
     // countById 는 매 렌더 새 객체라 의존성에서 제외하고 원시 카운트로 갱신
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ackMap, reportCount, inquiryCount, qnaCount],
+    [ackMap, reportCount, inquiryCount, qnaCount, newMemberCount],
   );
   // unreadCount(안 읽음 알림 개수) — 헤더 배지·빨간점에 사용
   const unreadCount = alerts.filter((a) => !isAlertRead(a.id)).length;
@@ -239,7 +271,7 @@ export function NotificationMenu() {
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [persistAck, reportCount, inquiryCount, qnaCount],
+    [persistAck, reportCount, inquiryCount, qnaCount, newMemberCount],
   );
 
   /** 현재 보이는 모든 항목을 읽음 처리 — "모두 읽음" 버튼에서 호출. */
@@ -253,7 +285,7 @@ export function NotificationMenu() {
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [persistAck, reportCount, inquiryCount, qnaCount],
+    [persistAck, reportCount, inquiryCount, qnaCount, newMemberCount],
   );
 
   return (

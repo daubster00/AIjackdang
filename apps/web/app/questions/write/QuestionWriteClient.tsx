@@ -25,6 +25,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
 import { useAuth } from "@/hooks/useAuth";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "@/components/board/PostWriteForm.module.css";
 
 /** 드래프트 초기값 (서버에서 주입) */
@@ -83,6 +84,7 @@ export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWrit
   const pathname = usePathname();
   const { user, ready } = useAuth();
   const { toast } = useToast();
+  const { fileExtensions, toAccept } = useUploadConfig();
 
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [titleTouched, setTitleTouched] = useState(false);
@@ -369,14 +371,14 @@ export function QuestionWriteClient({ initialDraft, urlTags = [] }: QuestionWrit
               에러 로그·스크린샷을 끌어다 놓거나 클릭해서 선택하세요
             </p>
             <p className={styles.dropzoneHint}>
-              jpg, png, gif, pdf, zip, md, txt, json, docx, xlsx 지원
+              jpg, png, gif, {fileExtensions.join(", ")} 지원 (허용 형식은 운영자 설정 기준)
             </p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,.pdf,.zip,.md,.txt,.json,.docx,.xlsx"
+            accept={`image/*,${toAccept(fileExtensions)}`}
             className={styles.hiddenInput}
             onChange={(e) => handleFileSelect(e.target.files)}
             aria-hidden="true"

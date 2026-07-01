@@ -39,8 +39,12 @@ export const notifications = pgTable(
     type: notificationType("type").notNull(),
     /** 대상 엔티티 종류 (예: 'post', 'comment', 'question') */
     targetType: text("target_type"),
-    /** 대상 엔티티 ID */
-    targetId: uuid("target_id"),
+    /**
+     * 대상 엔티티 ID.
+     * text 타입 — 게시글/댓글은 UUID, 질문(question)은 slug 문자열을 저장한다.
+     * (질문 알림 URL은 /questions/{slug} 이므로 slug 보관 필요 — 0026 마이그레이션에서 uuid→text 정합화)
+     */
+    targetId: text("target_id"),
     title: text("title").notNull(),
     body: text("body").notNull(),
     isRead: boolean("is_read").notNull().default(false),

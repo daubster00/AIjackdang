@@ -112,6 +112,24 @@ export async function checkSuspendedHook(
     if (!row) return; // 탈퇴 등 예외 상황 — 후속 핸들러에서 처리
 
     const now = new Date();
+
+    // 기간제 정지(suspendedUntil != null)가 만료된 경우 자동 해제 후 통과
+    if (
+      row.status === "suspended" &&
+      row.suspendedUntil !== null &&
+      row.suspendedUntil <= now
+    ) {
+      try {
+        await db
+          .update(users)
+          .set({ status: "active", suspendedUntil: null, updatedAt: now })
+          .where(eq(users.id, authUser.id));
+      } catch {
+        // DB 오류는 무시하고 통과 — 가용성 우선
+      }
+      return; // 만료된 정지 → 차단 없이 통과
+    }
+
     const isSuspended =
       row.status === "suspended" &&
       (row.suspendedUntil === null || row.suspendedUntil > now);

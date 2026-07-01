@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Avatar, AuthorName, Badge, Button, Icon, MessageModal } from "@/components/ui";
+import { AuthorName, Badge, Button, Icon, MessageModal } from "@/components/ui";
 import { AttachmentList } from "@/components/board";
 import { useGating } from "@/hooks/useGating";
 import { useAuth } from "@/hooks/useAuth";
@@ -222,10 +222,7 @@ export function GigDetailClient({ post }: Props) {
           </div>
           <h2>{post.title}</h2>
           <div className={styles.detailMeta}>
-            <span>
-              <Avatar name={post.authorNickname ?? "익명"} src={post.authorAvatarUrl ?? undefined} size="sm" />
-            </span>
-            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.authorId ?? undefined} />
+            <AuthorName name={post.authorNickname ?? "탈퇴 회원"} authorId={post.authorId ?? undefined} avatarUrl={post.authorAvatarUrl} />
             <span>{new Date(post.createdAt).toLocaleDateString("ko-KR")}</span>
             <span>조회 {post.viewCount}</span>
             <span>댓글 {post.commentCount}</span>

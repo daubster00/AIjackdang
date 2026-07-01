@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { API_BASE_URL } from "../../../lib/api";
 import { getCrossLink } from "@/lib/contentCrossLink";
 import { notifyDialog } from "@/lib/dialog";
+import { SanctionModal } from "@/app/members/_components/SanctionModal";
 import type { AdminReportDetail } from "@ai-jakdang/contracts";
 
 // 서비스가 추가로 반환하는 필드
@@ -45,6 +46,7 @@ function targetLabel(targetType: string): [string, string] {
     case "answer": return ["badge-purple", "답변"];
     case "resource": return ["badge-cyan", "실전자료"];
     case "message": return ["badge-gray", "쪽지"];
+    case "user": return ["badge-red", "회원"];
     default: return ["badge-gray", targetType];
   }
 }
@@ -101,15 +103,8 @@ function RejectModal({
           onChange={(e) => setNote(e.target.value)}
           placeholder="반려 사유를 입력하세요. (운영진만 열람)"
           rows={4}
-          style={{
-            width: "100%",
-            padding: "8px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            resize: "vertical",
-            boxSizing: "border-box",
-          }}
+          className="control"
+          style={{ fontSize: 13 }}
         />
         <div
           style={{
@@ -149,6 +144,7 @@ export default function ReportDetailPage({
   const [error, setError] = useState<string | null>(null);
 
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [sanctionOpen, setSanctionOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   // ── 상세 조회 ──────────────────────────────────────────────────────────────
@@ -224,8 +220,8 @@ export default function ReportDetailPage({
         body: JSON.stringify({ note }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await notifyDialog("신고가 반려되었습니다.");
       setRejectOpen(false);
+      await notifyDialog("신고가 반려되었습니다.");
       void fetchReport();
     } catch {
       await notifyDialog("처리 중 오류가 발생했습니다.", "danger");
@@ -254,6 +250,33 @@ export default function ReportDetailPage({
     }
   };
 
+  // ── 회원 제재 처리 (Story 12.5, user 신고 전용) ────────────────────────────
+  const handleSanctionFromDetail = async (
+    type: "warning" | "suspend" | "permaban",
+    reason: string,
+    endsAt: string | null,
+  ) => {
+    if (!report || actionLoading) return;
+    // 확인 즉시 제재 모달을 닫는다(성공 알림이 모달 위에 겹쳐 뜨거나, 오류 시 모달이 남는 문제 방지).
+    setSanctionOpen(false);
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports/${id}/sanction-member`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: report.targetId, type, reason, endsAt }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await notifyDialog("회원 제재가 적용되고 신고가 처리완료 되었습니다.");
+      void fetchReport();
+    } catch {
+      await notifyDialog("제재 처리 중 오류가 발생했습니다.", "danger");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const crossLink = report ? getCrossLink(report.targetType, report.targetId, report.targetBoard) : null;
   const canAct =
     report &&
@@ -276,8 +299,8 @@ export default function ReportDetailPage({
             <i className="ri-arrow-left-line" />
             목록으로
           </Link>
-          {/* 숨김 해제: 대상이 현재 숨김이면 신고 status(resolved 포함)와 무관하게 노출 */}
-          {report && targetHidden && (
+          {/* 숨김 해제: 대상이 현재 숨김이면 신고 status(resolved 포함)와 무관하게 노출. user 신고에는 미노출 */}
+          {report && targetHidden && report.targetType !== "user" && (
             <button
               className="btn btn-primary"
               disabled={actionLoading}
@@ -299,7 +322,8 @@ export default function ReportDetailPage({
                   확인중으로 변경
                 </button>
               )}
-              {!targetHidden && (
+              {/* 대상 숨김: 콘텐츠 신고 전용 (user 신고에는 미노출) */}
+              {!targetHidden && report.targetType !== "user" && (
                 <button
                   className="btn btn-secondary"
                   disabled={actionLoading}
@@ -307,6 +331,17 @@ export default function ReportDetailPage({
                 >
                   <i className="ri-eye-off-line" />
                   대상 숨김
+                </button>
+              )}
+              {/* 회원 제재: user 신고 전용 (Story 12.5) */}
+              {report.targetType === "user" && (
+                <button
+                  className="btn btn-danger"
+                  disabled={actionLoading}
+                  onClick={() => setSanctionOpen(true)}
+                >
+                  <i className="ri-user-forbid-line" />
+                  회원 제재
                 </button>
               )}
               <button
@@ -454,6 +489,14 @@ export default function ReportDetailPage({
           reportId={report.id}
           onConfirm={(rid, note) => void handleReject(rid, note)}
           onClose={() => setRejectOpen(false)}
+        />
+      )}
+
+      {/* 회원 제재 모달 (user 신고 전용, Story 12.5) */}
+      {sanctionOpen && report && (
+        <SanctionModal
+          onClose={() => setSanctionOpen(false)}
+          onConfirm={(type, reason, endsAt) => void handleSanctionFromDetail(type, reason, endsAt)}
         />
       )}
     </AdminShell>

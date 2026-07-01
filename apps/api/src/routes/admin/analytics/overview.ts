@@ -12,8 +12,9 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import { and, count, gte, lt, ne, sql, sum } from "drizzle-orm";
+import { and, count, eq, gte, lt, ne, sql, sum } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import { getBotExcludeFromRanking } from "../../../services/bot/settings.js";
 
 /** YYYY-MM-DD 문자열을 Date 객체(UTC 00:00)로 변환 */
 function parseDate(str: string): Date | null {
@@ -76,7 +77,10 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
     // 날짜 범위 배열 생성
     const dates = dateRange(fromDate, toDate);
 
-    // 날짜별 신규 가입자 집계
+    // 봇 계정 제외 여부 조회 (bot_settings.bot_exclude_from_ranking, 기본 true)
+    const excludeBots = await getBotExcludeFromRanking();
+
+    // 날짜별 신규 가입자 집계 (봇 제외 설정 시 is_bot=false 조건 추가)
     const usersRows = await db
       .select({
         date: sql<string>`DATE(${schema.users.createdAt} AT TIME ZONE 'UTC')`,
@@ -87,6 +91,7 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
         and(
           gte(schema.users.createdAt, fromDate),
           lt(schema.users.createdAt, toDateEnd),
+          excludeBots ? eq(schema.users.isBot, false) : undefined,
         ),
       )
       .groupBy(sql`DATE(${schema.users.createdAt} AT TIME ZONE 'UTC')`);

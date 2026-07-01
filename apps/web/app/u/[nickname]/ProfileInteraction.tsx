@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useGating } from "@/hooks/useGating";
 import { FollowButton } from "@/components/ui/FollowButton/FollowButton";
+import { MemberReportModal } from "@/features/report/MemberReportModal";
 import styles from "./profile.module.css";
 
 interface ProfileInteractionProps {
@@ -23,7 +26,9 @@ export function ProfileInteraction({
   isBlocked = false,
 }: ProfileInteractionProps) {
   const { user } = useAuth();
+  const { requireAuth } = useGating();
   const isSelf = !!user && user.id === profileId;
+  const [reportOpen, setReportOpen] = useState(false);
 
   return (
     <div className={styles.interactionArea}>
@@ -44,12 +49,30 @@ export function ProfileInteraction({
           프로필 편집
         </Link>
       ) : (
-        <FollowButton
-          targetNickname={targetNickname}
-          initialFollowing={initialFollowing}
-          isBlocked={isBlocked}
-          className={styles.followBtn}
-        />
+        <>
+          <FollowButton
+            targetNickname={targetNickname}
+            initialFollowing={initialFollowing}
+            isBlocked={isBlocked}
+            className={styles.followBtn}
+          />
+          <button
+            type="button"
+            className={styles.reportBtn}
+            onClick={() => {
+              if (!requireAuth("report")) return;
+              setReportOpen(true);
+            }}
+          >
+            신고하기
+          </button>
+          <MemberReportModal
+            isOpen={reportOpen}
+            onClose={() => setReportOpen(false)}
+            targetUserId={profileId}
+            targetNickname={targetNickname}
+          />
+        </>
       )}
     </div>
   );

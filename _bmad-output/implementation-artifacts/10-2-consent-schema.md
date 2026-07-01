@@ -1,6 +1,6 @@
 # Story 10.2: 동의 기록 스키마 — `users` 컬럼 + 계약 타입
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 12.4: 누적 임계치 자동 경고 + 관리자 에스컬레이션 + 제재 통보 알림
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

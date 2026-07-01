@@ -26,7 +26,9 @@ import {
   changePasswordSchema,
   nicknameSchema,
   errorResponseSchema,
+  termsConsentResponseSchema,
 } from "@ai-jakdang/contracts";
+import { CURRENT_TERMS_VERSION } from "@ai-jakdang/core";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -77,8 +79,28 @@ function toPublicUser(user: typeof schema.users.$inferSelect) {
     birthDate: (user.birthDate as string | null) ?? null,
     marketingAgreed: user.marketingAgreedAt != null,
     termsAgreedAt: user.termsAgreedAt ? user.termsAgreedAt.toISOString() : null,
+    // Story 10.4 — 약관 버전 및 재동의 필요 여부
+    termsVersion: user.termsVersion ?? null,
+    // termsVersion 이 null 이거나 현재 버전과 다르면 재동의 필요 (PIPA 안전측)
+    termsUpdateRequired: user.termsVersion !== CURRENT_TERMS_VERSION,
     createdAt: user.createdAt.toISOString(),
   };
+}
+
+/**
+ * Story 10.4 — 약관 동의 기록 헬퍼 (AC #5: 소셜 가입 핸드오프 준비).
+ *
+ * users.termsAgreedAt = NOW(), users.termsVersion = CURRENT_TERMS_VERSION 으로 갱신한다.
+ * POST /users/me/terms-consent 핸들러와 소셜 가입(Story 1.5) 콜백에서 공용으로 호출한다.
+ */
+export async function recordTermsConsent(
+  userId: string,
+  db: ReturnType<typeof getDb>,
+): Promise<void> {
+  await db
+    .update(schema.users)
+    .set({ termsAgreedAt: new Date(), termsVersion: CURRENT_TERMS_VERSION })
+    .where(eq(schema.users.id, userId));
 }
 
 export async function usersRoutes(app: FastifyInstance): Promise<void> {
@@ -121,6 +143,40 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.code(200).send(toPublicUser(user));
+    },
+  );
+
+  // ── [10.4] POST /users/me/terms-consent — 약관 재동의 (인증 필요) ──────────────
+  typed.post(
+    "/users/me/terms-consent",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description:
+          "현재 로그인 사용자의 약관 동의 시각·버전을 갱신한다. 이후 GET /users/me 응답에서 termsUpdateRequired: false 가 된다.",
+        tags: ["users"],
+        response: {
+          200: termsConsentResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const sessionUser = (request as typeof request & { user?: { id: string } }).user;
+      if (!sessionUser?.id) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+
+      const db = getDb();
+      await recordTermsConsent(sessionUser.id, db);
+
+      return reply.code(200).send({
+        termsAgreedAt: new Date().toISOString(),
+        termsVersion: CURRENT_TERMS_VERSION,
+        termsUpdateRequired: false,
+      });
     },
   );
 
@@ -270,6 +326,11 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       if (avatarUrl !== undefined) updatePayload.avatarUrl = avatarUrl;
       if (bannerUrl !== undefined) updatePayload.bannerUrl = bannerUrl;
       if (defaultAvatarIndex !== undefined) updatePayload.defaultAvatarIndex = defaultAvatarIndex;
+      // 기본 아바타 명시 선택(avatarUrl=null + defaultAvatarIndex 동반) → 소셜 provider 이미지도 해제
+      // 이렇게 하지 않으면 image 필드가 avatarUrl보다 우선하여 기본 아바타가 표시되지 않음
+      if (avatarUrl === null && defaultAvatarIndex !== undefined) {
+        updatePayload.image = null;
+      }
       // 회원정보 (수정요청 F)
       if (name !== undefined) updatePayload.name = name;
       if (phone !== undefined) updatePayload.phone = phone;
@@ -930,6 +991,80 @@ export async function usersRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.code(200).send({ ok: true });
+    },
+  );
+
+  // ── GET /users/me/likes — 내가 좋아요한 게시글 목록 ───────────────────────────
+  typed.get(
+    "/users/me/likes",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "현재 로그인 사용자가 좋아요한 게시글(post) 목록. 최신 좋아요 순 반환.",
+        tags: ["users"],
+        querystring: z.object({
+          pageSize: z.coerce.number().int().positive().max(100).default(50),
+        }),
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string(),       // reactions.id
+                postId: z.string(),   // posts.id
+                title: z.string(),
+                board: z.string(),
+                slug: z.string(),
+                likedAt: z.string(),  // reactions.createdAt ISO
+              }),
+            ),
+          }),
+          401: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = getSessionUserId(request);
+      if (!userId) {
+        return reply.code(401).send({
+          error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+        });
+      }
+      const { pageSize } = request.query;
+      const db = getDb();
+
+      const rows = await db
+        .select({
+          id: schema.reactions.id,
+          postId: schema.posts.id,
+          title: schema.posts.title,
+          board: schema.posts.board,
+          slug: schema.posts.slug,
+          likedAt: schema.reactions.createdAt,
+        })
+        .from(schema.reactions)
+        .innerJoin(schema.posts, eq(schema.posts.id, schema.reactions.targetId))
+        .where(
+          and(
+            eq(schema.reactions.userId, userId),
+            eq(schema.reactions.targetType, "post"),
+            eq(schema.reactions.reactionType, "like"),
+            eq(schema.posts.status, "published"),
+            isNull(schema.posts.deletedAt),
+          ),
+        )
+        .orderBy(desc(schema.reactions.createdAt))
+        .limit(pageSize);
+
+      return reply.send({
+        items: rows.map((r) => ({
+          id: r.id,
+          postId: r.postId,
+          title: r.title,
+          board: r.board,
+          slug: r.slug,
+          likedAt: r.likedAt.toISOString(),
+        })),
+      });
     },
   );
 

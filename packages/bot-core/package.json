@@ -1,0 +1,19 @@
+{
+  "name": "@ai-jakdang/bot-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "시딩 봇 순수 함수(Epic 11): 페르소나 프롬프트 빌더·자기검열 규칙·인젝션 필터·맥락 요약 정규화·중복 유사도 판정. DB·네트워크 접근 금지.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/contracts": "workspace:*",
+    "@ai-jakdang/utilities": "workspace:*"
+  }
+}

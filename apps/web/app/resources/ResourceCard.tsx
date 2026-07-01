@@ -11,10 +11,8 @@
 import Link from "next/link";
 import type { ResourceCard as ResourceCardData } from "@ai-jakdang/contracts";
 import { AuthorName } from "@/components/ui/AuthorName";
-import { Avatar } from "@/components/ui/Avatar";
 import { Tag } from "@/components/ui/Tag";
 import { Icon } from "@/components/ui/Icon";
-import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 /** 각 페이지의 styles 모듈을 외부에서 전달받는 타입 */
 export interface ResourceCardStyles {
@@ -153,12 +151,7 @@ export function ResourceCard({ item, typeMeta, styles }: ResourceCardProps) {
 
       <div className={styles.cardMeta}>
         <span className={styles.metaAuthor}>
-          <Avatar
-            name={item.authorNickname ?? "알 수 없음"}
-            src={item.authorNickname != null ? getDefaultAvatarUrl(item.authorAvatarIndex) : undefined}
-            size="sm"
-          />
-          <AuthorName name={item.authorNickname ?? "알 수 없음"} authorId={item.authorId ?? undefined} className={styles.authorName} />
+          <AuthorName name={item.authorNickname ?? "알 수 없음"} authorId={item.authorId ?? undefined} defaultAvatarIndex={item.authorAvatarIndex} className={styles.authorName} />
         </span>
         <span className={styles.metaDate}>{formattedDate}</span>
       </div>

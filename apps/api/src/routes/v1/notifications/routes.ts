@@ -61,7 +61,8 @@ export async function registerNotificationRoutes(app: FastifyInstance): Promise<
                 userId: z.string().uuid(),
                 type: z.string(),
                 targetType: z.string().nullable(),
-                targetId: z.string().uuid().nullable(),
+                // targetId: 게시글/댓글은 UUID, 질문은 slug 문자열 → uuid 강제 시 응답 직렬화 실패(0026 정합화)
+                targetId: z.string().nullable(),
                 title: z.string(),
                 body: z.string(),
                 isRead: z.boolean(),
@@ -168,6 +169,46 @@ export async function registerNotificationRoutes(app: FastifyInstance): Promise<
 
       await notificationService.markRead(id);
       return reply.send({ id, isRead: true });
+    },
+  );
+
+  // ── DELETE /:id (단건 삭제) ─────────────────────────────────────────────────
+  typed.delete(
+    "/:id",
+    {
+      preHandler: [requireAuthHook],
+      schema: {
+        description: "단건 알림 삭제",
+        tags: ["notifications"],
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ id: z.string().uuid(), deleted: z.literal(true) }),
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { user } = request as RequestWithUser;
+      const { id } = request.params;
+
+      const notification = await notificationService.findById(id);
+
+      if (!notification) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "알림을 찾을 수 없습니다." },
+        });
+      }
+
+      if (notification.userId !== user.id) {
+        return reply.code(403).send({
+          error: { code: "FORBIDDEN", message: "권한이 없습니다." },
+        });
+      }
+
+      await notificationService.delete(id);
+      return reply.send({ id, deleted: true });
     },
   );
 

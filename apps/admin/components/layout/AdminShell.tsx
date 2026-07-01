@@ -38,6 +38,7 @@ const POSTS_CHILDREN: NavItem[] = [
     label: b.label,
     subKey: b.slug,
   })),
+  { key: "posts-trash", href: "/posts/trash", icon: "ri-delete-bin-2-line", label: "휴지통", subKey: "trash" },
 ];
 
 const NAV_GROUPS: NavGroup[] = [
@@ -82,6 +83,17 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "points", href: "/points", icon: "ri-copper-coin-line", label: "포인트 관리" },
       { key: "ranks", href: "/ranks", icon: "ri-medal-line", label: "등급 관리" },
+      {
+        key: "bots",
+        href: "/bots",
+        icon: "ri-robot-line",
+        label: "활동 봇",
+        children: [
+          { key: "bots-list",       href: "/bots",            icon: "ri-list-check",       label: "봇 목록",   subKey: "" },
+          { key: "bots-operations", href: "/bots/operations", icon: "ri-settings-3-line",  label: "운영 패널", subKey: "operations" },
+          { key: "bots-ai-usage",   href: "/bots/ai-usage",   icon: "ri-money-dollar-circle-line", label: "AI 사용량", subKey: "ai-usage" },
+        ],
+      },
     ],
   },
   {
@@ -94,7 +106,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** super_admin 전용으로 숨길 메뉴 key 집합(UX-DR-A6: 숨김, disabled 아님) */
-const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members"]);
+const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members", "bots"]);
 
 export function AdminShell({
   breadcrumb,

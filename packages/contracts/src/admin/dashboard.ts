@@ -27,6 +27,8 @@ export const dashboardAlertsResponseSchema = z.object({
   reports: z.number().int().nonnegative(),
   pendingQna: z.number().int().nonnegative(),
   newResources: z.number().int().nonnegative(),
+  /** 누적 처리완료 신고가 임계치 이상인 활성 회원 수 (Story 12.4 에스컬레이션) */
+  flaggedUsers: z.number().int().nonnegative(),
 });
 export type DashboardAlertsResponse = z.infer<typeof dashboardAlertsResponseSchema>;
 

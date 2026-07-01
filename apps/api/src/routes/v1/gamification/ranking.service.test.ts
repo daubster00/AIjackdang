@@ -52,6 +52,12 @@ vi.mock("@ai-jakdang/contracts", async () => {
   return { ...actual };
 });
 
+// 봇 랭킹 제외(Epic 11.5/11.12)는 이 단위 테스트 범위 밖이므로 false 로 고정 —
+// getRanking 의 봇 제외(innerJoin) 분기 대신 기존 경로를 그대로 검증한다.
+vi.mock("../../../services/bot/settings.js", () => ({
+  getBotExcludeFromRanking: vi.fn(() => Promise.resolve(false)),
+}));
+
 // ── @ai-jakdang/database 모의 ────────────────────────────────────────────────
 vi.mock("@ai-jakdang/database", () => ({
   schema: {

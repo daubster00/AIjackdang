@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthorName, Avatar, Icon } from "@/components/ui";
+import { AuthorName, Icon } from "@/components/ui";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGating } from "@/hooks/useGating";
@@ -207,16 +207,11 @@ export function ReviewItem({ review, onDeleted }: ReviewItemProps) {
   return (
     <article className={styles.commentItem}>
       <div className={styles.commentMeta}>
-        <Avatar
-          name={review.authorNickname ?? "?"}
-          src={!isDeleted && review.authorAvatarUrl ? review.authorAvatarUrl : undefined}
-          size="sm"
-        />
         <div className={styles.commentAuthorInfo}>
           {isDeleted ? (
             <strong>삭제된 후기</strong>
           ) : (
-            <strong><AuthorName name={review.authorNickname ?? "익명"} authorId={review.authorId} authorAvatarUrl={review.authorAvatarUrl} /></strong>
+            <strong><AuthorName name={review.authorNickname ?? "익명"} authorId={review.authorId} avatarUrl={review.authorAvatarUrl} authorAvatarUrl={review.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(review.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>
@@ -560,16 +555,11 @@ function ReplyReviewItem({ reply }: { reply: Omit<ApiReview, "replies"> }) {
   return (
     <li className={styles.replyItem}>
       <div className={styles.replyItemMeta}>
-        <Avatar
-          name={reply.authorNickname ?? "?"}
-          src={!isDeleted && reply.authorAvatarUrl ? reply.authorAvatarUrl : undefined}
-          size="sm"
-        />
         <div className={styles.commentAuthorInfo}>
           {isDeleted ? (
             <span>삭제된 답글</span>
           ) : (
-            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} authorAvatarUrl={reply.authorAvatarUrl} /></strong>
+            <strong><AuthorName name={reply.authorNickname ?? "익명"} authorId={reply.authorId} avatarUrl={reply.authorAvatarUrl} authorAvatarUrl={reply.authorAvatarUrl} /></strong>
           )}
           <span>{new Date(reply.createdAt).toLocaleDateString("ko-KR")}</span>
         </div>

@@ -133,6 +133,18 @@
   box-shadow: var(--focus-ring);
 }
 
+/* 약관 미동의 등으로 비활성일 때: 색만이 아니라 opacity·커서로도 상태 전달 (UX-DR-U13) */
+.socialButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.socialButton:disabled:hover {
+  filter: none;
+  box-shadow: none;
+  transform: none;
+}
+
 .socialLogo {
   display: inline-flex;
   align-items: center;

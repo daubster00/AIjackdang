@@ -91,6 +91,15 @@ export const notificationService = {
   },
 
   /**
+   * 단건 알림 삭제.
+   * 소유권은 라우트에서 findById로 사전 확인한다.
+   */
+  async delete(id: string): Promise<void> {
+    const db = getDb();
+    await db.delete(schema.notifications).where(eq(schema.notifications.id, id));
+  },
+
+  /**
    * 전체 읽음 처리.
    * @returns 업데이트된 행 수
    */

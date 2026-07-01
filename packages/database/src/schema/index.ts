@@ -29,6 +29,9 @@ export * from "./ads";
 // ── 접속통계: 방문 로그 ───────────────────────────────────────────────────────
 export * from "./page-views";
 
+// ── Epic 11: 시딩 봇 ──────────────────────────────────────────────────────────
+export * from "./bot";
+
 export { pointsLedger, grades } from "./gamification";
 export type {
   PointsLedgerRow,

@@ -28,17 +28,30 @@ export function closeAllActionMenus(root = document) {
   root.querySelectorAll(".action-menu.open").forEach((m) => m.classList.remove("open"));
 }
 
+/**
+ * 초기화 완료 표식은 DOM 속성(data-table-initialized)이 아니라 WeakSet 으로 추적한다.
+ *
+ * 이유(hydration mismatch 방지):
+ * AdminInteractions 의 MutationObserver 가 마운트 직후 initTables 를 돌려 .admin-table 에
+ * data-* 속성을 붙이는데, 대시보드의 "최근 콘텐츠" 표처럼 <Suspense> 로 늦게 하이드레이트되는
+ * 표는 그 시점에 이미 속성이 박혀 있어 React 가 "서버 HTML 에 없던 속성"으로 보고
+ * "A tree hydrated but some attributes ... didn't match" 경고를 낸다.
+ * WeakSet 은 DOM 에 흔적을 남기지 않으므로 React 가 비교할 속성 자체가 생기지 않는다.
+ * (table 요소가 GC 되면 WeakSet 항목도 자동 제거되어 누수도 없다.)
+ */
+const initializedTables = new WeakSet();
+
 function visibleRows(tbody) {
   return [...tbody.querySelectorAll("tr")].filter((row) => row.style.display !== "none");
 }
 
 export function initTables(root = document) {
   root.querySelectorAll(".admin-table").forEach((table) => {
-    if (table.dataset.tableInitialized === "true") {
+    if (initializedTables.has(table)) {
       table._adminSyncSelection?.();
       return;
     }
-    table.dataset.tableInitialized = "true";
+    initializedTables.add(table);
     const tbody = table.querySelector("tbody");
     const selectAll = table.querySelector("[data-admin-select-all]");
     if (!tbody) return;
@@ -83,7 +96,7 @@ export function initTables(root = document) {
     tbody.querySelectorAll(".row-check").forEach((c) => c.addEventListener("change", sync));
 
     // 행 액션 메뉴 — 이벤트 위임으로 테이블에 1회만 바인딩한다.
-    // (per-button 바인딩은 initTables 가 tableInitialized 가드로 1회만 도므로,
+    // (per-button 바인딩은 initTables 가 WeakSet 가드로 1회만 도므로,
     //  데이터가 비동기로 늦게 채워지는 표에서는 새 행 버튼에 핸들러가 안 붙는다.)
     table.addEventListener("click", (event) => {
       const btn = event.target.closest?.(".row-action-button");

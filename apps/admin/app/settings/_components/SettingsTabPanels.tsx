@@ -27,6 +27,10 @@ interface AdminSettingsResponse {
   max_upload_mb?: unknown;
   image_extensions?: unknown;
   resource_extensions?: unknown;
+  /** Story 12.4: 누적 자동경고 임계치 */
+  report_escalation_threshold?: unknown;
+  /** Story 12.4: 누적 자동경고 활성화 여부 */
+  report_auto_warning_enabled?: unknown;
 }
 
 /**
@@ -180,6 +184,8 @@ export function SettingsTabPanels() {
   // 신고 설정
   const [autoHideEnabled, setAutoHideEnabled] = useState(false);
   const [autoHideThreshold, setAutoHideThreshold] = useState(5);
+  const [reportAutoWarningEnabled, setReportAutoWarningEnabled] = useState(false);
+  const [reportEscalationThreshold, setReportEscalationThreshold] = useState(5);
   const [forbiddenWords, setForbiddenWords] = useState<string[]>([]);
   const [reportReasons, setReportReasons] = useState<string[]>([
     "스팸/광고",
@@ -232,6 +238,10 @@ export function SettingsTabPanels() {
         setAutoHideEnabled(Boolean(data.auto_hide_enabled));
       if (data.auto_hide_threshold != null)
         setAutoHideThreshold(Number(data.auto_hide_threshold));
+      if (data.report_auto_warning_enabled != null)
+        setReportAutoWarningEnabled(Boolean(data.report_auto_warning_enabled));
+      if (data.report_escalation_threshold != null)
+        setReportEscalationThreshold(Number(data.report_escalation_threshold));
       if (Array.isArray(data.forbidden_words)) setForbiddenWords(data.forbidden_words as string[]);
       if (Array.isArray(data.report_reasons)) setReportReasons(data.report_reasons as string[]);
     } catch {
@@ -317,6 +327,8 @@ export function SettingsTabPanels() {
     await saveSettings({
       auto_hide_enabled: autoHideEnabled,
       auto_hide_threshold: autoHideThreshold,
+      report_auto_warning_enabled: reportAutoWarningEnabled,
+      report_escalation_threshold: reportEscalationThreshold,
       forbidden_words: forbiddenWords,
       report_reasons: reportReasons,
     });
@@ -815,6 +827,54 @@ export function SettingsTabPanels() {
                 <strong>주의</strong>
                 <br />
                 자동 숨김은 잘못된 신고로 정상 글이 숨겨질 수 있습니다. 신중히 사용하고, 숨김 처리된 글은 반드시 운영자가 다시 확인하세요.
+              </div>
+            </div>
+          )}
+
+          {/* ── 누적 자동경고 (Story 12.4) ── */}
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="escalationThreshold">누적 자동경고 임계치</label>
+              <div className="input-icon">
+                <i className="ri-user-warning-line" />
+                <input
+                  className="control"
+                  id="escalationThreshold"
+                  type="number"
+                  min={1}
+                  value={reportEscalationThreshold}
+                  onChange={(e) => setReportEscalationThreshold(Number(e.target.value))}
+                />
+              </div>
+              <div className="field-help">
+                처리완료(resolved) 신고가 이 횟수 이상 누적된 회원에게 자동 경고가 발부됩니다.
+              </div>
+            </div>
+            <div className="field">
+              <span className="field-label">누적 자동경고 활성화</span>
+              <div className="choice-row">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={reportAutoWarningEnabled}
+                    onChange={(e) => setReportAutoWarningEnabled(e.target.checked)}
+                  />
+                  <span className="switch-track" />
+                </label>
+                <span style={{ color: "var(--gray-500)" }}>
+                  임계치 도달 시 회원에게 자동 경고 발부 (정지·영구밴은 수동 처리)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {reportAutoWarningEnabled && (
+            <div className="alert alert-warning">
+              <i className="ri-alert-line" />
+              <div>
+                <strong>주의</strong>
+                <br />
+                자동 경고는 처리완료된 신고 기준입니다. 정지·영구 이용 정지는 반드시 운영자가 직접 판단해 적용하세요.
               </div>
             </div>
           )}

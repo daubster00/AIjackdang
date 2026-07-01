@@ -134,6 +134,9 @@ importers:
       '@ai-jakdang/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ai-jakdang/bot-core':
+        specifier: workspace:*
+        version: link:../../packages/bot-core
       '@ai-jakdang/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -146,6 +149,9 @@ importers:
       '@ai-jakdang/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-jakdang/server-bot':
+        specifier: workspace:*
+        version: link:../../packages/server-bot
       '@ai-jakdang/utilities':
         specifier: workspace:*
         version: link:../../packages/utilities
@@ -317,6 +323,15 @@ importers:
         specifier: ^1.6.20
         version: 1.6.20(drizzle-orm@0.38.4(@types/pg@8.20.0)(@types/react@19.2.17)(kysely@0.29.2)(pg@8.21.0)(react@19.2.7))(next@16.2.9(@babel/core@7.29.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.21.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@3.2.6(@types/node@22.19.21)(happy-dom@20.10.6)(jsdom@25.0.1)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/bot-core:
+    dependencies:
+      '@ai-jakdang/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ai-jakdang/utilities':
+        specifier: workspace:*
+        version: link:../utilities
+
   packages/config:
     dependencies:
       zod:
@@ -363,6 +378,30 @@ importers:
       drizzle-kit:
         specifier: ^0.30.0
         version: 0.30.6
+
+  packages/server-bot:
+    dependencies:
+      '@ai-jakdang/bot-core':
+        specifier: workspace:*
+        version: link:../bot-core
+      '@ai-jakdang/config':
+        specifier: workspace:*
+        version: link:../config
+      '@ai-jakdang/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ai-jakdang/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ai-jakdang/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-jakdang/utilities':
+        specifier: workspace:*
+        version: link:../utilities
+      drizzle-orm:
+        specifier: ^0.38.0
+        version: 0.38.4(@types/pg@8.20.0)(@types/react@19.2.17)(kysely@0.29.2)(pg@8.21.0)(react@19.2.7)
 
   packages/utilities:
     dependencies:

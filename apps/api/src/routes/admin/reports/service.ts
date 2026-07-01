@@ -22,6 +22,10 @@ import {
 } from "@ai-jakdang/database/schema";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import type { AdminReportsQuery } from "@ai-jakdang/contracts";
+import { resolveAuthorUserId, evaluateAuthorEscalation } from "../../../lib/escalation.js";
+import { publishNotification } from "../../../lib/notifications.js";
+import { getRedisPublisher } from "../../../lib/redis.js";
+import { sanctionMember } from "../members/service.js";
 
 // ── 동적 대상 테이블 매핑 ────────────────────────────────────────────────────
 // targetType → { table, statusColumn } 매핑
@@ -117,15 +121,20 @@ export async function listReports(query: AdminReportsQuery, autoHiddenFilter?: b
           THEN (SELECT author_id FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT user_id FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN ${reports.targetId}
         ELSE NULL
       END`,
       // 게시글 board 값 — getCrossLink 에서 상세 URL 구성에 필요 (G16)
       targetBoard: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT board FROM posts WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN NULL
         ELSE NULL
       END`,
       // 대상 콘텐츠 미리보기 — targetType별 동적 서브쿼리
+      // 회원(user)은 피신고 회원 닉네임을 미리보기로 사용
       targetPreview: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT title FROM posts WHERE id = ${reports.targetId})
@@ -137,6 +146,8 @@ export async function listReports(query: AdminReportsQuery, autoHiddenFilter?: b
           THEN (SELECT LEFT(content, 100) FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT title FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN (SELECT nickname FROM users WHERE id = ${reports.targetId})
         ELSE NULL
       END`,
     })
@@ -210,16 +221,20 @@ export async function getReport(id: string) {
           THEN (SELECT author_id FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT user_id FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN ${reports.targetId}
         ELSE NULL
       END`,
       // 게시글 board 값 (G16 — getCrossLink 상세 URL 구성용)
       targetBoard: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT board FROM posts WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN NULL
         ELSE NULL
       END`,
       // 대상 콘텐츠의 현재 상태(숨김 여부 판단용 — '숨김 해제' 버튼 노출 조건).
-      // message 타입은 status 컬럼이 없으므로 NULL.
+      // message·user 타입은 status 컬럼이 없으므로 NULL (::text 캐스팅 유지 — enum 타입 통일 위해).
       targetStatus: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT status::text FROM posts WHERE id = ${reports.targetId})
@@ -231,8 +246,11 @@ export async function getReport(id: string) {
           THEN (SELECT status::text FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT status::text FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN NULL
         ELSE NULL
       END`,
+      // 회원(user)은 피신고 회원 닉네임을 미리보기로 사용
       targetPreview: sql<string | null>`CASE
         WHEN ${reports.targetType} = 'post'
           THEN (SELECT title FROM posts WHERE id = ${reports.targetId})
@@ -244,6 +262,8 @@ export async function getReport(id: string) {
           THEN (SELECT LEFT(content, 100) FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT title FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN (SELECT nickname FROM users WHERE id = ${reports.targetId})
         ELSE NULL
       END`,
       targetContentJson: sql<unknown | null>`CASE
@@ -257,6 +277,8 @@ export async function getReport(id: string) {
           THEN (SELECT to_jsonb(content) FROM comments WHERE id = ${reports.targetId})
         WHEN ${reports.targetType} = 'resource'
           THEN (SELECT description_json FROM resources WHERE id = ${reports.targetId})
+        WHEN ${reports.targetType} = 'user'
+          THEN NULL
         ELSE NULL
       END`,
     })
@@ -352,6 +374,16 @@ export async function hideTarget(reportId: string, adminId: string) {
 
     return reportRow;
   });
+
+  // 트랜잭션 반환 후, 에스컬레이션 평가 (실패해도 hideTarget 응답을 막지 않음)
+  try {
+    const authorUserId = await resolveAuthorUserId(targetType, targetId, db);
+    if (authorUserId) {
+      await evaluateAuthorEscalation(authorUserId, adminId);
+    }
+  } catch (err) {
+    console.error("[reports] escalation evaluation failed (무시):", (err as Error).message);
+  }
 
   return {
     id: updated.id,
@@ -477,6 +509,72 @@ export async function unhideTarget(reportId: string, adminId: string) {
     status: updated.status,
     reviewedAt: updated.reviewedAt ? updated.reviewedAt.toISOString() : null,
   };
+}
+
+// ── 회원 신고 → 제재 일체 처리 (Story 12.5) ──────────────────────────────────
+// 제재 생성(sanctionMember) + 해당 신고 resolved 원자 처리.
+// Option A: sanctionMember 내부에 db.transaction()이 있으므로 중첩 방지.
+// → sanctionMember를 트랜잭션 밖에서 먼저 호출, 이후 reports UPDATE.
+
+export async function resolveReportWithMemberSanction(
+  reportId: string,
+  targetUserId: string,
+  type: "warning" | "suspend" | "permaban",
+  reason: string,
+  endsAt: Date | null,
+  adminId: string,
+): Promise<{ reportId: string; sanctionId: string }> {
+  const db = getDb();
+
+  // 신고 존재 확인
+  const [existing] = await db
+    .select({ id: reports.id })
+    .from(reports)
+    .where(eq(reports.id, reportId))
+    .limit(1);
+
+  if (!existing) {
+    throw Object.assign(new Error("신고를 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+
+  const now = new Date();
+
+  // ① 제재 생성 (sanctionMember는 내부에 자체 트랜잭션 포함)
+  const sanctionResult = await sanctionMember(targetUserId, type, reason, endsAt, adminId);
+
+  // ② 신고 resolved 처리
+  await db
+    .update(reports)
+    .set({ status: "resolved", reviewedBy: adminId, reviewedAt: now })
+    .where(eq(reports.id, reportId));
+
+  // ②-b 제재 통보 알림 (모든 제재 부여 시 당사자에게 통보 — Story 12.4 AC#5).
+  // 실패해도 제재/신고 처리는 완료(try/catch).
+  try {
+    const endsAtLabel = endsAt ? ` (${endsAt.toLocaleDateString("ko-KR")}까지)` : "";
+    const typeLabel = type === "warning" ? "경고" : type === "suspend" ? "정지" : "영구 이용 정지";
+    await publishNotification(
+      targetUserId,
+      {
+        type: "sanction.applied",
+        title: "운영 조치 안내",
+        body: `[${typeLabel}${endsAtLabel}] ${reason}`,
+      },
+      db,
+      getRedisPublisher(),
+    );
+  } catch (e) {
+    console.error("[reports/sanction-member] 제재 알림 발송 실패 (무시):", (e as Error).message);
+  }
+
+  // ③ 에스컬레이션 평가 (비차단 — 실패해도 제재/신고 처리는 완료)
+  try {
+    await evaluateAuthorEscalation(targetUserId, adminId);
+  } catch (e) {
+    console.error("[reports/sanction-member] escalation 평가 중 오류 (무시):", (e as Error).message);
+  }
+
+  return { reportId, sanctionId: sanctionResult.sanctionId };
 }
 
 // ── 반려 처리 ─────────────────────────────────────────────────────────────────

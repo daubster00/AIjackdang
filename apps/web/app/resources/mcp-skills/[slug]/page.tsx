@@ -4,7 +4,7 @@ export const revalidate = 300;
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
+import { AuthorName, Icon, Tag } from "@/components/ui";
 import { AttachmentList, BoardHero, RecentViewedTracker } from "@/components/board";
 import styles from "../mcp-skills.module.css";
 
@@ -273,8 +273,7 @@ export default async function McpSkillsDetailPage({
 
               <div className={styles.detailMeta}>
                 <span className={styles.metaAuthor}>
-                  <Avatar name={resource.author} size="sm" />
-                  <AuthorName name={resource.author} className={styles.authorName} />
+                  <AuthorName name={resource.author} showAvatar className={styles.authorName} />
                 </span>
                 <span className={styles.metaDivider} aria-hidden="true">
                   |
@@ -383,9 +382,8 @@ export default async function McpSkillsDetailPage({
               {resource.reviews.map((review) => (
                 <li key={`${review.author}-${review.date}`} className={styles.reviewItem}>
                   <div className={styles.reviewItemHead}>
-                    <Avatar name={review.author} size="sm" />
                     <div className={styles.reviewItemAuthor}>
-                      <AuthorName name={review.author} />
+                      <AuthorName name={review.author} showAvatar />
                       <span>{review.date}</span>
                     </div>
                     <RatingStars rating={review.rating} className={styles.reviewItemStars} />

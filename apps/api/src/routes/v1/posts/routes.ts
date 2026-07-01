@@ -34,7 +34,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { contentGuard } from "../../../middleware/contentGuard.js";
 import { getPosts, createPost, getDraft, getPostBySlug, updatePost, deletePost, pinPost, toggleRecruitStatus, ForbiddenError, PostNotFoundError, type SortOption } from "./service.js";
 import { uploadPostAttachments, AttachmentValidationError, type UploadedAttachmentData } from "./attachments.service.js";
@@ -134,7 +134,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
   typed.post(
     "/posts",
     {
-      preHandler: [requireAuthHook, contentGuard],
+      preHandler: [requireAuthHook, checkSuspendedHook, contentGuard],
       schema: {
         description:
           "게시글 작성 또는 임시저장. 인증 필수. status='draft' → 임시저장, 기본='published'. notice 게시판은 관리자 세션(aj_admin_session 쿠키) 필수.",
@@ -368,7 +368,7 @@ export async function postsRoutes(app: FastifyInstance): Promise<void> {
   typed.patch(
     "/posts/:id",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description: "게시글 수정. 인증 필수. 작성자만 수정 가능. slug 는 변경되지 않는다 (NFR-8).",
         tags: ["posts"],

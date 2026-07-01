@@ -2,14 +2,15 @@
  * 알림의 targetType + targetId → URL 매핑 헬퍼 (Story 7.2)
  *
  * targetType 별 매핑:
- * - "post"      → null (게시글은 board+slug 정보가 추가로 필요하므로, body의 URL을 사용)
+ * - "post"      → targetId (게시글 알림은 API가 상세 상대경로 "/board/slug"를 targetId에 저장)
  * - "question"  → /questions/{targetId}
  * - "resource"  → /resources/{targetId}
  * - "message"   → /messages
  * - null/기타   → null (클릭 이동 없음)
  *
- * NOTE: post 타입은 board slug 없이는 URL 구성이 불가능하다.
- * 알림 body에 URL이 포함된 경우 그 값을 우선 사용하는 것을 권장한다.
+ * NOTE: post 타입은 board+slug 없이는 URL을 구성할 수 없어, 알림 발행 시점에
+ * API(buildPostDetailPath)가 상세 상대경로를 만들어 targetId에 저장한다.
+ * 구버전 알림(UUID가 저장된 행)은 "/"로 시작하지 않으므로 이동 링크를 띄우지 않는다.
  */
 export function resolveNotificationUrl(
   targetType: string | null,
@@ -27,8 +28,8 @@ export function resolveNotificationUrl(
     case "inquiry":
       return `/inquiries/${targetId}`;
     case "post":
-      // post는 board+slug 정보가 별도 필요. null 반환 → 상위에서 body URL 파싱 시도
-      return null;
+      // API가 저장한 상세 상대경로("/board/slug")면 그대로 이동. 구버전 UUID는 이동 안 함.
+      return targetId.startsWith("/") ? targetId : null;
     default:
       return null;
   }

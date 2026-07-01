@@ -1,0 +1,223 @@
+/* ===========================================================================
+ * LegalPageLayout — 약관·방침 페이지 공통 레이아웃 CSS
+ * 디자인 시스템 토큰(var(--...))만 사용. 하드코딩 금지.
+ * 모바일 브레이크포인트: 767px (--bp-mobile)
+ * =========================================================================== */
+
+/* ── 최상위 main 래퍼 ─────────────────────────────────────────────────── */
+.main {
+  /* SiteHeader(.header) 는 position:sticky; top:0 로 항상 화면 상단에 붙어있고
+     데스크톱 렌더 높이가 85px 이다(측정값, 전용 토큰 없음). 우측 목차가 스크롤 중
+     고정될 때 이 헤더 아래로 내려가 겹치지 않도록 오프셋 기준으로 쓴다. */
+  --legal-header-offset: 85px;
+  background: var(--color-bg);
+  padding-block: var(--space-12);
+  /* clip: 가로 스크롤은 막되 스크롤 컨테이너를 만들지 않아 자식의 position:sticky 를 깨지 않음
+     (overflow-x:hidden 은 overflow-y 를 auto 로 만들어 sticky 를 무력화하는 함정) */
+  overflow-x: clip;
+}
+
+/* ── 컨테이너 (본문 + 우측 목차 사이드바 수용 폭, 중앙 정렬) ─────────── */
+.container {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+/* ── 좌측 본문 카드 ──────────────────────────────────────────────────── */
+.article {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10);
+  min-width: 0; /* grid overflow 방지 */
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── 헤더: H1 + 메타 ─────────────────────────────────────────────────── */
+.header {
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-8);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  margin: 0;
+}
+
+/* ── 2컬럼 레이아웃: 본문(좌) + 목차(우) ─────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* ── 목차(ToC): 우측 흰 배경 박스, 스크롤 추종(sticky) ────────────────── */
+.toc {
+  position: sticky;
+  /* 고정 헤더(--legal-header-offset) 바로 아래 + 20px(--space-5) 간격을 두고 멈춘다.
+     top 값이 헤더 높이만큼 커지므로 스크롤 중 더 일찍 고정된다. */
+  top: calc(var(--legal-header-offset) + var(--space-5));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  /* 고정 시 뷰포트 안에 들어오도록: 헤더 오프셋 + 상단 간격 + 하단 여백 제외 */
+  max-height: calc(100vh - var(--legal-header-offset) - var(--space-5) - var(--space-8));
+  overflow-y: auto;
+}
+
+.tocTitle {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3) 0;
+}
+
+.tocList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tocLink {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  line-height: var(--line-height-snug);
+  transition: color 0.15s, background 0.15s;
+}
+
+.tocLink:hover,
+.tocLink:focus-visible {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  outline: none;
+}
+
+/* ── 본문 영역 ───────────────────────────────────────────────────────── */
+.body {
+  min-width: 0; /* grid overflow 방지 */
+}
+
+/* ── 각 섹션 ─────────────────────────────────────────────────────────── */
+.section {
+  margin-bottom: var(--space-10);
+  scroll-margin-top: var(--space-8); /* 앵커 링크 이동 시 헤더 여백 확보 */
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionHeading {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  line-height: var(--line-height-snug);
+  margin: 0 0 var(--space-4) 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ── 섹션 본문 내부 요소 (dangerouslySetInnerHTML 대상) ───────────────── */
+.sectionBody {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: var(--line-height-relaxed);
+}
+
+.sectionBody p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.sectionBody p:last-child {
+  margin-bottom: 0;
+}
+
+.sectionBody ol,
+.sectionBody ul {
+  margin: var(--space-2) 0 var(--space-3) var(--space-6);
+  padding: 0;
+}
+
+.sectionBody li {
+  margin-bottom: var(--space-1);
+  line-height: var(--line-height-relaxed);
+}
+
+.sectionBody strong {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.sectionBody table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.sectionBody th,
+.sectionBody td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.sectionBody th {
+  background: var(--color-neutral-soft);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── 모바일(<768px): 목차 static, 1컬럼 ─────────────────────────────── */
+@media (max-width: 767px) {
+  .main {
+    padding-block: var(--space-6);
+  }
+
+  .container {
+    padding-inline: var(--space-4);
+  }
+
+  .article {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .title {
+    font-size: var(--font-size-xl);
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .toc {
+    position: static;
+    order: -1; /* 모바일에서는 목차를 본문 위로 */
+    max-height: none;
+    overflow-y: visible;
+  }
+}

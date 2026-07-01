@@ -247,6 +247,33 @@
   /* 특별한 오버라이드 없음: FollowButton.module.css 기본값 그대로 사용 */
 }
 
+/* 신고하기 버튼 (타인 프로필에서만 노출) */
+.reportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  padding: 0 18px;
+  color: var(--color-text-sub);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.reportBtn:hover {
+  background: var(--color-danger-soft, rgba(239, 68, 68, 0.08));
+  border-color: var(--color-danger, #ef4444);
+  color: var(--color-danger, #ef4444);
+}
+
 /* ══════════════════════════════════════════════════════════
    본문 콘텐츠 (작성 글 목록 + 오너 패널)
    ══════════════════════════════════════════════════════════ */

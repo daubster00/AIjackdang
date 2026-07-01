@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthorName, Avatar, Icon } from "@/components/ui";
+import { AuthorName, Icon } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { ReportModal } from "../../vibe-coding/[slug]/ReportModal";
 import styles from "../questions.module.css";
@@ -224,11 +224,10 @@ export function AnswerItem({
 
       <div className={styles.answerMain}>
         <div className={styles.answerHead}>
-          <Avatar name={nickname} src={avatarUrl} size="sm" />
           <div className={styles.answerAuthorInfo}>
             <strong>
               {/* AuthorName: 닉네임 링크 + 등급 뱃지 */}
-              <AuthorName name={nickname} authorId={answer.author?.id} />
+              <AuthorName name={nickname} authorId={answer.author?.id} avatarUrl={avatarUrl} />
             </strong>
             <span>
               {new Date(answer.createdAt).toLocaleDateString("ko-KR", {

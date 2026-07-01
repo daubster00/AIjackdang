@@ -14,7 +14,7 @@
 
 import { dbBoardToAdminSlug } from "./boards";
 
-export type ContentTargetType = "post" | "question" | "answer" | "resource" | "comment";
+export type ContentTargetType = "post" | "question" | "answer" | "resource" | "comment" | "user";
 
 /**
  * targetType + targetId 를 받아 어드민 관리 화면 URL 을 반환한다.
@@ -41,6 +41,8 @@ export function getCrossLink(
       return `/resources/${targetId}`;
     case "comment":
       return `/comments/${targetId}`;
+    case "user":
+      return `/members/${targetId}`;
     default:
       return null;
   }

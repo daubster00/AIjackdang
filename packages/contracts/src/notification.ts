@@ -34,7 +34,8 @@ export const notificationSchema = z.object({
   userId: z.string().uuid(),
   type: notificationTypeSchema,
   targetType: z.string().nullable(),
-  targetId: z.string().uuid().nullable(),
+  // targetId: 게시글/댓글은 UUID, 질문은 slug 문자열 → uuid 강제 불가 (0026 마이그레이션 정합화)
+  targetId: z.string().nullable(),
   title: z.string(),
   body: z.string(),
   isRead: z.boolean(),
@@ -51,7 +52,8 @@ export type Notification = z.infer<typeof notificationSchema>;
 export const notificationEventPayloadSchema = z.object({
   type: notificationTypeSchema,
   targetType: z.string().optional(),
-  targetId: z.string().uuid().optional(),
+  // targetId: 게시글/댓글은 UUID, 질문은 slug 문자열 (0026 마이그레이션 정합화)
+  targetId: z.string().optional(),
   title: z.string(),
   body: z.string(),
   /** insert 후 채워짐 — PUBLISH 시 포함 */
@@ -65,7 +67,8 @@ export type NotificationEventPayload = z.infer<typeof notificationEventPayloadSc
 export const createNotificationSchema = z.object({
   type: notificationTypeSchema,
   targetType: z.string().optional(),
-  targetId: z.string().uuid().optional(),
+  // targetId: 게시글/댓글은 UUID, 질문은 slug 문자열 (0026 마이그레이션 정합화)
+  targetId: z.string().optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });

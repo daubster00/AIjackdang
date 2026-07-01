@@ -18,7 +18,7 @@ import { randomInt } from "node:crypto";
 import { env } from "@ai-jakdang/config";
 import { getDb } from "@ai-jakdang/database";
 import * as schema from "@ai-jakdang/database/schema";
-import { generateNicknameWithFallback, DEFAULT_AVATAR_COUNT } from "@ai-jakdang/core";
+import { generateNicknameWithFallback, DEFAULT_AVATAR_COUNT, CURRENT_TERMS_VERSION } from "@ai-jakdang/core";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -44,7 +44,6 @@ const argon2idHasher = {
   },
 };
 
-const TERMS_VERSION = "2026-06" as const;
 const MAX_NICKNAME_RETRIES = 15 as const;
 
 /**
@@ -187,7 +186,7 @@ export const userAuth = betterAuth({
               nickname,
               defaultAvatarIndex,
               termsAgreedAt,
-              termsVersion: TERMS_VERSION,
+              termsVersion: CURRENT_TERMS_VERSION,
             },
           };
         },

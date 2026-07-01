@@ -1,6 +1,6 @@
 # Story 12.1: 회원 신고 대상·사유 — 스키마·계약·신고 API 확장 (Foundation)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

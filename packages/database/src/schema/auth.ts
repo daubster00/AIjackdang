@@ -67,6 +67,9 @@ export const users = pgTable(
     status: userStatus("status").notNull().default("active"),
     suspendedUntil: timestamp("suspended_until", { withTimezone: true }),
 
+    /** 봇 계정 여부 (Epic 11 시딩 봇). true 면 통계·랭킹 제외 필터의 기준이 된다. */
+    isBot: boolean("is_bot").notNull().default(false),
+
     // 회원정보 (수정요청 F — 휴대폰 필수, 성별·생년월일 선택)
     /** 휴대폰 번호. 회원정보 화면에서 필수 입력(기존 사용자는 null 가능). */
     phone: text("phone"),

@@ -14,6 +14,7 @@ import { eq, and, desc } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 import { errorResponseSchema } from "@ai-jakdang/contracts";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -139,6 +140,7 @@ export async function blocksRoutes(app: FastifyInstance) {
                 id: z.string().uuid(),
                 blockedId: z.string().uuid(),
                 nickname: z.string(),
+                avatarUrl: z.string(),
                 createdAt: z.string(),
               }),
             ),
@@ -157,6 +159,9 @@ export async function blocksRoutes(app: FastifyInstance) {
           id: schema.blocks.id,
           blockedId: schema.blocks.blockedId,
           nickname: schema.users.nickname,
+          avatarUrl: schema.users.avatarUrl,
+          image: schema.users.image,
+          defaultAvatarIndex: schema.users.defaultAvatarIndex,
           createdAt: schema.blocks.createdAt,
         })
         .from(schema.blocks)
@@ -171,6 +176,7 @@ export async function blocksRoutes(app: FastifyInstance) {
           id: r.id,
           blockedId: r.blockedId,
           nickname: r.nickname,
+          avatarUrl: r.avatarUrl || r.image || getDefaultAvatarUrl(r.defaultAvatarIndex ?? 0),
           createdAt: r.createdAt.toISOString(),
         })),
         meta: { page, pageSize },

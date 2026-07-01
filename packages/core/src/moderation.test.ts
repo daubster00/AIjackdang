@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveReportAction, detectForbiddenWord, detectSpam } from "./moderation";
+import { deriveReportAction, detectForbiddenWord, detectSpam, maskForbiddenWord } from "./moderation";
 
 describe("deriveReportAction", () => {
   describe("threshold <= 0 (임계치 미설정)", () => {
@@ -96,6 +96,43 @@ describe("detectForbiddenWord", () => {
     it("빈 문자열 금칙어 항목은 탐지하지 않음", () => {
       expect(detectForbiddenWord("아무 내용", [""])).toBe(false);
     });
+  });
+});
+
+// ── maskForbiddenWord ─────────────────────────────────────────────────────────
+
+describe("maskForbiddenWord", () => {
+  it("금칙어 목록이 비면 원본 그대로", () => {
+    expect(maskForbiddenWord("아무 내용", [])).toBe("아무 내용");
+  });
+
+  it("금칙어가 없으면 원본 그대로", () => {
+    expect(maskForbiddenWord("안녕하세요 좋은 하루", ["욕설", "광고"])).toBe("안녕하세요 좋은 하루");
+  });
+
+  it("금칙어를 같은 길이의 '*'로 치환", () => {
+    // '씨발'(2자) → '**'
+    expect(maskForbiddenWord("이런 씨발 글", ["씨발"])).toBe("이런 ** 글");
+  });
+
+  it("같은 금칙어가 여러 번 나오면 모두 치환", () => {
+    expect(maskForbiddenWord("욕설 그리고 또 욕설", ["욕설"])).toBe("** 그리고 또 **");
+  });
+
+  it("대소문자 무시 — 원문 대문자도 치환", () => {
+    expect(maskForbiddenWord("This is SPAM here", ["spam"])).toBe("This is **** here");
+  });
+
+  it("단어 경계 없이 중간 포함도 치환", () => {
+    expect(maskForbiddenWord("앞부분욕설뒷부분", ["욕설"])).toBe("앞부분**뒷부분");
+  });
+
+  it("빈 문자열 금칙어 항목은 무시", () => {
+    expect(maskForbiddenWord("아무 내용", [""])).toBe("아무 내용");
+  });
+
+  it("정규식 메타문자가 들어간 금칙어도 리터럴로 치환", () => {
+    expect(maskForbiddenWord("가격 1+1 이벤트", ["1+1"])).toBe("가격 *** 이벤트");
   });
 });
 

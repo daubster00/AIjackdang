@@ -180,16 +180,18 @@ export function ReactionBar({
           <Icon name={liked ? "heart-3-fill" : "heart-3-line"} />
           좋아요 {likeCount}
         </button>
-        <button
-          type="button"
-          className={bookmarked ? styles.reactionBarBtnActive : undefined}
-          onClick={() => void toggleBookmark()}
-          aria-pressed={bookmarked}
-          aria-label="북마크"
-        >
-          <Icon name={bookmarked ? "bookmark-fill" : "bookmark-line"} />
-          북마크 {bookmarkCount}
-        </button>
+        {!isSelf && (
+          <button
+            type="button"
+            className={bookmarked ? styles.reactionBarBtnActive : undefined}
+            onClick={() => void toggleBookmark()}
+            aria-pressed={bookmarked}
+            aria-label="북마크"
+          >
+            <Icon name={bookmarked ? "bookmark-fill" : "bookmark-line"} />
+            북마크
+          </button>
+        )}
 
         <div className={styles.shareDropdownWrapper} ref={shareRef}>
           <button

@@ -207,6 +207,46 @@ export async function getPosts({
     tagMap.set(targetId, existing);
   }
 
+  // likeCount 배치 집계 — reactions 테이블 실집계 (N+1 방지)
+  const likeCountRows = await db
+    .select({
+      targetId: schema.reactions.targetId,
+      cnt: sql<number>`cast(count(*) as int)`,
+    })
+    .from(schema.reactions)
+    .where(
+      and(
+        eq(schema.reactions.targetType, "post"),
+        eq(schema.reactions.reactionType, "like"),
+        inArray(schema.reactions.targetId, postIds),
+      ),
+    )
+    .groupBy(schema.reactions.targetId);
+
+  const likeCountMap = new Map<string, number>(
+    likeCountRows.map((r) => [r.targetId, r.cnt]),
+  );
+
+  // commentCount 배치 집계 — visible 댓글만 집계 (N+1 방지)
+  const commentCountRows = await db
+    .select({
+      targetId: schema.comments.targetId,
+      cnt: sql<number>`cast(count(*) as int)`,
+    })
+    .from(schema.comments)
+    .where(
+      and(
+        eq(schema.comments.targetType, "post"),
+        eq(schema.comments.status, "visible"),
+        inArray(schema.comments.targetId, postIds),
+      ),
+    )
+    .groupBy(schema.comments.targetId);
+
+  const commentCountMap = new Map<string, number>(
+    commentCountRows.map((r) => [r.targetId, r.cnt]),
+  );
+
   // ── PostCard 조립 ─────────────────────────────────────────────────────────────
   const items: PostCard[] = rows.map((row) => ({
     id: row.id,
@@ -220,8 +260,8 @@ export async function getPosts({
       : null,
     createdAt: row.createdAt.toISOString(),
     viewCount: row.viewCount,
-    commentCount: 0, // Epic 5 이전 고정
-    likeCount: 0, // Epic 5 이전 고정
+    commentCount: commentCountMap.get(row.id) ?? 0,
+    likeCount: likeCountMap.get(row.id) ?? 0,
     hasAttachment: attachmentPostIds.has(row.id),
     isPinned: row.isPinned, // Story 2.9: 공지 핀 고정 여부
     tags: tagMap.get(row.id) ?? [],
@@ -993,6 +1033,30 @@ export async function getPostBySlug(
     url: a.fileUrl,
   }));
 
+  // likeCount 집계 — reactions 테이블 실집계
+  const [likeCountResult] = await db
+    .select({ cnt: sql<number>`cast(count(*) as int)` })
+    .from(schema.reactions)
+    .where(
+      and(
+        eq(schema.reactions.targetType, "post"),
+        eq(schema.reactions.targetId, row.id),
+        eq(schema.reactions.reactionType, "like"),
+      ),
+    );
+
+  // commentCount 집계 — visible 댓글만 집계
+  const [commentCountResult] = await db
+    .select({ cnt: sql<number>`cast(count(*) as int)` })
+    .from(schema.comments)
+    .where(
+      and(
+        eq(schema.comments.targetType, "post"),
+        eq(schema.comments.targetId, row.id),
+        eq(schema.comments.status, "visible"),
+      ),
+    );
+
   // contentHtml — Tiptap JSON → HTML + sanitize-html 화이트리스트 (Story 2.6)
   const contentHtml = tiptapJsonToHtml(row.contentJson);
 
@@ -1094,8 +1158,8 @@ export async function getPostBySlug(
     summary: row.summary ?? null,
     board: row.board,
     viewCount: row.viewCount,
-    commentCount: 0, // Epic 5 이전 고정
-    likeCount: 0,    // Epic 5 이전 고정
+    commentCount: commentCountResult?.cnt ?? 0,
+    likeCount: likeCountResult?.cnt ?? 0,
     hasAttachment: attachments.length > 0,
     attachments,
     createdAt: row.createdAt.toISOString(),

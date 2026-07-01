@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "./resource-write.module.css";
 
 /**
@@ -42,6 +43,7 @@ function extOf(name: string): string {
 }
 
 export function ResourceWriteForm() {
+  const { resourceExtensions, toAccept } = useUploadConfig();
   const [type, setType] = useState<string>("rule");
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -58,15 +60,15 @@ export function ResourceWriteForm() {
       setFileError(null);
       const next: AttachedFile[] = [];
       for (const file of Array.from(incoming)) {
-        if (!ALLOWED_EXTS.includes(extOf(file.name))) {
-          setFileError(`허용되지 않는 형식입니다: .${extOf(file.name)} (가능: ${ALLOWED_EXTS.join(", ")})`);
+        if (!resourceExtensions.includes(extOf(file.name)) && !ALLOWED_EXTS.includes(extOf(file.name))) {
+          setFileError(`허용되지 않는 형식입니다: .${extOf(file.name)} (가능: ${resourceExtensions.join(", ")})`);
           continue;
         }
         next.push({ name: file.name, size: formatSize(file.size) });
       }
       setFiles((prev) => [...prev, ...next].slice(0, MAX_FILES));
     },
-    [],
+    [resourceExtensions],
   );
 
   function removeFile(index: number) {
@@ -207,14 +209,14 @@ export function ResourceWriteForm() {
           <Icon name="upload-cloud-2-line" className={styles.dropzoneIcon} />
           <strong>파일을 끌어다 놓거나 클릭해서 선택하세요</strong>
           <span className={styles.dropzoneHint}>
-            가능한 형식: {ALLOWED_EXTS.map((e) => `.${e}`).join(" ")} · 최대 {MAX_FILES}개
+            가능한 형식: {resourceExtensions.map((e) => `.${e}`).join(" ")} · 최대 {MAX_FILES}개
           </span>
           <input
             ref={fileInputRef}
             type="file"
             multiple
             className={styles.fileInput}
-            accept={ALLOWED_EXTS.map((e) => `.${e}`).join(",")}
+            accept={toAccept(resourceExtensions)}
             onChange={(e) => addFiles(e.target.files)}
           />
         </div>

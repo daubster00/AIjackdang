@@ -30,6 +30,7 @@ import {
   hidePost,
   restorePost,
   deletePost,
+  purgePost,
   updatePostSeo,
   bulkPostAction,
 } from "./service.js";
@@ -317,6 +318,31 @@ export async function registerAdminPostsRoutes(app: FastifyInstance): Promise<vo
       return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
     }
   });
+
+  // ── DELETE /api/v1/admin/posts/:id/purge — 영구삭제 (super_admin, 휴지통 전용) ──
+  // :id 보다 먼저 등록해야 Fastify 가 /purge 세그먼트를 별도 경로로 처리한다.
+  app.delete(
+    "/admin/posts/:id/purge",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      try {
+        const result = await purgePost(id);
+        return reply.send(result);
+      } catch (err: unknown) {
+        const e = err as Error & { code?: string };
+        if (e.code === "NOT_FOUND") {
+          return reply.status(404).send({ error: { code: "NOT_FOUND", message: e.message } });
+        }
+        if (e.code === "FORBIDDEN_STATE") {
+          return reply.status(400).send({ error: { code: "FORBIDDEN_STATE", message: e.message } });
+        }
+        request.log.error(err);
+        return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
+      }
+    },
+  );
 
   // ── DELETE /api/v1/admin/posts/:id — super_admin 전용 ───────────────────────
   app.delete(

@@ -1,6 +1,6 @@
 # Story 12.3: 신고 누적(처리완료 기준) 집계 · 작성자 귀속 · 회원 상세 피신고 이력
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

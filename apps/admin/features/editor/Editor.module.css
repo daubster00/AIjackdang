@@ -245,6 +245,7 @@
 
 .editorContent :global(.ProseMirror pre) {
   background: #1e1e1e;
+  border: 1px solid #2d2d2d;
   border-radius: var(--radius-sm);
   padding: 16px;
   margin: 0 0 12px;
@@ -256,13 +257,14 @@
   font-size: 13px;
   background: none;
   padding: 0;
-  color: #d4d4d4;
+  color: #e4e4e7;
 }
 
 .editorContent :global(.ProseMirror code) {
-  background: var(--gray-100);
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
   border-radius: var(--radius-sm);
-  padding: 0 4px;
+  padding: 1px 4px;
   font-family: var(--font-sans);
   font-size: 13px;
 }

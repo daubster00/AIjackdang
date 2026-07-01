@@ -57,6 +57,9 @@ export * from "./admin/reports";
 // ── 접속통계·방문로그 (Analytics) ────────────────────────────────────────────
 export * from "./admin/analytics";
 
+// ── 시딩 봇 (Epic 11) ─────────────────────────────────────────────────────────
+export * from "./bot";
+
 // ── gamification ──────────────────────────────────────────────────────────────
 export {
   gradeSchema,

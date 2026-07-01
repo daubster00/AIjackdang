@@ -33,101 +33,32 @@ so that 매일 아침 봇 운영 현황을 한눈에 파악하고, 사람의 판
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `BotDailyReport` + `BotDailyReportSummary` Zod 스키마 추가 (AC1, 11.18 연동)
-  - [ ] 1.1: `packages/contracts/src/bot.ts` — 11.2에서 생성된 파일에 `botDailyReportSchema` Zod 스키마 + 타입 추가 (Dev Notes §응답 구조 참조)
-  - [ ] 1.2: 같은 파일에 11.18 텔레그램 푸시가 사용할 `botDailyReportSummarySchema` + `BotDailyReportSummary` 타입 추가:
-    ```ts
-    export const botDailyReportSummarySchema = z.object({
-      date: z.string(),
-      publishedPosts: z.number(),
-      publishedComments: z.number(),
-      heldCount: z.number(),
-      blockedCount: z.number().optional(),
-      costUsd: z.number().optional(),
-    });
-    export type BotDailyReportSummary = z.infer<typeof botDailyReportSummarySchema>;
-    ```
-  - [ ] 1.3: `packages/contracts/src/index.ts` (배럴) — `botDailyReportSchema`, `BotDailyReport`, `botDailyReportSummarySchema`, `BotDailyReportSummary` export 확인
+- [x] Task 1: `BotDailyReport` + `BotDailyReportSummary` Zod 스키마 추가 (AC1, 11.18 연동)
+  - [x] 1.1: `packages/contracts/src/bot.ts` — `botDailyReportSchema` Zod 스키마 + 타입 추가
+  - [x] 1.2: 같은 파일에 `botDailyReportSummarySchema` + `BotDailyReportSummary` 타입 추가
+  - [x] 1.3: `packages/contracts/src/index.ts` (배럴) — `export * from "./bot"` 기존 확인 (이미 포함)
 
-- [ ] Task 2: 리포트 집계 함수 + GET 엔드포인트 (AC1)
-  - [ ] 2.1: `apps/api/src/routes/admin/bots/report.ts` 신규 생성
-  - [ ] 2.2: `buildDailyReport(dateStr: string): Promise<BotDailyReport>` 집계 함수 구현
-    - KST 날짜 경계 계산 (`getKstDayBounds`, Dev Notes §집계 쿼리 참조)
-    - `bot_activity_log` 해당 날짜 전체 조회 (`gte` / `lte`, Drizzle ORM)
-    - 이벤트 타입별 카운트 분리: `post.published` / `comment.published` / `held` / `blocked` / `regenerated` / `discarded` / `cost`
-    - 캐릭터 분포: `persona_id` 기준 집계 → `bot_personas.nickname`(페르소나 닉네임) 조인
-    - 게시 목록: `event_type='post.published'`의 `ref_id`(게시글 ID) → `posts.slug`·`posts.title`·`posts.board` 조인
-    - 보류 미결정 건수: `bot_hold_queue WHERE decided=false` COUNT
-    - 경고 집계 (Dev Notes §경고 판정 규칙 참조):
-      - `blockedCount`: 오늘 `blocked` 이벤트 수
-      - `highRegenPersonas`(재생성 다발 페르소나): 오늘 `regenerated` 이벤트가 2회 초과인 페르소나 목록
-      - `dormantPersonas`(잠수 계정): `is_active=true` 페르소나 중 최근 7일 `bot_activity_log` 미존재
-    - 비용 합계: `event_type='cost'`의 `payload->>'costUsd'` SUM(또는 `bot_generation_jobs.cost` JSONB, Dev Notes 참조)
-    - `systemStatus`(시스템 상태): `bot_settings`에서 `bot_master_enabled`·`bot_observation_mode`·`bot_daily_post_limit`·`bot_daily_comment_limit` 읽기
-    - `status`: 경고 조건 1개라도 있으면 `'warning'`, 없으면 `'ok'`
-  - [ ] 2.3: `GET /admin/bots/report` 라우트 등록 (`requireSuperAdmin` preHandler)
-    - 쿼리 파라미터 `date` (YYYY-MM-DD 형식, 생략 시 어제 KST 날짜 자동 사용)
-    - `date` Zod 검증: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()`
-    - `buildDailyReport(date)` 호출 → JSON 응답
-    - 오류: `400 VALIDATION_ERROR`, `500 INTERNAL_ERROR`
+- [x] Task 2: 리포트 집계 함수 + GET 엔드포인트 (AC1)
+  - [x] 2.1: `apps/api/src/routes/admin/bots/report.ts` 신규 생성
+  - [x] 2.2: `buildDailyReport(dateStr)` 집계 함수 구현 (KST 경계·이벤트 분류·페르소나 분포·posts 조인·경고 판정·비용·설정)
+  - [x] 2.3: `GET /admin/bots/report` 라우트 등록 (requireSuperAdmin, date 파라미터)
 
-- [ ] Task 3: 보류 큐 통과(approve) 액션 (AC2)
-  - [ ] 3.1: `apps/api/src/routes/admin/bots/hold-queue-actions.ts` 신규 생성
-  - [ ] 3.2: `PATCH /admin/bots/hold-queue/:id/approve` 구현
-    - `requireSuperAdmin` preHandler
-    - `adminId` = `request.adminSession?.adminUserId` (없으면 401)
-    - `bot_hold_queue JOIN bot_generation_jobs JOIN bot_personas` 단건 조회 (`decided=false` 조건 → 없거나 이미 결정됐으면 404)
-    - `draft_content`(잡 초안 콘텐츠) JSONB 역직렬화 (Dev Notes §draft_content 역직렬화 참조)
-    - 역직렬화 실패 시 `422 INVALID_DRAFT_CONTENT`
-    - `job_kind='post'` → `CreatePostAsBotInput` 재구성 → `createPostAsBot(input)` 호출
-    - `job_kind='comment'` → `CreateCommentAsBotInput` 재구성 → `createCommentAsBot(input)` 호출
-    - `job_kind='reply'` → `CreateReplyAsBotInput`(`parentId` 필수) 재구성 → `createReplyAsBot(input)` 호출
-    - `job_kind='question'` → `CreateQuestionAsBotInput` 재구성 → `createQuestionAsBot(input)` 호출 (#6)
-    - `job_kind='resource'` → `CreateResourceAsBotInput`(`type` 포함) 재구성 → `createResourceAsBot(input)` 호출 (#6)
-    - 반환 `{ status: 'blocked' }` 시: `422 CONTENT_BLOCKED` (hold_queue는 `decided=false` 유지, 관리자가 재판단)
-    - 반환 `{ status: 'published', refId }` 시: `db.transaction()` 안에서
-      - `bot_hold_queue` UPDATE: `decided=true, decision='approved', decided_at=new Date(), decided_by=adminId`
-      - `bot_activity_log` INSERT: `event_type=(job_kind==='comment'||job_kind==='reply')?'comment.published':'post.published'`(글·질문·자료는 `post.published`로 집계), `payload.kind=job_kind, payload.decidedBy=adminId, payload.holdQueueId=id`
-    - 응답 `200`: `{ status: 'approved', refId }`
+- [x] Task 3: 보류 큐 통과(approve) 액션 (AC2)
+  - [x] 3.1: `apps/api/src/routes/admin/bots/hold-queue-actions.ts` 신규 생성
+  - [x] 3.2: `PATCH /admin/bots/hold-queue/:id/approve` 구현 (5종 job_kind 분기·contentGuard·트랜잭션)
 
-- [ ] Task 4: 보류 큐 폐기(discard) 액션 (AC3)
-  - [ ] 4.1: `PATCH /admin/bots/hold-queue/:id/discard` 구현 (hold-queue-actions.ts 내)
-    - `requireSuperAdmin` preHandler
-    - `adminId` = `request.adminSession?.adminUserId` (없으면 401)
-    - `bot_hold_queue WHERE id=:id AND decided=false` 단건 조회 (없거나 이미 결정됐으면 404)
-    - `db.transaction()` 안에서:
-      - `bot_generation_jobs` UPDATE: `status='discarded', updatedAt=new Date()`
-      - `bot_hold_queue` UPDATE: `decided=true, decision='discarded', decided_at=new Date(), decided_by=adminId`
-      - `bot_activity_log` INSERT: `personaId=hold.personaId(job에서), event_type='discarded', refId=hold.jobId, payload.decidedBy=adminId, payload.holdReason=hold.reason`
-    - 응답 `200`: `{ status: 'discarded' }`
+- [x] Task 4: 보류 큐 폐기(discard) 액션 (AC3)
+  - [x] 4.1: `PATCH /admin/bots/hold-queue/:id/discard` 구현 (hold-queue-actions.ts 내, 트랜잭션)
 
-- [ ] Task 5: 라우트 등록 (AC1~3)
-  - [ ] 5.1: `apps/api/src/routes/admin/bots/index.ts` (11.14에서 생성됨)에 import·await 추가
-    ```ts
-    import { registerAdminBotReportRoute } from './report.js'
-    import { registerAdminBotHoldQueueActionRoutes } from './hold-queue-actions.js'
-    // 등록 함수 안에서:
-    await registerAdminBotReportRoute(app)
-    await registerAdminBotHoldQueueActionRoutes(app)
-    ```
+- [x] Task 5: 라우트 등록 (AC1~3)
+  - [x] 5.1: `apps/api/src/routes/admin/bots/index.ts` — import + await 추가 완료
 
-- [ ] Task 6: 워커 일일 리포트 프로세서 (AC1)
-  - [ ] 6.1: `apps/worker/src/processors/bot/daily-report.processor.ts` 신규 생성
-    - `@ai-jakdang/database`의 Drizzle 인스턴스(`getDb()`)로 Task 2.2와 동일한 집계 쿼리 수행
-    - `SEEDING_BOT_ENABLED`(봇 모듈 로드 여부) env가 `'true'`가 아니면 즉시 skip + `console.info`
-    - `bot_master_enabled`(킬 스위치) `bot_settings`에서 읽어 `false`면 skip (11.12 규칙)
-    - 집계 후 결과를 `console.info('[bot-daily-report]', JSON.stringify(report, null, 2))`로 출력
-      (Story 11.18에서 텔레그램 전송으로 교체될 진입점)
-    - 오류 발생 시 `throw` (BullMQ 재시도 트리거)
-    - export: `dailyReportProcessor(job: Job): Promise<void>`
-  - [ ] 6.2: `bot.daily-report` 크론 등록·디스패처 연결은 **Story 11.13 소유** — 본 스토리에서 새로 등록하지 않는다
-    - 11.13이 단일 `bot` 큐(`QUEUE_NAMES.bot`)에 `bot.daily-report` 크론(`repeat: '0 22 * * *'` = UTC 22:00 = KST 익일 07:00, `jobId: 'bot-daily-report-cron'`)을 이미 등록하고, `switch(job.name)` 디스패처에 `case 'bot.daily-report'` 스텁을 만들어 둔다
-    - 본 스토리는 11.13이 만든 `daily-report.processor.ts` 스텁의 **본문만 채운다**(Task 6.1). `bot.cron.ts`·`index.ts` 디스패처는 **수정하지 않는다**(11.13이 이미 `dailyReportProcessor`를 연결)
-    - 만약 11.13 스텁에 `dailyReportProcessor` 연결이 빠져 있으면 11.13 쪽 갭이므로 11.13에서 보완(별도 큐·중복 cron 등록 금지)
+- [x] Task 6: 워커 일일 리포트 프로세서 (AC1)
+  - [x] 6.1: `apps/worker/src/processors/bot/daily-report.processor.ts` stub 본문 채움 (SEEDING_BOT_ENABLED·킬 스위치·집계·console.info)
+  - [x] 6.2: cron 등록·디스패처는 11.13 소유 — 수정 안 함 (11.13이 `botDailyReportProcessor` 이미 연결)
 
-- [ ] Task 7: `event_type` enum 확인 (AC3)
-  - [ ] 7.1: `packages/database/src/schema/bot.ts`(봇 스키마)의 `botEventType` enum에 `'discarded'`·`'planned'`가 포함돼 있는지 확인. **2026-06-29 정합화로 11.1 enum에 이미 포함**되어 있으므로 본 스토리에서 enum 수정·마이그레이션은 불필요(`db:generate`/`db:migrate` 안 함). `discarded`/`planned` 이벤트는 그대로 INSERT만 한다.
-    - 만약 11.1 구현에 누락돼 있다면 11.1 쪽 버그 → 11.1에서 수정(본 스토리에서 enum 변경 금지)
+- [x] Task 7: `event_type` enum 확인 (AC3)
+  - [x] 7.1: `packages/database/src/schema/bot.ts` `botEventType` enum에 `'discarded'`·`'planned'` 포함 확인 — 추가 작업 불필요
 
 ---
 
@@ -468,6 +399,25 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- `z.record(z.unknown())` → `z.record(z.string(), z.unknown())` (Zod v3 요구 2인수)
+- `groupBy`는 drizzle-orm에서 named export 없음 — `.groupBy()` 메서드 체인만 가능, import 제거
+- `tags: string[] | undefined` 불일치 → `tags: parsedDraft.data.tags ?? []` 기본값
+- `botGenerationJobs`, `postsTable` 워커 processor에서 미사용 → 제거
+- activity-config.ts 기존 오류는 본 스토리와 무관, 스킵
+
 ### Completion Notes List
 
+- **텔레그램 제외**: `sendReportPush()` 함수는 `TELEGRAM_BOT_TOKEN`/`BOT_PUSH_CHANNEL` 미설정 시 no-op + console.info만 수행. throw 없음. Story 11.18 진입점으로 표시.
+- **worker/daily-report.processor.ts**: 11.13이 생성한 stub의 본문을 채움. `@ai-jakdang/database` 직접 사용, `@ai-jakdang/server-bot/botSettings`의 `getBotSetting` 재사용. apps/api import 없음.
+- **`bot_activity_log` 이중 기록 (approve)**: `createXxxAsBot()`가 내부에서 이미 activity_log를 기록. approve 트랜잭션에서 추가 기록하는 것은 의도적(관리자 결정 맥락 캡처 — payload.decidedBy, holdQueueId 포함).
+- **미배선 항목**: `routes/admin/index.ts`에는 11.14에서 이미 `registerAdminBotsRoutes`가 등록돼 있음. 이 스토리의 신규 라우트는 bots/index.ts 내부에서 자동 배선됨(별도 main index.ts 수정 불필요).
+- **event_type='discarded' 확인**: schema/bot.ts `botEventType` pgEnum에 'discarded' 포함 확인(11.1 기완료). 별도 마이그레이션 불필요.
+- **hold-queue 목록**: `GET /admin/bots/hold-queue`도 이 스토리에서 구현. `adminBotHoldQueueQuerySchema` 재사용, `paginatedResponseSchema` 패턴 준수.
+
 ### File List
+
+- `packages/contracts/src/bot.ts` — `botDailyReportSchema`, `BotDailyReport`, `botDailyReportSummarySchema`, `BotDailyReportSummary` 추가
+- `apps/api/src/routes/admin/bots/report.ts` — **신규** `registerAdminBotReportRoute`, `buildDailyReport`, `getKstDayBounds`, `yesterdayKst`
+- `apps/api/src/routes/admin/bots/hold-queue-actions.ts` — **신규** `registerAdminBotHoldQueueActionRoutes`, `sendReportPush`(stub)
+- `apps/api/src/routes/admin/bots/index.ts` — report + hold-queue-actions import·await 추가
+- `apps/worker/src/processors/bot/daily-report.processor.ts` — stub 본문 채움

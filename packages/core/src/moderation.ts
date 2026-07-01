@@ -46,6 +46,36 @@ export function detectForbiddenWord(
   return forbiddenList.some((word) => word.length > 0 && lower.includes(word.toLowerCase()));
 }
 
+/** 정규식 메타문자를 이스케이프한다(금칙어를 리터럴로 매칭하기 위함). */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 콘텐츠에서 금칙어를 같은 길이의 별표('*')로 치환해 돌려준다.
+ *
+ * - 글 등록을 막지 않고(하드 차단 폐기), 금칙어만 가린다(네이버 댓글 방식).
+ * - 대소문자를 구분하지 않으며, 각 금칙어가 나타나는 모든 위치를 치환한다.
+ * - 치환 길이는 금칙어 글자 수와 동일(예: "씨발" → "**").
+ *
+ * @param content       원본 텍스트
+ * @param forbiddenList 금칙어 문자열 배열 (site_settings에서 조회)
+ * @returns 금칙어가 가려진 텍스트(금칙어가 없으면 원본 그대로)
+ */
+export function maskForbiddenWord(
+  content: string,
+  forbiddenList: string[],
+): string {
+  if (!content || forbiddenList.length === 0) return content;
+  let result = content;
+  for (const word of forbiddenList) {
+    if (!word || word.length === 0) continue;
+    const re = new RegExp(escapeRegExp(word), "gi");
+    result = result.replace(re, "*".repeat(word.length));
+  }
+  return result;
+}
+
 // ── 스팸 링크 탐지 (Story 9.11, AC #4) ──────────────────────────────────────
 
 /** 알려진 단축 URL / 광고 도메인 목록 */

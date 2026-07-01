@@ -172,11 +172,11 @@ export default async function HomePage({
             막힌 질문을 함께 쌓아가는 커뮤니티입니다.
           </p>
           <div className={styles.heroActions}>
-            <Link href="#resources" className={styles.primaryLink}>
+            <Link href="/resources/prompts" className={styles.primaryLink}>
               실전자료 보기
               <Icon name="arrow-right-line" />
             </Link>
-            <Link href="#questions" className={styles.secondaryLink}>
+            <Link href="/questions" className={styles.secondaryLink}>
               묻고답하기
             </Link>
           </div>
@@ -290,7 +290,7 @@ export default async function HomePage({
               공유합니다.
             </p>
           </div>
-          <Link href="/resources" className={styles.moreLink}>
+          <Link href="/resources/prompts" className={styles.moreLink}>
             더보기
             <Icon name="arrow-right-line" />
           </Link>
@@ -352,7 +352,7 @@ export default async function HomePage({
                 </p>
               </div>
             </div>
-            <Link href="/qna" className={styles.primaryLink}>
+            <Link href="/questions/write" className={styles.primaryLink}>
               질문 작성하기
               <Icon name="edit-line" />
             </Link>
@@ -398,7 +398,7 @@ export default async function HomePage({
                   <Icon name="arrow-right-s-line" />
                 </Link>
               ))}
-              <Link href="/qna" className={styles.moreLink} style={{ justifyContent: "center" }}>
+              <Link href="/questions" className={styles.moreLink} style={{ justifyContent: "center" }}>
                 더 보기
                 <Icon name="arrow-right-line" />
               </Link>

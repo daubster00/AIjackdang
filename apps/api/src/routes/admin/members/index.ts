@@ -28,6 +28,11 @@ const adminUserMembersQuerySchema = z.object({
   q: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  /** Story 12.5: resolvedReportCount >= threshold AND status='active' 필터 */
+  escalated: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 const adminSanctionMemberSchema = z.object({
@@ -66,6 +71,9 @@ import {
   changeGrade,
   getMemberPointsHistory,
 } from "./service.js";
+import { publishNotification } from "../../../lib/notifications.js";
+import { getRedisPublisher } from "../../../lib/redis.js";
+import { getDb } from "@ai-jakdang/database";
 
 export async function registerAdminUserMembersRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /api/v1/admin/members ────────────────────────────────────────────────
@@ -77,7 +85,7 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
       });
     }
     try {
-      const result = await listUserMembers(parsed.data);
+      const result = await listUserMembers({ ...parsed.data, escalated: parsed.data.escalated });
       return reply.send(result);
     } catch (err) {
       request.log.error(err);
@@ -121,6 +129,30 @@ export async function registerAdminUserMembersRoutes(app: FastifyInstance): Prom
         endsAt ? new Date(endsAt) : null,
         issuedBy,
       );
+
+      // 제재 통보 알림 발송 (실패해도 제재 자체는 이미 성공)
+      try {
+        const db = getDb();
+        const redis = getRedisPublisher();
+        const endsAtLabel = endsAt
+          ? ` (${new Date(endsAt).toLocaleDateString("ko-KR")}까지)`
+          : "";
+        const typeLabel =
+          type === "warning" ? "경고" : type === "suspend" ? "정지" : "영구 이용 정지";
+        await publishNotification(
+          id,
+          {
+            type: "sanction.applied",
+            title: "운영 조치 안내",
+            body: `[${typeLabel}${endsAtLabel}] ${reason}`,
+          },
+          db,
+          redis,
+        );
+      } catch (err) {
+        request.log.warn({ err }, "[members] 제재 알림 발송 실패 (무시)");
+      }
+
       return reply.status(201).send(result);
     } catch (err: unknown) {
       const e = err as Error & { code?: string };

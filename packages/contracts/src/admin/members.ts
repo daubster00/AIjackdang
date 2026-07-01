@@ -46,6 +46,10 @@ export const adminUserMemberItemSchema = z.object({
   status: z.enum(["active", "suspended", "withdrawn"]),
   suspendedUntil: z.string().nullable(),
   createdAt: z.string(),
+  /** 아바타 관련 필드 (story 9.12 #5) */
+  avatarUrl: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  defaultAvatarIndex: z.number().optional(),
   /** 현재 총 포인트 (points_ledger SUM) */
   totalPoints: z.number(),
   /** 파생 등급 레벨 (1~5) */
@@ -54,8 +58,10 @@ export const adminUserMemberItemSchema = z.object({
   gradeName: z.string(),
   /** 작성 게시글 수 */
   postCount: z.number(),
-  /** 신고 받은 수 */
+  /** 신고 받은 수 (raw, status 무관) */
   reportCount: z.number(),
+  /** 처리완료 신고 수 (status='resolved' 기준) */
+  resolvedReportCount: z.number(),
 });
 export type AdminUserMemberItem = z.infer<typeof adminUserMemberItemSchema>;
 
@@ -70,6 +76,18 @@ export const adminUserMembersListResponseSchema = z.object({
   }),
 });
 export type AdminUserMembersListResponse = z.infer<typeof adminUserMembersListResponseSchema>;
+
+// ── 피신고 이력 항목 (Story 12.3) ─────────────────────────────────────────────
+
+/** 회원 상세 - 처리완료 신고 항목 */
+export const adminReceivedReportItemSchema = z.object({
+  id: z.string().uuid(),
+  targetType: z.string(),
+  reasonCode: z.string(),
+  reviewedAt: z.string().nullable(),
+  reviewedByName: z.string().nullable(),
+});
+export type AdminReceivedReportItem = z.infer<typeof adminReceivedReportItemSchema>;
 
 // ── 제재 이력 항목 ─────────────────────────────────────────────────────────────
 
@@ -151,8 +169,14 @@ export const adminUserMemberDetailSchema = z.object({
   gradeName: z.string(),
   /** 게시글 수 */
   postCount: z.number(),
-  /** 신고 수 */
+  /** 신고 수 (raw, status 무관) */
   reportCount: z.number(),
+  /** 처리완료 신고 수 (status='resolved' 기준, story 12.3) */
+  resolvedReportCount: z.number(),
+  /** 신고 임계치 (site_settings report_escalation_threshold, 없으면 5) */
+  reportEscalationThreshold: z.number(),
+  /** 처리완료 신고 목록 (최대 20건, 최신순) */
+  receivedReports: z.array(adminReceivedReportItemSchema),
   /** 제재 이력 */
   sanctions: z.array(adminUserSanctionItemSchema),
   /** 활동내역 탭 데이터 (#22) */

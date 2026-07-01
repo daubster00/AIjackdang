@@ -1,6 +1,6 @@
 # Story 11.16: 운영 패널 (킬스위치·속도·비용·보류큐 요약)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -25,74 +25,44 @@ so that 봇 이상 시 즉시 멈추고 일일 운영 현황을 빠르게 파악
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: `apps/api/src/lib/botSettings.ts` 신규 생성 (AC: #1, #2)**
-  - [ ] 1.1 파일 상단 JSDoc 주석 — `siteSettings.ts` 패턴 복제, `bot_settings` 테이블 대상임을 명시
-  - [ ] 1.2 `getAllBotSettings(): Promise<Record<string, unknown>>` — `bot_settings`(봇 전역 설정) 전체 행 → flat 객체 (Redis 캐시 60초)
-  - [ ] 1.3 `upsertBotSetting(key: string, value: unknown): Promise<void>` — drizzle `onConflictDoUpdate({ target: botSettings.key, set: { value, updatedAt: new Date() } })`
-  - [ ] 1.4 `invalidateBotSetting(key: string): Promise<void>` — Redis `del('bot_settings:{key}')` (`getApiRedis()` 재사용)
-  - [ ] 1.5 주의: `getBotSetting(key)` 단건 조회는 Story 11.12의 `apps/api/src/services/bot/gates.ts`에 이미 구현됨 — 중복 구현 금지. 이 파일에는 전체 조회·저장·무효화만 추가.
+- [x] **Task 1: `apps/api/src/lib/botSettings.ts` 신규 생성 (AC: #1, #2)**
+  - [x] 1.1~1.5 — 11.12에서 이미 완전 구현됨(`getAllBotSettings`, `setBotSetting`, `invalidateBotSetting`). 중복 구현 없이 재사용.
 
-- [ ] **Task 2: `apps/api/src/routes/admin/bots/settings.ts` 신규 생성 (AC: #1, #2)**
-  - [ ] 2.1 `registerAdminBotSettingsRoutes(app: FastifyInstance): Promise<void>` export
-  - [ ] 2.2 `GET /admin/bots/settings` — `preHandler: [requireSuperAdmin]` → `getAllBotSettings()` 반환
-  - [ ] 2.3 `PATCH /admin/bots/settings` — `preHandler: [requireSuperAdmin]` → `botSettingsPatchSchema`(Story 11.2 `packages/contracts/src/bot.ts`에서 import) Zod 검증 → 변경 키 순회하며 `upsertBotSetting(key, value)` + `invalidateBotSetting(key)` → `200 { ok: true }` 반환
-  - [ ] 2.4 11.2 미완성 시: 로컬 Zod 스키마 임시 정의 (`z.object({ bot_master_enabled: z.boolean().optional(), ... })`) + TODO 주석
+- [x] **Task 2: `apps/api/src/routes/admin/bots/settings.ts` 신규 생성 (AC: #1, #2)**
+  - [x] 2.1 `registerAdminBotSettingsRoutes(app)` export
+  - [x] 2.2 `GET /admin/bots/settings` — requireSuperAdmin → `getAllBotSettings()` 반환
+  - [x] 2.3 `PATCH /admin/bots/settings` — requireSuperAdmin → `botSettingsPatchSchema`(contracts) Zod 검증 → `setBotSetting(key, value)` (invalidate 내포) → `200 { ok: true, updated: [] }`
+  - [x] 2.4 contracts에 `botSettingsPatchSchema` 이미 존재(11.2 완료) — 로컬 정의 불필요
 
-- [ ] **Task 3: `apps/api/src/routes/admin/bots/hold-queue.ts` 신규 생성 (AC: #3)**
-  - [ ] 3.1 `registerAdminBotHoldQueueRoutes(app: FastifyInstance): Promise<void>` export (GET만 — POST approve/discard는 11.17 범위)
-  - [ ] 3.2 `GET /admin/bots/hold-queue` — `preHandler: [requireSuperAdmin]`, 쿼리 `{ decided?: boolean, reason?: string, page: number, pageSize: number }`(기본 `decided=false`)
-  - [ ] 3.3 drizzle 쿼리: `botHoldQueue` LEFT JOIN `botGenerationJobs`(생성 잡) → `draftContent`(초안 내용 JSONB) 조회, LEFT JOIN `botPersonas`(봇 페르소나) → `nickname`(닉네임) 조회
-  - [ ] 3.4 `draftContent`(Tiptap JSON)에서 텍스트 추출: `JSON.stringify(draftContent).replace(/<[^>]*>/g, "").slice(0, 150)` 또는 재귀 텍스트 추출 — `draftPreview` 필드명으로 응답
-  - [ ] 3.5 paginated 응답 `{ items: BotHoldQueueItem[], meta: { total, page, pageSize, totalPages } }` — `paginatedBotHoldQueueSchema`(11.2 정의) 타입 준수
+- [x] **Task 3: `apps/api/src/routes/admin/bots/hold-queue.ts` (AC: #3)**
+  - [x] 3.1~3.5 — 11.17에서 `hold-queue-actions.ts`에 이미 완전 구현됨(GET + PATCH approve + PATCH discard). 신규 파일 불필요, 기존 파일 소비.
 
-- [ ] **Task 4: `apps/api/src/routes/admin/bots/index.ts` 수정 (AC: #1, #2, #3)**
-  - [ ] 4.1 11.14가 생성한 파일에 `registerAdminBotSettingsRoutes(app)` + `registerAdminBotHoldQueueRoutes(app)` import 및 `registerAdminBotRoutes()` 내 호출 추가
-  - [ ] 4.2 11.14 파일 미존재 시: `bots/index.ts` 신규 생성 (settings·hold-queue 포함) + `apps/api/src/routes/admin/index.ts`의 `adminRoutes()` 함수에 `registerAdminBotRoutes` 등록
+- [x] **Task 4: `apps/api/src/routes/admin/bots/index.ts` 수정 (AC: #1, #2, #3)**
+  - [x] 4.1 `registerAdminBotSettingsRoutes(app)` import 및 호출 추가. hold-queue·report는 이미 등록됨.
+  - [x] 4.2 admin/index.ts는 이미 `registerAdminBotsRoutes` 등록 완료 — 추가 수정 불필요.
 
-- [ ] **Task 5: `apps/admin/app/bots/operations/page.tsx` 신규 생성 (AC: #4~#11)**
-  - [ ] 5.1 파일 최상단 `"use client"` 선언 필수
-  - [ ] 5.2 `useEffect`에서 `GET /api/v1/admin/bots/settings` 호출 → 8종 설정값 상태(`useState`) 초기화; `API_BASE_URL`(클라이언트 fetch 베이스) 재사용
-  - [ ] 5.3 **킬 스위치 카드** (AC: #5): `bot_master_enabled` toggle — `input[type="checkbox"]` 또는 디자인 시스템 switch; 변경 즉시 `patchSettings({ bot_master_enabled: newVal })` 호출 + 성공/실패 토스트
-  - [ ] 5.4 **관찰 모드 카드** (AC: #6): `bot_observation_mode` 동일 패턴; 설명 문구 "ON 시 모든 봇 글·댓글을 게시 전 보류 큐로 적재"
-  - [ ] 5.5 **속도 안전선 카드** (AC: #7): `bot_daily_post_limit` · `bot_daily_comment_limit` 각 `input[type="number" min="1"]`; "저장" 버튼 클릭 시 `patchSettings({ bot_daily_post_limit, bot_daily_comment_limit })`
-  - [ ] 5.6 **비용 상한 카드** (AC: #8): `bot_daily_cost_limit_usd` `input[type="number" min="0" step="0.01"]`; "저장" 버튼; 오늘 누적 비용은 리포트 API에서 표시
-  - [ ] 5.7 **일일 리포트 요약 카드** (AC: #10): `const today = new Date().toISOString().slice(0, 10)` → `GET .../report?date=${today}` 호출; 404·에러 시 "집계 대기 중" 문구 fallback
-  - [ ] 5.8 **보류 큐 테이블** (AC: #11): `GET .../hold-queue?decided=false&pageSize=20` 호출; 항목마다 "통과" (`confirmDialog` → POST approve) + "폐기" (`confirmDialog({tone:'danger'})` → POST discard) 버튼; 액션 완료 후 `refetch()`
-  - [ ] 5.9 `BotCostChart` 컴포넌트 삽입 (Task 6)
-  - [ ] 5.10 토스트 컴포넌트 — `apps/admin/app/settings/_components/SettingsTabPanels.tsx`의 인라인 `Toast` 컴포넌트 동일 패턴: `position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); zIndex:99999` 화면 중앙 고정
+- [x] **Task 5: `apps/admin/app/bots/operations/page.tsx` 신규 생성 (AC: #4~#11)**
+  - [x] 5.1 `"use client"` 선언
+  - [x] 5.2 `getAllBotSettings` 호출 → 8종 설정값 상태 초기화
+  - [x] 5.3 킬 스위치 카드 (`bot_master_enabled` 토글 → 즉시 PATCH + 토스트)
+  - [x] 5.4 관찰 모드 카드 (`bot_observation_mode` 토글 → 즉시 PATCH)
+  - [x] 5.5 속도 안전선 카드 (post/comment limit 입력 + 저장 버튼)
+  - [x] 5.6 비용 상한 카드 (cost limit 입력 + 저장 + 오늘 누적 비용 표시)
+  - [x] 5.7 일일 리포트 요약 카드 (오늘 날짜 report API → "집계 대기 중" fallback)
+  - [x] 5.8 보류 큐 테이블 (confirmDialog → PATCH approve/discard → refetch)
+  - [x] 5.9 BotCostChart 컴포넌트 삽입
+  - [x] 5.10 Toast 중앙 고정 (position:fixed; top:50%; left:50%; transform:translate(-50%,-50%))
 
-- [ ] **Task 6: `apps/admin/app/bots/operations/BotCostChart.tsx` 신규 생성 (AC: #9)**
-  - [ ] 6.1 `"use client"` + `useRef<HTMLCanvasElement | null>(null)` + `import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js"`
-  - [ ] 6.2 `type ChartInstance = ReturnType<typeof createLineChart>`
-  - [ ] 6.3 `useEffect`: `createLineChart(canvasRef.current, placeholder)` 초기화 → `GET /api/v1/admin/bots/report?range=7d` 호출 → `chart.setData({ labels, series })` 갱신
-  - [ ] 6.4 cleanup: `return () => { destroyed = true; chart.destroy(); }`
-  - [ ] 6.5 에러 시 `try/catch`로 조용히 무시 — 차트 비어있는 채로 유지 (`VisitorTrendChart.tsx`와 동일 전략)
-  - [ ] 6.6 JSX: `<article className="card">` 구조 → `<div className="chart-wrap"><canvas ref={canvasRef} aria-label="7일 봇 비용 추이 꺾은선 차트" /></div>` + 범례(비용/달러)
+- [x] **Task 6: `apps/admin/app/bots/operations/BotCostChart.tsx` 신규 생성 (AC: #9)**
+  - [x] 6.1~6.6 — createLineChart 재사용, ?range=7d 404 graceful fallback, destroy cleanup
 
-- [ ] **Task 7: `apps/admin/components/layout/AdminShell.tsx` 수정 (AC: #12)**
-  - [ ] 7.1 11.14가 "활동 봇" nav group을 추가했는지 확인; 없으면 `NAV_GROUPS`에 아래 그룹 추가:
-    ```typescript
-    {
-      label: "Seeding Bot",
-      items: [
-        {
-          key: "bots",
-          href: "/bots",
-          icon: "ri-robot-line",
-          label: "활동 봇",
-          children: [
-            { key: "bots-list",       href: "/bots",            icon: "ri-list-check",      label: "봇 목록",    subKey: "" },
-            { key: "bots-operations", href: "/bots/operations", icon: "ri-settings-3-line", label: "운영 패널",  subKey: "operations" },
-          ],
-        },
-      ],
-    }
-    ```
-  - [ ] 7.2 "운영 패널" `{ key: "bots-operations", href: "/bots/operations", ... }` 항목만 누락된 경우 기존 children 배열에 append
+- [x] **Task 7: `apps/admin/components/layout/AdminShell.tsx` 수정 (AC: #12)**
+  - [x] 7.2 "활동 봇" 항목에 children 추가: 봇 목록(subKey:"") + 운영 패널(subKey:"operations")
 
-- [ ] **Task 8: TypeScript 타입 검사 (AC: 전체)**
-  - [ ] `pnpm --filter @ai-jakdang/api tsc --noEmit` 통과
-  - [ ] `pnpm --filter @ai-jakdang/admin tsc --noEmit` 통과 — `"use client"` 파일에서 `next/headers` import 없음 확인 (RSC 경계 트랩)
+- [x] **Task 8: TypeScript 타입 검사 (AC: 전체)**
+  - [x] `pnpm --filter @ai-jakdang/api tsc --noEmit` 통과 (0 오류)
+  - [x] `pnpm --filter @ai-jakdang/admin tsc --noEmit` 통과 (0 오류)
+  - [x] `pnpm --filter @ai-jakdang/admin build` 통과 — /bots/operations 정적 라우트 생성 확인
 
 ## Dev Notes
 
@@ -432,6 +402,21 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+없음 — 사전 구현된 의존성(botSettings.ts, hold-queue-actions.ts, report.ts)이 완전하여 신규 구현만 추가.
+
 ### Completion Notes List
 
+- Task 1: `botSettings.ts`는 11.12에서 이미 `getAllBotSettings`·`setBotSetting`·`invalidateBotSetting` 완전 구현됨 — 재사용.
+- Task 3: `hold-queue-actions.ts`(11.17)가 GET + PATCH approve + PATCH discard 모두 구현됨 — 별도 파일 불필요.
+- Task 4: `admin/index.ts`는 이미 `registerAdminBotsRoutes` 등록 완료. bots/index.ts에 settings 등록만 추가.
+- AdminShell의 "활동 봇" 항목이 children 없는 단순 링크였음 → children 배열(봇 목록 + 운영 패널) 추가.
+- 보류 큐 액션 엔드포인트가 PATCH(approve/discard)임을 확인 — 스토리 스펙의 POST와 다름. UI에서 `method: "PATCH"` 사용.
+- build 확인: `/bots/operations` 정적(○) 라우트로 생성됨.
+
 ### File List
+
+- `apps/api/src/routes/admin/bots/settings.ts` (신규 — `registerAdminBotSettingsRoutes`)
+- `apps/api/src/routes/admin/bots/index.ts` (수정 — settings route 등록 추가)
+- `apps/admin/app/bots/operations/page.tsx` (신규 — 운영 패널 페이지)
+- `apps/admin/app/bots/operations/BotCostChart.tsx` (신규 — 비용 추이 차트)
+- `apps/admin/components/layout/AdminShell.tsx` (수정 — 운영 패널 nav 항목 추가)

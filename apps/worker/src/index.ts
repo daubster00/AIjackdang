@@ -334,3 +334,52 @@ void (async () => {
   }
 })();
 // ── [9.10] content.cleanup cron END ──────────────────────────────────────────
+
+// ── [11.13] 봇 워커 (SEEDING_BOT_ENABLED=true 시에만 등록) ──────────────────
+void (async () => {
+  if (process.env.SEEDING_BOT_ENABLED === "true") {
+    try {
+      // 동적 import: SEEDING_BOT_ENABLED=false 시 봇 모듈 전체 미로드 (메모리·의존성 격리)
+      const { botProcessor } = await import("./processors/bot/index.js");
+      const { setupBotCrons } = await import("./schedules/bot.cron.js");
+
+      const botConnection = createConnection();
+      const botWorker = new Worker(
+        QUEUE_NAMES.bot,
+        botProcessor,
+        { connection: botConnection, concurrency: 3 }, // 여러 봇 동시 처리
+      );
+
+      // [격리 보장] failed·error 핸들러: console.error만, process.exit() 금지
+      botWorker.on("ready", () => console.log("[worker] bot 워커 준비 완료"));
+      botWorker.on("completed", (job) =>
+        console.info(`[bot-worker] job 완료: ${job.id} (${job.name})`),
+      );
+      botWorker.on("failed", (job, error) =>
+        // 잡 실패 → 로그만. 다른 워커·api·web 영향 없음
+        console.error(`[bot-worker] job 실패 ${job?.id} (${job?.name}):`, error.message),
+      );
+      botWorker.on("error", (error) =>
+        // Worker 수준 오류 → 전파 차단, 로그만
+        console.error("[bot-worker] Worker 오류 (사이트 본체 영향 없음):", error.message),
+      );
+
+      workers.push(botWorker); // 그레이스풀 셧다운 포함
+      console.log("[worker] 봇 워커 등록 완료 (SEEDING_BOT_ENABLED=true)");
+
+      // 봇 크론 등록
+      try {
+        const botCronQueue = new Queue(QUEUE_NAMES.bot, { connection: createConnection() });
+        await setupBotCrons(botCronQueue);
+      } catch (err) {
+        console.warn("[worker] 봇 크론 등록 실패 (봇 비활성화 유지):", (err as Error).message);
+      }
+    } catch (err) {
+      // 봇 모듈 초기화 실패 → 봇만 비활성화, 나머지 워커 정상 가동 [격리 핵심]
+      console.error("[worker] 봇 워커 초기화 실패 (사이트 본체 영향 없음):", (err as Error).message);
+    }
+  } else {
+    console.log("[worker] 봇 워커 비활성화 (SEEDING_BOT_ENABLED != true)");
+  }
+})();
+// ── [11.13] 봇 워커 END ───────────────────────────────────────────────────────

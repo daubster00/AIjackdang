@@ -15,11 +15,14 @@
 import { getDb, schema } from "@ai-jakdang/database";
 import type { AnswerResponse } from "@ai-jakdang/contracts";
 import { LITE_ALLOWED_NODES } from "@ai-jakdang/contracts";
+import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 import { eq, and, isNull } from "drizzle-orm";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { buildSanitizeOptions } from "../../../lib/sanitize.js";
 import _sanitizeHtml from "sanitize-html";
 import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
+import { publishNotification } from "../../../lib/notifications.js";
+import { getRedisPublisher } from "../../../lib/redis.js";
 
 // ── 답변 contentJson → 안전 HTML 변환 ───────────────────────────────────────
 
@@ -82,8 +85,15 @@ export async function createAnswer({
   const db = getDb();
 
   // ── 질문 존재 확인 ──────────────────────────────────────────────────────────
+  // userId(질문 작성자), slug(알림 URL용)도 함께 조회 — 답변 등록 알림 발행에 필요.
   const [question] = await db
-    .select({ id: schema.questions.id, status: schema.questions.status })
+    .select({
+      id: schema.questions.id,
+      status: schema.questions.status,
+      userId: schema.questions.userId,
+      slug: schema.questions.slug,
+      title: schema.questions.title,
+    })
     .from(schema.questions)
     .where(
       and(
@@ -139,6 +149,8 @@ export async function createAnswer({
       id: schema.users.id,
       nickname: schema.users.nickname,
       avatarUrl: schema.users.avatarUrl,
+      image: schema.users.image,
+      defaultAvatarIndex: schema.users.defaultAvatarIndex,
     })
     .from(schema.users)
     .where(eq(schema.users.id, userId))
@@ -148,11 +160,34 @@ export async function createAnswer({
     ? {
         id: userRow.id,
         nickname: userRow.nickname,
-        avatarUrl: userRow.avatarUrl ?? null,
+        avatarUrl: userRow.avatarUrl || userRow.image || getDefaultAvatarUrl(userRow.defaultAvatarIndex ?? 0),
       }
     : null;
 
   const contentHtml = answerContentToHtml(contentJson);
+
+  // ── 답변 등록 알림 발행 (질문 작성자에게) ──────────────────────────────────
+  // 질문 작성자가 존재하고, 답변자가 질문 작성자 본인이 아닐 때만 발행.
+  // targetId 는 질문 slug(알림 클릭 시 /questions/{slug} 이동) — 0026 마이그레이션으로 target_id text 화.
+  if (question.userId && question.userId !== userId) {
+    try {
+      await publishNotification(
+        question.userId,
+        {
+          type: "answer.created",
+          title: "내 질문에 새 답변이 달렸습니다",
+          body: `"${question.title}" 질문에 새로운 답변이 등록되었습니다.`,
+          targetType: "question",
+          targetId: question.slug,
+        },
+        db,
+        getRedisPublisher(),
+      );
+    } catch (err) {
+      // 알림 발행 실패는 답변 등록 결과에 영향을 주지 않는다
+      console.warn("[answer.service] 답변 등록 알림 발행 실패:", (err as Error).message);
+    }
+  }
 
   return {
     answer: {
@@ -237,6 +272,8 @@ export async function updateAnswer({
       id: schema.users.id,
       nickname: schema.users.nickname,
       avatarUrl: schema.users.avatarUrl,
+      image: schema.users.image,
+      defaultAvatarIndex: schema.users.defaultAvatarIndex,
     })
     .from(schema.users)
     .where(eq(schema.users.id, userId))
@@ -246,7 +283,7 @@ export async function updateAnswer({
     ? {
         id: userRow.id,
         nickname: userRow.nickname,
-        avatarUrl: userRow.avatarUrl ?? null,
+        avatarUrl: userRow.avatarUrl || userRow.image || getDefaultAvatarUrl(userRow.defaultAvatarIndex ?? 0),
       }
     : null;
 

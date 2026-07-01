@@ -24,7 +24,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { Avatar, Button, EmptyState, Icon, Tag } from "@/components/ui";
+import { Button, EmptyState, Icon, Tag } from "@/components/ui";
 import { AuthorName } from "@/components/ui";
 import { BoardHero, BoardSidebar, SearchAutocomplete } from "@/components/board";
 import { buildBreadcrumbJsonLd } from "@/lib/seo";
@@ -319,10 +319,10 @@ export default async function QuestionsPage({ searchParams }: PageProps) {
 
                     <div className={styles.questionFooter}>
                       <div className={styles.questionAuthor}>
-                        <Avatar name={q.author?.nickname ?? "익명"} src={q.author?.avatarUrl ?? undefined} size="sm" />
                         {/* AuthorName: 클릭 시 쪽지/팔로우/계정 메뉴 (규약 준수) */}
                         <AuthorName
                           name={q.author?.nickname ?? "익명"}
+                          avatarUrl={q.author?.avatarUrl}
                           className={styles.authorName}
                         />
                         <span className={styles.footerDivider} aria-hidden="true">

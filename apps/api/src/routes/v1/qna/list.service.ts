@@ -16,7 +16,7 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { QuestionListItem } from "@ai-jakdang/contracts";
-import { deriveQuestionStatus } from "@ai-jakdang/core";
+import { deriveQuestionStatus, getDefaultAvatarUrl } from "@ai-jakdang/core";
 import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 
 export type QuestionStatusFilter = "all" | "waiting" | "answered" | "resolved" | "popular";
@@ -135,6 +135,8 @@ export async function getQuestions({
       authorId: schema.users.id,
       authorNickname: schema.users.nickname,
       authorAvatarUrl: schema.users.avatarUrl,
+      authorImage: schema.users.image,
+      authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
       answerCount: sql<number>`COALESCE(${answerCountSq.cnt}, 0)`.as("answer_count"),
     })
     .from(schema.questions)
@@ -195,7 +197,7 @@ export async function getQuestions({
         ? {
             id: row.authorId,
             nickname: row.authorNickname,
-            avatarUrl: row.authorAvatarUrl ?? null,
+            avatarUrl: row.authorAvatarUrl || row.authorImage || getDefaultAvatarUrl(row.authorDefaultAvatarIndex ?? 0),
           }
         : null;
 

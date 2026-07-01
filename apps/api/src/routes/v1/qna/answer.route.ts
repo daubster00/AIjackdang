@@ -19,7 +19,7 @@ import {
   answerResponseSchema,
   errorResponseSchema,
 } from "@ai-jakdang/contracts";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { contentGuard } from "../../../middleware/contentGuard.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { createAnswer, updateAnswer, deleteAnswer } from "./answer.service.js";
@@ -41,7 +41,7 @@ export async function registerQnaAnswerRoutes(app: FastifyInstance): Promise<voi
   typed.post(
     "/qna/questions/:questionId/answers",
     {
-      preHandler: [requireAuthHook, contentGuard],
+      preHandler: [requireAuthHook, checkSuspendedHook, contentGuard],
       schema: {
         description:
           "Q&A 질문에 답변을 등록한다. 인증 필수. content_json(Tiptap JSON lite preset)으로 저장. " +
@@ -87,7 +87,7 @@ export async function registerQnaAnswerRoutes(app: FastifyInstance): Promise<voi
   typed.patch(
     "/qna/answers/:id",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description:
           "답변을 수정한다. 작성자 본인만 가능(403). content_json과 updated_at 갱신.",

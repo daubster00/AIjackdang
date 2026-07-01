@@ -4,7 +4,7 @@ export const revalidate = 60;
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AuthorName, Avatar, Icon, Tag, EmptyState } from "@/components/ui";
+import { AuthorName, Icon, Tag, EmptyState } from "@/components/ui";
 import { SearchAutocomplete } from "@/components/board";
 import type { TagContentResponse, TagContentItem } from "@ai-jakdang/contracts/tag";
 import { shouldNoindex } from "@/lib/seo";
@@ -320,7 +320,6 @@ export default async function TagLandingPage({
                     )}
                     <div className={styles.postFooter}>
                       <div className={styles.postAuthor}>
-                        <Avatar name={item.authorNickname ?? "익명"} size="sm" />
                         <AuthorName
                           name={item.authorNickname ?? "익명"}
                           className={styles.authorName}

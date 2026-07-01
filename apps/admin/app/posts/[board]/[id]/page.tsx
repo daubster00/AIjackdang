@@ -4,7 +4,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { findBoard } from "@/lib/boards";
+import { findBoard, dbBoardToAdminSlug } from "@/lib/boards";
 import { API_BASE_URL } from "@/lib/api";
 
 /**
@@ -24,6 +24,9 @@ type AdminPostDetail = {
   status: string;
   userId: string | null;
   authorNickname: string | null;
+  authorAvatarUrl?: string | null;
+  authorImage?: string | null;
+  authorDefaultAvatarIndex?: number | null;
   isNotice: boolean;
   isPinned: boolean;
   isFeatured: boolean;
@@ -145,6 +148,11 @@ export default function PostDetailPage({
   const bodyHtml = post ? contentJsonToHtml(post.contentJson) : "";
   const comments = post?.comments ?? [];
 
+  // post.board 는 DB board 값(예: "monetization-tips").
+  // 목록/수정 버튼 href 에는 관리자 URL slug(예: "money-case")를 써야 한다.
+  // URL 파라미터 board 는 진입 경로에 따라 DB값일 수 있으므로 post.board 기준으로 변환한다.
+  const adminBoard = post ? dbBoardToAdminSlug(post.board) : board;
+
   return (
     <AdminShell
       breadcrumb={["관리자", "게시글 관리", meta.label, post?.title ?? `#${id}`]}
@@ -162,11 +170,11 @@ export default function PostDetailPage({
           </p>
         </div>
         <div className="page-actions">
-          <Link className="btn btn-outline" href={`/posts/${board}`}>
+          <Link className="btn btn-outline" href={`/posts/${adminBoard}`}>
             <i className="ri-arrow-left-line" />
             목록으로
           </Link>
-          <Link className="btn btn-outline" href={`/posts/${board}/${id}/edit`}>
+          <Link className="btn btn-outline" href={`/posts/${adminBoard}/${id}/edit`}>
             <i className="ri-edit-line" />
             수정
           </Link>
@@ -220,7 +228,9 @@ export default function PostDetailPage({
                         <UserAvatar
                           size={28}
                           alt={post.authorNickname ?? "운영자"}
-                          defaultAvatarIndex={0}
+                          avatarUrl={post.authorAvatarUrl}
+                          image={post.authorImage}
+                          defaultAvatarIndex={post.authorDefaultAvatarIndex ?? 0}
                         />
                         <span>{post.authorNickname ?? "(운영자)"}</span>
                       </span>

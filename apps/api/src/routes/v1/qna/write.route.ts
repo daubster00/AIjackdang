@@ -16,7 +16,7 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createQuestionSchema, updateQuestionSchema, errorResponseSchema } from "@ai-jakdang/contracts";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { contentGuard } from "../../../middleware/contentGuard.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { getDb, schema } from "@ai-jakdang/database";
@@ -97,7 +97,7 @@ export async function registerQnaWriteRoutes(app: FastifyInstance): Promise<void
   typed.post(
     "/qna/questions",
     {
-      preHandler: [requireAuthHook, contentGuard],
+      preHandler: [requireAuthHook, checkSuspendedHook, contentGuard],
       schema: {
         description:
           "질문 작성(status='published') 또는 임시저장(status='draft'). 인증 필수. 성공 시 201 + { id, slug, status } 반환.",
@@ -140,7 +140,7 @@ export async function registerQnaWriteRoutes(app: FastifyInstance): Promise<void
   typed.patch(
     "/qna/questions/:id",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description:
           "질문 제목·본문·태그를 수정한다. 인증 필수(401). 작성자 본인만 가능(403). slug는 불변(NFR-8). 성공 시 200 + { id, slug, updatedAt }.",

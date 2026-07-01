@@ -14,10 +14,12 @@
   },
   "dependencies": {
     "@ai-jakdang/auth": "workspace:*",
+    "@ai-jakdang/bot-core": "workspace:*",
     "@ai-jakdang/config": "workspace:*",
     "@ai-jakdang/contracts": "workspace:*",
     "@ai-jakdang/core": "workspace:*",
     "@ai-jakdang/database": "workspace:*",
+    "@ai-jakdang/server-bot": "workspace:*",
     "@ai-jakdang/utilities": "workspace:*",
     "@aws-sdk/client-s3": "^3.1075.0",
     "@aws-sdk/s3-request-presigner": "^3.1075.0",

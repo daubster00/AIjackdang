@@ -16,14 +16,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { AuthorName, Avatar, Icon, Tag } from "@/components/ui";
+import { AuthorName, Icon, Tag } from "@/components/ui";
 import { BoardHero, RecentViewedTracker } from "@/components/board";
 import { ResourceDetailClient } from "./ResourceDetailClient";
 import { ResourceOwnerActions } from "./ResourceOwnerActions";
 import { ReactionBar } from "./ReactionBar";
 import styles from "./resource-detail.module.css";
 import type { ResourceFile } from "./ResourceDetailClient";
-import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -290,13 +289,9 @@ export default async function ResourceDetailPage({ params }: PageProps) {
               <div className={styles.detailMeta}>
                 {resource.authorNickname && (
                   <span className={styles.metaAuthor}>
-                    <Avatar
-                      name={resource.authorNickname}
-                      src={getDefaultAvatarUrl(resource.authorAvatarIndex)}
-                      size="sm"
-                    />
                     <AuthorName
                       name={resource.authorNickname}
+                      defaultAvatarIndex={resource.authorAvatarIndex}
                       className={styles.authorName}
                     />
                   </span>

@@ -372,9 +372,10 @@
   font-style: italic;
 }
 
-/* 코드 블록 — 어두운 배경(#1e1e1e)에 밝은 코드 텍스트 */
+/* 코드 블록 — 다크 배경 */
 .editorContent :global(.ProseMirror pre) {
   background: #1e1e1e;
+  border: 1px solid #2d2d2d;
   border-radius: var(--radius-sm);
   padding: var(--space-4);
   margin: 0 0 var(--space-3);
@@ -386,14 +387,15 @@
   font-size: var(--font-size-sm);
   background: none;
   padding: 0;
-  color: #d4d4d4;
+  color: #e4e4e7;
 }
 
 /* 인라인 코드 */
 .editorContent :global(.ProseMirror code) {
-  background: var(--color-neutral-soft);
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
   border-radius: var(--radius-sm);
-  padding: 0 var(--space-1);
+  padding: 1px var(--space-1);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
 }

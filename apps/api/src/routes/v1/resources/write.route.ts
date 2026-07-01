@@ -16,7 +16,7 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createResourceSchema, errorResponseSchema } from "@ai-jakdang/contracts";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { createResource, getResourcePageType } from "./write.service.js";
 import { userAuth } from "../../../auth/user-auth.js";
 
@@ -37,7 +37,7 @@ export async function registerResourceWriteRoutes(app: FastifyInstance): Promise
   typed.post(
     "/resources",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description:
           "실전자료 등록. 인증 필수. copyrightAgreed=true 필수. 성공 시 201 + { id, slug, resourceType, status, pageType } 반환.",
@@ -93,7 +93,7 @@ export async function registerResourceWriteRoutes(app: FastifyInstance): Promise
   typed.post(
     "/resources/draft",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description:
           "실전자료 임시저장. 인증 필수. 필수 필드 일부 선택화. 성공 시 201 + { id, slug, resourceType, status } 반환.",

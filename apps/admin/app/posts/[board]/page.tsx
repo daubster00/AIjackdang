@@ -17,11 +17,11 @@ import type { AdminPostItem } from "@ai-jakdang/contracts";
  * board 파라미터 기반 필터 적용. GET /api/v1/admin/posts?board=... 실제 API 연동.
  */
 
+// 삭제(deleted) 상태는 일반 목록에서 제외 — 휴지통(/posts/trash)에서 별도 관리
 const STATUSES = [
   { value: "all", label: "상태: 전체" },
   { value: "published", label: "공개" },
   { value: "hidden", label: "숨김" },
-  { value: "deleted", label: "삭제" },
   { value: "draft", label: "초안" },
 ] as const;
 

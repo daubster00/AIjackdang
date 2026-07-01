@@ -25,6 +25,8 @@ const followUserSchema = z.object({
   nickname: z.string(),
   bio: z.string().nullable(),
   avatarUrl: z.string().nullable(),
+  image: z.string().nullable(),
+  defaultAvatarIndex: z.number().nullable(),
 });
 
 export async function followsRoutes(app: FastifyInstance) {
@@ -153,6 +155,8 @@ export async function followsRoutes(app: FastifyInstance) {
           nickname: schema.users.nickname,
           bio: schema.users.bio,
           avatarUrl: schema.users.avatarUrl,
+          image: schema.users.image,
+          defaultAvatarIndex: schema.users.defaultAvatarIndex,
         })
         .from(schema.follows)
         .innerJoin(schema.users, eq(schema.users.id, schema.follows.followingId))
@@ -204,6 +208,8 @@ export async function followsRoutes(app: FastifyInstance) {
           nickname: schema.users.nickname,
           bio: schema.users.bio,
           avatarUrl: schema.users.avatarUrl,
+          image: schema.users.image,
+          defaultAvatarIndex: schema.users.defaultAvatarIndex,
         })
         .from(schema.follows)
         .innerJoin(schema.users, eq(schema.users.id, schema.follows.followerId))

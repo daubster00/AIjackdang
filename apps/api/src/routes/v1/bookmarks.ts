@@ -12,7 +12,7 @@ import { createBookmarkInputSchema, errorResponseSchema } from "@ai-jakdang/cont
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { requireAuthHook } from "../../plugins/require-auth.js";
 
@@ -155,19 +155,19 @@ export async function bookmarksRoutes(app: FastifyInstance) {
           ? db
               .select({ id: schema.posts.id, title: schema.posts.title, slug: schema.posts.slug, board: schema.posts.board })
               .from(schema.posts)
-              .where(inArray(schema.posts.id, postIds))
+              .where(and(inArray(schema.posts.id, postIds), ne(schema.posts.status, "deleted")))
           : [],
         questionIds.length > 0
           ? db
               .select({ id: schema.questions.id, title: schema.questions.title })
               .from(schema.questions)
-              .where(inArray(schema.questions.id, questionIds))
+              .where(and(inArray(schema.questions.id, questionIds), ne(schema.questions.status, "deleted")))
           : [],
         resourceIds.length > 0
           ? db
               .select({ id: schema.resources.id, title: schema.resources.title, slug: schema.resources.slug })
               .from(schema.resources)
-              .where(inArray(schema.resources.id, resourceIds))
+              .where(and(inArray(schema.resources.id, resourceIds), ne(schema.resources.status, "deleted")))
           : [],
       ]);
 
@@ -175,29 +175,39 @@ export async function bookmarksRoutes(app: FastifyInstance) {
       const questionMap = new Map(questionRows.map((r) => [r.id, r]));
       const resourceMap = new Map(resourceRows.map((r) => [r.id, r]));
 
-      const items = rows.map((bm) => {
-        let title = "(삭제된 콘텐츠)";
-        let href = "";
+      // 삭제된 콘텐츠(status='deleted')는 보강 쿼리에서 제외됐으므로
+      // 맵에 없는 북마크 항목은 응답에서 완전히 제거한다.
+      const items = rows.flatMap((bm) => {
+        let title: string;
+        let href: string;
 
         if (bm.targetType === "post") {
           const p = postMap.get(bm.targetId);
-          if (p) { title = p.title; href = `/${p.board}/${p.slug}`; }
+          if (!p) return [];
+          title = p.title;
+          href = `/${p.board}/${p.slug}`;
         } else if (bm.targetType === "question") {
           const q = questionMap.get(bm.targetId);
-          if (q) { title = q.title; href = `/questions/${q.id}`; }
+          if (!q) return [];
+          title = q.title;
+          href = `/questions/${q.id}`;
         } else if (bm.targetType === "resource") {
           const r = resourceMap.get(bm.targetId);
-          if (r) { title = r.title; href = `/resources/${r.slug}`; }
+          if (!r) return [];
+          title = r.title;
+          href = `/resources/${r.slug}`;
+        } else {
+          return [];
         }
 
-        return {
+        return [{
           id: bm.id,
           targetType: bm.targetType,
           targetId: bm.targetId,
           title,
           href,
           savedAt: bm.createdAt.toISOString(),
-        };
+        }];
       });
 
       return reply.send({ items, meta: { page, pageSize } });

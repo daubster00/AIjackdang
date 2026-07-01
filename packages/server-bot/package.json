@@ -1,0 +1,32 @@
+{
+  "name": "@ai-jakdang/server-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "시딩 봇 서버 전용 경계(Epic 11): AI 추상화·검색 어댑터·이미지 엔진·봇 작성 도메인 서비스. api/worker 런타임만 import(web/admin 금지). DB 접근 허용.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ai": "./src/ai/index.ts",
+    "./search": "./src/search/index.ts",
+    "./image": "./src/image/index.ts",
+    "./write": "./src/write/index.ts",
+    "./pipeline": "./src/pipeline/index.ts",
+    "./guard": "./src/guard/index.ts",
+    "./gates": "./src/gates.ts",
+    "./botSettings": "./src/botSettings.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ai-jakdang/bot-core": "workspace:*",
+    "@ai-jakdang/config": "workspace:*",
+    "@ai-jakdang/contracts": "workspace:*",
+    "@ai-jakdang/core": "workspace:*",
+    "@ai-jakdang/database": "workspace:*",
+    "@ai-jakdang/utilities": "workspace:*",
+    "drizzle-orm": "^0.38.0"
+  }
+}

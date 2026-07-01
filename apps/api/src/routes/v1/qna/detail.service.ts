@@ -11,7 +11,7 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import type { QuestionDetailResponse, AnswerResponse } from "@ai-jakdang/contracts";
-import { deriveQuestionStatus } from "@ai-jakdang/core";
+import { deriveQuestionStatus, getDefaultAvatarUrl } from "@ai-jakdang/core";
 import { eq, and, isNull, desc, count, inArray } from "drizzle-orm";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 
@@ -53,6 +53,8 @@ export async function getQuestionBySlug({
       authorId: schema.users.id,
       authorNickname: schema.users.nickname,
       authorAvatarUrl: schema.users.avatarUrl,
+      authorImage: schema.users.image,
+      authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
     })
     .from(schema.questions)
     .leftJoin(schema.users, eq(schema.questions.userId, schema.users.id))
@@ -80,6 +82,8 @@ export async function getQuestionBySlug({
       authorId: schema.users.id,
       authorNickname: schema.users.nickname,
       authorAvatarUrl: schema.users.avatarUrl,
+      authorImage: schema.users.image,
+      authorDefaultAvatarIndex: schema.users.defaultAvatarIndex,
     })
     .from(schema.answers)
     .leftJoin(schema.users, eq(schema.answers.userId, schema.users.id))
@@ -123,7 +127,7 @@ export async function getQuestionBySlug({
       ? {
           id: question.authorId,
           nickname: question.authorNickname,
-          avatarUrl: question.authorAvatarUrl ?? null,
+          avatarUrl: question.authorAvatarUrl || question.authorImage || getDefaultAvatarUrl(question.authorDefaultAvatarIndex ?? 0),
         }
       : null;
 
@@ -136,7 +140,7 @@ export async function getQuestionBySlug({
         ? {
             id: a.authorId,
             nickname: a.authorNickname,
-            avatarUrl: a.authorAvatarUrl ?? null,
+            avatarUrl: a.authorAvatarUrl || a.authorImage || getDefaultAvatarUrl(a.authorDefaultAvatarIndex ?? 0),
           }
         : null,
     contentJson: a.contentJson as Record<string, unknown>,

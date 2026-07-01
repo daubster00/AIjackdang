@@ -2,10 +2,11 @@
  * publishNotification 헬퍼 — Story 7.1 (AC #5, #6)
  *
  * 알림 발행 흐름:
- * 1. notifications 테이블에 insert
- * 2. notification_settings 조회 (없으면 기본 all-true로 처리 + upsert 생성)
- * 3. settings[payload.type] === false → Redis PUBLISH 생략 (insert는 이미 완료)
- * 4. settings[payload.type] !== false → Redis PUBLISH → SSE 팬아웃
+ * 1. notification_settings 조회 (없으면 기본 all-true로 처리 + upsert 생성)
+ * 2. settings[payload.type] === false → notifications 행 insert 자체를 생략하고 즉시 반환
+ *    (사용자가 해당 타입을 OFF하면 알림이 DB에도 남지 않는다)
+ * 3. notifications 테이블에 insert
+ * 4. Redis PUBLISH → SSE 팬아웃
  *
  * 의존성(DB, Redis)은 파라미터로 주입해 단위 테스트에서 mock할 수 있게 한다.
  */
@@ -21,6 +22,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: Record<string, boolean> = {
   "comment.created": true,
   "answer.created": true,
   "comment.replied": true,
+  "inquiry.replied": true,
   "reaction.received": true,
   "helpful_answer.marked": true,
   "message.received": true,
@@ -34,7 +36,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: Record<string, boolean> = {
  * @param payload 알림 페이로드 (type, title, body, 선택: targetType, targetId)
  * @param db Drizzle DB 인스턴스 (테스트에서 mock 주입)
  * @param redisPublisher ioredis PUBLISH 전용 인스턴스 (테스트에서 mock 주입)
- * @returns 삽입된 notifications 행
+ * @returns 삽입된 notifications 행, 또는 알림 설정이 OFF인 경우 null
  */
 export async function publishNotification(
   userId: string,
@@ -42,20 +44,7 @@ export async function publishNotification(
   db: Database,
   redisPublisher: Redis,
 ) {
-  // 1. notifications 테이블에 insert
-  const [notif] = await db
-    .insert(schema.notifications)
-    .values({
-      userId,
-      type: payload.type,
-      targetType: payload.targetType ?? null,
-      targetId: payload.targetId ?? null,
-      title: payload.title,
-      body: payload.body,
-    })
-    .returning();
-
-  // 2. notification_settings 조회
+  // 1. notification_settings 먼저 조회
   const settingsRow = await db.query.notificationSettings.findFirst({
     where: eq(schema.notificationSettings.userId, userId),
   });
@@ -73,10 +62,23 @@ export async function publishNotification(
     settings = settingsRow.settings as Record<string, boolean | undefined>;
   }
 
-  // 3. type이 false면 SSE PUBLISH 생략 (insert는 완료됨)
+  // 2. type이 false면 DB insert 자체를 생략 — 알림이 아예 발생하지 않은 것으로 처리
   if (settings[payload.type] === false) {
-    return notif;
+    return null;
   }
+
+  // 3. notifications 테이블에 insert
+  const [notif] = await db
+    .insert(schema.notifications)
+    .values({
+      userId,
+      type: payload.type,
+      targetType: payload.targetType ?? null,
+      targetId: payload.targetId ?? null,
+      title: payload.title,
+      body: payload.body,
+    })
+    .returning();
 
   // 4. Redis PUBLISH → 해당 유저 SSE 커넥션 보유 인스턴스가 수신
   const ssePayload = JSON.stringify({

@@ -1,6 +1,3 @@
-// Story 8.9: ISR — 상세 페이지 300초 TTL 캐시 (AR-17)
-export const revalidate = 300;
-
 /**
  * 질문 상세 페이지 — Story 3.5
  *
@@ -20,7 +17,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { AuthorName, Avatar, Icon } from "@/components/ui";
+import { AuthorName, Icon } from "@/components/ui";
 import { BoardHero, AttachmentList, RecentViewedTracker } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
@@ -272,8 +269,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
 
             <div className={styles.detailMeta}>
               <span className={styles.detailAuthor}>
-                <Avatar name={question.author?.nickname ?? "익명"} src={question.author?.avatarUrl ?? undefined} size="sm" />
-                <AuthorName name={question.author?.nickname ?? "익명"} authorId={question.author?.id} />
+                <AuthorName name={question.author?.nickname ?? "익명"} authorId={question.author?.id} avatarUrl={question.author?.avatarUrl} />
               </span>
               <span className={styles.metaDivider} aria-hidden="true">|</span>
               <span>{formattedDate}</span>

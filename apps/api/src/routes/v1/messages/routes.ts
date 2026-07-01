@@ -16,7 +16,7 @@ import {
   errorResponseSchema,
   purgeMessagesBodySchema,
 } from "@ai-jakdang/contracts";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { publishNotification } from "../../../lib/notifications.js";
 import { getRedisPublisher } from "../../../lib/redis.js";
 import {
@@ -104,7 +104,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   typed.post(
     "/",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       config: {
         rateLimit: {
           max: 10,

@@ -8,6 +8,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu";
 import { API_BASE_URL } from "../../lib/api";
 import { notifyDialog } from "@/lib/dialog";
+import { SanctionModal } from "@/app/members/_components/SanctionModal";
 import type { AdminReportItem } from "@ai-jakdang/contracts";
 
 // 서비스가 추가로 반환하는 필드 (계약 타입 확장)
@@ -48,6 +49,7 @@ const TARGET_OPTIONS = [
   { value: "answer", label: "답변" },
   { value: "resource", label: "실전자료" },
   { value: "message", label: "쪽지" },
+  { value: "user", label: "회원" },
 ] as const;
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ function targetBadge(targetType: string): [string, string] {
     case "answer": return ["badge-purple", "답변"];
     case "resource": return ["badge-cyan", "실전자료"];
     case "message": return ["badge-gray", "쪽지"];
+    case "user": return ["badge-teal", "회원"];
     default: return ["badge-gray", targetType];
   }
 }
@@ -188,6 +191,7 @@ function AdminReportsPageInner() {
 
   // UI 상태
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [sanctionTarget, setSanctionTarget] = useState<{ reportId: string; targetId: string } | null>(null);
 
   // ── 목록 조회 ────────────────────────────────────────────────────────────
   const fetchReports = useCallback(async () => {
@@ -322,6 +326,30 @@ function AdminReportsPageInner() {
       void fetchReports();
     } catch {
       await notifyDialog("복구 중 오류가 발생했습니다.", "danger");
+    }
+  };
+
+  // ── 회원 신고 제재 처리 (Story 12.5) ────────────────────────────────────────
+  const handleSanctionFromList = async (
+    reportId: string,
+    targetId: string,
+    type: "warning" | "suspend" | "permaban",
+    reason: string,
+    endsAt: string | null,
+  ) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports/${reportId}/sanction-member`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: targetId, type, reason, endsAt }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await notifyDialog("회원 제재가 적용되고 신고가 처리완료 되었습니다.");
+      setSanctionTarget(null);
+      void fetchReports();
+    } catch {
+      await notifyDialog("제재 처리 중 오류가 발생했습니다.", "danger");
     }
   };
 
@@ -473,19 +501,26 @@ function AdminReportsPageInner() {
                     const [sb, sl] = statusBadge(r.status);
                     const [tb, tl] = targetBadge(r.targetType);
                     const canAct = r.status !== "resolved" && r.status !== "dismissed";
+                    const isUserReport = r.targetType === "user";
                     const actionItems: RowActionItem[] = [
                       { label: "상세보기", icon: "ri-eye-line", href: `/reports/${r.id}` },
-                      ...(r.autoHidden && canAct
+                      // 자동 숨김 복구: 콘텐츠 전용 (user 제외)
+                      ...(!isUserReport && r.autoHidden && canAct
                         ? [{ label: "자동 숨김 복구", icon: "ri-refresh-line", onClick: () => void handleRestoreAutoHide(r.id) }]
                         : []),
+                      // 확인중으로 변경: 공통
                       ...(canAct && r.status === "pending"
                         ? [{ label: "확인중으로 변경", icon: "ri-search-eye-line", onClick: () => void handleReview(r.id) }]
                         : []),
+                      // user: "회원 제재" / content: "대상 숨김"
                       ...(canAct
-                        ? [
-                            { label: "대상 숨김", icon: "ri-eye-off-line", onClick: () => void handleHide(r.id) },
-                            { label: "신고 반려", icon: "ri-close-circle-line", danger: true, onClick: () => setRejectTarget(r.id) },
-                          ]
+                        ? isUserReport
+                          ? [{ label: "회원 제재", icon: "ri-user-forbid-line", onClick: () => setSanctionTarget({ reportId: r.id, targetId: r.targetId }) }]
+                          : [{ label: "대상 숨김", icon: "ri-eye-off-line", onClick: () => void handleHide(r.id) }]
+                        : []),
+                      // 신고 반려: 공통
+                      ...(canAct
+                        ? [{ label: "신고 반려", icon: "ri-close-circle-line", danger: true, onClick: () => setRejectTarget(r.id) }]
                         : []),
                     ];
                     return (
@@ -589,6 +624,16 @@ function AdminReportsPageInner() {
           reportId={rejectTarget}
           onConfirm={(id, note) => void handleReject(id, note)}
           onClose={() => setRejectTarget(null)}
+        />
+      )}
+
+      {/* 회원 제재 모달 (user 신고 전용, Story 12.5) */}
+      {sanctionTarget && (
+        <SanctionModal
+          onClose={() => setSanctionTarget(null)}
+          onConfirm={(type, reason, endsAt) =>
+            void handleSanctionFromList(sanctionTarget.reportId, sanctionTarget.targetId, type, reason, endsAt)
+          }
         />
       )}
     </AdminShell>

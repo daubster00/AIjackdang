@@ -107,6 +107,29 @@ const envSchema = z
     ADMIN_PUBLIC_URL: z.string().default("http://localhost:3004"),
     API_PORT: portish.default(4003),
     API_HOST: z.string().default("0.0.0.0"),
+
+    // ── Epic 11: 시딩 봇 (AI 프로바이더 — 글·댓글·검열·이미지 생성) ──
+    // 모든 키는 optional. 미설정 시 부팅은 되고, 해당 기능 사용 시점에 "키 미설정" 에러를 던진다(부분 가동 허용).
+    OPENAI_API_KEY: z.string().optional(),
+    ANTHROPIC_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+
+    // 검색 (그라운딩)
+    GOOGLE_SEARCH_API_KEY: z.string().optional(),
+    GOOGLE_SEARCH_CX: z.string().optional(),
+    NAVER_SEARCH_CLIENT_ID: z.string().optional(),
+    NAVER_SEARCH_CLIENT_SECRET: z.string().optional(),
+
+    // 이미지 스톡 (선택)
+    UNSPLASH_ACCESS_KEY: z.string().optional(),
+    PEXELS_API_KEY: z.string().optional(),
+
+    // 푸시 알림 (텔레그램 — 키 미설정 시 푸시 비활성, Story 11.18은 키 들어오기 전까지 미가동)
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_CHAT_ID: z.string().optional(),
+
+    // 봇 동작 부트스트랩 (런타임 설정은 bot_settings DB가 우선)
+    SEEDING_BOT_ENABLED: boolish,
   })
   // production 환경에서 dev-bypass가 켜져 있으면 부팅 차단 (ADR-0001 §6 / 보안 주의).
   .superRefine((val, ctx) => {

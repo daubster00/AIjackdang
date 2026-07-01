@@ -1,6 +1,6 @@
 # Story 11.2: 봇 Zod 계약(contracts)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -37,67 +37,67 @@ so that API·worker·admin 전 레이어가 동일한 타입 계약을 import해
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: enum 스키마 정의 (AC: 1)
-  - [ ] `botProviderSchema` — `z.enum(["openai", "anthropic", "google"])`
-  - [ ] `botPurposeSchema` — `z.enum(["generation", "censor", "image"])`
-  - [ ] `botTopicKindSchema` — `z.enum(["fixed", "realtime", "auto"])`
-  - [ ] `botTopicStatusSchema` — `z.enum(["unused", "used", "cooling"])`
-  - [ ] `botJobKindSchema` — `z.enum(["post", "comment", "reply", "question", "resource"])` (11.1 `botJobKind` pgEnum과 1:1 일치 — `question`·`resource` 포함, #6 정합)
-  - [ ] `botJobStatusSchema` — `z.enum(["pending", "generating", "censoring", "held", "approved", "published", "discarded", "blocked"])`
-  - [ ] `botActivityEventTypeSchema` — `z.enum(["post.published", "comment.published", "held", "blocked", "regenerated", "skipped", "cost", "discarded", "planned"])` (11.1 `botEventType` pgEnum과 1:1 일치 — `discarded`·`planned` 포함)
-  - [ ] `botHoldReasonSchema` — `z.enum(["ambiguous", "injection_suspect", "copyright_risk", "observation_mode"])` (11.1 `botHoldReason` pgEnum과 1:1 일치 — `observation_mode` 포함)
-  - [ ] `botHoldDecisionSchema` — `z.enum(["approved", "discarded"])`
-  - [ ] 각 enum에 `z.infer<>` 추론 타입 export
+- [x] Task 1: enum 스키마 정의 (AC: 1)
+  - [x] `botProviderSchema` — `z.enum(["openai", "anthropic", "google"])`
+  - [x] `botPurposeSchema` — `z.enum(["generation", "censor", "image"])`
+  - [x] `botTopicKindSchema` — `z.enum(["fixed", "realtime", "auto"])`
+  - [x] `botTopicStatusSchema` — `z.enum(["unused", "used", "cooling"])`
+  - [x] `botJobKindSchema` — `z.enum(["post", "comment", "reply", "question", "resource"])` (11.1 `botJobKind` pgEnum과 1:1 일치 — `question`·`resource` 포함, #6 정합)
+  - [x] `botJobStatusSchema` — `z.enum(["pending", "generating", "censoring", "held", "approved", "published", "discarded", "blocked"])`
+  - [x] `botActivityEventTypeSchema` — `z.enum(["post.published", "comment.published", "held", "blocked", "regenerated", "skipped", "cost", "discarded", "planned"])` (11.1 `botEventType` pgEnum과 1:1 일치 — `discarded`·`planned` 포함)
+  - [x] `botHoldReasonSchema` — `z.enum(["ambiguous", "injection_suspect", "copyright_risk", "observation_mode"])` (11.1 `botHoldReason` pgEnum과 1:1 일치 — `observation_mode` 포함)
+  - [x] `botHoldDecisionSchema` — `z.enum(["approved", "discarded"])`
+  - [x] 각 enum에 `z.infer<>` 추론 타입 export
 
-- [ ] Task 2: 단위 도메인 스키마 정의 (AC: 1, 2)
-  - [ ] `botActiveHourSchema` — `{from: z.number().int().min(0).max(23), to: z.number().int().min(0).max(23), crossesMidnight: z.boolean().optional().default(false)}`. 자정을 넘는 구간은 `{from:23,to:2,crossesMidnight:true}`처럼 명시한다(`to > 24`·`% 24` 처리 금지).
-  - [ ] `botActivityRhythmSchema` — `{personaId, postsPerWeek, commentsPerWeek, activeHours: z.array(botActiveHourSchema), activeDays: z.record(...)}` (응답 전용; nullable 컬럼은 `.nullable()` 적용)
-  - [ ] `botModelAssignmentSchema` — `{id, personaId, provider, model, purpose, isActive, note}` (목록/상세 동일 형태; `personaId` 포함 — 모델 할당은 persona별, #5 정합). 조회 키는 `(personaId, purpose)` unique.
-  - [ ] `botTopicSchema` — `{id, personaId, board, titleSeed, topicKind, status, usedAt, seriesGroup}` (nullable 컬럼 반영)
-  - [ ] `botActivityLogItemSchema` — `{id, personaId, eventType, refId, payload, createdAt}` (payload는 `z.unknown()`)
-  - [ ] `botHoldQueueItemSchema` — `{id, jobId, reason, decided, decision, decidedAt, decidedBy, draftPreview, personaNickname}` (목록용 요약 포함)
-  - [ ] `botGenerationJobSchema` — `{id, personaId, jobKind, targetBoard, targetPostId, topicId, status, draftContent, censorResult, regenCount, scheduledAt, publishedPostId, publishedCommentId, cost, createdAt, updatedAt}` (jsonb 필드는 `z.unknown()` 또는 구체 스키마)
-  - [ ] `botPersonaItemSchema` — 목록 카드용 (id, nickname, isActive, isAdminPersona, infoRatio, createdAt, lastActivityAt 등 요약)
-  - [ ] `botPersonaDetailSchema` — 상세용 (전체 컬럼 + rhythm, assignedBoards 배열 포함)
-  - [ ] 각 스키마에 `z.infer<>` 추론 타입 export
+- [x] Task 2: 단위 도메인 스키마 정의 (AC: 1, 2)
+  - [x] `botActiveHourSchema` — `{from: z.number().int().min(0).max(23), to: z.number().int().min(0).max(23), crossesMidnight: z.boolean().optional().default(false)}`. 자정을 넘는 구간은 `{from:23,to:2,crossesMidnight:true}`처럼 명시한다(`to > 24`·`% 24` 처리 금지).
+  - [x] `botActivityRhythmSchema` — `{personaId, postsPerWeek, commentsPerWeek, activeHours: z.array(botActiveHourSchema), activeDays: z.record(...)}` (응답 전용; nullable 컬럼은 `.nullable()` 적용)
+  - [x] `botModelAssignmentSchema` — `{id, personaId, provider, model, purpose, isActive, note}` (목록/상세 동일 형태; `personaId` 포함 — 모델 할당은 persona별, #5 정합). 조회 키는 `(personaId, purpose)` unique.
+  - [x] `botTopicSchema` — `{id, personaId, board, titleSeed, topicKind, status, usedAt, seriesGroup}` (nullable 컬럼 반영)
+  - [x] `botActivityLogItemSchema` — `{id, personaId, eventType, refId, payload, createdAt}` (payload는 `z.unknown()`)
+  - [x] `botHoldQueueItemSchema` — `{id, jobId, reason, decided, decision, decidedAt, decidedBy, draftPreview, personaNickname}` (목록용 요약 포함)
+  - [x] `botGenerationJobSchema` — `{id, personaId, jobKind, targetBoard, targetPostId, topicId, status, draftContent, censorResult, regenCount, scheduledAt, publishedPostId, publishedCommentId, cost, createdAt, updatedAt}` (jsonb 필드는 `z.unknown()` 또는 구체 스키마)
+  - [x] `botPersonaItemSchema` — 목록 카드용 (id, nickname, isActive, isAdminPersona, infoRatio, createdAt, lastActivityAt 등 요약)
+  - [x] `botPersonaDetailSchema` — 상세용 (전체 컬럼 + rhythm, assignedBoards 배열 포함)
+  - [x] 각 스키마에 `z.infer<>` 추론 타입 export
 
-- [ ] Task 3: 목록 응답 스키마 정의 (AC: 1, 5)
-  - [ ] `paginatedBotPersonasSchema` — `paginatedResponseSchema(botPersonaItemSchema)` 재사용
-  - [ ] `paginatedBotTopicsSchema` — `paginatedResponseSchema(botTopicSchema)` 재사용
-  - [ ] `paginatedBotActivityLogsSchema` — `paginatedResponseSchema(botActivityLogItemSchema)` 재사용
-  - [ ] `paginatedBotHoldQueueSchema` — `paginatedResponseSchema(botHoldQueueItemSchema)` 재사용
-  - [ ] `paginatedBotGenerationJobsSchema` — `paginatedResponseSchema(botGenerationJobSchema)` 재사용
-  - [ ] 추론 타입 export
+- [x] Task 3: 목록 응답 스키마 정의 (AC: 1, 5)
+  - [x] `paginatedBotPersonasSchema` — `paginatedResponseSchema(botPersonaItemSchema)` 재사용
+  - [x] `paginatedBotTopicsSchema` — `paginatedResponseSchema(botTopicSchema)` 재사용
+  - [x] `paginatedBotActivityLogsSchema` — `paginatedResponseSchema(botActivityLogItemSchema)` 재사용
+  - [x] `paginatedBotHoldQueueSchema` — `paginatedResponseSchema(botHoldQueueItemSchema)` 재사용
+  - [x] `paginatedBotGenerationJobsSchema` — `paginatedResponseSchema(botGenerationJobSchema)` 재사용
+  - [x] 추론 타입 export
 
-- [ ] Task 4: 관리자 API 쿼리 파라미터 스키마 정의 (AC: 1)
-  - [ ] `adminBotPersonasQuerySchema` — `{isActive?, q?, page, pageSize}` (`coerce` 패턴 준수)
-  - [ ] `adminBotTopicsQuerySchema` — `{personaId?, status?, board?, page, pageSize}`
-  - [ ] `adminBotActivityLogsQuerySchema` — `{personaId?, eventType?, dateFrom?, dateTo?, page, pageSize}`
-  - [ ] `adminBotHoldQueueQuerySchema` — `{reason?, decided?, page, pageSize}`
-  - [ ] `adminBotJobsQuerySchema` — `{personaId?, status?, jobKind?, page, pageSize}`
+- [x] Task 4: 관리자 API 쿼리 파라미터 스키마 정의 (AC: 1)
+  - [x] `adminBotPersonasQuerySchema` — `{isActive?, q?, page, pageSize}` (`coerce` 패턴 준수)
+  - [x] `adminBotTopicsQuerySchema` — `{personaId?, status?, board?, page, pageSize}`
+  - [x] `adminBotActivityLogsQuerySchema` — `{personaId?, eventType?, dateFrom?, dateTo?, page, pageSize}`
+  - [x] `adminBotHoldQueueQuerySchema` — `{reason?, decided?, page, pageSize}`
+  - [x] `adminBotJobsQuerySchema` — `{personaId?, status?, jobKind?, page, pageSize}`
 
-- [ ] Task 5: 전역 설정 스키마 정의 (AC: 1, 2)
-  - [ ] `botSettingsResponseSchema` — ARCHITECTURE §2.10의 key 전체를 flat 객체로 정의 (`bot_master_enabled`, `bot_daily_post_limit`, `bot_daily_comment_limit`, `bot_daily_cost_limit_usd`, `bot_exclude_from_ranking`, `bot_auto_refill_topics`, `bot_observation_mode`, `bot_push_channel`); 모두 optional (키 미존재 허용)
-  - [ ] `botSettingsPatchSchema` — 동일 키들 partial PATCH용 (변경 키만 전달)
+- [x] Task 5: 전역 설정 스키마 정의 (AC: 1, 2)
+  - [x] `botSettingsResponseSchema` — ARCHITECTURE §2.10의 key 전체를 flat 객체로 정의 (`bot_master_enabled`, `bot_daily_post_limit`, `bot_daily_comment_limit`, `bot_daily_cost_limit_usd`, `bot_exclude_from_ranking`, `bot_auto_refill_topics`, `bot_observation_mode`, `bot_push_channel`); 모두 optional (키 미존재 허용)
+  - [x] `botSettingsPatchSchema` — 동일 키들 partial PATCH용 (변경 키만 전달)
 
-- [ ] Task 6: CRUD 요청 스키마 정의 (AC: 1, 2)
-  - [ ] `botPersonaCreateSchema` — 생성 가능한 필드 명시(`nickname`, `hiddenIdentity`, `ageJob`, `tone`, `personaPrompt`, `infoRatio`, `intentionalFlaws`, `isAdminPersona`, `isActive`)
-  - [ ] `botPersonaUpdateSchema` — `botPersonaCreateSchema.partial()`
-  - [ ] `botTopicCreateSchema` — `{personaId, board, titleSeed, topicKind, seriesGroup?}`
-  - [ ] `botTopicBulkUpsertSchema` — `{topics: z.array(botTopicCreateSchema)}`
-  - [ ] `botModelAssignmentUpsertSchema` — `{personaId, provider, model, purpose, isActive, note?}`
-  - [ ] `botRhythmUpdateSchema` — `{postsPerWeek, commentsPerWeek, activeHours, activeDays}`
-  - [ ] `botHoldQueueDecisionSchema` — `{decision: botHoldDecisionSchema}` (보류 항목 결정 요청)
-  - [ ] `botPersonaBoardUpsertSchema` — `{boards: z.array({board: z.string(), weight: z.number().int().min(1).max(10)})}`
+- [x] Task 6: CRUD 요청 스키마 정의 (AC: 1, 2)
+  - [x] `botPersonaCreateSchema` — 생성 가능한 필드 명시(`nickname`, `hiddenIdentity`, `ageJob`, `tone`, `personaPrompt`, `infoRatio`, `intentionalFlaws`, `isAdminPersona`, `isActive`)
+  - [x] `botPersonaUpdateSchema` — `botPersonaCreateSchema.partial()`
+  - [x] `botTopicCreateSchema` — `{personaId, board, titleSeed, topicKind, seriesGroup?}`
+  - [x] `botTopicBulkUpsertSchema` — `{topics: z.array(botTopicCreateSchema)}`
+  - [x] `botModelAssignmentUpsertSchema` — `{personaId, provider, model, purpose, isActive, note?}`
+  - [x] `botRhythmUpdateSchema` — `{postsPerWeek, commentsPerWeek, activeHours, activeDays}`
+  - [x] `botHoldQueueDecisionSchema` — `{decision: botHoldDecisionSchema}` (보류 항목 결정 요청)
+  - [x] `botPersonaBoardUpsertSchema` — `{boards: z.array({board: z.string(), weight: z.number().int().min(1).max(10)})}`
 
-- [ ] Task 7: 배럴 export 등록 (AC: 3)
-  - [ ] `packages/contracts/src/index.ts` 파일 열기
-  - [ ] 파일 최하단에 `// ── 시딩 봇 (Epic 11) ──` 주석 블록과 `export * from "./bot"` 한 줄 추가
+- [x] Task 7: 배럴 export 등록 (AC: 3)
+  - [x] `packages/contracts/src/index.ts` 파일 열기
+  - [x] 파일 최하단에 `// ── 시딩 봇 (Epic 11) ──` 주석 블록과 `export * from "./bot"` 한 줄 추가
 
-- [ ] Task 8: 타입 검사 통과 확인 (AC: 4)
-  - [ ] `packages/contracts` 디렉터리에서 `pnpm tsc --noEmit` 실행
-  - [ ] 기존 export와 이름 충돌 없음 확인 (특히 `botProviderSchema` 등 bot 접두어로 충돌 방지)
-  - [ ] 오류 있으면 수정 후 재실행
+- [x] Task 8: 타입 검사 통과 확인 (AC: 4)
+  - [x] `packages/contracts` 디렉터리에서 `pnpm tsc --noEmit` 실행
+  - [x] 기존 export와 이름 충돌 없음 확인 (특히 `botProviderSchema` 등 bot 접두어로 충돌 방지)
+  - [x] 오류 있으면 수정 후 재실행
 
 ## Dev Notes
 
@@ -214,10 +214,22 @@ cost: z.unknown(),           // 비용 집계 jsonb
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-6
 
 ### Debug Log References
 
+없음 — typecheck 1회 통과, 수정 없음.
+
 ### Completion Notes List
 
+- `packages/contracts/src/bot.ts` 신규 생성: 9개 enum + 10개 단위 도메인 스키마 + 5개 paginated 응답 + 5개 쿼리 파라미터 + 2개 설정 스키마 + 8개 CRUD 요청 스키마. 총 39개 export (스키마 + 추론 타입).
+- 모든 enum 값은 `packages/database/src/schema/bot.ts` pgEnum 값과 글자 그대로 일치 확인.
+- `botSettingsPatchSchema = botSettingsResponseSchema` 패턴 사용 — 설정 응답과 PATCH 요청이 동일 shape(모두 optional)이므로 재정의 없이 재사용.
+- `paginatedResponseSchema` 헬퍼(`common.ts`)를 5개 목록 응답 모두에서 재사용. `errorResponseSchema`는 재정의 없음.
+- 쿼리 파라미터 `isActive`·`decided`의 boolean coerce 패턴: `z.enum(["true","false"]).transform(v => v === "true").optional()` — `admin/members.ts` 패턴 준수.
+- `pnpm --filter @ai-jakdang/contracts typecheck` → 오류 0건 통과.
+
 ### File List
+
+- `packages/contracts/src/bot.ts` (신규 생성)
+- `packages/contracts/src/index.ts` (수정: `// ── 시딩 봇 (Epic 11) ──` 주석 + `export * from "./bot"` 추가)

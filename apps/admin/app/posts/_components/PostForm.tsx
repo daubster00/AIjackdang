@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { API_BASE_URL } from "@/lib/api";
-import { BOARDS } from "@/lib/boards";
+import { BOARDS, boardApiParam, dbBoardToAdminSlug } from "@/lib/boards";
 import { confirmDialog } from "@/lib/dialog";
 import { Select } from "@/components/ui/Select";
 import { Editor, textToTiptapJson } from "@/features/editor";
@@ -124,7 +124,9 @@ export function PostForm({
       })
       .then((post) => {
         if (!alive) return;
-        setSelectedBoard(post.board);
+        // post.board 는 DB board 값(예: "monetization-tips").
+        // 관리자 URL slug(예: "money-case")로 변환해야 취소/삭제/저장 이동이 올바르다.
+        setSelectedBoard(dbBoardToAdminSlug(post.board));
         setTitle(post.title);
         setContentJson((post.contentJson as JSONContent) ?? textToTiptapJson(""));
         setTags((post.tags ?? []).join(", "));
@@ -185,7 +187,8 @@ export function PostForm({
     }
 
     const payload = {
-      board: selectedBoard,
+      // selectedBoard 는 admin URL slug → API 에는 DB board 값(apiBoard)으로 변환해야 한다.
+      board: boardApiParam(selectedBoard),
       title: title.trim(),
       contentJson,
       tags: parseTags(tags),
@@ -221,7 +224,10 @@ export function PostForm({
       const result = (await res.json().catch(() => ({}))) as { id?: string; board?: string };
       setMessage({ type: "success", text: mode === "edit" ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다." });
       setTimeout(() => {
-        router.push(`/posts/${result.board ?? selectedBoard}`);
+        // result.board 는 POST 신규 작성 응답의 DB board 값 → admin slug 로 역변환.
+        // PATCH(수정)는 board 를 반환하지 않으므로 selectedBoard(이미 admin slug) 사용.
+        const targetSlug = result.board ? dbBoardToAdminSlug(result.board) : selectedBoard;
+        router.push(`/posts/${targetSlug}`);
         router.refresh();
       }, 500);
     } catch {

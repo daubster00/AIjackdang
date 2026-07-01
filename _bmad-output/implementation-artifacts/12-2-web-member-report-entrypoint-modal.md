@@ -1,6 +1,6 @@
 # Story 12.2: 유저 웹 — 회원 프로필 신고 진입점 + 회원 신고 모달
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -9,7 +9,7 @@
  * - 모달 내 "이동하기" 버튼으로 관련 페이지 이동 (inquiry.replied → /inquiries/{id})
  */
 
-import { useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useState } from "react";
 import { Icon } from "@/components/ui";
 import { NotificationModal } from "./NotificationModal";
 import styles from "./notifications.module.css";
@@ -83,12 +83,15 @@ const DEFAULT_META = { icon: "notification-3-line", toneClass: "toneDefault" as 
 export interface NotificationItemProps {
   item: NotificationItemData;
   onRead: (id: string) => void;
+  /** 삭제 성공 시 부모에 알림 — 목록 상태 갱신 + 배지 보정용 */
+  onDelete: (id: string) => void;
 }
 
-export function NotificationItem({ item, onRead }: NotificationItemProps) {
+export function NotificationItem({ item, onRead, onDelete }: NotificationItemProps) {
   const meta = TYPE_META[item.type] ?? DEFAULT_META;
   const toneClass = styles[meta.toneClass] ?? styles.toneDefault;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleClick = useCallback(async () => {
     // 읽음 처리 (미읽음인 경우만)
@@ -109,6 +112,26 @@ export function NotificationItem({ item, onRead }: NotificationItemProps) {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
   }, []);
+
+  /** 삭제 버튼 클릭 — 카드 클릭(읽음+모달)으로 이벤트가 번지지 않게 stopPropagation */
+  const handleDelete = useCallback(
+    async (e: MouseEvent) => {
+      e.stopPropagation();
+      if (isDeleting) return;
+      setIsDeleting(true);
+      try {
+        const res = await fetch(`/api/v1/notifications/${item.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("삭제 실패");
+        onDelete(item.id);
+      } catch {
+        setIsDeleting(false);
+      }
+    },
+    [isDeleting, item.id, onDelete],
+  );
 
   const relativeTime = timeAgo(item.createdAt);
 
@@ -140,6 +163,18 @@ export function NotificationItem({ item, onRead }: NotificationItemProps) {
               <span className={styles.unreadLabel}>안 읽은 알림</span>
             </span>
           )}
+        </button>
+
+        {/* 삭제 버튼 — 카드 클릭과 분리된 별도 버튼 */}
+        <button
+          type="button"
+          className={styles.deleteButton}
+          onClick={handleDelete}
+          disabled={isDeleting}
+          aria-label={`${meta.ariaLabel} 알림 삭제: ${item.title}`}
+          title="알림 삭제"
+        >
+          <Icon name="delete-bin-line" aria-hidden="true" />
         </button>
       </li>
 

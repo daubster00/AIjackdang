@@ -21,4 +21,7 @@ export { rankingWindowDates, computeRanking } from "./ranking";
 export type { PeriodType, RankEntry } from "./ranking";
 
 // ── moderation (Story 9.10 · 9.11) ───────────────────────────────────────────
-export { deriveReportAction, detectForbiddenWord, detectSpam } from "./moderation";
+export { deriveReportAction, detectForbiddenWord, detectSpam, maskForbiddenWord } from "./moderation";
+
+// ── legal (Story 10.2 · 10.4) — 약관 버전 단일 상수 ─────────────────────────────
+export { CURRENT_TERMS_VERSION, TERMS_EFFECTIVE_DATE } from "./legal";

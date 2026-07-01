@@ -10,5 +10,7 @@
   --z-drawer: 60;
   --z-modal-backdrop: 70;
   --z-modal: 80;
+  /* 모달 내부에서 열리는 팝오버(예: AuthorName 클릭 메뉴)는 모달(80) 위에 떠야 한다. */
+  --z-popover: 85;
   --z-toast: 90;
 }

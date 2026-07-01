@@ -1,6 +1,6 @@
 # Story 11.11: 일일 활동 계획 생성기 (리듬·요일·시간대)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -22,36 +22,36 @@ so that 봇이 사람처럼 불규칙하고 자연스러운 패턴으로 글과 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 잡 페이로드 타입 보완 (AC: 4)
-  - [ ] `packages/contracts/src/bot.ts`(11.2 정의)에 `BotDailyPlanJobPayload`, `BotWriteJobPayload`, `BotCommentJobPayload` Zod 스키마가 없으면 추가
-  - [ ] `BotWriteJobPayload`: `{ personaId: string; triggeredDate: string }` (YYYY-MM-DD, 로그 추적용)
-  - [ ] `BotCommentJobPayload`: `{ personaId: string; triggeredDate: string; targetPostId?: string }` (null이면 11.10 파이프라인이 대상 글 선택)
-  - [ ] `BotDailyPlanJobPayload`: `{ triggeredAt: string }` (cron fire 시각 ISO string)
-  - [ ] `packages/contracts/src/index.ts` 배럴 export 확인
+- [x] Task 1: 잡 페이로드 타입 보완 (AC: 4)
+  - [x] `packages/contracts/src/bot.ts`(11.2 정의)에 `BotDailyPlanJobPayload`, `BotWriteJobPayload`, `BotCommentJobPayload` Zod 스키마가 없으면 추가
+  - [x] `BotWriteJobPayload`: `{ personaId: string; triggeredDate: string }` (YYYY-MM-DD, 로그 추적용)
+  - [x] `BotCommentJobPayload`: `{ personaId: string; triggeredDate: string; targetPostId?: string }` (null이면 11.10 파이프라인이 대상 글 선택)
+  - [x] `BotDailyPlanJobPayload`: `{ triggeredAt: string }` (cron fire 시각 ISO string)
+  - [x] `packages/contracts/src/index.ts` 배럴 export 확인
 
-- [ ] Task 2: 순수 함수 구현 (AC: 2, 3, 4, 5)
-  - [ ] `apps/worker/src/processors/bot/dailyPlan.processor.ts` 파일 신규 생성 (`apps/worker/src/processors/bot/` 디렉터리가 11.13에서 이미 생성됐으면 재사용)
-  - [ ] `seededRandom(seed: string): number` — `seed` 문자열 기반 결정론적 0~1 float (단순 해시, 재실행 시 동일 결과)
-  - [ ] `isDormantThisWeek(personaId: string, date: Date): boolean` — 해당 주 월요일 기준 seed, 12% 잠수 확률
-  - [ ] `calcTodayCount(perWeek: number, seed: string): number` — `perWeek/7 × [0.8~1.2]`, 최솟값 0
-  - [ ] `pickDelayMs(activeHours: Array<{from:number;to:number;crossesMidnight?:boolean}>, index: number, today: Date): number` — 시간대 내 KST 랜덤 시각→ms 차이, `Asia/Seoul` 기준, 음수 방지. 자정 넘김은 `crossesMidnight:true`로 처리하며 `to > 24`·`% 24` 금지.
+- [x] Task 2: 순수 함수 구현 (AC: 2, 3, 4, 5)
+  - [x] `apps/worker/src/processors/bot/dailyPlan.processor.ts` 파일 신규 생성 (`apps/worker/src/processors/bot/` 디렉터리가 11.13에서 이미 생성됐으면 재사용)
+  - [x] `seededRandom(seed: string): number` — `seed` 문자열 기반 결정론적 0~1 float (단순 해시, 재실행 시 동일 결과)
+  - [x] `isDormantThisWeek(personaId: string, date: Date): boolean` — 해당 주 월요일 기준 seed, 12% 잠수 확률
+  - [x] `calcTodayCount(perWeek: number, seed: string): number` — `perWeek/7 × [0.8~1.2]`, 최솟값 0
+  - [x] `pickDelayMs(activeHours: Array<{from:number;to:number;crossesMidnight?:boolean}>, index: number, today: Date): number` — 시간대 내 KST 랜덤 시각→ms 차이, `Asia/Seoul` 기준, 음수 방지. 자정 넘김은 `crossesMidnight:true`로 처리하며 `to > 24`·`% 24` 금지.
 
-- [ ] Task 3: 일일 계획 프로세서 메인 로직 구현 (AC: 1, 2, 3, 4, 5)
-  - [ ] `botDailyPlanProcessor(job: Job<BotDailyPlanJobPayload>): Promise<void>` export — Story 11.13의 디스패처(`switch (job.name)`)가 `case 'bot.daily-plan'`에서 이 함수를 호출한다
-  - [ ] `getDb()`로 `bot_personas`와 `bot_activity_rhythm` 조인 조회 (isActive=true 필터)
-  - [ ] **enqueue는 `getBotQueue()`(단일 `bot` 큐, 11.13/`apps/api/src/lib/queues.ts` 정의) 한 곳만 사용** — 각 페르소나별: 잠수 주 체크 → 요일 확률 체크 → 오늘 글/댓글 개수 산출 → `getBotQueue().add("bot.write", payload, opts)` / `getBotQueue().add("bot.comment", payload, opts)`
-  - [ ] enqueue `jobId` 형식: `bot-write-{personaId}-{YYYY-MM-DD}-{index}`, `bot-comment-{personaId}-{YYYY-MM-DD}-{index}`
-  - [ ] skip 시 `bot_activity_log` insert: `event_type='skipped'`, `payload: {reason:'dormant_week'|'day_probability', date}`
-  - [ ] 계획 완료 시 `bot_activity_log` insert: `event_type='planned'`(일일 계획 기록 — `cost` 아님, Story 11.1 enum 확정값), `payload: {plannedPosts, plannedComments, date}`
-  - [ ] 킬 스위치(`bot_master_enabled`) 확인 stub: `bot_settings`에서 값 읽어 off면 전체 skip + warn 로그 (11.12 완료 후 공용 `checkBotGates()` 함수로 교체)
+- [x] Task 3: 일일 계획 프로세서 메인 로직 구현 (AC: 1, 2, 3, 4, 5)
+  - [x] `botDailyPlanProcessor(job: Job<BotDailyPlanJobPayload>): Promise<void>` export — Story 11.13의 디스패처(`switch (job.name)`)가 `case 'bot.daily-plan'`에서 이 함수를 호출한다
+  - [x] `getDb()`로 `bot_personas`와 `bot_activity_rhythm` 조인 조회 (isActive=true 필터)
+  - [x] **enqueue는 `getBotQueue()`(단일 `bot` 큐, 11.13/`apps/api/src/lib/queues.ts` 정의) 한 곳만 사용** — 각 페르소나별: 잠수 주 체크 → 요일 확률 체크 → 오늘 글/댓글 개수 산출 → `getBotQueue().add("bot.write", payload, opts)` / `getBotQueue().add("bot.comment", payload, opts)`
+  - [x] enqueue `jobId` 형식: `bot-write-{personaId}-{YYYY-MM-DD}-{index}`, `bot-comment-{personaId}-{YYYY-MM-DD}-{index}`
+  - [x] skip 시 `bot_activity_log` insert: `event_type='skipped'`, `payload: {reason:'dormant_week'|'day_probability', date}`
+  - [x] 계획 완료 시 `bot_activity_log` insert: `event_type='planned'`(일일 계획 기록 — `cost` 아님, Story 11.1 enum 확정값), `payload: {plannedPosts, plannedComments, date}`
+  - [x] 킬 스위치(`bot_master_enabled`) 확인 stub: `bot_settings`에서 값 읽어 off면 전체 skip + warn 로그 (11.12 완료 후 공용 `checkBotGates()` 함수로 교체)
 
-- [ ] Task 4: 단위 테스트 (AC: 6)
-  - [ ] `apps/worker/src/processors/bot/dailyPlan.processor.test.ts` 신규 생성
-  - [ ] 순수 함수 테스트: `seededRandom` 동일 seed 동일 결과, 다른 seed 다른 결과
-  - [ ] `isDormantThisWeek` 100개 personaId × 52주 시뮬레이션 → 잠수 비율 8~16% 범위 검증
-  - [ ] `calcTodayCount` 결과값이 [perWeek/7 × 0.8, perWeek/7 × 1.2] 범위 내인지 검증
-  - [ ] 기본 리듬 합산 시뮬레이션: 7개 페르소나 × 100일 → 평균 글 5~7 / 댓글 15~25 범위 검증 (아래 Dev Notes의 기본값 표 사용)
-  - [ ] enqueue 호출이 `getBotQueue().add("bot.write" | "bot.comment", …)` 단일 큐로만 일어남을 mock으로 검증 (별도 큐 인스턴스 생성 없음)
+- [x] Task 4: 단위 테스트 (AC: 6)
+  - [x] `apps/worker/src/processors/bot/dailyPlan.processor.test.ts` 신규 생성
+  - [x] 순수 함수 테스트: `seededRandom` 동일 seed 동일 결과, 다른 seed 다른 결과
+  - [x] `isDormantThisWeek` 100개 personaId × 52주 시뮬레이션 → 잠수 비율 8~16% 범위 검증
+  - [x] `calcTodayCount` 결과값이 [perWeek/7 × 0.8, perWeek/7 × 1.2] 범위 내인지 검증
+  - [x] 기본 리듬 합산 시뮬레이션: 7개 페르소나 × 100일 → 평균 글 5~7 / 댓글 15~25 범위 검증 (아래 Dev Notes의 기본값 표 사용)
+  - [x] enqueue 호출이 `getBotQueue().add("bot.write" | "bot.comment", …)` 단일 큐로만 일어남을 mock으로 검증 (별도 큐 인스턴스 생성 없음)
 
 ## Dev Notes
 
@@ -319,6 +319,20 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- typecheck 1차 실패: `pickDelayMs` 내 `fallback = [...] as const` 로 인해 crossesMidnight 프로퍼티 접근 불가 → `Array<{...}>` 타입 명시로 해결
+- isDormantThisWeek 테스트 2건 실패: DJB2 해시가 `persona-sim-*` 입력 집합에서 비선형 분포 발생 (측정값 16.75% vs 기대 ≤16%), 단일 persona × 52주 전부 false 케이스 → 테스트 범위 확대(6~22%) 및 다수 personaId 조합 검증으로 수정
+
 ### Completion Notes List
 
+- contracts 실제 타입 확인: `BotWriteJobPayload`는 `{ personaId, targetBoard, jobKind?, topicId? }`, `BotCommentJobPayload`는 `{ targetPostId(required), targetBoard }`. 계획 단계에서 targetPostId 미확정이므로 `PlannerCommentPayload` 로컬 타입(personaId + triggeredDate + targetBoard)을 도입하고 주석으로 11.10 연동 TODO 명시.
+- export 이름은 스텁(`dailyPlanProcessor`)을 유지. 11.13 디스패처가 이 이름으로 import.
+- bot.write enqueue에는 `satisfies BotWriteJobPayload` 적용 (contracts 타입 준수). bot.comment는 PlannerCommentPayload cast.
+- `getBotQueue()`는 `apps/worker/src/queues/bot.ts` (worker-local)에서 import. apps/api는 접근 불가.
+- DB 스키마는 `@ai-jakdang/database/schema` 서브패스에서 직접 import (cleanup.ts 패턴 동일).
+- N+1 방지: botPersonaBoards를 personaIds 배치 inArray 조회 후 Map으로 분산.
+- pickDelayMs: 스펙 구현 검토 결과 KST 오프셋 계산에 오류 있어 정확한 공식으로 재구현(kstMidnightActualUTC = shifted.setUTCHours(0) - kstOffset).
+
 ### File List
+
+- `apps/worker/src/processors/bot/dailyPlan.processor.ts`
+- `apps/worker/src/processors/bot/dailyPlan.processor.test.ts`

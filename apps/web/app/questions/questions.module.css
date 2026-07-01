@@ -696,6 +696,35 @@
   line-height: 1.9;
 }
 
+/* 질문 본문 코드블록 */
+.articleBody pre {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: #1e1e1e;
+  border: 1px solid #2d2d2d;
+  padding: var(--space-5);
+  margin-block: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.articleBody pre code {
+  display: block;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  color: #e4e4e7;
+  white-space: pre;
+  background: transparent;
+}
+
+.articleBody :not(pre) > code {
+  border-radius: var(--radius-sm);
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
 /* ── 질문 반응 바 (좋아요/북마크/공유/신고) ── */
 .reactionBar {
   display: flex;
@@ -1114,6 +1143,35 @@
   color: var(--color-text);
   font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
+}
+
+/* 답변 본문 코드블록 */
+.answerBody pre {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: #1e1e1e;
+  border: 1px solid #2d2d2d;
+  padding: var(--space-5);
+  margin-block: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.answerBody pre code {
+  display: block;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  color: #e4e4e7;
+  white-space: pre;
+  background: transparent;
+}
+
+.answerBody :not(pre) > code {
+  border-radius: var(--radius-sm);
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
 }
 
 /* 답변 하단 도구 (좌: 댓글 / 우: 추천·비추천) */

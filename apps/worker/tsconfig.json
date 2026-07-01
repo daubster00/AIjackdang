@@ -2,7 +2,10 @@
   "extends": "@ai-jakdang/config/tsconfig.node.json",
   "compilerOptions": {
     "lib": ["ES2023"],
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@ai-jakdang/server-bot/*": ["../../packages/server-bot/src/*"]
+    }
   },
   "include": ["src"]
 }

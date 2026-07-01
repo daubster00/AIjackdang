@@ -3,14 +3,17 @@
  *
  * setHelpfulAnswer: 질문자가 도움된 답변을 지정하거나 해제한다.
  *
- * - helpful_answer_id 와 is_resolved 는 독립 — 도움된 답변 지정이 자동 해결이 아님.
+ * - 도움된 답변 지정 시 questions.is_resolved = true 로 함께 갱신한다.
+ *   해제(answerId=null) 시 is_resolved = false 로 원복한다.
  * - 포인트·등급·마감 연산 없음.
- * - 저장 대상: schema.questions (questions.helpful_answer_id 갱신).
+ * - 저장 대상: schema.questions (helpful_answer_id + is_resolved 동시 갱신).
  *   schema.posts / schema.comments 절대 사용 금지.
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and, isNull } from "drizzle-orm";
+import { publishNotification } from "../../../lib/notifications.js";
+import { getRedisPublisher } from "../../../lib/redis.js";
 
 // ── 입출력 타입 ──────────────────────────────────────────────────────────────
 
@@ -50,6 +53,7 @@ export async function setHelpfulAnswer({
   const [question] = await db
     .select({
       id: schema.questions.id,
+      slug: schema.questions.slug,
       userId: schema.questions.userId,
       status: schema.questions.status,
     })
@@ -72,12 +76,16 @@ export async function setHelpfulAnswer({
   }
 
   // ── answerId 유효성 확인 (null 이면 해제이므로 검증 불필요) ─────────────────
+  // 채택 시 알림 발송에 필요한 답변 작성자 userId 도 함께 수집한다.
+  let answerAuthorUserId: string | null = null;
+
   if (answerId !== null) {
     const [answer] = await db
       .select({
         id: schema.answers.id,
         questionId: schema.answers.questionId,
         status: schema.answers.status,
+        userId: schema.answers.userId,
       })
       .from(schema.answers)
       .where(
@@ -96,16 +104,42 @@ export async function setHelpfulAnswer({
     ) {
       return { error: "ANSWER_NOT_FOUND" };
     }
+
+    answerAuthorUserId = answer.userId ?? null;
   }
 
-  // ── questions.helpful_answer_id 갱신 ────────────────────────────────────────
+  // ── questions.helpful_answer_id + is_resolved 동시 갱신 ──────────────────────
+  // 채택(answerId≠null) → is_resolved=true, 해제(null) → is_resolved=false
   await db
     .update(schema.questions)
     .set({
       helpfulAnswerId: answerId,
+      isResolved: answerId !== null,
       updatedAt: new Date(),
     })
     .where(eq(schema.questions.id, questionId));
+
+  // ── 채택 알림 발행 (항목 12) ──────────────────────────────────────────────────
+  // answerId 가 있고, 답변 작성자가 존재하며, 질문자 본인이 아닌 경우에만 발행한다.
+  if (answerId !== null && answerAuthorUserId !== null && answerAuthorUserId !== userId) {
+    try {
+      await publishNotification(
+        answerAuthorUserId,
+        {
+          type: "helpful_answer.marked",
+          title: "도움된 답변으로 선택되었습니다",
+          body: "내 답변이 질문자에 의해 도움된 답변으로 선택되었습니다.",
+          targetType: "question",
+          targetId: question.slug,
+        },
+        db,
+        getRedisPublisher(),
+      );
+    } catch (err) {
+      // 알림 발행 실패는 채택 결과에 영향을 주지 않는다
+      console.warn("[helpful.service] 채택 알림 발행 실패:", (err as Error).message);
+    }
+  }
 
   return { id: questionId, helpfulAnswerId: answerId };
 }

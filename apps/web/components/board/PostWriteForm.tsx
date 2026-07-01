@@ -12,6 +12,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { Editor } from "@/features/editor";
 import { useAuth } from "@/hooks/useAuth";
+import { useUploadConfig } from "@/hooks/useUploadConfig";
 import styles from "./PostWriteForm.module.css";
 
 /**
@@ -117,6 +118,8 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
   const pathname = usePathname();
   const { user, ready } = useAuth();
   const { toast } = useToast();
+
+  const { fileExtensions, toAccept } = useUploadConfig();
 
   const titleInputId = config.titleInputId ?? "post-title";
 
@@ -479,14 +482,14 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
             <Icon name="upload-cloud-2-line" className={styles.dropzoneIcon} />
             <p className={styles.dropzoneText}>{config.dropzoneText}</p>
             <p className={styles.dropzoneHint}>
-              zip, pdf, json, md, txt, csv, xlsx 지원 (허용 형식은 운영자 설정 기준)
+              {fileExtensions.join(", ")} 지원 (허용 형식은 운영자 설정 기준)
             </p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".zip,.pdf,.json,.md,.txt,.csv,.xlsx,.docx"
+            accept={toAccept(fileExtensions)}
             className={styles.hiddenInput}
             onChange={(e) => handleFileSelect(e.target.files)}
             aria-hidden="true"

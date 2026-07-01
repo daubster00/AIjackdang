@@ -171,16 +171,35 @@ export function SignupForm() {
 }
 
 function SocialSignup() {
+  // 소셜 버튼 활성화 여부: 이용약관 + 개인정보처리방침 둘 다 체크해야 가능
+  const [socialCanProceed, setSocialCanProceed] = useState(false);
+
   return (
     <div className={styles.socialSection} role="tabpanel">
       <div className={styles.socialGrid}>
         <button
           type="button"
           className={`${styles.socialButton} ${styles.kakaoButton}`}
-          disabled={!KAKAO_ENABLED}
-          title={!KAKAO_ENABLED ? "카카오 로그인 준비 중" : undefined}
-          style={!KAKAO_ENABLED ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-          onClick={KAKAO_ENABLED ? () => { void startSocialSignup("kakao"); } : undefined}
+          disabled={!KAKAO_ENABLED || !socialCanProceed}
+          title={
+            !KAKAO_ENABLED
+              ? "카카오 로그인 준비 중"
+              : !socialCanProceed
+              ? "이용약관과 개인정보처리방침에 동의해 주세요"
+              : undefined
+          }
+          style={
+            !KAKAO_ENABLED || !socialCanProceed
+              ? { opacity: 0.4, cursor: "not-allowed" }
+              : undefined
+          }
+          onClick={
+            KAKAO_ENABLED && socialCanProceed
+              ? () => {
+                  void startSocialSignup("kakao");
+                }
+              : undefined
+          }
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <KakaoMark />
@@ -190,7 +209,16 @@ function SocialSignup() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.naverButton}`}
-          onClick={() => { void startSocialSignup("naver"); }}
+          disabled={!socialCanProceed}
+          title={!socialCanProceed ? "이용약관과 개인정보처리방침에 동의해 주세요" : undefined}
+          style={!socialCanProceed ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          onClick={
+            socialCanProceed
+              ? () => {
+                  void startSocialSignup("naver");
+                }
+              : undefined
+          }
         >
           <span className={styles.socialLogo} aria-hidden="true">
             N
@@ -200,7 +228,16 @@ function SocialSignup() {
         <button
           type="button"
           className={`${styles.socialButton} ${styles.googleButton}`}
-          onClick={() => { void startSocialSignup("google"); }}
+          disabled={!socialCanProceed}
+          title={!socialCanProceed ? "이용약관과 개인정보처리방침에 동의해 주세요" : undefined}
+          style={!socialCanProceed ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          onClick={
+            socialCanProceed
+              ? () => {
+                  void startSocialSignup("google");
+                }
+              : undefined
+          }
         >
           <span className={styles.socialLogo} aria-hidden="true">
             <GoogleMark />
@@ -208,7 +245,10 @@ function SocialSignup() {
           Google로 가입
         </button>
       </div>
-      <AgreementPanel compact />
+      <AgreementPanel
+        compact
+        onAgreementChange={(terms, privacy) => setSocialCanProceed(terms && privacy)}
+      />
     </div>
   );
 }
@@ -376,7 +416,7 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
             >
               이용약관 동의
             </Checkbox>
-            <Link href="/terms">보기</Link>
+            <Link href="/terms" target="_blank" rel="noopener noreferrer">보기</Link>
           </div>
           <div className={styles.agreementItem}>
             <Checkbox
@@ -387,7 +427,7 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
             >
               개인정보보호방침 동의
             </Checkbox>
-            <Link href="/privacy">보기</Link>
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer">보기</Link>
           </div>
           <div className={styles.agreementItem}>
             <Checkbox
@@ -398,6 +438,7 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
               마케팅 정보 수신 동의
             </Checkbox>
             <span>선택</span>
+            <Link href="/operation-policy" target="_blank" rel="noopener noreferrer">운영정책 보기</Link>
           </div>
         </div>
       </div>
@@ -415,7 +456,13 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
   );
 }
 
-function AgreementPanel({ compact = false }: { compact?: boolean }) {
+interface AgreementPanelProps {
+  compact?: boolean;
+  /** terms·privacy 상태가 바뀔 때마다 부모에게 알림 (소셜 게이팅용) */
+  onAgreementChange?: (terms: boolean, privacy: boolean) => void;
+}
+
+function AgreementPanel({ compact = false, onAgreementChange }: AgreementPanelProps) {
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
@@ -424,18 +471,21 @@ function AgreementPanel({ compact = false }: { compact?: boolean }) {
   const agreeAll = agreements.terms && agreements.privacy && agreements.marketing;
 
   function updateAll(checked: boolean) {
-    setAgreements({
+    const next = {
       terms: checked,
       privacy: checked,
       marketing: checked,
-    });
+    };
+    setAgreements(next);
+    onAgreementChange?.(checked, checked);
   }
 
   function updateAgreement(key: keyof typeof agreements, checked: boolean) {
-    setAgreements((current) => ({
-      ...current,
-      [key]: checked,
-    }));
+    setAgreements((current) => {
+      const next = { ...current, [key]: checked };
+      onAgreementChange?.(next.terms, next.privacy);
+      return next;
+    });
   }
 
   return (
@@ -453,7 +503,7 @@ function AgreementPanel({ compact = false }: { compact?: boolean }) {
           >
             이용약관 동의
           </Checkbox>
-          <Link href="/terms">보기</Link>
+          <Link href="/terms" target="_blank" rel="noopener noreferrer">보기</Link>
         </div>
         <div className={styles.agreementItem}>
           <Checkbox
@@ -464,7 +514,7 @@ function AgreementPanel({ compact = false }: { compact?: boolean }) {
           >
             개인정보보호방침 동의
           </Checkbox>
-          <Link href="/privacy">보기</Link>
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer">보기</Link>
         </div>
         <div className={styles.agreementItem}>
           <Checkbox
@@ -475,6 +525,7 @@ function AgreementPanel({ compact = false }: { compact?: boolean }) {
             마케팅 정보 수신 동의
           </Checkbox>
           <span>선택</span>
+          <Link href="/operation-policy" target="_blank" rel="noopener noreferrer">운영정책 보기</Link>
         </div>
       </div>
     </div>

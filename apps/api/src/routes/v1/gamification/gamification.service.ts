@@ -18,6 +18,7 @@ import type { GamificationPeriodType, RankingResponse } from "@ai-jakdang/contra
 import { rankingResponseSchema } from "@ai-jakdang/contracts";
 import { eq, sql, inArray } from "drizzle-orm";
 import { getApiRedis } from "../../../lib/redis.js";
+import { getBotExcludeFromRanking } from "../../../services/bot/settings.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbLike = NodePgDatabase<typeof dbSchema.schema> | any;
@@ -171,19 +172,42 @@ export async function getRanking(
   const now = new Date();
   const { start, end } = rankingWindowDates(period, now);
 
+  // 봇 제외 설정 조회 (bot_settings 테이블 미존재 시 기본 true)
+  const excludeBots = await getBotExcludeFromRanking();
+
   // 기간 내 userId별 포인트 합산 (delta > 0만)
-  const ledgerRows = await db
-    .select({
-      userId: schema.pointsLedger.userId,
-      delta: sql<number>`cast(sum(${schema.pointsLedger.delta}) as int)`,
-    })
-    .from(schema.pointsLedger)
-    .where(
-      sql`${schema.pointsLedger.createdAt} >= ${start.toISOString()}
-        AND ${schema.pointsLedger.createdAt} <= ${end.toISOString()}
-        AND ${schema.pointsLedger.delta} > 0`,
-    )
-    .groupBy(schema.pointsLedger.userId);
+  // excludeBots=true 시 users.is_bot=false 조건 추가 (봇 계정 랭킹 제외)
+  let ledgerRows: Array<{ userId: string; delta: number }>;
+
+  if (excludeBots) {
+    ledgerRows = await db
+      .select({
+        userId: schema.pointsLedger.userId,
+        delta: sql<number>`cast(sum(${schema.pointsLedger.delta}) as int)`,
+      })
+      .from(schema.pointsLedger)
+      .innerJoin(schema.users, eq(schema.pointsLedger.userId, schema.users.id))
+      .where(
+        sql`${schema.pointsLedger.createdAt} >= ${start.toISOString()}
+          AND ${schema.pointsLedger.createdAt} <= ${end.toISOString()}
+          AND ${schema.pointsLedger.delta} > 0
+          AND ${schema.users.isBot} = false`,
+      )
+      .groupBy(schema.pointsLedger.userId);
+  } else {
+    ledgerRows = await db
+      .select({
+        userId: schema.pointsLedger.userId,
+        delta: sql<number>`cast(sum(${schema.pointsLedger.delta}) as int)`,
+      })
+      .from(schema.pointsLedger)
+      .where(
+        sql`${schema.pointsLedger.createdAt} >= ${start.toISOString()}
+          AND ${schema.pointsLedger.createdAt} <= ${end.toISOString()}
+          AND ${schema.pointsLedger.delta} > 0`,
+      )
+      .groupBy(schema.pointsLedger.userId);
+  }
 
   // computeRanking으로 TOP 10 산출
   const top10 = computeRanking(

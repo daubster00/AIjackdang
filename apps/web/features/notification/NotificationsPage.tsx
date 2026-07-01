@@ -74,6 +74,24 @@ export function NotificationsPage({ isLoggedIn: _isLoggedIn = true }: Notificati
     decrementBadge(1);
   }, [decrementBadge]);
 
+  /** 개별 삭제 성공 후 호출 → 목록에서 제거 + 미읽음이면 배지 감소 + 빈 페이지 보정 */
+  const handleDelete = useCallback((id: string) => {
+    setItems((prev) => {
+      const removed = prev.find((n) => n.id === id);
+      if (removed && !removed.isRead) decrementBadge(1);
+      const next = prev.filter((n) => n.id !== id);
+      // 현재 페이지의 마지막 항목을 지웠고 이전 페이지가 있으면 한 페이지 당김
+      if (next.length === 0 && page > 1) {
+        setPage((p) => Math.max(1, p - 1));
+      }
+      return next;
+    });
+    setMeta((prev) =>
+      prev ? { ...prev, totalItems: Math.max(0, prev.totalItems - 1) } : prev,
+    );
+    toast({ tone: "success", title: "알림을 삭제했습니다." });
+  }, [decrementBadge, page, toast]);
+
   /** 전체 읽음 처리 */
   const handleReadAll = useCallback(async () => {
     try {
@@ -137,7 +155,7 @@ export function NotificationsPage({ isLoggedIn: _isLoggedIn = true }: Notificati
         ) : (
           <ul aria-label="알림 목록" style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "var(--space-2)" }}>
             {items.map((item) => (
-              <NotificationItem key={item.id} item={item} onRead={handleRead} />
+              <NotificationItem key={item.id} item={item} onRead={handleRead} onDelete={handleDelete} />
             ))}
           </ul>
         )}

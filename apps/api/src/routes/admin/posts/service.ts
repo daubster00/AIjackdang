@@ -6,7 +6,7 @@
 
 import { getDb } from "@ai-jakdang/database";
 import { posts, users, tags as tagsTable, taggable, postAttachments, comments } from "@ai-jakdang/database/schema";
-import { eq, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
+import { eq, ne, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 
 function makeSlug(title: string): string {
@@ -32,6 +32,9 @@ export async function listPosts(query: AdminPostsQuery) {
   }
   if (status) {
     conditions.push(eq(posts.status, status));
+  } else {
+    // status 미지정 시 삭제된 글은 일반 목록에서 제외 — 휴지통에서만 노출
+    conditions.push(ne(posts.status, "deleted"));
   }
   if (isNotice !== undefined) {
     conditions.push(eq(posts.isNotice, isNotice));
@@ -147,6 +150,9 @@ export async function getPostDetail(id: string) {
       status: posts.status,
       userId: posts.userId,
       authorNickname: users.nickname,
+      authorAvatarUrl: users.avatarUrl,
+      authorImage: users.image,
+      authorDefaultAvatarIndex: users.defaultAvatarIndex,
       isNotice: posts.isNotice,
       isPinned: posts.isPinned,
       isFeatured: posts.isFeatured,
@@ -548,6 +554,23 @@ export async function updatePostSeo(
     status: updated.status,
     updatedAt: updated.updatedAt.toISOString(),
   };
+}
+
+// ── 영구삭제 (hard delete, super_admin 전용) ───────────────────────────────────
+
+export async function purgePost(id: string) {
+  const db = getDb();
+
+  const [target] = await db.select({ id: posts.id, status: posts.status }).from(posts).where(eq(posts.id, id)).limit(1);
+  if (!target) {
+    throw Object.assign(new Error("게시글을 찾을 수 없습니다."), { code: "NOT_FOUND" });
+  }
+  if (target.status !== "deleted") {
+    throw Object.assign(new Error("휴지통에 있는 게시글(status=deleted)만 영구삭제할 수 있습니다."), { code: "FORBIDDEN_STATE" });
+  }
+
+  await db.delete(posts).where(eq(posts.id, id));
+  return { id, purged: true };
 }
 
 // ── 벌크 액션 ──────────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ import { registerAdminAdsRoutes } from "./ads/index.js";
 import { registerAdminMessagesRoutes } from "./messages/index.js";
 import { registerAdminReportsRoutes } from "./reports/index.js";
 import { registerAdminAccountRoutes } from "./account/index.js";
+import { registerAdminBotsRoutes } from "./bots/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
@@ -58,4 +59,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   // Epic 9 Wave C (9.10) — 신고 통합 큐·처리·반려.
   await registerAdminReportsRoutes(app);
+
+  // Epic 11 — 시딩 봇 관리 (11.14~).
+  await registerAdminBotsRoutes(app);
 }

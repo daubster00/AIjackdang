@@ -5,7 +5,7 @@
 # Retrospective Status: optional | done
 
 generated: 2026-06-23
-last_updated: 2026-06-30 # Epic 12 추가(회원 신고 & 누적 제재 연동, 12.1~12.5 ready-for-dev) — epics.md Epic 12 섹션 + 스토리 5종 신규
+last_updated: 2026-06-30 # Epic 11(시딩 봇) 11.1~11.17·11.19 dev 완료·typecheck 0err·admin build green·봇 테스트 전부 green. 11.18(텔레그램)은 env 키 미설정으로 보류(sendReportPush no-op stub). (이전: 11.19 추가)
 project: AI작당 (AI Jakdang)
 project_key: AIJAKDANG
 tracking_system: file-system
@@ -129,39 +129,40 @@ development_status:
   9-18-dm-messages-management: done
   epic-9-retrospective: optional
 
-  epic-10: in-progress
-  10-1-legal-pages-ssr-shell: ready-for-dev
-  10-2-consent-schema: ready-for-dev
-  10-3-signup-consent-flow-and-api: ready-for-dev
-  10-4-terms-version-update: ready-for-dev
+  epic-10: done # 이용약관·개인정보처리방침·운영정책 — dev완료·typecheck 13/13 green·10.4 테스트 11/11·법무3페이지 SSR 200 실렌더 검증. 상수 CURRENT_TERMS_VERSION/TERMS_EFFECTIVE_DATE=2026-06-17(core 단일소스). ⚠️브라우저 인터랙션(소셜 게이팅 토글·terms-consent 로그인 왕복)은 사용자 최종검수 권장.
+  10-1-legal-pages-ssr-shell: done # /terms·/privacy·/operation-policy SSR force-static + LegalPageLayout(main#main·ToC·BreadcrumbList JSON-LD) + (legal)/_content 상수 3종 + SiteFooter 3링크. 각 10섹션 실질 한국어 본문(PIPA 필수9항목·운영정책 제재/신고). 버전/시행일 core 상수 import
+  10-2-consent-schema: done # 실제는 스키마(terms_agreed_at·terms_version)·signUpSchema.termsAgreed 이미 존재. 신규작업=packages/core/src/legal.ts 단일상수 신설+배럴, user-auth.ts 로컬 TERMS_VERSION("2026-06")→CURRENT_TERMS_VERSION import 교체
+  10-3-signup-consent-flow-and-api: done # 가입API(BetterAuth)·termsAgreed주입·버튼게이팅 이미 동작. 신규=약관링크 target/rel + 운영정책링크(EmailSignup·AgreementPanel 양쪽) + 소셜버튼 동의게이팅(disabled+:disabled CSS)
+  10-4-terms-version-update: done # publicUserSchema에 termsVersion·termsUpdateRequired 추가 + termsConsentResponseSchema. toPublicUser termsUpdateRequired=(termsVersion!==CURRENT) 계산. POST /users/me/terms-consent + recordTermsConsent 헬퍼(소셜 1.5 핸드오프). 테스트 11/11
   epic-10-retrospective: optional
 
-  epic-11: in-progress
-  11-1-bot-schema-is-bot-migration: ready-for-dev
-  11-2-bot-zod-contracts: ready-for-dev
-  11-3-comment-service-contentguard-extraction: ready-for-dev
-  11-4-bot-write-service: ready-for-dev
-  11-5-ensure-bot-user-seed-ranking-exclude: ready-for-dev
-  11-6-ai-abstraction-layer: backlog
-  11-7-search-grounding: backlog
-  11-8-image-engine: backlog
-  11-9-post-generation-pipeline: backlog
-  11-10-comment-reaction-pipeline: backlog
-  11-11-daily-activity-planner: backlog
-  11-12-kill-switch-rate-cost-guards: backlog
-  11-13-bullmq-jobs-cron-worker: backlog
-  11-14-admin-bot-routes-character-prompt-edit: backlog
-  11-15-activity-config-boards-topics-models-ui: backlog
-  11-16-operations-panel: backlog
-  11-17-daily-report-api-hold-queue-actions: backlog
-  11-18-telegram-push: backlog
+  epic-11: in-progress # 시딩 봇 — 11.1~11.17·11.19 dev 완료(typecheck 0err·admin build green·bot-core 101·server-bot 67·worker 59 테스트 green). 11.18(텔레그램)만 env 키 미설정으로 보류. 마이그 0029(봇 9테이블+is_bot)·0030(ai_usage_log). 봇 시드 8페르소나/117주제/8설정. ⚠️worker→파이프라인 last-mile 미배선(worker가 apps/api import 불가 — write/comment/daily-report processor는 게이트+로깅 stub, 실제 파이프라인은 apps/api에 완성·테스트됨. 라이브 가동 전 파이프라인을 server-bot 경계로 이전 필요). 브라우저 실로그인 검수 미수행(빌드는 통과).
+  11-1-bot-schema-is-bot-migration: done # 봇 9테이블+pgEnum 9종+users.is_bot 마이그0029·DB 검증
+  11-2-bot-zod-contracts: done # contracts/bot.ts 전체 Zod+추론타입·enum 1:1 정합·잡 페이로드 3종
+  11-3-comment-service-contentguard-extraction: done # comments/service.ts 도메인 추출(불변식 5)·runContentGuard/ContentGuardResult export·테스트 13
+  11-4-bot-write-service: done # createPostAsBot/Comment/Reply/Question/ResourceAsBot — posts/comments/qna/resources 도메인서비스 재사용·DB직접INSERT 없음
+  11-5-ensure-bot-user-seed-ranking-exclude: done # seeds/bots.ts(8페르소나/117주제/8설정 멱등)·getBotExcludeFromRanking 랭킹/KPI/통계 제외
+  11-6-ai-abstraction-layer: done # server-bot/ai — AiProvider·openai/anthropic/gemini fetch어댑터·getProvider·callModel·getModelAssignment·estimateCostUsd·checkDailyCostLimit
+  11-7-search-grounding: done # server-bot/search — searchGoogle/Naver·groundTopic(intensity full/light/none)·callModel 주입·테스트 45
+  11-8-image-engine: done # server-bot/image — pickStock/genImage/decideImageStrategy·uploadFn 주입·테스트 22
+  11-9-post-generation-pipeline: done # bot-core(prompt-builder/censor-rules/duplicate-check)·apps/api services/bot(topic/censor/post-pipeline)·재생성≤3·자기검열6항목·테스트
+  11-10-comment-reaction-pipeline: done # bot-core(injection-guard 13패턴/context-types/reaction-randomizer)·comment-pipeline·worker comment.processor stub
+  11-11-daily-activity-planner: done # dailyPlan.processor — 잠수주/요일확률/개수산출/가중선택/enqueue·planned 로그·테스트 32
+  11-12-kill-switch-rate-cost-guards: done # server-bot/gates(checkBotGates·isCostLimitReached·logBotSkip)·api/lib botSettings(TTL60s)·holdForObservation·테스트 17
+  11-13-bullmq-jobs-cron-worker: done # 단일 bot 큐+job.name 디스패처·write/daily-report/refill-topics stub·bot.cron·SEEDING_BOT_ENABLED 가드·격리(no process.exit/try-catch/warn)·테스트 7
+  11-14-admin-bot-routes-character-prompt-edit: done # /admin/bots CRUD(toggle 먼저)·목록/상세[id] 페이지·캐릭터·프롬프트 편집·AdminShell nav·requireSuperAdmin
+  11-15-activity-config-boards-topics-models-ui: done # activity-config 라우트(리듬/게시판/주제풀/모델할당)·상세 4탭 UI
+  11-16-operations-panel: done # bots/operations 페이지(킬스위치·관찰모드·보류큐 통과/폐기·비용)·BotCostChart(createLineChart)·settings GET/PATCH
+  11-17-daily-report-api-hold-queue-actions: done # 일일리포트 집계 API·보류큐 통과/폐기 액션(상태전이)·sendReportPush 텔레그램 no-op stub
+  11-18-telegram-push: backlog # ⚠️ env 키(TELEGRAM_BOT_TOKEN/CHAT_ID) 미설정으로 개발 보류 — 사용자 요청. 11.17의 sendReportPush가 no-op stub로 인터페이스 확보됨. 키 들어오면 전송 로직만 구현.
+  11-19-ai-usage-cost-tracking: done # ai_usage_log(마이그0030)·recordAiUsage(callModel 통합·best-effort)·집계 API(GET /admin/ai-usage)·대시보드 AiCostWidget·/bots/ai-usage 페이지·테스트 8
   epic-11-retrospective: optional
 
-  epic-12: in-progress # 회원 신고 & 누적 제재 연동(런칭 후 증분) — 회원 신고 대상 추가·처리완료 누적 귀속·자동 경고+에스컬레이션(자동 정지 비포함)
-  12-1-user-report-target-schema-contracts-api: ready-for-dev # Foundation: report_target_type에 user 추가·회원 사유·신고 API·관리자 서비스 분기
-  12-2-web-member-report-entrypoint-modal: ready-for-dev # 유저 웹 AuthorName/프로필 신고 입구 + 회원 신고 모달
-  12-3-resolved-report-aggregation-author-attribution: ready-for-dev # 처리완료 신고 작성자 귀속 집계 + 회원 상세 피신고 이력
-  12-4-auto-warning-escalation-sanction-notify: ready-for-dev # 임계치 자동 경고 + 검토 큐 에스컬레이션 + 제재 통보 알림(기본 OFF)
-  12-5-admin-member-report-processing-crosslink: ready-for-dev # 관리자 회원 신고 처리·대상보기 라우팅·제재 직접 연결
+  epic-12: done # 회원 신고 & 누적 제재 연동 — 12.1~12.5 dev 완료·typecheck green·브라우저(Playwright 실로그인) E2E 검수 통과
+  12-1-user-report-target-schema-contracts-api: done # report_target_type user(마이그 0027)·사유 세트 분리·self-report 400·dup 409·관리자 서비스/UI user 분기
+  12-2-web-member-report-entrypoint-modal: done # MemberReportModal(native dialog·radio fieldset·select 금지)·AuthorName/프로필 신고 입구. 모달 가시·라디오5·select0 검증
+  12-3-resolved-report-aggregation-author-attribution: done # resolvedReportCount(resolved만)·피신고 이력 섹션+임계치 도달 배지. +회원목록 상관서브쿼리 잠재버그 교정(${users.id}→"users"."id")
+  12-4-auto-warning-escalation-sanction-notify: done # 자동경고(warning만·멱등·자동정지 금지)·검토요망 flaggedUsers·설정 토글. +alerts uuid=text 500 수정, settings PATCH 키 2종 추가
+  12-5-admin-member-report-processing-crosslink: done # sanction-member 원자처리(resolved+제재+알림)·회원제재 버튼/모달·대상보기 라우팅·검토요망 필터. +제재 알림 누락 보완
   epic-12-retrospective: optional
 

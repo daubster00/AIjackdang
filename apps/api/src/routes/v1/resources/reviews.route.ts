@@ -17,7 +17,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and, isNull, inArray, sql, desc, asc } from "drizzle-orm";
-import { requireAuthHook } from "../../../plugins/require-auth.js";
+import { requireAuthHook, checkSuspendedHook } from "../../../plugins/require-auth.js";
 import { userAuth } from "../../../auth/user-auth.js";
 import { getDefaultAvatarUrl } from "@ai-jakdang/core";
 import { errorResponseSchema } from "@ai-jakdang/contracts";
@@ -324,7 +324,7 @@ export async function registerResourceReviewRoutes(app: FastifyInstance): Promis
   typed.post(
     "/resources/:id/reviews",
     {
-      preHandler: [requireAuthHook],
+      preHandler: [requireAuthHook, checkSuspendedHook],
       schema: {
         description:
           "후기 등록. 최상위(parentId 없음)는 rating(1~5) 필수 + avg_rating·rating_count 재집계. 대댓글은 rating 없음.",
