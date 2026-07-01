@@ -28,6 +28,7 @@ export const adminAuth = createAdminAuth({
   },
   secret: env.ADMIN_AUTH_SECRET ?? env.AUTH_SECRET,
   baseURL: env.ADMIN_PUBLIC_URL ?? "http://localhost:3004",
+  cookieDomain: env.COOKIE_DOMAIN,
 });
 
 export type AdminAuthInstance = typeof adminAuth;

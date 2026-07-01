@@ -35,6 +35,7 @@ ADMIN_PUBLIC_URL=https://admin.aijackdang.com
 API_PUBLIC_URL=https://api.aijackdang.com
 NEXT_PUBLIC_API_URL=https://api.aijackdang.com
 BETTER_AUTH_URL=https://api.aijackdang.com
+COOKIE_DOMAIN=.aijackdang.com
 API_INTERNAL_URL=http://api:4003
 WEB_PORT=3003
 ADMIN_PORT=3004

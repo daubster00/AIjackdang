@@ -52,6 +52,7 @@ export function createAdminAuth({
   schema,
   secret,
   baseURL,
+  cookieDomain,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any;
@@ -64,6 +65,8 @@ export function createAdminAuth({
   };
   secret: string;
   baseURL: string;
+  /** 설정 시 세션 쿠키에 Domain 을 붙여 서브도메인 간 공유(운영: ".aijackdang.com") */
+  cookieDomain?: string | undefined;
 }) {
   return betterAuth({
     /** 관리자 인증 API 기본 경로 */
@@ -83,6 +86,15 @@ export function createAdminAuth({
       database: {
         generateId: "uuid" as const,
       },
+
+      /**
+       * 서브도메인 공유 쿠키 (운영). cookieDomain 설정 시에만 활성.
+       * admin.aijackdang.com(SSR)이 api.aijackdang.com 이 발급한 세션 쿠키를 받으려면
+       * Domain=.aijackdang.com 이 필요하다(없으면 host-only → 로그인 루프).
+       */
+      ...(cookieDomain
+        ? { crossSubDomainCookies: { enabled: true, domain: cookieDomain } }
+        : {}),
     },
 
     /** Better Auth URL */

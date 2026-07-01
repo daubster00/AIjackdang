@@ -62,6 +62,13 @@ const envSchema = z
     BETTER_AUTH_URL: z.string().url().optional(),
     ADMIN_AUTH_SECRET: z.string().optional(),
     AUTH_DEV_BYPASS: boolish,
+    /**
+     * 세션 쿠키 도메인 (선택). 예: ".aijackdang.com"
+     * 설정 시 유저·관리자 세션 쿠키에 Domain 을 붙여 서브도메인 간 공유(crossSubDomainCookies).
+     * 운영에서 web(aijackdang.com)·admin(admin.*)·api(api.*)가 다른 서브도메인이라
+     * host-only 쿠키면 SSR 세션 인식이 안 돼 로그인 루프가 생긴다. 미설정 시 host-only(dev).
+     */
+    COOKIE_DOMAIN: z.string().optional(),
 
     // 파일 보안 스캔 (ClamAV)
     CLAMD_HOST: z.string().default("localhost"),

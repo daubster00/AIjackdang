@@ -95,6 +95,15 @@ export const userAuth = betterAuth({
     database: {
       generateId: "uuid" as const,
     },
+
+    /**
+     * 서브도메인 공유 쿠키 (운영). COOKIE_DOMAIN 설정 시에만 활성.
+     * web(aijackdang.com)·api(api.aijackdang.com) 서브도메인 간 세션 쿠키 공유.
+     * 미설정(dev)이면 host-only.
+     */
+    ...(env.COOKIE_DOMAIN
+      ? { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
+      : {}),
   },
 
   /** Better Auth URL (소셜 콜백 등에 사용) */
