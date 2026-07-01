@@ -218,6 +218,13 @@
       "when": 1782550000000,
       "tag": "0030_ai_usage_log",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782560000000,
+      "tag": "0031_admin_cols_reconcile",
+      "breakpoints": true
     }
   ]
 }
