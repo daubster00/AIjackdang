@@ -16,6 +16,14 @@ interface AdminSettingsResponse {
   seo_description?: unknown;
   og_image?: unknown;
   favicon_url?: unknown;
+  // 사업자 정보 (푸터 노출용)
+  company_name?: unknown;
+  representative_name?: unknown;
+  business_registration_number?: unknown;
+  mail_order_sales_number?: unknown;
+  business_address?: unknown;
+  business_phone?: unknown;
+  business_email?: unknown;
   auto_hide_enabled?: unknown;
   auto_hide_threshold?: unknown;
   report_reasons?: unknown;
@@ -164,6 +172,15 @@ export function SettingsTabPanels() {
   const [ogImage, setOgImage] = useState("");
   const [faviconUrl, setFaviconUrl] = useState("");
 
+  // 사업자 정보 (푸터 노출용)
+  const [companyName, setCompanyName] = useState("");
+  const [representativeName, setRepresentativeName] = useState("");
+  const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
+  const [mailOrderSalesNumber, setMailOrderSalesNumber] = useState("");
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+
   // 이미지 업로드 상태
   const [ogImageUploading, setOgImageUploading] = useState(false);
   const [faviconUploading, setFaviconUploading] = useState(false);
@@ -215,6 +232,19 @@ export function SettingsTabPanels() {
       if (data.seo_description != null) setSeoDescription(String(data.seo_description));
       if (data.og_image != null) setOgImage(String(data.og_image));
       if (data.favicon_url != null) setFaviconUrl(String(data.favicon_url));
+
+      // 사업자 정보
+      if (data.company_name != null) setCompanyName(String(data.company_name));
+      if (data.representative_name != null)
+        setRepresentativeName(String(data.representative_name));
+      if (data.business_registration_number != null)
+        setBusinessRegistrationNumber(String(data.business_registration_number));
+      if (data.mail_order_sales_number != null)
+        setMailOrderSalesNumber(String(data.mail_order_sales_number));
+      if (data.business_address != null)
+        setBusinessAddress(String(data.business_address));
+      if (data.business_phone != null) setBusinessPhone(String(data.business_phone));
+      if (data.business_email != null) setBusinessEmail(String(data.business_email));
 
       // 콘텐츠 설정
       if (data.content_retention_days != null)
@@ -303,6 +333,18 @@ export function SettingsTabPanels() {
       seo_description: seoDescription,
       og_image: ogImage,
       favicon_url: faviconUrl,
+    });
+  }
+
+  async function saveBusiness() {
+    await saveSettings({
+      company_name: companyName,
+      representative_name: representativeName,
+      business_registration_number: businessRegistrationNumber,
+      mail_order_sales_number: mailOrderSalesNumber,
+      business_address: businessAddress,
+      business_phone: businessPhone,
+      business_email: businessEmail,
     });
   }
 
@@ -565,6 +607,144 @@ export function SettingsTabPanels() {
           >
             <i className="ri-save-line" />
             {saving ? "저장 중..." : "기본 설정 저장"}
+          </button>
+        </div>
+      </section>
+
+      {/* ── 사업자 정보 패널 ── */}
+      <section
+        className="section"
+        data-tab-panel="business"
+        aria-label="사업자 정보"
+        style={{ display: activeTab === "business" ? "" : "none" }}
+      >
+        <div className="section-heading">
+          <div>
+            <h2 className="section-title">사업자 정보</h2>
+            <p className="section-description">
+              여기에 입력한 정보가 사이트 하단 푸터에 노출됩니다. 비워둔 항목은 표시되지 않습니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="component-stack">
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="companyName">회사명(상호)</label>
+              <input
+                className="control"
+                id="companyName"
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="예: 주식회사 에이아이작당"
+              />
+              <div className="field-help">푸터에 표기될 사업자 상호입니다.</div>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="representativeName">대표자명</label>
+              <input
+                className="control"
+                id="representativeName"
+                type="text"
+                value={representativeName}
+                onChange={(e) => setRepresentativeName(e.target.value)}
+                placeholder="예: 홍길동"
+              />
+              <div className="field-help">대표자 이름입니다.</div>
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="businessRegistrationNumber">
+                사업자등록번호
+              </label>
+              <input
+                className="control"
+                id="businessRegistrationNumber"
+                type="text"
+                value={businessRegistrationNumber}
+                onChange={(e) => setBusinessRegistrationNumber(e.target.value)}
+                placeholder="예: 123-45-67890"
+              />
+              <div className="field-help">숫자·하이픈 형식 그대로 입력합니다.</div>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="mailOrderSalesNumber">
+                통신판매업 신고번호
+              </label>
+              <input
+                className="control"
+                id="mailOrderSalesNumber"
+                type="text"
+                value={mailOrderSalesNumber}
+                onChange={(e) => setMailOrderSalesNumber(e.target.value)}
+                placeholder="예: 제2026-서울강남-1234호"
+              />
+              <div className="field-help">해당하는 경우에만 입력합니다.</div>
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="businessAddress">사업장 주소</label>
+            <input
+              className="control"
+              id="businessAddress"
+              type="text"
+              value={businessAddress}
+              onChange={(e) => setBusinessAddress(e.target.value)}
+              placeholder="예: 서울특별시 강남구 테헤란로 123, 4층"
+            />
+            <div className="field-help">푸터에 표기될 사업장 주소입니다.</div>
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="businessPhone">대표 전화번호</label>
+              <div className="input-icon">
+                <i className="ri-phone-line" />
+                <input
+                  className="control"
+                  id="businessPhone"
+                  type="text"
+                  value={businessPhone}
+                  onChange={(e) => setBusinessPhone(e.target.value)}
+                  placeholder="예: 02-1234-5678"
+                />
+              </div>
+              <div className="field-help">고객 문의용 대표 전화번호입니다.</div>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="businessEmail">대표 이메일</label>
+              <div className="input-icon">
+                <i className="ri-mail-line" />
+                <input
+                  className="control"
+                  id="businessEmail"
+                  type="email"
+                  value={businessEmail}
+                  onChange={(e) => setBusinessEmail(e.target.value)}
+                  placeholder="예: contact@aijakdang.com"
+                />
+              </div>
+              <div className="field-help">푸터에 표기될 대표 이메일입니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="filter-actions" style={{ justifyContent: "flex-end", marginTop: 16 }}>
+          <button className="btn btn-outline" type="button" onClick={loadSettings}>
+            취소
+          </button>
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={saving}
+            onClick={saveBusiness}
+          >
+            <i className="ri-save-line" />
+            {saving ? "저장 중..." : "사업자 정보 저장"}
           </button>
         </div>
       </section>

@@ -36,6 +36,7 @@ export default async function AdminSettingsPage() {
         {/* 4개 설정 그룹 탭 */}
         <div className="line-tabs" role="tablist" aria-label="설정 그룹">
           <button className="line-tab active" data-tab="basic">기본 설정</button>
+          <button className="line-tab" data-tab="business">사업자 정보</button>
           <button className="line-tab" data-tab="content">콘텐츠 설정</button>
           <button className="line-tab" data-tab="file">파일 설정</button>
           <button className="line-tab" data-tab="report">신고 설정</button>

@@ -23,6 +23,15 @@ export const adminSettingsPatchSchema = z.object({
   og_image: z.string().max(500).optional(),
   favicon_url: z.string().max(500).optional(),
 
+  // 사업자 정보 (푸터 노출용) — 모두 선택. 빈 문자열 허용(미노출 처리).
+  company_name: z.string().max(100).optional(),
+  representative_name: z.string().max(50).optional(),
+  business_registration_number: z.string().max(50).optional(),
+  mail_order_sales_number: z.string().max(100).optional(),
+  business_address: z.string().max(300).optional(),
+  business_phone: z.string().max(50).optional(),
+  business_email: z.string().max(100).optional(),
+
   // 신고 설정
   auto_hide_enabled: z.boolean().optional(),
   auto_hide_threshold: z.number().int().min(1).max(1000).optional(),
@@ -58,6 +67,15 @@ export const adminSettingsResponseSchema = z.object({
   seo_description: z.string().optional(),
   og_image: z.string().optional(),
   favicon_url: z.string().optional(),
+
+  // 사업자 정보 (푸터 노출용)
+  company_name: z.string().optional(),
+  representative_name: z.string().optional(),
+  business_registration_number: z.string().optional(),
+  mail_order_sales_number: z.string().optional(),
+  business_address: z.string().optional(),
+  business_phone: z.string().optional(),
+  business_email: z.string().optional(),
 
   // 신고 설정
   auto_hide_enabled: z.boolean().optional(),

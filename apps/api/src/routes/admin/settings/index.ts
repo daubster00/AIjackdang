@@ -35,6 +35,14 @@ const adminSettingsPatchSchema = z.object({
   seo_description: z.string().max(300).optional(),
   og_image: z.string().max(500).optional(),
   favicon_url: z.string().max(500).optional(),
+  // 사업자 정보 (푸터 노출용) — 빈 문자열 허용(미노출 처리)
+  company_name: z.string().max(100).optional(),
+  representative_name: z.string().max(50).optional(),
+  business_registration_number: z.string().max(50).optional(),
+  mail_order_sales_number: z.string().max(100).optional(),
+  business_address: z.string().max(300).optional(),
+  business_phone: z.string().max(50).optional(),
+  business_email: z.string().max(100).optional(),
   auto_hide_enabled: z.boolean().optional(),
   auto_hide_threshold: z.number().int().min(1).max(1000).optional(),
   // [12.4] 신고 누적 자동경고 — 임계치(기본 5)·자동경고 활성화(기본 false)

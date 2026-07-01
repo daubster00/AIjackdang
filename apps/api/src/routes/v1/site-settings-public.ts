@@ -26,6 +26,14 @@ const PUBLIC_SETTING_KEYS = [
   "resource_extensions",
   "image_extensions",
   "max_upload_mb",
+  // 사업자 정보 (푸터 노출용) — 공개 정보라 인증 없이 반환
+  "company_name",
+  "representative_name",
+  "business_registration_number",
+  "mail_order_sales_number",
+  "business_address",
+  "business_phone",
+  "business_email",
 ] as const;
 
 export async function registerPublicSiteSettingsRoute(app: FastifyInstance): Promise<void> {
