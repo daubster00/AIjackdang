@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { env } from "@ai-jakdang/config";
+import { watermarkImage } from "./watermark.js";
 
 /** 허용 이미지 MIME 타입 */
 export const ALLOWED_IMAGE_TYPES = new Set([
@@ -120,10 +121,17 @@ export async function uploadImage(
   file: ParsedFile,
   subdir: "avatars" | "banners" | "editor-images" | "attachments",
 ): Promise<UploadResult> {
+  // 게시판 본문에 삽입되는 에디터 이미지에만 우측 하단 흰색 워터마크를 합성한다.
+  // (아바타·배너·관리자 이미지는 대상 아님. 실패 시 watermarkImage 가 원본을 그대로 반환.)
+  const toStore =
+    subdir === "editor-images"
+      ? { ...file, data: await watermarkImage(file.data, file.mimetype) }
+      : file;
+
   if (isS3Configured()) {
-    return uploadToS3(file, subdir);
+    return uploadToS3(toStore, subdir);
   }
-  return uploadToLocal(file, subdir);
+  return uploadToLocal(toStore, subdir);
 }
 
 /**

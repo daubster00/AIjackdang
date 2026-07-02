@@ -37,6 +37,7 @@
     "fastify-type-provider-zod": "^6.1.0",
     "ioredis": "5.10.1",
     "sanitize-html": "^2.17.5",
+    "sharp": "^0.33.5",
     "zod": "^4.1.5"
   },
   "devDependencies": {
