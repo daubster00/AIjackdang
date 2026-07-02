@@ -31,15 +31,12 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     id: "collection",
     heading: "제1조 (수집하는 개인정보 항목)",
     body: `<p>회사는 서비스 제공을 위해 다음과 같은 개인정보를 수집합니다.</p>
-<p><strong>가입 시 수집 항목</strong></p>
+<p><strong>회원 가입 및 소셜 로그인(Google, Kakao, Naver) 시 수집 항목</strong></p>
 <ul>
-  <li>필수: 이메일 주소, 닉네임, 비밀번호(암호화 저장)</li>
-  <li>선택: 프로필 이미지, 성별, 생년월일, 연락처, 마케팅 수신 동의 여부</li>
+  <li>필수: 연락처 이메일 주소, 휴대전화번호</li>
+  <li>추가(선택): 회원 이름, 성별, 생일, 연령대, 출생연도</li>
 </ul>
-<p><strong>소셜 로그인(Google, Kakao, Naver) 시 수집 항목</strong></p>
-<ul>
-  <li>소셜 서비스가 제공하는 식별자(ID), 이메일 주소, 프로필 이미지</li>
-</ul>
+<p>소셜 로그인 시에는 위 항목과 함께 소셜 서비스가 제공하는 식별자(ID)를 수집하며, 이메일 회원가입 시에는 로그인용 비밀번호(암호화 저장)를 함께 수집합니다.</p>
 <p><strong>서비스 이용 과정에서 자동 수집되는 항목</strong></p>
 <ul>
   <li>IP 주소, 쿠키, 서비스 이용 기록(방문 일시, 이용 콘텐츠), 접속 단말 정보</li>
@@ -138,7 +135,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
 <p><strong>개인정보 보호책임자</strong></p>
 <ul>
   <li>성명: AI작당 운영팀</li>
-  <li>이메일: privacy@aijakdang.com</li>
+  <li>이메일: {{PRIVACY_CONTACT_EMAIL}}</li>
 </ul>
 <p>개인정보 침해에 대한 신고나 상담이 필요하신 경우 아래 기관에 문의하실 수 있습니다.</p>
 <ul>

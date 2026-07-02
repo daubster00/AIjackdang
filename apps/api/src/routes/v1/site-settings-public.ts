@@ -18,6 +18,7 @@ import { getSiteSetting } from "../../lib/siteSettings.js";
 
 const PUBLIC_SETTING_KEYS = [
   "site_name",
+  "operator_email",
   "seo_title",
   "seo_description",
   "og_image",

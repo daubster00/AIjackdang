@@ -330,6 +330,12 @@ export const userAuth = betterAuth({
    * 카카오: KAKAO_ENABLED=true && 키 설정 시에만 활성 (ADR-0002 §카카오 정책 — 비즈앱 검수 필요).
    *
    * 네이버·카카오는 이름·전화번호·성별·생년월일을 추가로 요청해 users(name/phone/gender/birthDate)에 저장한다.
+   *
+   * 닉네임·프로필사진은 소셜 제공사에 요청하지 않는다(사이트가 자체 생성).
+   *   - 구글: "profile" scope 제거 → openid+email 만 요청(이름·프로필사진 미요청).
+   *   - 카카오: profile_nickname·profile_image scope 제거 → 이메일+회원정보만 요청.
+   *   - 네이버: 별명·프로필사진은 scope가 아닌 개발자센터 동의항목으로 제어되므로, 콘솔에서 두 항목을
+   *     "미사용"으로 두어야 요청이 사라진다. 코드는 프로필사진을 저장하지 않는 것으로만 방어(image: undefined).
    * ⚠️ 실제 제공 여부는 각 개발자센터 설정에 달려 있다:
    *   - 네이버: 개발자센터 "네이버 로그인 > 제공 정보 선택"에서 이름/휴대전화번호/성별/생일·출생연도를 필수(또는 추가) 항목으로 활성화해야
    *     동의 화면에 표시되고 프로필 API 가 값을 돌려준다. (이름·연락처 등 민감정보는 검수 필요)
@@ -343,6 +349,14 @@ export const userAuth = betterAuth({
           google: {
             clientId: env.GOOGLE_CLIENT_ID,
             clientSecret: env.GOOGLE_CLIENT_SECRET,
+            /**
+             * 구글에 닉네임(표시이름)·프로필사진을 요청하지 않는다.
+             * 구글 기본 scope는 ["email","profile","openid"]인데 "profile"이 이름+프로필사진(picture)을
+             * 함께 요청한다. 우리는 닉네임/아바타를 사이트가 자체 생성하므로 "profile"을 제거하고
+             * openid+email 만 요청한다. (사이트 자체 닉네임/기본 아바타는 그대로 유지)
+             */
+            disableDefaultScope: true,
+            scope: ["openid", "email"],
           },
         }
       : {}),
@@ -351,15 +365,26 @@ export const userAuth = betterAuth({
           naver: {
             clientId: env.NAVER_CLIENT_ID,
             clientSecret: env.NAVER_CLIENT_SECRET,
-            /** 네이버 프로필(response.name/mobile/gender/birthyear/birthday) → users 회원정보 매핑 */
+            /**
+             * 네이버 프로필(response.name/mobile/gender/birthyear/birthday) → users 회원정보 매핑.
+             * ⚠️ 네이버 별명(nickname)·프로필사진은 OAuth scope로 제어되지 않고
+             *    개발자센터 "네이버 로그인 > 제공 정보 선택(동의항목)"에서 켜고/끈다.
+             *    별명·프로필사진 요청을 완전히 없애려면 그 콘솔에서 두 항목을 "미사용"으로 두어야 한다.
+             *    코드 차원에서는 네이버가 프로필사진을 돌려주더라도 저장하지 않아(image: undefined)
+             *    사이트 기본 아바타(defaultAvatarIndex)가 유지되게 한다.
+             */
             mapProfileToUser: (profile) => {
               const r = profile.response;
-              return pruneEmpty({
-                name: r?.name,
-                phone: r?.mobile,
-                gender: normalizeGender(r?.gender),
-                birthDate: buildBirthDate(r?.birthyear, r?.birthday),
-              });
+              return {
+                ...pruneEmpty({
+                  name: r?.name,
+                  phone: r?.mobile,
+                  gender: normalizeGender(r?.gender),
+                  birthDate: buildBirthDate(r?.birthyear, r?.birthday),
+                }),
+                // 소셜 프로필사진 미저장 — 사이트 기본 아바타 사용 (자체 생성 아바타는 건드리지 않음)
+                image: undefined,
+              };
             },
           },
         }
@@ -370,17 +395,27 @@ export const userAuth = betterAuth({
           kakao: {
             clientId: env.KAKAO_REST_API_KEY,
             clientSecret: env.KAKAO_CLIENT_SECRET,
-            /** 이름·성별·생일·출생연도·전화번호 추가 동의항목 (기본 account_email·profile 에 더해짐). 비즈앱 검수 필요. */
-            scope: ["name", "gender", "birthday", "birthyear", "phone_number"],
+            /**
+             * 카카오 닉네임(profile_nickname)·프로필사진(profile_image)은 요청하지 않는다.
+             * 카카오 기본 scope는 ["account_email","profile_image","profile_nickname"]인데,
+             * 닉네임/아바타는 사이트가 자체 생성하므로 프로필사진·닉네임 동의를 제거하고
+             * 이메일 + 이름·성별·생일·출생연도·전화번호만 요청한다. (비즈앱 검수 필요)
+             */
+            disableDefaultScope: true,
+            scope: ["account_email", "name", "gender", "birthday", "birthyear", "phone_number"],
             /** 카카오 프로필(kakao_account.name/phone_number/gender/birthyear/birthday) → users 회원정보 매핑 */
             mapProfileToUser: (profile) => {
               const a = profile.kakao_account;
-              return pruneEmpty({
-                name: a?.name,
-                phone: normalizeKrPhone(a?.phone_number),
-                gender: normalizeGender(a?.gender),
-                birthDate: buildBirthDate(a?.birthyear, a?.birthday),
-              });
+              return {
+                ...pruneEmpty({
+                  name: a?.name,
+                  phone: normalizeKrPhone(a?.phone_number),
+                  gender: normalizeGender(a?.gender),
+                  birthDate: buildBirthDate(a?.birthyear, a?.birthday),
+                }),
+                // 소셜 프로필사진 미저장 — 사이트 기본 아바타 사용 (자체 생성 아바타는 건드리지 않음)
+                image: undefined,
+              };
             },
           },
         }

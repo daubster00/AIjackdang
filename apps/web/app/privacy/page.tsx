@@ -16,11 +16,33 @@ import {
 import { buildBreadcrumbJsonLd } from "@/lib/seo";
 import { LegalPageLayout } from "@/components/legal/LegalPageLayout";
 
-export const dynamic = "force-static";
+// 개인정보 보호책임자 이메일은 관리자 사이트 설정(operator_email)을 따르므로
+// 빌드 시 고정(force-static)하지 않고 60초 ISR로 갱신한다.
+export const revalidate = 60;
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
 const SITE_NAME = "AI작당";
+
+/** 사이트 설정에서 개인정보 처리 담당 이메일을 가져온다(운영자 이메일 우선). */
+const DEFAULT_CONTACT_EMAIL = "privacy@aijakdang.com";
+
+async function getContactEmail(): Promise<string> {
+  const apiBase = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
+  try {
+    const res = await fetch(`${apiBase}/api/v1/settings/public`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return DEFAULT_CONTACT_EMAIL;
+    const data = (await res.json()) as {
+      operator_email?: string;
+      business_email?: string;
+    };
+    return data.operator_email || data.business_email || DEFAULT_CONTACT_EMAIL;
+  } catch {
+    return DEFAULT_CONTACT_EMAIL;
+  }
+}
 
 // ── generateMetadata ──────────────────────────────────────────────────────────
 
@@ -55,11 +77,18 @@ export function generateMetadata(): Metadata {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "홈", url: SITE_URL },
     { name: "개인정보처리방침", url: `${SITE_URL}/privacy` },
   ]);
+
+  // 개인정보 보호책임자 이메일 placeholder를 사이트 설정 값으로 치환
+  const contactEmail = await getContactEmail();
+  const sections = PRIVACY_SECTIONS.map((section) => ({
+    ...section,
+    body: section.body.replaceAll("{{PRIVACY_CONTACT_EMAIL}}", contactEmail),
+  }));
 
   return (
     <>
@@ -70,7 +99,7 @@ export default function PrivacyPage() {
       />
       <LegalPageLayout
         title="개인정보처리방침"
-        sections={PRIVACY_SECTIONS}
+        sections={sections}
         version={PRIVACY_VERSION}
         effectiveDate={PRIVACY_EFFECTIVE_DATE}
       />
