@@ -5,6 +5,43 @@
   /* 본문 내 코드블록 스타일이 상속된 값 위에 추가 */
 }
 
+/*
+ * 문단·블록 사이 세로 리듬.
+ * 본문 HTML(<p>·<h*>·목록 등)이 이 컨테이너 한 겹 안에 모두 렌더되므로
+ * 부모의 grid gap이 문단 사이에는 먹지 않는다. 사람이 쓴 글처럼 문단마다
+ * 빈 간격이 보이도록 직접 자식 블록에 아래 여백을 준다.
+ *
+ * 클래스를 두 번 겹쳐(.articleContent.articleContent) 특이도를 한 단계 올린 이유:
+ * 각 게시판 페이지에 `.page p { margin: 0 }` 리셋이 있어 `.articleContent > p`
+ * 와 특이도가 동점(0,1,1)이 되고, 소스 순서상 리셋이 이겨 문단 여백이 0이 되기
+ * 때문. 클래스 중복으로 (0,2,1)을 확보해 페이지 리셋을 확실히 이긴다.
+ */
+.articleContent.articleContent > p,
+.articleContent.articleContent > ul,
+.articleContent.articleContent > ol,
+.articleContent.articleContent > blockquote,
+.articleContent.articleContent > pre,
+.articleContent.articleContent > figure,
+.articleContent.articleContent > img {
+  margin-block: 0 var(--space-5);
+}
+
+/* 소제목이 등장할 때는 위쪽으로 더 넉넉히 띄워 문단과 구분 */
+.articleContent.articleContent > h1,
+.articleContent.articleContent > h2,
+.articleContent.articleContent > h3,
+.articleContent.articleContent > h4 {
+  margin-block: var(--space-6) var(--space-3);
+}
+
+/* 첫/마지막 블록의 바깥 여백은 카드 패딩과 겹치지 않도록 제거 */
+.articleContent.articleContent > :first-child {
+  margin-block-start: 0;
+}
+.articleContent.articleContent > :last-child {
+  margin-block-end: 0;
+}
+
 /* 코드블록 pre — 가로 스크롤 + 복사 버튼 기준점 */
 .articleContent pre {
   position: relative;

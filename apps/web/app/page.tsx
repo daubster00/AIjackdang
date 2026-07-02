@@ -266,9 +266,9 @@ export default async function HomePage({
                     {post.description && <CardDesc>{post.description}</CardDesc>}
                     <CardMeta>
                       {post.tags.slice(0, 3).map((tag) => (
-                        <Tag key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
-                          {tag}
-                        </Tag>
+                        // 카드 전체가 이미 <Link>(=<a>)로 감싸져 있으므로 태그에는
+                        // href를 주지 않는다(<a> 안의 <a> 중첩 → hydration 에러 방지).
+                        <Tag key={tag}>{tag}</Tag>
                       ))}
                     </CardMeta>
                   </Card>

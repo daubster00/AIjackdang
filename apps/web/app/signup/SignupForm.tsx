@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button, Checkbox, Icon, Input } from "@/components/ui";
+import { Button, Checkbox, Icon, Input, Select } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { signUp, checkEmailAvailable, resendVerificationEmail } from "@/lib/auth-api";
 import styles from "./signup.module.css";
 
 /** 카카오 로그인 활성 여부 (NEXT_PUBLIC_KAKAO_ENABLED=true 시 활성) */
 const KAKAO_ENABLED = process.env.NEXT_PUBLIC_KAKAO_ENABLED === "true";
+
+const GENDER_OPTIONS = [
+  { value: "", label: "선택안함" },
+  { value: "male", label: "남성" },
+  { value: "female", label: "여성" },
+  { value: "other", label: "기타" },
+];
 
 /**
  * Better Auth 소셜 회원가입/로그인 시작.
@@ -262,8 +269,13 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [gender, setGender] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
@@ -287,6 +299,12 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
     return "";
   }
 
+  function validatePhone(value: string): string {
+    if (!value.trim()) return "휴대폰 번호를 입력해 주세요.";
+    if (!/^[\d-]+$/.test(value.trim())) return "숫자와 하이픈(-)만 입력할 수 있습니다.";
+    return "";
+  }
+
   // 이메일 blur: 형식 검증 후 중복 여부까지 확인해 미리 막는다.
   async function handleEmailBlur(value: string) {
     const fmtErr = validateEmail(value);
@@ -300,15 +318,17 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     // submit 시 전체 검증
     const eErr = validateEmail(email);
     const pErr = validatePassword(password);
+    const phoneErr = validatePhone(phone);
     setEmailError(eErr);
     setPasswordError(pErr);
-    if (eErr || pErr) return;
+    setPhoneError(phoneErr);
+    if (eErr || pErr || phoneErr) return;
 
     if (!agreements.terms || !agreements.privacy) {
       toast({
@@ -321,10 +341,20 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
 
     setSubmitting(true);
     try {
-      const result = await signUp(email.trim().toLowerCase(), password, true);
+      const normalizedEmail = email.trim().toLowerCase();
+      const result = await signUp({
+        email: normalizedEmail,
+        password,
+        name: name.trim() || null,
+        phone: phone.trim(),
+        gender: (gender as "male" | "female" | "other") || null,
+        birthDate: birthDate || null,
+        marketingAgreed: agreements.marketing,
+        termsAgreed: true,
+      });
 
       if (result.ok) {
-        onSuccess(email.trim().toLowerCase());
+        onSuccess(normalizedEmail);
         return;
       }
 
@@ -399,6 +429,62 @@ function EmailSignup({ onSuccess }: EmailSignupProps) {
           }}
           onBlur={(e) => setPasswordError(validatePassword(e.target.value))}
         />
+      </div>
+
+      <div className={styles.optionalBlock}>
+        <div className={styles.optionalHead}>
+          <strong>회원정보</strong>
+          <span>휴대폰 필수</span>
+        </div>
+        <div className={styles.fieldGroup}>
+          <Input
+            label="이름"
+            name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="실명을 입력하세요 (선택)"
+            autoComplete="name"
+            maxLength={50}
+            leftIcon={<Icon name="user-line" />}
+          />
+          <Input
+            label="휴대폰"
+            name="phone"
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              if (phoneError) setPhoneError("");
+            }}
+            onBlur={(e) => setPhoneError(validatePhone(e.target.value))}
+            placeholder="예) 010-1234-5678"
+            autoComplete="tel"
+            inputMode="tel"
+            required
+            maxLength={20}
+            leftIcon={<Icon name="smartphone-line" />}
+            error={phoneError}
+            helpText={!phoneError ? "숫자와 하이픈(-)만 입력해 주세요." : undefined}
+          />
+          <div className={styles.optionalGrid}>
+            <Select
+              label="성별"
+              name="gender"
+              options={GENDER_OPTIONS}
+              value={gender}
+              onChange={setGender}
+              placeholder="선택안함"
+            />
+            <Input
+              label="생년월일"
+              type="date"
+              name="birthDate"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              autoComplete="bday"
+              leftIcon={<Icon name="calendar-line" />}
+            />
+          </div>
+        </div>
       </div>
 
       {/* 약관 동의 패널 (AgreementPanel 구조 보존) */}

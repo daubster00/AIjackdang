@@ -70,13 +70,25 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
       ? `연재 그룹: ${seriesContext.groupTitle} (제${seriesContext.episodeIndex}편)\n`
       : "";
 
+  // 형식 지시: 관리자 장문(guide)만 소제목·목차를 쓰고,
+  // 일반 커뮤니티 글(chat·info)은 소제목 없이 자연스러운 줄글로 작성한다.
+  const formatLine =
+    postKind === "guide"
+      ? "마크다운 형식으로 작성하세요 (## 소제목, **굵게**, ```코드블록```). Tiptap 에디터 호환 마크다운 출력."
+      : [
+          "마크다운 문단으로만 작성하세요.",
+          "- 소제목(#, ##)이나 목차로 챕터를 나누지 마세요. 실제 커뮤니티 글처럼 제목 없이 자연스럽게 이어지는 줄글로 씁니다.",
+          "- 문단과 문단 사이는 반드시 빈 줄 하나로 띄웁니다. 한 문단은 2~4문장 정도로, 벽돌처럼 다 붙여 쓰지 마세요.",
+          "- 굵게(**)는 정말 강조할 때만 아주 드물게. 코드가 꼭 필요할 때만 ```코드블록```을 씁니다.",
+        ].join("\n");
+
   const sections = [
     `게시판: ${board}`,
     seriesLine ? seriesLine.trimEnd() : null,
     `주제: ${titleSeed}`,
     factsBlock || null,
     guidanceLines,
-    "마크다운 형식으로 작성하세요 (## 소제목, **굵게**, ```코드블록```). Tiptap 에디터 호환 마크다운 출력.",
+    formatLine,
   ].filter(Boolean);
 
   return sections.join("\n\n");

@@ -38,21 +38,28 @@ export interface SignUpError {
 
 export type SignUpResult = SignUpSuccess | SignUpError;
 
+export interface SignUpInput {
+  email: string;
+  password: string;
+  name?: string | null;
+  phone: string;
+  gender?: "male" | "female" | "other" | null;
+  birthDate?: string | null;
+  marketingAgreed?: boolean;
+  termsAgreed: true;
+}
+
 /**
  * 이메일·비밀번호로 회원가입 (Story 1.3, AC #2).
  * POST /api/v1/auth/sign-up 엔드포인트를 호출한다.
  * 성공 시 인증 메일이 발송되고 "인증 메일을 보냈어요" 메시지를 반환한다.
  */
-export async function signUp(
-  email: string,
-  password: string,
-  termsAgreed: true,
-): Promise<SignUpResult> {
+export async function signUp(input: SignUpInput): Promise<SignUpResult> {
   try {
     const res = await fetch(`${AUTH_BASE}/sign-up`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, termsAgreed }),
+      body: JSON.stringify(input),
       credentials: "include",
     });
 

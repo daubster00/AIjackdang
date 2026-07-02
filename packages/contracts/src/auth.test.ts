@@ -6,6 +6,7 @@ describe("signUpSchema", () => {
     const result = signUpSchema.safeParse({
       email: " user@example.com ",
       password: "password123",
+      phone: "010-1234-5678",
       termsAgreed: true,
     });
     expect(result.success).toBe(true);
@@ -19,6 +20,7 @@ describe("signUpSchema", () => {
     const result = signUpSchema.safeParse({
       email: "user@example.com",
       password: "short",
+      phone: "010-1234-5678",
       termsAgreed: true,
     });
     expect(result.success).toBe(false);
@@ -28,6 +30,7 @@ describe("signUpSchema", () => {
     const result = signUpSchema.safeParse({
       email: "not-an-email",
       password: "password123",
+      phone: "010-1234-5678",
       termsAgreed: true,
     });
     expect(result.success).toBe(false);
@@ -37,6 +40,7 @@ describe("signUpSchema", () => {
     const result = signUpSchema.safeParse({
       email: "user@example.com",
       password: "password123",
+      phone: "010-1234-5678",
       termsAgreed: false,
     });
     expect(result.success).toBe(false);
@@ -46,6 +50,30 @@ describe("signUpSchema", () => {
     const result = signUpSchema.safeParse({
       email: "user@example.com",
       password: "password123",
+      phone: "010-1234-5678",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("회원정보 필드를 함께 허용한다", () => {
+    const result = signUpSchema.safeParse({
+      email: "user@example.com",
+      password: "password123",
+      name: "홍길동",
+      phone: "010-1234-5678",
+      gender: "male",
+      birthDate: "1990-01-01",
+      marketingAgreed: true,
+      termsAgreed: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("휴대폰 누락을 거부한다", () => {
+    const result = signUpSchema.safeParse({
+      email: "user@example.com",
+      password: "password123",
+      termsAgreed: true,
     });
     expect(result.success).toBe(false);
   });
@@ -61,6 +89,7 @@ describe("sessionSchema (Story 1.4 Task 5.1)", () => {
       emailVerified: true,
       defaultAvatarIndex: 0,
       avatarUrl: null,
+      image: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     },
     session: {

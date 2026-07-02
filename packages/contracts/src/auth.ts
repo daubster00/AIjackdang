@@ -21,6 +21,20 @@ export const signUpSchema = z.object({
     .string()
     .min(8, "비밀번호는 8자 이상이어야 합니다")
     .max(128, "비밀번호는 128자 이하여야 합니다"),
+  name: z.string().trim().max(50, "이름은 50자 이하여야 합니다").nullable().optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "휴대폰 번호를 입력해 주세요")
+    .max(30, "휴대폰 번호가 너무 깁니다")
+    .regex(/^[0-9-]+$/, "휴대폰 번호는 숫자와 하이픈(-)만 입력할 수 있습니다"),
+  gender: z.enum(["male", "female", "other"]).nullable().optional(),
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "생년월일 형식이 올바르지 않습니다(YYYY-MM-DD)")
+    .nullable()
+    .optional(),
+  marketingAgreed: z.boolean().optional(),
   termsAgreed: z.literal(true, "약관에 동의해야 가입할 수 있습니다"),
 });
 export type SignUpInput = z.infer<typeof signUpSchema>;

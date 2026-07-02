@@ -71,10 +71,12 @@ export async function registerSignUpRoute(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       // signUpSchema는 termsAgreed: literal(true)를 검증함. 도달했으면 이미 true.
-      const { email, password } = request.body;
+      const { email, password, name, phone, gender, birthDate, marketingAgreed } = request.body;
 
       // email 정규화
       const normalizedEmail = email.trim().toLowerCase();
+      const normalizedName = name?.trim() || null;
+      const normalizedPhone = phone.trim();
 
       // 일회용 이메일 도메인 차단 (AC #6)
       if (isDisposableEmail(normalizedEmail)) {
@@ -108,10 +110,28 @@ export async function registerSignUpRoute(app: FastifyInstance): Promise<void> {
           body: {
             email: normalizedEmail,
             password,
-            name: normalizedEmail, // Better Auth 필수 필드; users.name 컬럼으로 매핑
+            name: normalizedName ?? normalizedEmail, // Better Auth 필수 필드; 가입 후 선택 이름은 아래에서 정리
             nickname: placeholderNickname, // databaseHooks.before 에서 유니크 닉네임으로 교체됨
+            phone: normalizedPhone,
+            gender: gender ?? undefined,
+            birthDate: birthDate ?? undefined,
           },
         });
+
+        if (result?.user?.id) {
+          const db = getDb();
+          await db
+            .update(schema.users)
+            .set({
+              name: normalizedName,
+              phone: normalizedPhone,
+              gender: gender ?? null,
+              birthDate: birthDate ?? null,
+              marketingAgreedAt: marketingAgreed ? new Date() : null,
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.users.id, result.user.id));
+        }
 
         // requireEmailVerification=true 이면 result.token = null (세션 미생성)
         // 인증 메일 발송은 emailVerification.sendVerificationEmail 훅에서 처리됨
