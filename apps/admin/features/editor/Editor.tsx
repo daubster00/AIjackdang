@@ -11,6 +11,7 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { Youtube } from "@tiptap/extension-youtube";
 import { EditorToolbar } from "./EditorToolbar";
 import { FontSize } from "./extensions/FontSize";
+import { TrailingNode } from "./extensions/TrailingNode";
 import styles from "./Editor.module.css";
 
 type EditorPreset = "full" | "lite";
@@ -62,6 +63,9 @@ function buildExtensions(preset: EditorPreset) {
         nocookie: true,
         HTMLAttributes: { class: "editor-youtube" },
       }),
+      // 이미지·동영상 등 블록이 마지막에 와도 그 아래 빈 문단을 유지 →
+      // "이미지 바로 밑 빈 공간 클릭 시 커서 생성" 을 보장한다.
+      TrailingNode,
     ];
   }
 
@@ -86,6 +90,8 @@ function buildExtensions(preset: EditorPreset) {
     Image.configure({
       HTMLAttributes: { class: "editor-image" },
     }),
+    // 이미지가 마지막에 와도 그 아래 빈 문단을 유지 → 이미지 밑 클릭 시 커서 생성
+    TrailingNode,
   ];
 }
 

@@ -23,7 +23,22 @@
 .articleContent.articleContent > pre,
 .articleContent.articleContent > figure,
 .articleContent.articleContent > img {
-  margin-block: 0 var(--space-5);
+  margin-block: 0 var(--space-1);
+}
+
+/*
+ * 본문 글자 크기·줄높이를 에디터(.ProseMirror)와 1:1로 일치시킨다.
+ * 에디터: font-size 15px(--font-size-base) · line-height 1.35 · 문단여백 4px.
+ * 이 선택자(0,2,1)가 각 게시판의 `.articleBody p`(0,1,1)를 이기므로
+ * "에디터에서 본 그대로" 게시물에 반영된다. (pre 코드블록은 자체 줄높이 유지)
+ */
+.articleContent.articleContent > p,
+.articleContent.articleContent > ul,
+.articleContent.articleContent > ol,
+.articleContent.articleContent > blockquote,
+.articleContent.articleContent > li {
+  font-size: var(--font-size-base);
+  line-height: 1.35;
 }
 
 /* 소제목이 등장할 때는 위쪽으로 더 넉넉히 띄워 문단과 구분 */

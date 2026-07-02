@@ -120,13 +120,15 @@ export function buildSanitizeOptions(
   }
 
   // fontSize: TextStyle 확장이 font-size 를 span style 로 출력한다.
-  // 허용 크기: 10px ~ 40px (정수 픽셀값만 허용)
+  // 허용 크기: 10px ~ 48px (정수 픽셀값만 허용)
+  // ※ 에디터 툴바(EditorToolbar FONT_SIZES)가 최대 48px 를 제공하므로 상한을 맞춘다.
+  //   상한이 40px 이던 시절엔 42·48px 이 style 째로 제거돼 상세에서 기본 크기로 작아졌다.
   if (hasTextStyle) {
     allowedStyles["span"] = {
       // 색상: #hex / rgb(...) / rgba(...)
       color: [/^(#[0-9a-fA-F]{3,8}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|rgba\(\d{1,3},\s*\d{1,3},\s*\d{1,3},\s*[\d.]+\))$/],
-      // 글자크기: 10px~40px 정수
-      "font-size": [/^([1-3]\d|40)px$/],
+      // 글자크기: 10px~48px 정수 (10-19 / 20-29 / 30-39 / 40-48)
+      "font-size": [/^(1\d|2\d|3\d|4[0-8])px$/],
     };
   }
 
