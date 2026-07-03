@@ -9,7 +9,15 @@
       "WebFetch(domain:programmablesearchengine.googleblog.com)",
       "WebFetch(domain:www.heise.de)",
       "mcp__claude_ai_Claude_Code_Remote__send_later",
-      "mcp__claude_ai_Claude_Code_Remote__create_trigger"
+      "mcp__claude_ai_Claude_Code_Remote__create_trigger",
+      "WebFetch(domain:community.openai.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:docs.cursor.com)",
+      "WebFetch(domain:www.make.com)",
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:help.make.com)"
     ]
   },
   "hooks": {

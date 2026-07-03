@@ -24,6 +24,12 @@ WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=https://api.aijackdang.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+# ── SEO 사이트 URL (canonical·OG·JSON-LD·sitemap·robots 기준 도메인, 빌드 타임 주입 필수) ──
+# Next.js 는 NEXT_PUBLIC_* 을 build 시 번들에 인라인한다. 여기서 안 주면 lib/seo/site-url.ts
+# 의 fallback(https://aijackdang.com)이 박힌다. 실도메인과 다르면 검색엔진에 잘못된 URL이 노출된다.
+ARG NEXT_PUBLIC_SITE_URL=https://aijackdang.com
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+
 # ── 웹 서버→API 내부 프록시 목적지 (빌드 타임 주입 필수) ──
 # Next.js rewrites() 목적지는 build 시점에 routes-manifest.json 으로 구워진다.
 # 여기서 안 주면 next.config.ts 의 fallback http://localhost:4003 이 박혀

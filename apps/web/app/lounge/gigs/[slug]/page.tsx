@@ -8,11 +8,22 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BoardHero, RecentViewedTracker } from "@/components/board";
 import { GigDetailClient } from "./GigDetailClient";
+import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
+import {
+  SITE_URL,
+  buildPostMeta,
+  buildPostUrl,
+  buildPostBreadcrumb,
+  buildBreadcrumbJsonLd,
+  buildDiscussionJsonLd,
+} from "@/lib/seo";
 
 // ── API 데이터 fetcher ──────────────────────────────────────
 async function fetchGigDetail(slug: string): Promise<PostDetail | null> {
-  const API_BASE = process.env.INTERNAL_API_URL ?? "http://localhost:4003";
+  // API_INTERNAL_URL 로 통일(다른 상세 페이지·운영 배포와 동일). 예전 INTERNAL_API_URL 은
+  // 운영 env 에 없어 localhost 로 폴백→SSR fetch 실패(상세 404)했다.
+  const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/posts/${slug}`, {
@@ -32,14 +43,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const post = await fetchGigDetail(slug);
   if (!post) return { title: "작당 의뢰소" };
-  return {
-    title: `${post.title} | 작당 의뢰소`,
-    description: post.summary ?? post.title,
-    openGraph: {
-      title: post.title,
-      description: post.summary ?? undefined,
-    },
-  };
+  return buildPostMeta(post);
 }
 
 export default async function GigDetailPage({ params }: { params: Params }) {
@@ -50,8 +54,27 @@ export default async function GigDetailPage({ params }: { params: Params }) {
     notFound();
   }
 
+  // SEO 구조화 데이터 (Discussion + BreadcrumbList)
+  const boardMeta = BOARDS[post.board];
+  const boardLabel = boardMeta?.label ?? "구인구직";
+  const boardCategory = boardMeta?.category ?? "lounge";
+  const boardUrl = `${SITE_URL}${boardMeta?.urlPath ?? "/lounge/gigs"}`;
+  const postUrl = buildPostUrl(post.board, post.slug);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
+    buildPostBreadcrumb(boardCategory, boardLabel, boardUrl, post.title, postUrl),
+  );
+  const structuredDataJsonLd = buildDiscussionJsonLd(post, boardMeta?.urlPath ?? "/lounge/gigs");
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredDataJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
       <RecentViewedTracker
         href={`/lounge/gigs/${post.slug}`}

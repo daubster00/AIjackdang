@@ -8,7 +8,12 @@
  */
 
 import type { MetadataRoute } from "next";
-import { buildSiteUrl, SITEMAP_PRIORITIES, SITEMAP_CHANGE_FREQ } from "@/lib/seo";
+import {
+  buildSiteUrl,
+  buildPostPath,
+  SITEMAP_PRIORITIES,
+  SITEMAP_CHANGE_FREQ,
+} from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -39,7 +44,7 @@ function buildStaticUrls(): MetadataRoute.Sitemap {
       priority: SITEMAP_PRIORITIES.home,
     },
     {
-      url: buildSiteUrl("/qna"),
+      url: buildSiteUrl("/questions"),
       changeFrequency: SITEMAP_CHANGE_FREQ.list,
       priority: SITEMAP_PRIORITIES.topList,
     },
@@ -110,15 +115,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // const totalCount = postsData.items.length + questionsData.items.length + resourcesData.items.length;
   // if (totalCount > 50_000) { ... }
 
+  // board 슬러그가 아니라 실제 라우트(카테고리 기준 경로)로 URL 생성.
+  // (예전: `/${item.board}/${slug}` → /vibe-coding-guide/... 등 대부분 404·canonical 불일치)
   const postUrls: MetadataRoute.Sitemap = postsData.items.map((item) => ({
-    url: buildSiteUrl(`/${item.board}/${item.slug}`),
+    url: buildSiteUrl(buildPostPath(item.board, item.slug)),
     lastModified: item.updatedAt,
     changeFrequency: SITEMAP_CHANGE_FREQ.detail,
     priority: SITEMAP_PRIORITIES.detail,
   }));
 
   const questionUrls: MetadataRoute.Sitemap = questionsData.items.map((item) => ({
-    url: buildSiteUrl(`/qna/${item.slug}`),
+    url: buildSiteUrl(`/questions/${item.slug}`),
     lastModified: item.updatedAt,
     changeFrequency: SITEMAP_CHANGE_FREQ.detail,
     priority: SITEMAP_PRIORITIES.detail,

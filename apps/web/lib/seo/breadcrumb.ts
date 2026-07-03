@@ -6,9 +6,7 @@
  */
 
 import type { BreadcrumbItem } from "./jsonld";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
+import { SITE_URL } from "./site-url";
 
 // ── 카테고리 한국어 이름 매핑 ─────────────────────────────────────────────────
 
@@ -34,12 +32,13 @@ function getCategoryLabel(category: string): string {
  * 카테고리 전용 페이지가 없는 경우 `#` 반환.
  */
 function getCategoryUrl(category: string): string {
+  // 실제 라우트와 일치해야 한다(예전: /monetization·/ai-creation·/talk 은 존재하지 않는 경로).
   const categoryUrlMap: Record<string, string> = {
     "vibe-coding": `${SITE_URL}/vibe-coding`,
     "ai-automation": `${SITE_URL}/automation`,
-    "ai-monetization": `${SITE_URL}/monetization`,
-    "ai-creation": `${SITE_URL}/ai-creation`,
-    lounge: `${SITE_URL}/talk`,
+    "ai-monetization": `${SITE_URL}/monetize`,
+    "ai-creation": `${SITE_URL}/lounge`,
+    lounge: `${SITE_URL}/lounge`,
     system: `${SITE_URL}/notice`,
   };
   return categoryUrlMap[category] ?? `${SITE_URL}/#`;

@@ -332,7 +332,9 @@
 }
 
 .editorContent :global(.ProseMirror p) {
-  margin: 0 0 var(--space-1);
+  /* 표준 편집기 방식: 엔터 1번(문단 바꿈)은 자동 줄바꿈과 동일하게 촘촘(여백 0).
+     문단 사이 간격은 빈 줄(엔터 2번 → 빈 문단)로 만든다. 게시물 렌더와 동일. */
+  margin: 0;
 }
 
 /*
@@ -410,10 +412,12 @@
   color: var(--color-primary-hover);
 }
 
-/* 이미지 */
+/* 이미지 — 가운데 정렬 (게시물 렌더와 일치) */
 .editorContent :global(.ProseMirror img) {
+  display: block;
   max-width: 100%;
   height: auto;
+  margin-inline: auto;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }

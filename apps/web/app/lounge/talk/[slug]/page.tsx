@@ -5,9 +5,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
 import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
+import {
+  SITE_URL,
+  buildPostMeta,
+  buildPostUrl,
+  buildPostBreadcrumb,
+  buildBreadcrumbJsonLd,
+  buildDiscussionJsonLd,
+} from "@/lib/seo";
 import styles from "../../lounge.module.css";
 import { CommentForm } from "./CommentForm";
 import { CommentItem, type ApiComment } from "./CommentItem";
@@ -34,11 +43,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const post = await fetchPost(slug, "");
   if (!post) return { title: "작당 수다방" };
-  return {
-    title: `${post.title} | 작당 수다방`,
-    description: post.summary ?? post.title,
-    openGraph: { title: post.title, description: post.summary ?? undefined },
-  };
+  return buildPostMeta(post);
 }
 
 export default async function LoungeTalkDetailPage({ params }: { params: Params }) {
@@ -64,8 +69,27 @@ export default async function LoungeTalkDetailPage({ params }: { params: Params 
     day: "2-digit",
   });
 
+  // SEO 구조화 데이터 (Discussion + BreadcrumbList)
+  const boardMeta = BOARDS[post.board];
+  const boardLabel = boardMeta?.label ?? "작당 수다방";
+  const boardCategory = boardMeta?.category ?? "lounge";
+  const boardUrl = `${SITE_URL}${boardMeta?.urlPath ?? "/lounge/talk"}`;
+  const postUrl = buildPostUrl(post.board, post.slug);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
+    buildPostBreadcrumb(boardCategory, boardLabel, boardUrl, post.title, postUrl),
+  );
+  const structuredDataJsonLd = buildDiscussionJsonLd(post, boardMeta?.urlPath ?? "/lounge/talk");
+
   return (
     <main id="main" className={styles.page}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredDataJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
       <RecentViewedTracker
         href={`/lounge/talk/${post.slug}`}

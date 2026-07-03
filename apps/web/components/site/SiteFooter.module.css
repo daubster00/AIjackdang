@@ -143,6 +143,11 @@
     grid-template-columns: 1fr;
   }
 
+  /* 모바일: 푸터 메뉴 항목(커뮤니티·자료실·라운지 링크 묶음) 숨김 */
+  .linkGroups {
+    display: none;
+  }
+
   .bottom {
     align-items: flex-start;
     flex-direction: column;

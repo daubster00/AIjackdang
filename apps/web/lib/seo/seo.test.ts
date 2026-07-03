@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { buildPostMeta, buildPageMeta } from "./metadata";
+import { buildPostPath } from "./site-url";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import type { BoardMeta } from "@ai-jakdang/contracts";
 
@@ -109,5 +110,62 @@ describe("buildPageMeta", () => {
   it("page=1 이면 title에 페이지 번호가 없다", () => {
     const meta = buildPageMeta(mockBoard, { page: 1 });
     expect(String(meta.title)).not.toContain("페이지");
+  });
+});
+
+// ── 회귀 방지: 하위 게시판 canonical / 경로 / 개별 SEO / noindex ─────────────────
+
+describe("buildPostMeta — 회귀 방지", () => {
+  it("쿼리스트링 게시판(vibe-coding-tips)도 canonical에 '?'가 섞이지 않는다", () => {
+    // urlPath="/vibe-coding?board=vibe-coding-tips" → 예전엔 canonical이
+    // ".../vibe-coding?board=vibe-coding-tips/slug" 로 깨졌다.
+    const subBoardPost: PostDetail = { ...mockPost, board: "vibe-coding-tips" };
+    const meta = buildPostMeta(subBoardPost);
+    const canonical = (meta.alternates as { canonical?: string })?.canonical ?? "";
+    expect(canonical).not.toContain("?");
+    expect(canonical.endsWith(`/vibe-coding/${mockPost.slug}`)).toBe(true);
+  });
+
+  it("seoTitle·seoDescription이 있으면 우선 사용한다", () => {
+    const post: PostDetail = {
+      ...mockPost,
+      seoTitle: "커스텀 SEO 제목",
+      seoDescription: "커스텀 SEO 설명",
+    };
+    const meta = buildPostMeta(post);
+    expect(String(meta.title)).toBe("커스텀 SEO 제목");
+    expect(meta.description).toBe("커스텀 SEO 설명");
+  });
+
+  it("published가 아니면 robots.index=false (색인 제외)", () => {
+    const hidden: PostDetail = { ...mockPost, status: "hidden" };
+    const meta = buildPostMeta(hidden);
+    const robots = meta.robots as { index?: boolean };
+    expect(robots?.index).toBe(false);
+  });
+
+  it("thumbnailUrl(상대경로)이 절대 URL OG 이미지로 정규화된다", () => {
+    const post: PostDetail = { ...mockPost, thumbnailUrl: "/uploads/thumb.png" };
+    const meta = buildPostMeta(post);
+    const og = meta.openGraph as { images?: Array<{ url: string }> };
+    const url = og?.images?.[0]?.url ?? "";
+    expect(url.startsWith("http")).toBe(true);
+    expect(url.endsWith("/uploads/thumb.png")).toBe(true);
+  });
+});
+
+describe("buildPostPath", () => {
+  it("일반 게시판은 카테고리 경로 + slug", () => {
+    expect(buildPostPath("vibe-coding-guide", "abc")).toBe("/vibe-coding/abc");
+  });
+
+  it("쿼리스트링 게시판도 쿼리를 제거한 경로를 쓴다", () => {
+    expect(buildPostPath("automation-cases", "abc")).toBe("/automation/abc");
+  });
+
+  it("라운지 하위 게시판 경로", () => {
+    expect(buildPostPath("ai-products", "abc")).toBe("/lounge/products/abc");
+    expect(buildPostPath("talk", "abc")).toBe("/lounge/talk/abc");
+    expect(buildPostPath("gigs", "abc")).toBe("/lounge/gigs/abc");
   });
 });

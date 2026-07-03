@@ -5,6 +5,7 @@
  * 사용처: `import { buildPageMeta, buildBreadcrumbJsonLd, ... } from "@/lib/seo"`
  */
 
+export * from "./site-url";
 export * from "./metadata";
 export * from "./jsonld";
 export * from "./breadcrumb";

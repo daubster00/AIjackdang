@@ -9,10 +9,13 @@ import type { Metadata } from "next";
 import type { BoardMeta } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { BOARDS } from "@ai-jakdang/contracts";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
-const SITE_NAME = "AI작당";
+import {
+  SITE_URL,
+  SITE_NAME,
+  DEFAULT_OG_IMAGE,
+  buildPostUrl,
+  toAbsoluteUrl,
+} from "./site-url";
 
 /**
  * 게시판 목록 페이지 메타데이터를 생성한다.
@@ -27,7 +30,7 @@ export function buildPageMeta(
   const canonicalUrl = `${SITE_URL}${board.urlPath}`;
   const titleSuffix = opts?.page && opts.page > 1 ? ` — ${opts.page}페이지` : "";
   const ogTitle = `${board.label}${titleSuffix} | ${SITE_NAME}`;
-  const ogImageUrl = `${SITE_URL}/og-default.png`;
+  const ogImageUrl = DEFAULT_OG_IMAGE;
 
   return {
     // 사이트명은 루트 layout 의 title.template("%s · AI작당")이 붙이므로 여기서는 생략(중복 방지).
@@ -41,6 +44,7 @@ export function buildPageMeta(
       description: board.description,
       url: canonicalUrl,
       siteName: SITE_NAME,
+      locale: "ko_KR",
       type: "website",
       images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
     },
@@ -65,20 +69,22 @@ export function buildPageMeta(
 export function buildPostMeta(post: PostDetail): Metadata {
   const board = BOARDS[post.board];
   const boardLabel = board?.label ?? post.board;
-  const canonicalUrl = `${SITE_URL}${board?.urlPath ?? ""}/${post.slug}`;
-  const description = post.summary ?? post.title.slice(0, 160);
-  const ogTitle = `${post.title} | ${boardLabel} - ${SITE_NAME}`;
-  // 게시글 썸네일이 있으면 사용, 없으면 기본 OG 이미지 폴백
-  const ogImageUrl =
-    (post as PostDetail & { thumbnailUrl?: string | null }).thumbnailUrl ||
-    `${SITE_URL}/og-default.png`;
-  const noindex =
-    (post as PostDetail & { isHidden?: boolean; isDeleted?: boolean }).isHidden === true ||
-    (post as PostDetail & { isHidden?: boolean; isDeleted?: boolean }).isDeleted === true;
+  // canonical·상세 URL 은 쿼리스트링을 제거한 카테고리 기준 경로로 생성한다.
+  // (예전: `${urlPath}/${slug}` → 하위게시판은 "/vibe-coding?board=x/slug" 로 깨짐)
+  const canonicalUrl = buildPostUrl(post.board, post.slug);
+  // 글 작성 시 지정한 개별 SEO 값(seoTitle/seoDescription)이 있으면 우선 사용.
+  const displayTitle = post.seoTitle?.trim() || post.title;
+  const description =
+    post.seoDescription?.trim() || post.summary || post.title.slice(0, 160);
+  const ogTitle = `${displayTitle} | ${boardLabel} - ${SITE_NAME}`;
+  // 본문 첫 이미지(thumbnailUrl)를 절대 URL로 정규화해 OG 이미지로 사용, 없으면 기본값.
+  const ogImageUrl = toAbsoluteUrl(post.thumbnailUrl) ?? DEFAULT_OG_IMAGE;
+  // published 가 아닌 상태(draft/hidden/deleted)는 색인 제외.
+  const noindex = post.status !== "published";
 
   return {
     // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
-    title: `${post.title} | ${boardLabel}`,
+    title: post.seoTitle?.trim() || `${post.title} | ${boardLabel}`,
     description,
     alternates: {
       canonical: canonicalUrl,
@@ -88,6 +94,7 @@ export function buildPostMeta(post: PostDetail): Metadata {
       description,
       url: canonicalUrl,
       siteName: SITE_NAME,
+      locale: "ko_KR",
       type: "article",
       publishedTime: post.createdAt,
       modifiedTime: post.updatedAt,
@@ -114,9 +121,10 @@ export function buildPostMeta(post: PostDetail): Metadata {
  */
 export function buildNoticeMeta(post: PostDetail): Metadata {
   const canonicalUrl = `${SITE_URL}/notice/${post.slug}`;
-  const description = post.summary ?? post.title.slice(0, 160);
+  const description =
+    post.seoDescription?.trim() || post.summary || post.title.slice(0, 160);
   const ogTitle = `${post.title} | 공지사항 - ${SITE_NAME}`;
-  const ogImageUrl = `${SITE_URL}/og-default.png`;
+  const ogImageUrl = toAbsoluteUrl(post.thumbnailUrl) ?? DEFAULT_OG_IMAGE;
 
   return {
     // 사이트명은 루트 layout title.template 가 붙이므로 생략(중복 방지).
@@ -130,6 +138,7 @@ export function buildNoticeMeta(post: PostDetail): Metadata {
       description,
       url: canonicalUrl,
       siteName: SITE_NAME,
+      locale: "ko_KR",
       type: "article",
       publishedTime: post.createdAt,
       modifiedTime: post.updatedAt,

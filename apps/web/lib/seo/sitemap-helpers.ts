@@ -6,8 +6,7 @@
  * SITEMAP_CHANGE_FREQ: 유형별 changeFrequency 상수.
  */
 
-const SITE_URL_BASE =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://www.ai-jakdang.com";
+import { SITE_URL } from "./site-url";
 
 /**
  * 상대 경로를 절대 URL로 변환한다.
@@ -15,7 +14,7 @@ const SITE_URL_BASE =
  */
 export function buildSiteUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${SITE_URL_BASE}${normalizedPath}`;
+  return `${SITE_URL}${normalizedPath}`;
 }
 
 /** 유형별 sitemap priority */

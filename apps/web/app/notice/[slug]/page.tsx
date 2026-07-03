@@ -18,6 +18,7 @@ import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
 import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
 import {
+  SITE_URL,
   buildNoticeMeta,
   buildBreadcrumbJsonLd,
   buildArticleJsonLd,
@@ -30,8 +31,6 @@ import styles from "@/app/lounge/lounge.module.css";
 import noticeStyles from "./notice-detail.module.css";
 
 const API_URL = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

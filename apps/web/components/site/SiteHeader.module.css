@@ -350,65 +350,116 @@
     display: inline-flex;
   }
 
+  /*
+   * 모바일 펼침 패널.
+   * 부모 높이는 뷰포트(헤더 제외)로 제한하고, 내용이 넘치면 스크롤한다.
+   * 스크롤바는 숨기고, iPhone 하단 URL 입력창에 마지막 항목이 가려지지 않도록
+   * 넉넉한 하단 여백(padding-bottom)을 둔다.
+   */
   .mobilePanel {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
     border-top: 1px solid var(--color-border);
     background: var(--color-surface);
-    padding: var(--space-4) var(--space-5) var(--space-5);
+    padding: var(--space-4) var(--space-5);
+    /* 마지막 항목이 URL 입력창에 가려지지 않게 하단 여백 확보 (≈10%) */
+    padding-bottom: 96px;
     box-shadow: var(--shadow-panel);
+    /* 100vh(헤더 높이 제외)를 넘으면 스크롤. dvh 지원 브라우저는 실제 가시영역 사용 */
+    max-height: calc(100vh - 68px);
+    max-height: calc(100dvh - 68px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* 스크롤바 숨김 (Firefox / IE) */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  /* 스크롤바 숨김 (WebKit) */
+  .mobilePanel::-webkit-scrollbar {
+    display: none;
   }
 
   .mobileNav {
     display: grid;
-    gap: var(--space-3);
+    gap: var(--space-2);
   }
 
   .mobileGroup {
     display: grid;
-    gap: var(--space-2);
     border-bottom: 1px solid var(--color-border);
-    padding-bottom: var(--space-3);
   }
 
-  .mobileGroup > a {
+  /* 대메뉴 행: 링크형(하위메뉴 없음) / 토글형(하위메뉴 있음) 공통 스타일 */
+  .mobileGroupLink,
+  .mobileGroupToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 48px;
+    padding: 0;
+    border: none;
+    background: none;
     color: var(--color-text);
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
+    text-align: left;
     text-decoration: none;
+    cursor: pointer;
   }
 
+  .mobileChevron,
+  .mobileChevronOpen {
+    font-size: 22px;
+    color: var(--color-text-sub);
+    line-height: 1;
+    transition: transform var(--transition-base);
+  }
+
+  .mobileChevronOpen {
+    transform: rotate(180deg);
+    color: var(--color-primary);
+  }
+
+  /* 하위메뉴: 세로 정렬(아코디언으로 펼쳐질 때만 노출) */
   .mobileSubmenu {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    display: grid;
+    gap: 2px;
+    padding: 0 0 var(--space-3) var(--space-3);
   }
 
   .mobileSubmenu a {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    min-height: 34px;
-    border-radius: var(--radius-pill);
-    background: var(--color-neutral-soft);
-    padding: 0 12px;
+    min-height: 40px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-md);
     color: var(--color-text-sub);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-weight: var(--font-weight-semibold);
-    line-height: 1;
+    line-height: 1.2;
     text-decoration: none;
   }
 
+  .mobileSubmenu a:active {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  /* 비로그인: 로그인/회원가입 (패널 상단) */
   .mobileAuth {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-2);
-    margin-top: var(--space-4);
   }
 
   .mobileAuth a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 42px;
+    min-height: 44px;
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-semibold);
     line-height: 1;
@@ -425,17 +476,21 @@
     color: #ffffff;
   }
 
-  /* 로그인 상태: 모바일 패널 하단 사용자 바 */
+  /* 로그인: 사용자 바 (패널 상단) */
   .mobileUserBar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
     gap: var(--space-3);
-    margin-top: var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: var(--space-3);
     background: var(--color-neutral-soft);
+  }
+
+  .mobileUserTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   .mobileUser {
@@ -485,6 +540,69 @@
   .mobileLogout i {
     font-size: 18px;
     line-height: 1;
+  }
+
+  /* 포인트: 아이콘 + 현재 포인트 */
+  .mobilePoints {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    border-radius: var(--radius-md);
+    padding: 0 var(--space-3);
+    background: var(--color-surface);
+    text-decoration: none;
+  }
+
+  .mobilePointsLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .mobilePointsLabel i {
+    font-size: 20px;
+    color: var(--color-warning, #f5a623);
+    line-height: 1;
+  }
+
+  .mobilePointsValue {
+    color: var(--color-primary);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* 계정 바로가기 (로그인 상태 전용, 대메뉴 아래) */
+  .mobileAccount {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobileAccount a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+
+  .mobileAccount a i {
+    font-size: 20px;
+    color: var(--color-text-sub);
+    line-height: 1;
+  }
+
+  .mobileAccount a:active {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
   }
 }
 

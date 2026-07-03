@@ -10,7 +10,9 @@ import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag, OgLinkCard } from "@/components/ui";
 import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RecentViewedTracker } from "@/components/board";
 import {
+  SITE_URL,
   buildPostMeta,
+  buildPostUrl,
   buildPostBreadcrumb,
   buildBreadcrumbJsonLd,
   buildDiscussionJsonLd,
@@ -64,9 +66,9 @@ export default async function VibeCodingDetailPage({ params }: PageProps) {
     : { items: [] };
 
   const boardMeta = BOARDS[post.board];
-  const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
   const boardUrl = boardMeta ? `${SITE_URL}${boardMeta.urlPath}` : `${SITE_URL}/vibe-coding`;
-  const postUrl = `${boardUrl}/${post.slug}`;
+  // 상세 URL 은 쿼리스트링을 제거한 경로로 생성(하위게시판 breadcrumb URL 깨짐 방지).
+  const postUrl = buildPostUrl(post.board, post.slug);
   const boardLabel = boardMeta?.label ?? "바이브코딩 가이드";
   const boardCategory = boardMeta?.category ?? "vibe-coding";
   const listUrl = boardMeta?.urlPath ?? "/vibe-coding";

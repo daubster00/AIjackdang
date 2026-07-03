@@ -2,28 +2,85 @@
 
 /* 본문 컨테이너 */
 .articleContent {
-  /* 본문 내 코드블록 스타일이 상속된 값 위에 추가 */
+  /*
+   * 모바일 가로 깨짐 방지.
+   * ① min-width: 0 — 부모 `.articleBody`가 display:grid 라서 그리드 자식의
+   *    기본 min-width:auto 때문에 긴 내용(목차 앵커 `#긴-한글-하이픈-문자열`·긴 URL·
+   *    코드)이 트랙을 뷰포트보다 넓게 밀어내 카드·페이지 전체가 가로로 넘쳤다.
+   *    0으로 내려 트랙이 부모 폭에 묶이게 한다.
+   * ② overflow-wrap: anywhere — 끊길 곳 없는 긴 문자열도 넘칠 때만 강제로 줄바꿈.
+   */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 긴 링크(목차 앵커·URL)·인라인 코드도 넘칠 때 줄바꿈 */
+.articleContent a,
+.articleContent :not(pre) > code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 본문 이미지·미디어는 컨테이너 폭을 넘지 않게 */
+.articleContent img,
+.articleContent video,
+.articleContent iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 표는 좁은 화면에서 표 자체만 가로 스크롤(페이지 전체 스크롤 방지) */
+.articleContent table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /*
  * 문단·블록 사이 세로 리듬.
  * 본문 HTML(<p>·<h*>·목록 등)이 이 컨테이너 한 겹 안에 모두 렌더되므로
  * 부모의 grid gap이 문단 사이에는 먹지 않는다. 사람이 쓴 글처럼 문단마다
- * 빈 간격이 보이도록 직접 자식 블록에 아래 여백을 준다.
+ * 넉넉한 간격이 보이도록 직접 자식 블록에 아래 여백을 준다.
+ * (묻고답하기 본문 gap(--space-5=20px)과 동일하게 맞춰 "다닥다닥" 방지.
+ *  에디터 .ProseMirror p 여백도 같은 값으로 맞춰 WYSIWYG 유지.)
  *
  * 클래스를 두 번 겹쳐(.articleContent.articleContent) 특이도를 한 단계 올린 이유:
  * 각 게시판 페이지에 `.page p { margin: 0 }` 리셋이 있어 `.articleContent > p`
  * 와 특이도가 동점(0,1,1)이 되고, 소스 순서상 리셋이 이겨 문단 여백이 0이 되기
  * 때문. 클래스 중복으로 (0,2,1)을 확보해 페이지 리셋을 확실히 이긴다.
  */
-.articleContent.articleContent > p,
+/* 문단(p): 엔터 1번은 자동 줄바꿈과 동일하게 촘촘(여백 0). 간격은 빈 줄로. */
+.articleContent.articleContent > p {
+  margin-block: 0;
+}
+/* 목록·코드·인용·이미지 블록은 앞뒤 텍스트와 붙지 않게 간격 유지 */
 .articleContent.articleContent > ul,
 .articleContent.articleContent > ol,
 .articleContent.articleContent > blockquote,
 .articleContent.articleContent > pre,
 .articleContent.articleContent > figure,
 .articleContent.articleContent > img {
-  margin-block: 0 var(--space-1);
+  margin-block: var(--space-5);
+}
+
+/* 본문 이미지 가운데 정렬 (img는 reset에서 display:block) */
+.articleContent.articleContent > img,
+.articleContent.articleContent > figure {
+  margin-inline: auto;
+}
+.articleContent.articleContent > figure {
+  display: block;
+  text-align: center;
+}
+
+/*
+ * 빈 문단(빈 줄) WYSIWYG 보정.
+ * 에디터는 빈 문단에 트레일링 <br>을 넣어 한 줄 높이로 보이지만,
+ * 서버 렌더는 <p></p>(내용 없음)라 높이 0으로 붕괴해 빈 줄이 사라진다.
+ * 에디터 line-height(1.35)와 동일한 최소 높이를 줘서 빈 줄을 살린다.
+ */
+.articleContent.articleContent > p:empty {
+  min-height: 1.35em;
 }
 
 /*

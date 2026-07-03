@@ -684,7 +684,8 @@
 /* 질문 본문 텍스트 */
 .articleBody {
   display: grid;
-  gap: var(--space-5);
+  /* 문단 사이 간격은 빈 줄(빈 문단)로 만든다. grid gap은 0. */
+  gap: 0;
   border-inline: 1px solid var(--color-border);
   background: var(--color-surface);
   padding: var(--space-7) var(--space-8);
@@ -694,7 +695,20 @@
   color: var(--color-text);
   font-size: var(--font-size-base);
   line-height: 1.35;
-  margin: 0 0 var(--space-1);
+  /* 엔터 1번은 자동 줄바꿈과 동일하게 촘촘(여백 0) */
+  margin: 0;
+}
+
+/* 본문 이미지 가운데 정렬 + 앞뒤 간격 */
+.articleBody img {
+  display: block;
+  margin-inline: auto;
+  margin-block: var(--space-5);
+}
+
+/* 빈 문단(빈 줄) WYSIWYG 보정 — 에디터의 트레일링 <br> 한 줄 높이와 일치 */
+.articleBody p:empty {
+  min-height: 1.35em;
 }
 
 /* 질문 본문 코드블록 */
@@ -1787,23 +1801,32 @@
 }
 
 @media (max-width: 520px) {
+  /* 모바일: 목록/수정/삭제를 원래 가로 배치(목록 왼쪽·수정/삭제 오른쪽) 유지, 크기만 축소 */
   .detailFooter {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
   }
 
   .listButton,
   .ownerActions {
-    width: 100%;
+    width: auto;
   }
 
+  .ownerActions {
+    gap: var(--space-1);
+  }
+
+  .listButton,
+  .editLink,
   .ownerActions button {
-    flex: 1 1 0;
-    justify-content: center;
-  }
-
-  .listButton {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-xs);
+    gap: 4px;
+    white-space: nowrap;
     justify-content: center;
   }
 }

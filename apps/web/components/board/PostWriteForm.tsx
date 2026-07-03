@@ -334,6 +334,19 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
     void submitPost("draft");
   }, [submitPost]);
 
+  // ── 취소 ────────────────────────────────────────────────────────────────────
+  // 글쓰기는 특정 서브 게시판 목록(예: /automation?board=automation-cases)에서 진입한다.
+  // 정적 cancelHref(대메뉴 루트=첫 서브메뉴)로 돌아가면 원래 보던 목록이 아니라
+  // 첫 서브메뉴로 튄다 → 진입 직전 목록(서브메뉴·페이지 상태 포함)으로 복귀.
+  // 사이트 내 히스토리가 없는 직접/외부 진입만 게시판 기본 경로로 폴백한다.
+  const handleCancel = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(config.cancelHref);
+    }
+  }, [router, config.cancelHref]);
+
   // 비로그인 게이트 — ready=true이고 세션 없음이 확인된 경우만 차단
   if (ready && !user) {
     return (
@@ -535,9 +548,9 @@ export function PostWriteForm({ config, afterAttachment }: PostWriteFormProps) {
             </button>
           </div>
           <div className={styles.formActionsRight}>
-            <a href={config.cancelHref} className={styles.cancelBtn}>
+            <button type="button" onClick={handleCancel} className={styles.cancelBtn}>
               취소
-            </a>
+            </button>
             <button
               type="submit"
               className={styles.submitBtn}

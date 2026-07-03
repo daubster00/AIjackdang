@@ -3,15 +3,13 @@
  *
  * Allow: /  (기본 공개 크롤링 허용)
  * Disallow: 개인화 페이지 (마이페이지·알림·쪽지·설정·문의·검색)
- * Sitemap: https://www.ai-jakdang.com/sitemap.xml
+ * Sitemap: ${SITE_URL}/sitemap.xml
  *
  * FR-11.4, FR-11.9
  */
 
 import type { MetadataRoute } from "next";
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://www.ai-jakdang.com";
+import { SITE_URL } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
   return {

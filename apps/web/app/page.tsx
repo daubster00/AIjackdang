@@ -12,12 +12,10 @@ import {
   fetchLoungeLatest,
   fetchPinnedNotice,
 } from "@/lib/home";
+import { SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
 
 // ── generateMetadata (AC #2) ─────────────────────────────────────────────────
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
 
 const HOME_DESC =
   "바이브 코딩, AI 자동화, AI 수익화를 실제로 시도하는 사람들의 커뮤니티. 경험과 자료를 함께 쌓아가세요.";
@@ -32,6 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
       url: `${SITE_URL}/`,
       type: "website",
       siteName: "AI작당",
+      locale: "ko_KR",
       images: [
         {
           url: `${SITE_URL}/og-default.png`,
@@ -50,44 +49,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// ── JSON-LD (WebSite + Organization) ─────────────────────────────────────────
-
-function HomeJsonLd() {
-  const websiteJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "AI작당",
-    url: "https://aijackdang.com",
-    potentialAction: {
-      "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: "https://aijackdang.com/tags/{search_term_string}",
-      },
-      "query-input": "required name=search_term_string",
-    },
-  };
-
-  const orgJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "AI작당",
-    url: "https://aijackdang.com",
-  };
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
-      />
-    </>
-  );
-}
+// WebSite·Organization JSON-LD 는 루트 layout 에서 사이트 전역으로 1회 주입한다.
+// (예전엔 홈에서 별도 주입해 중복됐고 SearchAction 타깃도 /tags 로 잘못돼 있었다.)
 
 // ── 게시글 상세 URL 빌더 ──────────────────────────────────────────────────────
 // board 슬러그로 BOARDS 상수를 찾고, urlPath 에서 쿼리스트링을 제거한 뒤
@@ -147,8 +110,6 @@ export default async function HomePage({
 
   return (
     <main id="main" className={styles.page}>
-      <HomeJsonLd />
-
       {/* ── ① 소개 섹션 ─────────────────────────────────────────────────────── */}
       <section className={styles.hero} aria-labelledby="hero-title">
         <video

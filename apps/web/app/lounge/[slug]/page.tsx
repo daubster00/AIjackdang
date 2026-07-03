@@ -10,7 +10,9 @@ import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
 import { AttachmentList, BoardHero, CodeBlockCopyButton, DeleteButton, RecentViewedTracker } from "@/components/board";
 import {
+  SITE_URL,
   buildPostMeta,
+  buildPostUrl,
   buildPostBreadcrumb,
   buildBreadcrumbJsonLd,
   buildDiscussionJsonLd,
@@ -65,9 +67,9 @@ export default async function LoungeDetailPage({ params }: PageProps) {
     : { items: [] };
 
   const boardMeta = BOARDS[post.board];
-  const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://aijakdang.com";
   const boardUrl = boardMeta ? `${SITE_URL}${boardMeta.urlPath}` : `${SITE_URL}/lounge`;
-  const postUrl = `${boardUrl}/${post.slug}`;
+  // 상세 URL 은 쿼리스트링을 제거한 경로로 생성(하위게시판 breadcrumb URL 깨짐 방지).
+  const postUrl = buildPostUrl(post.board, post.slug);
   const boardLabel = boardMeta?.label ?? "AI 창작마당";
   const boardCategory = boardMeta?.category ?? "lounge";
   const listUrl = boardMeta?.urlPath ?? "/lounge";

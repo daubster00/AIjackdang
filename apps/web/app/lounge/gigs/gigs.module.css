@@ -1161,13 +1161,27 @@
     font-size: var(--font-size-base);
   }
 
+  /* 모바일: 목록/수정/삭제를 원래 가로 배치(목록 왼쪽·수정/삭제 오른쪽) 유지, 크기만 축소 */
   .detailFooter {
-    align-items: stretch;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
   }
 
   .ownerActions {
     justify-content: flex-end;
+    gap: var(--space-1);
+  }
+
+  .listButton,
+  .editLink,
+  .ownerActions button {
+    min-height: 34px;
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-xs);
+    gap: 4px;
+    white-space: nowrap;
   }
 
   .formSection {
