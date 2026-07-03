@@ -17,6 +17,7 @@ import { requireAuthHook } from "../../plugins/require-auth.js";
 import { getSiteSetting } from "../../lib/siteSettings.js";
 import { deriveReportAction } from "@ai-jakdang/core";
 import { posts, questions, answers, comments, resources } from "@ai-jakdang/database/schema";
+import { notifyNewReport } from "../../services/notify/ops-telegram.js";
 
 type RequestWithUser = FastifyRequest & { user: { id: string } };
 
@@ -150,6 +151,9 @@ export async function reportsRoutes(app: FastifyInstance) {
           status: "pending",
         })
         .returning({ id: schema.reports.id });
+
+      // 운영자 텔레그램 알림 (fire-and-forget — 신고 접수 흐름을 막지 않음)
+      notifyNewReport({ reporterId: user.id, targetType, reasonCode, detail });
 
       // ── 자동 숨김 처리 (Story 9.11, AC #1) ─────────────────────────────────
       // auto_hide_enabled=true + auto_hide_threshold 설정 시에만 동작한다.

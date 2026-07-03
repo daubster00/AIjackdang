@@ -24,6 +24,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq } from "drizzle-orm";
 import { enqueueEmail } from "../queues/email.queue.js";
+import { notifyNewSignup } from "../services/notify/ops-telegram.js";
 
 /** Argon2id 커스텀 해셔 — Better Auth emailAndPassword.password 옵션에 주입 */
 const argon2idHasher = {
@@ -268,6 +269,9 @@ export const userAuth = betterAuth({
           if (!userRecord.nickname) {
             await assignUniqueNickname(user.id);
           }
+
+          // 운영자 텔레그램 알림 (fire-and-forget — 이메일·소셜 가입 공통)
+          notifyNewSignup({ email: user.email, nickname: userRecord.nickname });
         },
       },
     },

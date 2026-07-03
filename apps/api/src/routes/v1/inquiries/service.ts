@@ -6,6 +6,7 @@
 
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and, desc, count } from "drizzle-orm";
+import { notifyNewInquiry } from "../../../services/notify/ops-telegram.js";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,9 @@ export async function createInquiry(userId: string, data: CreateInquiryData) {
       createdAt: schema.inquiries.createdAt,
       updatedAt: schema.inquiries.updatedAt,
     });
+
+  // 운영자 텔레그램 알림 (fire-and-forget — 문의 접수 흐름을 막지 않음)
+  notifyNewInquiry({ userId, title: data.title });
 
   return {
     ...row,
