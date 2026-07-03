@@ -78,10 +78,13 @@ async function fetchFeaturedPosts(nickname: string): Promise<FeaturedPostItem[]>
   }
 }
 
-/** generateStaticParams: 완전 동적 렌더 — 빈 배열 유지 */
-export function generateStaticParams() {
-  return [];
-}
+// 완전 동적 렌더(SSR per-request) 강제.
+// 이 페이지는 cookies() + no-store fetch(공개 프로필/등급/로그인 유저)를 사용한다.
+// generateStaticParams 를 두면(빈 배열이라도) Next 가 이 라우트를 "정적 생성" 대상으로
+// 오인 → 운영 빌드에서 첫 요청 시 정적 렌더를 시도하다 no-store fetch 를 만나
+// "Page changed from static to dynamic at runtime" 예외로 500 을 낸다(로컬 dev 는
+// 항상 동적이라 재현 안 됨). force-dynamic 으로 정적화 자체를 차단한다.
+export const dynamic = "force-dynamic";
 
 /** generateMetadata: 닉네임별 고유 메타 */
 export async function generateMetadata({
