@@ -8,6 +8,9 @@
 
 import type {
   BotPersonaForPrompt,
+  CurationContext,
+  FactSummary,
+  GuideChapterContext,
   PostUserPromptOptions,
   SeriesContext,
 } from "./context-types.js";
@@ -54,7 +57,19 @@ export function buildPersonaSystemPrompt(persona: BotPersonaForPrompt): string {
  * 사실 요약은 <search_summary> 블록으로 격리한다 (인젝션 방어).
  */
 export function buildPostUserPrompt(options: PostUserPromptOptions): string {
-  const { titleSeed, facts, board, postKind, seriesContext } = options;
+  const { titleSeed, facts, board, postKind, seriesContext, curation, guideChapter } =
+    options;
+
+  // 고정 커리큘럼 강의 편: 커리큘럼이 주제·범위·이미지 자리를 정하므로 전용 지침으로 전환.
+  if (guideChapter) {
+    return buildGuideChapterUserPrompt(guideChapter, facts);
+  }
+
+  // 큐레이션(퍼오기) 소개글: 미디어는 파이프라인이 본문 위에 자동 첨부하므로,
+  // 여기서는 "그 소재를 소개하는 짧은 글"만 쓰도록 전용 지침으로 전환한다.
+  if (curation) {
+    return buildCurationUserPrompt(curation, board);
+  }
 
   const factsBlock =
     facts.facts.length > 0
@@ -63,7 +78,7 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
           .join("\n")}\n</search_summary>`
       : "";
 
-  const guidanceLines = buildPostKindGuidance(postKind, seriesContext);
+  const guidanceLines = buildPostKindGuidance(postKind, board, seriesContext);
 
   const seriesLine =
     seriesContext && postKind === "guide"
@@ -122,10 +137,142 @@ ${existingSection}
 조건: 자연스러운 커뮤니티 글 주제, 기존 주제와 중복 없음, 각 50자 이내`.trim();
 }
 
+/**
+ * 큐레이션(퍼오기) 소개글 유저 프롬프트.
+ * 영상/이미지 자체는 파이프라인이 본문 맨 위에 자동 첨부하므로,
+ * 봇은 "왜 볼 만한지" 짧게 소개하는 줄글만 쓴다.
+ */
+function buildCurationUserPrompt(
+  curation: CurationContext,
+  board: string,
+): string {
+  const subjectLines: string[] = [];
+  if (curation.title) subjectLines.push(`제목: ${curation.title}`);
+  if (curation.channel) subjectLines.push(`출처/채널: ${curation.channel}`);
+  const subjectBlock =
+    subjectLines.length > 0 ? `<소재>\n${subjectLines.join("\n")}\n</소재>` : "";
+
+  const mediaWord = curation.kind === "youtube" ? "유튜브 AI 영상" : "AI 밈/이미지";
+  const attachWord = curation.kind === "youtube" ? "영상" : "이미지";
+
+  const guidance = [
+    `아래 <소재>의 ${mediaWord}를 커뮤니티에 소개하는 짧은 글을 쓰세요.`,
+    `- ${attachWord} 자체는 글 맨 위에 자동으로 첨부됩니다. 본문에 링크나 "아래 ${attachWord}"라는 표현을 넣지 마세요.`,
+    "- 2~4문단, 각 문단 2~3문장. 왜 흥미로운지·어떤 점이 볼 만한지 본인 감상처럼 가볍게.",
+    "- 직접 다 본 것처럼 세세한 줄거리를 지어내지 마세요(모르면 단정 금지). 제목/출처에서 알 수 있는 선에서만.",
+    "- 뻔한 인사말·마무리 구절 금지. 이모지 금지.",
+    "- 문단 사이는 빈 줄 하나로 띄웁니다.",
+  ].join("\n");
+
+  return [`게시판: ${board}`, subjectBlock || null, guidance]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
+ * 고정 커리큘럼 "강의 편" 유저 프롬프트.
+ *
+ * 강의 챕터처럼: 앞 편 요약으로 이어받고 → 이번 편 학습목표·소주제를 순서대로 → 정해진
+ * 자리에 이미지 마커([[IMG:key]])를 넣게 한다. 이미지 실물은 파이프라인이 치환한다.
+ */
+function buildGuideChapterUserPrompt(
+  gc: GuideChapterContext,
+  facts: FactSummary,
+): string {
+  const prevBlock =
+    gc.previousChapters.length > 0
+      ? [
+          "이전 편 요약(중복 설명 금지·자연스럽게 이어받기):",
+          ...gc.previousChapters.map(
+            (p) => `- ${p.order}강 "${p.title}": ${p.summary}`,
+          ),
+        ].join("\n")
+      : "이 편이 시리즈의 첫 편입니다. 시리즈가 무엇을 다루는지 한두 문장으로만 짧게 안내하고 본론으로 들어가세요.";
+
+  const outlineBlock = [
+    "이번 편에서 순서대로 다룰 내용:",
+    ...gc.outline.map((o, i) => `${i + 1}. ${o}`),
+  ].join("\n");
+
+  const imageBlock =
+    gc.imageSlots.length > 0
+      ? [
+          "이미지 배치(중요):",
+          "- 아래 각 이미지를 본문에서 그 이미지가 설명하는 문장 바로 다음 줄에, 마커만 단독으로 한 줄에 넣으세요.",
+          "- 마커 형식은 정확히 `[[IMG:키]]` 입니다(대괄호 두 개). 마커 외 다른 표현(예: '아래 그림')은 쓰지 마세요.",
+          "- 실제 이미지는 시스템이 그 자리에 자동으로 넣습니다. 본문에 URL이나 이미지 설명 캡션을 직접 쓰지 마세요.",
+          ...gc.imageSlots.map((s) => `- [[IMG:${s.assetKey}]] → ${s.caption}`),
+        ].join("\n")
+      : "";
+
+  const factsBlock =
+    facts.facts.length > 0
+      ? `참고 사실(있으면 자연스럽게 녹이되, 없는 내용은 지어내지 마세요):\n${facts.facts
+          .map((f, i) => `${i + 1}. ${f}`)
+          .join("\n")}`
+      : "";
+
+  const format = [
+    "작성 형식:",
+    "- 강의 한 챕터처럼 개념→구체 순으로 차분하게. 소제목(##)으로 흐름을 나누세요.",
+    "- 실제 명령어·설정 값·코드는 반드시 ```코드블록```으로 정확히 제시(가짜로 지어내지 말 것).",
+    "- 불확실한 수치·버전은 단정하지 말고 \"~로 알려짐\" 형식.",
+    "- 분량은 1200자 이상. 이번 편 학습목표 범위를 벗어나 다음 편 내용까지 앞서 다루지 마세요.",
+    "",
+    "[말투 절대 규칙 — 어기면 반려됨]",
+    "- 다음 상투적 강의 도입·마무리 표현을 절대 쓰지 마세요: \"이번 편에서는\", \"안내드립니다\", \"살펴보겠습니다\", \"알아보겠습니다\", \"~해보겠습니다\", \"정리하자면\", \"마무리하며\", \"지금까지\".",
+    "- 인사말 없이 첫 문장부터 곧바로 내용(설명·예시·핵심)으로 들어가세요.",
+    "- \"저는\", \"제가 안내\" 같은 자기언급 금지. 이모지 금지.",
+    "- 사람이 자기 경험으로 설명하듯 자연스럽게. 매 문단을 같은 구조로 시작하지 마세요.",
+  ].join("\n");
+
+  return [
+    `당신은 커뮤니티 공식 가이드 연재 "${gc.seriesTitle}"를 쓰는 운영진입니다. 주력 도구: ${gc.tool}.`,
+    `시리즈 소개: ${gc.seriesIntro}`,
+    `이번 편: ${gc.order}강 / 총 ${gc.totalChapters}강 — "${gc.chapterTitle}"`,
+    `이번 편 학습목표: ${gc.goal}`,
+    prevBlock,
+    outlineBlock,
+    factsBlock || null,
+    imageBlock || null,
+    format,
+    `글 제목은 쓰지 말고 본문만 출력하세요(제목은 시스템이 "${gc.seriesTitle} ${gc.order}강. ${gc.chapterTitle}"로 붙입니다).`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 // ── 내부 헬퍼 ─────────────────────────────────────────────────────────────────
+
+/**
+ * 게시판 슬러그가 "팁/노하우"성 게시판인지 판정한다.
+ * (tips·guide 계열 → 남들이 잘 모르는 실전 노하우를 더 강하게 요구)
+ */
+function isTipsBoard(board: string): boolean {
+  return (
+    board.endsWith("-tips") ||
+    board.endsWith("-guide") ||
+    board.startsWith("resource:")
+  );
+}
+
+/**
+ * "뻔한 글 금지" 공통 규칙.
+ * 정보형(info)·가이드(guide) 글에서 남들이 이미 다 아는 일반론을 배제하고
+ * 실제로 유용한 숨은 정보를 담도록 강제한다.
+ */
+const NON_OBVIOUS_RULES = [
+  "[내용 품질 절대 규칙 — 가장 중요]",
+  "- 누구나 아는 뻔한 일반론·교과서적 조언은 절대 쓰지 마세요. (예: \"AI 코드는 사람이 검토해야 한다\", \"백업은 중요하다\" 같은 당연한 소리 금지)",
+  "- 직접 해보지 않으면 모르는 구체적인 디테일을 최소 하나 담으세요: 실제 설정값·수치·단축키·옵션 이름·버전·함정·예외 케이스·비교 결과 중 하나 이상.",
+  "- \"남들은 잘 모르지만 알면 유용한\" 관점 하나를 중심에 두세요. 검색으로 알게 된 최신 소식·새 기능·업데이트가 있으면 그것을 소재로 삼으세요.",
+  "- 아래 <search_summary>에 사실이 있으면 그중 최소 1개를 글에 실제로 녹여 쓰세요(막연한 요약 말고 구체적으로).",
+  "- 결론이 \"결국 상황에 따라 다르다\"로 끝나는 맹탕 글 금지. 본인만의 판단·기준·경험을 분명히 제시하세요.",
+].join("\n");
 
 function buildPostKindGuidance(
   postKind: "info" | "chat" | "guide",
+  board: string,
   seriesContext?: SeriesContext,
 ): string {
   if (postKind === "guide") {
@@ -136,6 +283,8 @@ function buildPostKindGuidance(
       "- 코드 예시는 반드시 코드블록(```)으로 감싸기",
       "- 불확실한 수치·날짜·이름은 절대 단정하지 말고 \"~라고 알려짐\" 형식으로 표현",
       "- 출처 없는 사실 단정 금지",
+      "",
+      NON_OBVIOUS_RULES,
     ];
 
     if (seriesContext) {
@@ -158,8 +307,17 @@ function buildPostKindGuidance(
   }
 
   if (postKind === "info") {
-    return "정보형 글을 작성하세요. 사실에 근거하되 자연스러운 커뮤니티 글체를 유지하세요.";
+    const lines: string[] = [
+      "정보형 글을 작성하세요. 사실에 근거하되 자연스러운 커뮤니티 글체를 유지하세요.",
+      NON_OBVIOUS_RULES,
+    ];
+    if (isTipsBoard(board)) {
+      lines.push(
+        "이 게시판은 '팁·노하우' 성격입니다. 검색해 보면 다 나오는 기본 설명이 아니라, 실제로 써 보고 삽질해 봐야 아는 실전 노하우 하나를 콕 집어 공유하세요.",
+      );
+    }
+    return lines.join("\n\n");
   }
 
-  return "자연스러운 잡담·수다 글을 작성하세요. 너무 정보적이지 않게.";
+  return "자연스러운 잡담·수다 글을 작성하세요. 너무 정보적이지 않게. 다만 뻔한 인사말·교과서적 설명은 빼고, 실제로 겪은 일이나 최근에 본 흥미로운 소식 하나를 가볍게 풀어 쓰세요.";
 }

@@ -113,7 +113,7 @@ describe("runSelfCensor", () => {
     });
   });
 
-  it("infoRatio=80 → strictness=strict로 buildCensorSystemPrompt 호출", async () => {
+  it("infoRatio=80(비관리자) → strictness=normal (관리자만 strict로 완화)", async () => {
     const { buildCensorSystemPrompt } = await import("@ai-jakdang/bot-core");
     const input: SelfCensorInput = {
       ...baseInput,
@@ -122,7 +122,7 @@ describe("runSelfCensor", () => {
 
     await runSelfCensor(input);
 
-    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("strict");
+    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("normal", expect.anything());
   });
 
   it("infoRatio=50, isAdminPersona=false → strictness=normal", async () => {
@@ -134,7 +134,7 @@ describe("runSelfCensor", () => {
 
     await runSelfCensor(input);
 
-    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("normal");
+    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("normal", expect.anything());
   });
 
   it("infoRatio=20, isAdminPersona=false → strictness=loose", async () => {
@@ -146,7 +146,7 @@ describe("runSelfCensor", () => {
 
     await runSelfCensor(input);
 
-    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("loose");
+    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("loose", expect.anything());
   });
 
   it("isAdminPersona=true → strictness=strict 강제", async () => {
@@ -158,7 +158,20 @@ describe("runSelfCensor", () => {
 
     await runSelfCensor(input);
 
-    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("strict");
+    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("strict", expect.anything());
+  });
+
+  it("가이드 글(allowObvious=true) → buildCensorSystemPrompt에 allowObvious 전달", async () => {
+    const { buildCensorSystemPrompt } = await import("@ai-jakdang/bot-core");
+    const input: SelfCensorInput = {
+      ...baseInput,
+      persona: { ...baseInput.persona, isAdminPersona: true },
+      allowObvious: true,
+    };
+
+    await runSelfCensor(input);
+
+    expect(buildCensorSystemPrompt).toHaveBeenCalledWith("strict", { allowObvious: true });
   });
 
   it("중복 1차 탐지 → callModel 미호출, overall=fail 반환", async () => {

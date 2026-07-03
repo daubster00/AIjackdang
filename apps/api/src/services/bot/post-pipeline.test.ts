@@ -14,9 +14,11 @@ const {
   mockCallModel,
   mockGetModelAssignment,
   mockGroundTopic,
+  mockDiscoverTopic,
   mockDecideImageStrategy,
   mockFetchBotImage,
   mockPrependImageToTiptapDoc,
+  mockPrependImageWithSourceToTiptapDoc,
   mockRunContentGuard,
   mockCreatePostAsBot,
   mockCreateQuestionAsBot,
@@ -24,6 +26,9 @@ const {
   mockSelectTopic,
   mockMarkTopicUsed,
   mockRefillTopicsIfNeeded,
+  mockGetDiscoveryQuery,
+  mockIsSearchDrivenTopicsEnabled,
+  mockGetRecentTopicTitles,
   mockRunSelfCensor,
 } = vi.hoisted(() => ({
   mockDb: {
@@ -34,9 +39,11 @@ const {
   mockCallModel: vi.fn(),
   mockGetModelAssignment: vi.fn(),
   mockGroundTopic: vi.fn(),
+  mockDiscoverTopic: vi.fn(),
   mockDecideImageStrategy: vi.fn(),
   mockFetchBotImage: vi.fn(),
   mockPrependImageToTiptapDoc: vi.fn(),
+  mockPrependImageWithSourceToTiptapDoc: vi.fn(),
   mockRunContentGuard: vi.fn(),
   mockCreatePostAsBot: vi.fn(),
   mockCreateQuestionAsBot: vi.fn(),
@@ -44,6 +51,9 @@ const {
   mockSelectTopic: vi.fn(),
   mockMarkTopicUsed: vi.fn(),
   mockRefillTopicsIfNeeded: vi.fn(),
+  mockGetDiscoveryQuery: vi.fn(),
+  mockIsSearchDrivenTopicsEnabled: vi.fn(),
+  mockGetRecentTopicTitles: vi.fn(),
   mockRunSelfCensor: vi.fn(),
 }));
 
@@ -73,12 +83,14 @@ vi.mock("@ai-jakdang/server-bot/ai", () => ({
 
 vi.mock("@ai-jakdang/server-bot/search", () => ({
   groundTopic: mockGroundTopic,
+  discoverTopic: mockDiscoverTopic,
 }));
 
 vi.mock("@ai-jakdang/server-bot/image", () => ({
   decideImageStrategy: mockDecideImageStrategy,
   fetchBotImage: mockFetchBotImage,
   prependImageToTiptapDoc: mockPrependImageToTiptapDoc,
+  prependImageWithSourceToTiptapDoc: mockPrependImageWithSourceToTiptapDoc,
 }));
 
 vi.mock("@ai-jakdang/bot-core", () => ({
@@ -105,6 +117,9 @@ vi.mock("./topic.js", () => ({
   selectTopic: mockSelectTopic,
   markTopicUsed: mockMarkTopicUsed,
   refillTopicsIfNeeded: mockRefillTopicsIfNeeded,
+  getDiscoveryQuery: mockGetDiscoveryQuery,
+  isSearchDrivenTopicsEnabled: mockIsSearchDrivenTopicsEnabled,
+  getRecentTopicTitles: mockGetRecentTopicTitles,
 }));
 
 vi.mock("./censor.js", () => ({
@@ -218,6 +233,11 @@ describe("runPostPipeline", () => {
     mockSelectTopic.mockResolvedValue({ topic: mockTopic, wasRealtime: false });
     mockMarkTopicUsed.mockResolvedValue(undefined);
     mockRefillTopicsIfNeeded.mockResolvedValue(0);
+    // 발굴 기본 OFF (기존 시나리오는 고정 시드 경로 유지)
+    mockGetDiscoveryQuery.mockReturnValue(null);
+    mockIsSearchDrivenTopicsEnabled.mockResolvedValue(false);
+    mockGetRecentTopicTitles.mockResolvedValue([]);
+    mockDiscoverTopic.mockResolvedValue(null);
     mockGetModelAssignment.mockResolvedValue(mockGenAssignment);
     mockCallModel.mockResolvedValue({
       text: "생성된 글 텍스트입니다.",
@@ -235,6 +255,7 @@ describe("runPostPipeline", () => {
     mockFetchBotImage.mockResolvedValue({
       imageUrl: null,
       strategy: "none",
+      source: null,
       isMeme: false,
     });
     mockPrependImageToTiptapDoc.mockImplementation(

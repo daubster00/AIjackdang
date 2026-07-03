@@ -17,15 +17,15 @@
 import { getDb, closeDb, schema } from "@ai-jakdang/database";
 import { runPostPipeline } from "../services/bot/post-pipeline.js";
 
-// ── 페르소나별 대상 게시판 (미사용 주제가 있는 게시판 중 선택) ─────────────────────
-// 냉장고털이는 talk 에서 'meme' 전략 → 보류(held)가 되므로 게시되는 ai-creation 선택.
+// ── 페르소나별 대상 게시판 (검색 발굴이 가능한 게시판으로 선택) ─────────────────────
+// 주제풀을 비웠으므로 발굴 대상 게시판이어야 글이 나온다(gigs·ai-creation은 발굴 제외).
 const BOARD_BY_NICKNAME: Record<string, string> = {
-  감자세개: "talk",
-  냉장고털이: "ai-creation",
+  감자세개: "qna",
+  냉장고털이: "talk",
   AI작당지기: "automation-guide",
   dubu_2: "automation-cases",
   latte2x: "automation-cases",
-  rainy03: "talk",
+  rainy03: "ai-products",
   semo_k: "vibe-coding-tips",
   wolse99: "monetization-tips",
 };

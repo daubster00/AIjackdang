@@ -30,10 +30,10 @@ const mockCensorOptions: CensorUserPromptOptions = {
 // ── buildCensorSystemPrompt ────────────────────────────────────────────────────
 
 describe("buildCensorSystemPrompt", () => {
-  it("strict: 사실성 우선·AI 티 1건 fail 규칙이 포함된다", () => {
+  it("strict: 관리자 전용·근거 기반 사실성 규칙이 포함된다", () => {
     const prompt = buildCensorSystemPrompt("strict");
     expect(prompt).toContain("strict");
-    expect(prompt).toContain("1건만 있어도 fail");
+    expect(prompt).toContain("지어낸 수치");
   });
 
   it("normal: 보통 검열 내용이 포함된다", () => {

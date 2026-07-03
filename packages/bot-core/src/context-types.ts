@@ -42,6 +42,51 @@ export interface SeriesContext {
   tableOfContents?: string[];
 }
 
+/**
+ * 큐레이션(퍼오기) 컨텍스트.
+ * AI 창작마당에서 봇이 외부 콘텐츠(유튜브 AI 영상·AI 밈)를 "소개"하는 글을 쓸 때 전달.
+ * 미디어(영상/이미지)는 파이프라인이 본문 맨 위에 자동 첨부하므로, 본문은 소개글만 쓴다.
+ */
+export interface CurationContext {
+  /** youtube: 유튜브 AI 영상 소개 / meme: AI 밈·이미지 소개 */
+  kind: "youtube" | "meme";
+  /** 소재 제목(영상 제목 등, 있으면). */
+  title?: string;
+  /** 채널·출처명(있으면). */
+  channel?: string;
+}
+
+/**
+ * 고정 커리큘럼 "강의 편" 컨텍스트.
+ * 관리자 페르소나가 가이드 시리즈(예: "제로부터 바이브코딩")의 정해진 챕터를 쓸 때 전달.
+ * 검색 발굴 대신 커리큘럼이 주제를 정하고, 본문 정해진 자리에 이미지 마커를 넣는다.
+ */
+export interface GuideChapterContext {
+  /** 시리즈 제목(예: "제로부터 바이브코딩"). */
+  seriesTitle: string;
+  /** 시리즈 한 줄 소개. */
+  seriesIntro: string;
+  /** 주력 도구명(예: "Claude Code", "Make"). */
+  tool: string;
+  /** 이번 편 번호(1-based). */
+  order: number;
+  /** 시리즈 총 편수. */
+  totalChapters: number;
+  /** 이번 편 소제목. */
+  chapterTitle: string;
+  /** 이번 편 학습목표(다뤄야 할 범위). */
+  goal: string;
+  /** 이번 편에서 순서대로 다룰 소주제. */
+  outline: string[];
+  /**
+   * 본문에 배치할 이미지 슬롯. 모델은 각 assetKey를 `[[IMG:assetKey]]` 마커로
+   * 관련 설명 바로 아래(단독 줄)에 넣는다. 실제 이미지는 파이프라인이 치환한다.
+   */
+  imageSlots: { assetKey: string; caption: string }[];
+  /** 앞 편들의 (번호·제목·요약) — 연속성 유지·중복 회피용. */
+  previousChapters: { order: number; title: string; summary: string }[];
+}
+
 /** buildPostUserPrompt 입력 */
 export interface PostUserPromptOptions {
   titleSeed: string;
@@ -49,6 +94,10 @@ export interface PostUserPromptOptions {
   board: string;
   postKind: "info" | "chat" | "guide";
   seriesContext?: SeriesContext;
+  /** 큐레이션(퍼오기) 소개글일 때 전달. 있으면 "소재를 소개하는 짧은 글" 지침으로 전환. */
+  curation?: CurationContext;
+  /** 고정 커리큘럼 강의 편일 때 전달. 있으면 커리큘럼 전용 지침으로 전환. */
+  guideChapter?: GuideChapterContext;
 }
 
 /** buildCensorUserPrompt 입력 */

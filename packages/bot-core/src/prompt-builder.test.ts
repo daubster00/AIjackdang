@@ -151,6 +151,48 @@ describe("buildPostUserPrompt", () => {
   });
 });
 
+// ── buildPostUserPrompt (큐레이션/퍼오기) ──────────────────────────────────────
+
+describe("buildPostUserPrompt — 큐레이션 소개글", () => {
+  it("youtube 큐레이션이면 영상 소개 지침으로 전환되고 제목·채널이 포함된다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "AI 단편영화",
+      facts: emptyFacts,
+      board: "ai-creation",
+      postKind: "chat",
+      curation: { kind: "youtube", title: "The Frost — AI film", channel: "Waymark" },
+    });
+    expect(prompt).toContain("유튜브 AI 영상");
+    expect(prompt).toContain("The Frost — AI film");
+    expect(prompt).toContain("Waymark");
+    // 영상은 자동 첨부되므로 "아래 영상"류 표현·링크 금지 지침이 있어야 한다
+    expect(prompt).toContain("자동으로 첨부");
+  });
+
+  it("meme 큐레이션이면 이미지 소개 지침으로 전환된다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "AI 밈",
+      facts: emptyFacts,
+      board: "ai-creation",
+      postKind: "chat",
+      curation: { kind: "meme" },
+    });
+    expect(prompt).toContain("AI 밈/이미지");
+    expect(prompt).toContain("자동으로 첨부");
+  });
+
+  it("curation 미지정이면 기존 일반 글 프롬프트(주제 포함)를 유지한다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "일반 주제",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+    });
+    expect(prompt).toContain("주제: 일반 주제");
+    expect(prompt).not.toContain("자동으로 첨부");
+  });
+});
+
 // ── buildTopicRefillPrompt ────────────────────────────────────────────────────
 
 describe("buildTopicRefillPrompt", () => {

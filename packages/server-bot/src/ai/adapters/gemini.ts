@@ -10,6 +10,7 @@
 import { env } from "@ai-jakdang/config";
 import type { AiProvider, AiTextRequest, AiTextResponse } from "../types";
 import { estimateCostUsd } from "../pricing";
+import { assertProviderOk } from "../errors";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -46,13 +47,6 @@ function requireApiKey(): string {
   return env.GEMINI_API_KEY;
 }
 
-async function assertOk(res: Response, tag: string): Promise<void> {
-  if (!res.ok) {
-    const body = await res.text().catch(() => "(응답 본문 읽기 실패)");
-    throw new Error(`[ai/gemini/${tag}] API 오류 ${res.status}: ${body}`);
-  }
-}
-
 // ── 어댑터 구현 ───────────────────────────────────────────────────────────────
 
 export const geminiAdapter: AiProvider = {
@@ -83,7 +77,7 @@ export const geminiAdapter: AiProvider = {
       }),
     });
 
-    await assertOk(res, "generateContent");
+    await assertProviderOk(res, "google", req.model, "generateContent");
     const json = (await res.json()) as GeminiGenerateContentResponse;
 
     const firstCandidate = json.candidates?.[0];

@@ -63,13 +63,16 @@ const TEXT_MODELS: Record<string, SelectOption[]> = {
 };
 
 // 이미지 생성 모델 (image 용도 전용).
+// 기본값은 구글 gemini-3.1-flash-image (API 키만 있으면 되고 조직 인증 불필요).
+// OpenAI gpt-image 계열은 조직 인증(Verify Organization)이 필요할 수 있음.
 const IMAGE_MODELS: Record<string, SelectOption[]> = {
-  openai: [
-    { value: "gpt-image-1", label: "GPT Image 1" },
-    { value: "dall-e-3", label: "DALL·E 3" },
-  ],
   google: [
-    { value: "imagen-3.0-generate-002", label: "Imagen 3" },
+    { value: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image (Nano Banana 2·최신·기본)" },
+  ],
+  openai: [
+    { value: "gpt-image-2", label: "GPT Image 2 (조직 인증 필요)" },
+    { value: "gpt-image-1", label: "GPT Image 1 (조직 인증 필요)" },
+    { value: "dall-e-3", label: "DALL·E 3" },
   ],
   anthropic: [], // Anthropic 은 이미지 생성 미지원
 };
@@ -105,7 +108,7 @@ export function BotModelSection({ botId, showToast }: BotModelSectionProps) {
   const [rows, setRows] = useState<ModelRowsMap>({
     generation: { ...DEFAULT_ROW },
     censor: { ...DEFAULT_ROW, isActive: true },
-    image: { ...DEFAULT_ROW, provider: "openai", isActive: false },
+    image: { ...DEFAULT_ROW, provider: "google", model: "gemini-3.1-flash-image", isActive: false },
   });
   const [showImage, setShowImage] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -130,7 +133,7 @@ export function BotModelSection({ botId, showToast }: BotModelSectionProps) {
       const next: ModelRowsMap = {
         generation: { ...DEFAULT_ROW },
         censor: { ...DEFAULT_ROW },
-        image: { ...DEFAULT_ROW, provider: "openai", isActive: false },
+        image: { ...DEFAULT_ROW, provider: "google", model: "gemini-3.1-flash-image", isActive: false },
       };
       let hasImage = false;
 

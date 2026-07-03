@@ -122,6 +122,7 @@ const envSchema = z
     GEMINI_API_KEY: z.string().optional(),
 
     // 검색 (그라운딩)
+    BRAVE_SEARCH_API_KEY: z.string().optional(),
     GOOGLE_SEARCH_API_KEY: z.string().optional(),
     GOOGLE_SEARCH_CX: z.string().optional(),
     NAVER_SEARCH_CLIENT_ID: z.string().optional(),

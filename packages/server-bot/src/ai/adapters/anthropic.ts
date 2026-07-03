@@ -10,6 +10,7 @@
 import { env } from "@ai-jakdang/config";
 import type { AiProvider, AiTextRequest, AiTextResponse } from "../types";
 import { estimateCostUsd } from "../pricing";
+import { assertProviderOk } from "../errors";
 
 const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 const ANTHROPIC_API_VERSION = "2023-06-01";
@@ -40,13 +41,6 @@ function requireApiKey(): string {
   return env.ANTHROPIC_API_KEY;
 }
 
-async function assertOk(res: Response, tag: string): Promise<void> {
-  if (!res.ok) {
-    const body = await res.text().catch(() => "(응답 본문 읽기 실패)");
-    throw new Error(`[ai/anthropic/${tag}] API 오류 ${res.status}: ${body}`);
-  }
-}
-
 // ── 어댑터 구현 ───────────────────────────────────────────────────────────────
 
 export const anthropicAdapter: AiProvider = {
@@ -70,7 +64,7 @@ export const anthropicAdapter: AiProvider = {
       }),
     });
 
-    await assertOk(res, "messages");
+    await assertProviderOk(res, "anthropic", req.model, "messages");
     const json = (await res.json()) as AnthropicMessagesResponse;
 
     const firstBlock = json.content[0];

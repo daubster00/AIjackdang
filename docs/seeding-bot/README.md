@@ -8,8 +8,9 @@
 
 1. **[PRD.md](./PRD.md)** — 무엇을·왜 만드는가. 목표·기능요구(FR-SB)·비기능요구(NFR-SB)·범위·오픈퀘스천.
 2. **[ARCHITECTURE.md](./ARCHITECTURE.md)** — 어떻게 만드는가. DB 스키마(`bot_*`)·공용 도메인 서비스·AI 추상화·검색·이미지·워커/큐·관리자 UI·환경변수. **실제 코드베이스 기준**.
-3. **[EPICS-AND-STORIES.md](./EPICS-AND-STORIES.md)** — **Epic 11 하나 / 스토리 18개**(그룹 A~F). 기존 프로젝트 Epic 1~10 다음 번호. (기능 1개 = Epic 1개)
-4. **[DEPLOYMENT.md](./DEPLOYMENT.md)** — **운영자(당신)가 배포 전 직접 준비할 것**: API 키 발급법·인프라·비용·배포 런북·매일 운영.
+3. **[GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md)** — **Epic 13 설계 확장**(2026-07-03): 가이드 커리큘럼 강의 시리즈·이미지 3-모드·스테이징·예약 스케줄·**현재 구현 상태(프로토타입)·함정**. 봇 이미지/가이드 글을 손대기 전 필독.
+4. **[EPICS-AND-STORIES.md](./EPICS-AND-STORIES.md)** — **Epic 11(스토리 18개, 그룹 A~F) + Epic 13(스토리 8개)**. 기존 프로젝트 Epic 1~10 다음 번호.
+5. **[DEPLOYMENT.md](./DEPLOYMENT.md)** — **운영자(당신)가 배포 전 직접 준비할 것**: API 키 발급법·인프라·비용·배포 런북·매일 운영.
 
 ## 핵심 요약
 

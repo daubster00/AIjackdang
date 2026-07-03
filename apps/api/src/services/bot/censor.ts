@@ -46,6 +46,27 @@ export interface SelfCensorInput {
   board: string;
   /** 최근 자기 글 텍스트 (중복 1차 필터용, 선택) */
   existingPostTexts?: string[];
+  /**
+   * 가이드 글이면 true — 초보자용 교과서적/일반론 설명을 허용(insight 축 면제).
+   * (사용자 정책: 바이브코딩·자동화 가이드는 뻔한 기본 설명도 정당)
+   */
+  allowObvious?: boolean;
+  /**
+   * 커리큘럼 강의 편이면 true — ai_tone·duplicate 축을 비차단으로 완화한다.
+   * 공식 가이드 연재는 본래 교육적(didactic) 문체라 "잡담 AI 티" 기준이 맞지 않고,
+   * 약한 검열 모델이 존재하지 않는 상투어를 지어내 반복 오탐하는 문제가 있어,
+   * 이 두 축의 fail을 pass로 내린다(safety·factuality·persona·context는 그대로 강제).
+   */
+  allowDidacticTone?: boolean;
+}
+
+/** 항목들로부터 overall을 재계산: fail 있으면 fail, ambiguous 있으면 ambiguous, 아니면 pass. */
+function recomputeOverall(
+  items: CensorResult["items"],
+): CensorResult["overall"] {
+  if (items.some((i) => i.result === "fail")) return "fail";
+  if (items.some((i) => i.result === "ambiguous")) return "ambiguous";
+  return "pass";
 }
 
 export interface SelfCensorOutput {
@@ -59,7 +80,10 @@ export interface SelfCensorOutput {
 type CensorStrictness = "strict" | "normal" | "loose";
 
 function decideCensorStrictness(persona: SelfCensorPersona): CensorStrictness {
-  if (persona.isAdminPersona || persona.infoRatio >= 70) return "strict";
+  // strict는 관리자(공식 가이드) 페르소나에만 적용한다.
+  // 과거 infoRatio>=70도 strict였는데, 진짜 유용한 최신 정보 글까지
+  // "검증 불가"로 3회 탈락→discarded 되는 문제가 커서 normal로 완화한다.
+  if (persona.isAdminPersona) return "strict";
   if (persona.infoRatio >= 40) return "normal";
   return "loose";
 }
@@ -77,7 +101,8 @@ function decideCensorStrictness(persona: SelfCensorPersona): CensorStrictness {
  * DB 상태 업데이트는 호출자(파이프라인)의 책임.
  */
 export async function runSelfCensor(input: SelfCensorInput): Promise<SelfCensorOutput> {
-  const { draft, persona, facts, board, titleSeed, existingPostTexts } = input;
+  const { draft, persona, facts, board, titleSeed, existingPostTexts, allowObvious } =
+    input;
 
   const strictness = decideCensorStrictness(persona);
 
@@ -97,6 +122,7 @@ export async function runSelfCensor(input: SelfCensorInput): Promise<SelfCensorO
             { key: "persona", result: "pass", reason: "중복 필터 단락" },
             { key: "safety", result: "pass", reason: "중복 필터 단락" },
             { key: "context", result: "pass", reason: "중복 필터 단락" },
+            { key: "insight", result: "pass", reason: "중복 필터 단락" },
           ],
           overall: "fail",
         },
@@ -125,6 +151,7 @@ export async function runSelfCensor(input: SelfCensorInput): Promise<SelfCensorO
           { key: "safety", result: "ambiguous", reason: "검열관 모델 미할당" },
           { key: "duplicate", result: "ambiguous", reason: "검열관 모델 미할당" },
           { key: "context", result: "ambiguous", reason: "검열관 모델 미할당" },
+          { key: "insight", result: "ambiguous", reason: "검열관 모델 미할당" },
         ],
         overall: "ambiguous",
       },
@@ -133,7 +160,7 @@ export async function runSelfCensor(input: SelfCensorInput): Promise<SelfCensorO
   }
 
   // 3. 검열 프롬프트 조립 및 callModel
-  const systemPrompt = buildCensorSystemPrompt(strictness);
+  const systemPrompt = buildCensorSystemPrompt(strictness, { allowObvious });
   const userPrompt = buildCensorUserPrompt({
     draft,
     personaName: persona.personaName,
@@ -165,6 +192,20 @@ export async function runSelfCensor(input: SelfCensorInput): Promise<SelfCensorO
 
   // 4. 응답 파싱
   const censorResult = parseCensorResult(responseText);
+
+  // 4-b. 가이드 강의 편: ai_tone·duplicate 축을 비차단으로 완화(오탐 방지).
+  if (input.allowDidacticTone) {
+    for (const item of censorResult.items) {
+      if (
+        (item.key === "ai_tone" || item.key === "duplicate") &&
+        item.result === "fail"
+      ) {
+        item.result = "pass";
+        item.reason = `[가이드 완화] ${item.reason}`;
+      }
+    }
+    censorResult.overall = recomputeOverall(censorResult.items);
+  }
 
   return { censorResult, costUsd };
 }

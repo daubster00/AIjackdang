@@ -23,7 +23,8 @@ audience: '운영자(사용자) — 배포 전 직접 준비해야 할 것'
 | AI | OpenAI API 키 | `OPENAI_API_KEY` | △ (셋 중 최소 1개) |
 | AI | Anthropic Claude API 키 | `ANTHROPIC_API_KEY` | △ |
 | AI | Google Gemini API 키 | `GEMINI_API_KEY` | △ |
-| 검색 | 구글 검색 API 키 + 검색엔진 ID | `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | 권장 |
+| 검색 | Brave Search API 키 | `BRAVE_SEARCH_API_KEY` | 권장 |
+| 검색 | 구글 검색 API 키 + 검색엔진 ID(legacy) | `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | 선택 |
 | 검색 | 네이버 검색 API | `NAVER_SEARCH_CLIENT_ID/SECRET` | 권장 |
 | 이미지 | Unsplash 또는 Pexels 키 | `UNSPLASH_ACCESS_KEY` / `PEXELS_API_KEY` | 권장 |
 | 이미지 | (AI 이미지 생성은 OpenAI 키 재사용) | `OPENAI_API_KEY` | △ |
@@ -31,7 +32,7 @@ audience: '운영자(사용자) — 배포 전 직접 준비해야 할 것'
 | 인프라 | 24시간 도는 서버 + Postgres + Redis + 스토리지 | (기존 사이트 env) | 필수 |
 
 > △ = AI/검색/이미지는 **부분 가동** 가능. 키가 없는 기능은 자동으로 건너뜁니다(코드가 graceful skip).
-> 일단 **OpenAI 1개 + 구글 검색 + Unsplash + 텔레그램**만 있어도 전체 흐름이 돕니다.
+> 일단 **OpenAI 1개 + Brave 검색 + Unsplash + 텔레그램**만 있어도 전체 흐름이 돕니다.
 
 ---
 
@@ -60,12 +61,15 @@ audience: '운영자(사용자) — 배포 전 직접 준비해야 할 것'
 
 ## 2. 검색 API 발급 (글의 사실성 그라운딩)
 
-### 2.1 구글 Programmable Search (`GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX`)
-1. **검색엔진 만들기**: <https://programmablesearchengine.google.com> → "Add" → "전체 웹 검색"으로 설정 → 생성 후 **Search engine ID(검색엔진 식별자)** 복사 → `GOOGLE_SEARCH_CX`.
-2. **API 키**: <https://console.cloud.google.com> → 프로젝트 생성 → "Custom Search API" 사용 설정 → **사용자 인증 정보**에서 API 키 발급 → `GOOGLE_SEARCH_API_KEY`.
-3. 무료 한도: 하루 100쿼리. 초과분은 유료(쿼리당 과금) — 결제 계정 연결 필요.
+### 2.1 Brave Search (`BRAVE_SEARCH_API_KEY`)
+1. <https://api-dashboard.search.brave.com> → 로그인 → Search API 앱/키 생성.
+2. 발급된 API 키를 `BRAVE_SEARCH_API_KEY`에 입력.
+3. 이 프로젝트의 해외/전체 웹 검색과 웹 이미지 검색 기본 provider입니다.
 
-### 2.2 네이버 검색 API (`NAVER_SEARCH_CLIENT_ID` + `NAVER_SEARCH_CLIENT_SECRET`)
+### 2.2 구글 Programmable Search legacy (`GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX`)
+Google Custom Search JSON API는 신규 고객 접근이 닫혀 있어 새 프로젝트에서는 403 `PERMISSION_DENIED`가 날 수 있습니다. 기존 접근 권한이 있는 오래된 프로젝트가 있을 때만 직접 어댑터 호출용으로 사용하세요.
+
+### 2.3 네이버 검색 API (`NAVER_SEARCH_CLIENT_ID` + `NAVER_SEARCH_CLIENT_SECRET`)
 1. <https://developers.naver.com> → 로그인 → **Application 등록**.
 2. 사용 API에서 **검색**(뉴스·블로그·웹) 선택 → 등록.
 3. 발급된 **Client ID / Client Secret**를 env에 입력.
@@ -170,6 +174,7 @@ ANTHROPIC_API_KEY=
 GEMINI_API_KEY=
 
 # ── 시딩 봇: 검색 ──
+BRAVE_SEARCH_API_KEY=
 GOOGLE_SEARCH_API_KEY=
 GOOGLE_SEARCH_CX=
 NAVER_SEARCH_CLIENT_ID=

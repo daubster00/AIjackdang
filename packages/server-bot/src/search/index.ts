@@ -16,10 +16,12 @@
 
 import type { BotModelAssignment } from '@ai-jakdang/contracts';
 import {
-  searchGoogle,
-  GOOGLE_SEARCH_COST_PER_QUERY_USD,
   type SearchResult,
 } from './google';
+import {
+  searchBrave,
+  BRAVE_SEARCH_COST_PER_QUERY_USD,
+} from './brave';
 import { searchNaver, NAVER_SEARCH_COST_PER_QUERY_USD } from './naver';
 
 // ── 공개 re-export ─────────────────────────────────────────────────────────────
@@ -30,8 +32,20 @@ export type { NaverSearchType } from './naver';
 
 /** Google CSE 어댑터 직접 호출이 필요한 경우용 re-export. */
 export { searchGoogle, GOOGLE_SEARCH_COST_PER_QUERY_USD } from './google';
+/** Brave 검색 어댑터 직접 호출이 필요한 경우용 re-export. */
+export { searchBrave, BRAVE_SEARCH_COST_PER_QUERY_USD } from './brave';
 /** Naver 검색 어댑터 직접 호출이 필요한 경우용 re-export. */
 export { searchNaver, NAVER_SEARCH_COST_PER_QUERY_USD } from './naver';
+/** 주제 발굴(검색이 주제를 만든다) re-export. */
+export { discoverTopic } from './discovery';
+export type {
+  DiscoveredTopic,
+  DiscoveryQuery,
+  DiscoverTopicOptions,
+} from './discovery';
+/** 유튜브 영상 큐레이션(퍼오기) re-export. */
+export { searchYoutubeVideo } from './brave-video';
+export type { CuratedVideo } from './brave-video';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 
@@ -87,7 +101,7 @@ export interface GroundTopicOptions {
   /**
    * 해외 AI 도메인용 영어 검색어.
    * 11.9 파이프라인이 한국어 토픽을 영어로 번역해 주입.
-   * 미설정 시 원 토픽(topic)을 Google 쿼리로 사용(결과 감소 가능성 있음).
+   * 미설정 시 원 토픽(topic)을 Brave 쿼리로 사용(결과 감소 가능성 있음).
    */
   englishQuery?: string;
   /**
@@ -210,11 +224,11 @@ ${snippetsBlock}
  *
  * intensity 분기:
  *   'none'(잡담·밈): 검색 없이 null 반환. API 호출 0회.
- *   'light'(트렌드): Naver 뉴스·블로그만. Google 없음. 최대 8건.
- *   'full'(정보형, AI 관련): Google(해외 AI 1차) 8건 + Naver 5+5건. 최대 15건.
- *                            Google 결과를 앞에 정렬(해외 AI 소식 우선).
+ *   'light'(트렌드): Naver 뉴스·블로그만. Brave 없음. 최대 8건.
+ *   'full'(정보형, AI 관련): Brave(해외/전체 웹) 8건 + Naver 5+5건. 최대 15건.
+ *                            Brave 결과를 앞에 정렬(해외 AI 소식 우선).
  *
- * @param topic - 글 토픽 (주로 한국어). Naver는 그대로 사용, Google은 englishQuery 권장.
+ * @param topic - 글 토픽 (주로 한국어). Naver는 그대로 사용, Brave는 englishQuery 권장.
  * @param intensity - 검색 강도.
  * @param options - 선택 옵션 (callModel·modelAssignment·onCostAccumulated·englishQuery).
  * @returns FactGrounding | null — 'none' 또는 비용 상한 도달·검색 결과 없음+모델 없음 시 null.
@@ -232,7 +246,7 @@ export async function groundTopic(
   let searchCost = 0;
 
   if (intensity === 'light') {
-    // Naver 뉴스·블로그 병렬 호출. Google 없음.
+    // Naver 뉴스·블로그 병렬 호출. Brave 없음.
     const [newsResults, blogResults] = await Promise.all([
       searchNaver(topic, 'news', 5),
       searchNaver(topic, 'blog', 3),
@@ -240,31 +254,31 @@ export async function groundTopic(
     allResults = deduplicate([...newsResults, ...blogResults]).slice(0, 8);
     searchCost = NAVER_SEARCH_COST_PER_QUERY_USD * 2;
   } else {
-    // intensity === 'full': Google(1차) + Naver 2종 병렬 호출.
+    // intensity === 'full': Brave(해외/전체 웹) + Naver 2종 병렬 호출.
     // Promise.allSettled — 하나 실패해도 나머지 결과로 진행.
     const englishQuery = options?.englishQuery ?? topic;
-    const [googleSettled, naverNewsSettled, naverWebkrSettled] = await Promise.allSettled([
-      searchGoogle(englishQuery, 8, 'en'),
+    const [braveSettled, naverNewsSettled, naverWebkrSettled] = await Promise.allSettled([
+      searchBrave(englishQuery, 8, { country: 'US', searchLang: 'en' }),
       searchNaver(topic, 'news', 5),
       searchNaver(topic, 'webkr', 5),
     ]);
 
-    const googleResults =
-      googleSettled.status === 'fulfilled' ? googleSettled.value : [];
+    const braveResults =
+      braveSettled.status === 'fulfilled' ? braveSettled.value : [];
     const naverNewsResults =
       naverNewsSettled.status === 'fulfilled' ? naverNewsSettled.value : [];
     const naverWebkrResults =
       naverWebkrSettled.status === 'fulfilled' ? naverWebkrSettled.value : [];
 
-    // Google 결과를 앞에 정렬 (해외 AI 소식 1차 출처 우선).
+    // Brave 결과를 앞에 정렬 (해외 AI 소식 우선).
     allResults = deduplicate([
-      ...googleResults,
+      ...braveResults,
       ...naverNewsResults,
       ...naverWebkrResults,
     ]).slice(0, 15);
 
     searchCost =
-      GOOGLE_SEARCH_COST_PER_QUERY_USD +
+      BRAVE_SEARCH_COST_PER_QUERY_USD +
       NAVER_SEARCH_COST_PER_QUERY_USD * 2;
   }
 

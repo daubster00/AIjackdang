@@ -38,6 +38,8 @@ import { geminiAdapter } from "./adapters/gemini";
 export type { AiProvider, AiTextRequest, AiTextResponse, AiImageRequest, AiImageResponse };
 export { estimateCostUsd };
 export type { BotModelAssignmentRow };
+export { ProviderCreditExhaustedError, isCreditExhaustion, type AiProviderName } from "./errors";
+export { notifyCreditExhausted } from "../alert/credit-alert";
 
 // ── recordAiUsage: AI 호출 단위 사용 로그 (Story 11.19) ──────────────────────
 

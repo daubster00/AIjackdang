@@ -29,6 +29,93 @@ export interface SelectTopicResult {
 const REFILL_THRESHOLD = 3;
 const REFILL_COUNT = 5;
 
+// ── 검색 주도 주제 발굴 설정 ─────────────────────────────────────────────────────
+
+/** 페르소나 도메인별 검색어(영어=해외 AI 출처, 한국어=국내 보조). */
+export interface PersonaDiscoveryQuery {
+  en: string;
+  ko: string;
+}
+
+/**
+ * 닉네임별 발굴 검색어. 8개 페르소나 전원 등록(잡담·질문 캐릭터 포함).
+ * 여기에 없는 페르소나는 발굴하지 않는다(현재 전원 등록됨).
+ */
+const DISCOVERY_QUERY_BY_NICKNAME: Record<string, PersonaDiscoveryQuery> = {
+  dubu_2: {
+    en: "n8n Make Zapier workflow automation new feature update release",
+    ko: "n8n Make 자동화 새 기능 업데이트",
+  },
+  semo_k: {
+    en: "Claude Code Cursor AI coding assistant new feature update changelog",
+    ko: "AI 코딩 도구 클로드 커서 업데이트",
+  },
+  wolse99: {
+    en: "AI side income monetization freelance tool new 2026",
+    ko: "AI 부업 수익화 새 도구 소식",
+  },
+  latte2x: {
+    en: "AI marketing content automation tool new feature launch",
+    ko: "AI 마케팅 콘텐츠 자동화 새 기능",
+  },
+  rainy03: {
+    en: "Midjourney Stable Diffusion AI image generation new model feature",
+    ko: "AI 이미지 생성 미드저니 새 모델",
+  },
+  AI작당지기: {
+    en: "OpenAI Anthropic Google AI major announcement release update",
+    ko: "AI 주요 업데이트 출시 소식",
+  },
+  // ── 잡담·질문 캐릭터 (톤은 discoverTopic의 styleHint로 캐주얼하게 조정) ──
+  냉장고털이: {
+    en: "AI viral meme trending funny news this week",
+    ko: "AI 밈 요즘 화제 유행",
+  },
+  감자세개: {
+    en: "AI beginner easy tool popular trending new",
+    ko: "AI 입문 초보 요즘 화제 궁금",
+  },
+};
+
+/**
+ * 발굴이 어울리지 않는 게시판.
+ * - gigs(의뢰 모집): "해드립니다" 모집글이라 최신 소식 발굴과 무관.
+ * - ai-creation(AI 창작마당): 뉴스 발굴이 아니라 별도 "큐레이션"(유튜브 AI 영상·AI 밈
+ *   퍼오기 / 봇 직접 생성)이 소재를 정한다. → curation.ts / post-pipeline Step 2.5 참조.
+ * talk·qna는 발굴 확장됨(캐주얼/질문 톤으로 최근 화제를 소재화).
+ */
+const DISCOVERY_EXCLUDED_BOARDS = new Set(["gigs", "ai-creation"]);
+
+/**
+ * 이 페르소나·게시판 조합에서 검색 주도 발굴을 쓸지 판단하고,
+ * 쓸 수 있으면 검색어를 반환한다(못 쓰면 null → 고정 시드 폴백).
+ */
+export function getDiscoveryQuery(
+  nickname: string,
+  board: string,
+): PersonaDiscoveryQuery | null {
+  if (DISCOVERY_EXCLUDED_BOARDS.has(board)) return null;
+  return DISCOVERY_QUERY_BY_NICKNAME[nickname] ?? null;
+}
+
+/**
+ * 검색 주도 주제 발굴 전역 스위치.
+ * bot_settings.bot_search_driven_topics 값. 키가 없으면 기본 ON(true)으로 간주.
+ */
+export async function isSearchDrivenTopicsEnabled(db: Database): Promise<boolean> {
+  try {
+    const [row] = await db
+      .select({ value: schema.botSettings.value })
+      .from(schema.botSettings)
+      .where(eq(schema.botSettings.key, "bot_search_driven_topics"))
+      .limit(1);
+    if (!row) return true; // 키 미존재 → 기본 활성
+    return row.value === true || row.value === "true";
+  } catch {
+    return true;
+  }
+}
+
 // ── selectTopic ───────────────────────────────────────────────────────────────
 
 /**
@@ -83,6 +170,27 @@ export async function selectTopic(
 
   // 3) 주제 없음
   return null;
+}
+
+/**
+ * 이 페르소나가 이미 다룬 주제 제목 목록(중복 발굴 회피용).
+ * bot_topics의 title_seed를 최신순으로 최대 limit개 반환.
+ */
+export async function getRecentTopicTitles(
+  db: Database,
+  personaId: string,
+  limit = 20,
+): Promise<string[]> {
+  try {
+    const rows = await db
+      .select({ titleSeed: schema.botTopics.titleSeed })
+      .from(schema.botTopics)
+      .where(eq(schema.botTopics.personaId, personaId))
+      .limit(limit);
+    return rows.map((r) => r.titleSeed);
+  } catch {
+    return [];
+  }
 }
 
 // ── markTopicUsed ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 /**
  * groundTopic + summarizeFacts 단위 테스트 (Story 11.7 / Task 5.3).
  *
- * - searchGoogle, searchNaver는 vi.mock으로 대체.
+ * - searchBrave, searchNaver는 vi.mock으로 대체.
  * - callModel은 GroundTopicOptions.callModel 주입으로 mock.
  * - 실제 외부 API 호출 없음.
  */
@@ -11,11 +11,16 @@ import type { BotModelAssignment } from '@ai-jakdang/contracts';
 import type { CallModelFn } from './index';
 
 // ── 어댑터 mock ───────────────────────────────────────────────────────────────
-const mockSearchGoogle = vi.hoisted(() => vi.fn());
+const mockSearchBrave = vi.hoisted(() => vi.fn());
 const mockSearchNaver = vi.hoisted(() => vi.fn());
 
+vi.mock('./brave', () => ({
+  searchBrave: mockSearchBrave,
+  BRAVE_SEARCH_COST_PER_QUERY_USD: 0,
+}));
+
 vi.mock('./google', () => ({
-  searchGoogle: mockSearchGoogle,
+  searchGoogle: vi.fn(),
   GOOGLE_SEARCH_COST_PER_QUERY_USD: 0.005,
   // SearchResult은 타입 — 런타임 export 불필요
 }));
@@ -55,7 +60,7 @@ const mockSearchResults = [
 describe('groundTopic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSearchGoogle.mockResolvedValue([]);
+    mockSearchBrave.mockResolvedValue([]);
     mockSearchNaver.mockResolvedValue([]);
   });
 
@@ -66,19 +71,19 @@ describe('groundTopic', () => {
       expect(result).toBeNull();
     });
 
-    it("intensity='none'이면 searchGoogle, searchNaver 호출이 없다", async () => {
+    it("intensity='none'이면 searchBrave, searchNaver 호출이 없다", async () => {
       await groundTopic('잡담 주제', 'none');
 
-      expect(mockSearchGoogle).not.toHaveBeenCalled();
+      expect(mockSearchBrave).not.toHaveBeenCalled();
       expect(mockSearchNaver).not.toHaveBeenCalled();
     });
   });
 
-  describe("intensity='light': Naver만 호출, Google 없음 (AC #3)", () => {
-    it("intensity='light'이면 searchGoogle을 호출하지 않는다", async () => {
+  describe("intensity='light': Naver만 호출, Brave 없음 (AC #3)", () => {
+    it("intensity='light'이면 searchBrave를 호출하지 않는다", async () => {
       await groundTopic('트렌드 주제', 'light');
 
-      expect(mockSearchGoogle).not.toHaveBeenCalled();
+      expect(mockSearchBrave).not.toHaveBeenCalled();
     });
 
     it("intensity='light'이면 searchNaver를 2회 호출한다 (news + blog)", async () => {
@@ -109,32 +114,40 @@ describe('groundTopic', () => {
     });
   });
 
-  describe("intensity='full': Google + Naver 2종 호출 (AC #3)", () => {
-    it("intensity='full'이면 searchGoogle, searchNaver(news), searchNaver(webkr)을 호출한다", async () => {
+  describe("intensity='full': Brave + Naver 2종 호출 (AC #3)", () => {
+    it("intensity='full'이면 searchBrave, searchNaver(news), searchNaver(webkr)을 호출한다", async () => {
       await groundTopic('AI 주제', 'full');
 
-      expect(mockSearchGoogle).toHaveBeenCalledTimes(1);
+      expect(mockSearchBrave).toHaveBeenCalledTimes(1);
       expect(mockSearchNaver).toHaveBeenCalledWith('AI 주제', 'news', 5);
       expect(mockSearchNaver).toHaveBeenCalledWith('AI 주제', 'webkr', 5);
     });
 
-    it("intensity='full', englishQuery 제공 시 searchGoogle에 영어 쿼리가 전달된다", async () => {
+    it("intensity='full', englishQuery 제공 시 searchBrave에 영어 쿼리가 전달된다", async () => {
       await groundTopic('AI 최신 소식', 'full', { englishQuery: 'AI latest news' });
 
-      expect(mockSearchGoogle).toHaveBeenCalledWith('AI latest news', 8, 'en');
+      expect(mockSearchBrave).toHaveBeenCalledWith(
+        'AI latest news',
+        8,
+        { country: 'US', searchLang: 'en' },
+      );
     });
 
-    it("intensity='full', englishQuery 없으면 원 토픽으로 Google 검색한다", async () => {
+    it("intensity='full', englishQuery 없으면 원 토픽으로 Brave 검색한다", async () => {
       await groundTopic('AI 최신 소식', 'full');
 
-      expect(mockSearchGoogle).toHaveBeenCalledWith('AI 최신 소식', 8, 'en');
+      expect(mockSearchBrave).toHaveBeenCalledWith(
+        'AI 최신 소식',
+        8,
+        { country: 'US', searchLang: 'en' },
+      );
     });
 
-    it('Google 결과가 Naver 결과보다 앞에 정렬된다', async () => {
-      const googleResult = { ...mockSearchResults[0]!, source: 'google' as const, url: 'https://openai.com/g' };
+    it('Brave 결과가 Naver 결과보다 앞에 정렬된다', async () => {
+      const braveResult = { ...mockSearchResults[0]!, source: 'brave' as const, url: 'https://openai.com/g' };
       const naverResult = { ...mockSearchResults[0]!, source: 'naver' as const, url: 'https://naver.com/n' };
 
-      mockSearchGoogle.mockResolvedValue([googleResult]);
+      mockSearchBrave.mockResolvedValue([braveResult]);
       mockSearchNaver.mockResolvedValue([naverResult]);
 
       const result = await groundTopic('AI 주제', 'full');

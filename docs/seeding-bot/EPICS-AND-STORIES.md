@@ -3,11 +3,12 @@ project_name: 'AI작당 — 시딩 봇 (Seeding Bot)'
 doc_type: 'Epic & Stories'
 status: 'ready-for-story-gen'
 date: '2026-06-26'
-epic: 'Epic 11 (기존 Epic 1~10 다음 번호)'
-story_count: 18
+epic: 'Epic 11 (스토리 18개) + Epic 13 (스토리 8개, 가이드 커리큘럼·이미지 3-모드)'
+story_count: 26
 inputDocuments:
   - 'docs/seeding-bot/PRD.md'
   - 'docs/seeding-bot/ARCHITECTURE.md'
+  - 'docs/seeding-bot/GUIDE-CURRICULUM-AND-IMAGE-MODES.md'
   - 'docs/seeding-bot-design.md'
   - 'docs/seeding-bot-topic-pools.md'
 ---
@@ -213,4 +214,110 @@ inputDocuments:
 `_bmad-output/implementation-artifacts/11-1-*.md` … `11-18-*.md` 상세 스토리 파일을 생성한다.
 각 스토리는 PRD·ARCHITECTURE·project-context 규칙을 References로 인용해야 한다.
 
-**총계: Epic 1개 / 스토리 18개.** 구현 착수는 그룹 A(11.1)부터.
+**총계: Epic 11 = 스토리 18개.** 구현 착수는 그룹 A(11.1)부터.
+
+---
+
+# Epic 13: 가이드 커리큘럼 · 이미지 3-모드 · 스테이징
+
+> Epic 11(시딩 봇) 위 확장. 관리자 가이드 글을 **강의 커리큘럼 시리즈**로 개편하고, 봇 이미지를
+> **3-모드**로 조달하며, 커리큘럼은 **생성≠게시(스테이징)** + 사람 검수 + 예약 게시로 바꾼다.
+> **설계·데이터 모델·현재 구현 상태·함정의 단일 출처: [GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md)** (읽고 착수).
+
+## Epic 13 개요
+
+- **목표**: 공식 강의 시리즈는 사람이 큐레이션(순서·정확도·이미지)해 예약 게시하고, 일반 글·퍼오기는 자율 게시하되 이미지를 글 성격에 맞게 붙인다.
+- **가치**: "강의답게 이어지는 글 + 설명과 정확히 일치하는 이미지". 콜드 스타트 이후 **양질의 앵커 콘텐츠**.
+- **현재 상태(중요)**: 커리큘럼 엔진 일부가 **이미 프로토타입으로 구현·dev 검증**됨(설계문서 §10). Epic 13은 그 위에 **스테이징 분리·DB 승격·관리자 UI·스케줄·사후 플래너**를 얹는다. 프로토타입은 생성+게시가 한 번에 일어나므로 13.3에서 분리한다.
+- **선행/전제**: Epic 11 그룹 A·B·C(스키마·AI·이미지·파이프라인) 완료 상태 위.
+
+## Epic 13 스토리 & 의존성
+
+```
+13.1 커리큘럼 DB 스키마 ─┬─ 13.2 계약
+                         ↓
+13.3 스테이징 파이프라인(생성≠게시) ── 13.4 이미지 슬롯 워크플로우
+                         ↓
+13.5 관리자 커리큘럼 플랜 UI ── 13.6 예약 스케줄러
+                         ↓ (독립)
+13.7 일반 글 사후 이미지 플래너   ·   13.8 퍼오기 모드 범위 확장
+```
+
+| 스토리 | 제목 |
+|---|---|
+| 13.1 | 커리큘럼 DB 스키마 + `curriculum.ts` 시드 이관 |
+| 13.2 | 커리큘럼 Zod 계약(contracts) |
+| 13.3 | 스테이징 파이프라인(생성≠게시) + 준비완료 판정 |
+| 13.4 | 이미지 슬롯 워크플로우(🟢자동/🟡캡처/🔵업로드) |
+| 13.5 | 관리자 "커리큘럼 플랜" API + UI |
+| 13.6 | 예약 스케줄러(하루 1편·챕터별 시각·준비완료 게이트) |
+| 13.7 | 일반 글 사후 이미지 플래너 |
+| 13.8 | 퍼오기(미디어 우선) 모드 범위 확장 |
+
+---
+
+### Story 13.1: 커리큘럼 DB 스키마 + `curriculum.ts` 시드 이관
+- **As a** 개발자, **I want** 커리큘럼을 DB 테이블로 승격, **so that** 관리자가 챕터·이미지 슬롯을 CRUD하고 상태를 관리한다.
+- **AC**
+  1. `bot_curriculum_series`·`bot_curriculum_chapters`·`bot_curriculum_image_slots` 테이블 + enum(챕터 상태 `planned|drafted|ready|published|skipped`, 슬롯 `source_kind` `ai_diagram|web_download|capture|user_upload`, 슬롯 상태 `pending|ready`) 정의(설계문서 §4). `db:generate`→`db:migrate`(번호 고정 금지, 봇 스키마만 포함).
+  2. 기존 `apps/api/src/services/bot/curriculum.ts`(두 시리즈×5강)를 **시드 스크립트**로 이관해 테이블 초기화(멱등). 기존 `bot_settings.guide_asset_manifest`의 이미지 URL을 슬롯 `image_url`로 이식.
+  3. `schema/index.ts` 배럴 export.
+- **Dev Notes**: 프로토타입의 `bot_settings.guide_progress`(published[]·summaries)는 챕터 `status`/`published_post_id` + 별도 요약 컬럼으로 대체된다(마이그레이션 매핑 명시).
+
+### Story 13.2: 커리큘럼 Zod 계약(contracts)
+- **AC**
+  1. `packages/contracts/src/bot-curriculum.ts`에 시리즈·챕터·이미지슬롯 + 관리자 요청/응답(목록 `{items,meta}`·단건·오류) Zod 스키마·타입.
+  2. 배럴 export. API 즉석 타입 금지.
+
+### Story 13.3: 스테이징 파이프라인 (생성 ≠ 게시) + 준비완료 판정
+- **As a** 시스템, **I want** 커리큘럼 초안 생성과 실제 게시를 분리, **so that** 사람이 중간에 검수·이미지 준비를 한다.
+- **AC**
+  1. **초안 생성** 잡: 챕터의 학습목표·소주제·앞편 요약으로 본문을 생성해 `chapters.draft_content`에 저장(**게시 안 함**), 상태 `drafted`. 본문에 `[[IMG:키]]` 마커 포함. (기존 `buildGuideChapterUserPrompt` 재사용.)
+  2. 기존 프로토타입 `post-pipeline.ts` **Step 2.6(생성+즉시게시)를 스테이징으로 리팩터**: 커리큘럼 편은 즉시 게시 경로에서 분리(회귀 없이 일반/퍼오기 경로는 유지).
+  3. **준비완료 판정**: 챕터의 모든 이미지 슬롯 `status=ready`면 챕터 `status=ready`로 승격. 하나라도 `pending`이면 승격 금지.
+  4. **게시 실행**(스케줄러가 호출): `insertInlineImagesByMarker`(기존)로 마커→이미지 인라인 삽입 후 `createPostAsBot` → `published`+`published_post_id`. 앞편 요약을 다음 편 생성에 전달(연속성 유지).
+  5. `allowDidacticTone`(기존) 유지.
+
+### Story 13.4: 이미지 슬롯 워크플로우 (🟢자동 / 🟡캡처 / 🔵업로드)
+- **AC**
+  1. 슬롯 `source_kind`별 조달: 🟢`ai_diagram`=Gemini 생성(정확한 한국어 라벨 프롬프트), 🟢`web_download`=공식문서 URL `curl` 다운, 🟡`capture`=사람 세팅 후 Playwright(웹)/PowerShell(로컬) 캡처, 🔵`user_upload`=업로드. 결과를 버킷 업로드→`image_url` 저장→슬롯 `ready`. (기존 `build-guide-assets.ts` 정식화.)
+  2. **미리 만들지 않고 지시 시 생성**(설계 §3). 🟢도 동일 정책 적용 가능.
+  3. 각 슬롯에 **사람용 상세 안내문(guidance)** 자동 생성(캡션·도식 프롬프트 기반). 관리자 화면에서 🟢🟡🔵 배지로 구분.
+  4. 워터마크(editor-images 경로)·출처 캡션 규칙은 기존 유지.
+
+### Story 13.5: 관리자 "커리큘럼 플랜" API + UI
+- **AC**
+  1. `/api/v1/admin/bots/curriculum/*`(`adminGuard`+`requireSuperAdmin`): 시리즈·챕터 목록/상세, 초안 본문 수정, 슬롯 이미지 업로드/교체/생성요청/완료, 예약시각 설정.
+  2. `apps/admin` 봇 하위 **"커리큘럼 플랜"** 메뉴. 목록(챕터 상태·"이미지 N/M 완료"·예약시각) → 상세(리스트=상세 규약).
+  3. 챕터 상세: **초안 본문 편집** + 이미지 슬롯 목록(배지·안내·미리보기·업로드/생성 버튼·완료) + **최종 미리보기**(이미지가 마커 자리에 끼워진 완성 글 렌더) + **예약 datetime 피커**.
+  4. 차트·모달 등 기존 admin 컨벤션 준수(메모리 규칙).
+- **Dev Notes**: 업로드는 관리자 이미지 업로드 경로 재사용. 미리보기는 게시글 렌더러 재사용.
+
+### Story 13.6: 예약 스케줄러 (하루 1편 · 챕터별 시각 · 준비완료 게이트)
+- **AC**
+  1. 플랜/초안 생성 시 챕터에 **하루 간격 예약시각 자동 배정**(1편 D+0, 2편 D+1 …), 관리자에서 개별 수정 가능.
+  2. 크론 잡 `bot.curriculum-publish`(기존 단일 `bot` 큐 디스패처에 추가)가 주기적으로 스캔해 **`scheduled_at<=now` AND `status=ready`** 챕터를 게시(13.3의 게시 실행 호출).
+  3. **미완 안전장치**: 예약시각이 지났는데 `ready`가 아니면 **게시하지 않고 대기** + 관리자에 "이미지 미완으로 보류" 표시. 킬 스위치·상한 가드 동일 적용.
+  4. 게시 성공 시 다음 편 초안이 앞편 요약을 이어받도록 연속성 갱신.
+
+### Story 13.7: 일반 글 사후 이미지 플래너 (모드 B)
+- **As a** 봇, **I want** 일반 글을 쓴 뒤 내용을 보고 필요한 이미지를 정해 넣기, **so that** 이미지 개수·위치가 글마다 자연스럽게 맞는다.
+- **AC**
+  1. 일반 글 생성(본문 완성) 후 **이미지 플래너**가 본문을 분석해 "몇 개를, 어느 자리에, 무엇을" 판단(0개 가능).
+  2. 각 자리에 AI 도식 생성(정확한 라벨) 또는 필요 시 스톡/웹 이미지 → 본문에 인라인 삽입(`insertInlineImagesByMarker` 또는 위치 삽입 재사용).
+  3. 실제 스크린샷은 즉석 생성 불가 → 도식 위주. 기존 "상단 1장" 방식을 대체/보강(회귀 없이).
+  4. 비용·검열·contentGuard 기존 경로 통과.
+
+### Story 13.8: 퍼오기(미디어 우선) 모드 범위 확장
+- **AC**
+  1. 기존 `curation.ts`(`decideCurationMode`·유튜브/밈 우선)를 `ai-creation` 외 **다른 게시판/상황에도 적용 가능**하게 라우팅 확장(설정으로 대상·가중치 제어).
+  2. 미디어(영상/이미지)를 먼저 확보→소개글 작성→출처 표기 임베드(기존 `prependYoutubeToTiptapDoc`·이미지 출처 캡션 재사용).
+  3. 저작권 점검(보류 큐 `copyright_risk`) 경로 유지.
+
+---
+
+## 스토리 생성 가이드 (Epic 13)
+
+이 문서 + [GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md)를 입력으로 `bmad-create-story`를 13.1→13.8 순서로 돌려 상세 스토리 파일을 생성한다. **착수 전 설계문서 §10(현재 구현 상태)을 반드시 읽어** 프로토타입과 중복 구현하지 않는다.
+
+**총계: Epic 13 = 스토리 8개.** 착수는 13.1(스키마)부터.

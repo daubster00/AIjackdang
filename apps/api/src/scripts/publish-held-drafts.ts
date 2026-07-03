@@ -79,6 +79,10 @@ async function main(): Promise<void> {
       console.warn(`[publish-held] '${r.nickname}' 봇 userId 없음 → skip`);
       continue;
     }
+    if (!r.board) {
+      console.warn(`[publish-held] '${r.nickname}' 대상 게시판 없음 → skip`);
+      continue;
+    }
 
     // 제목: 주제 title_seed(파이프라인이 쓰는 값) → 없으면 doc 첫 heading 텍스트 폴백
     const doc = r.draftContent as { content?: { type?: string; content?: { text?: string }[] }[] };

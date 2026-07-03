@@ -9,6 +9,7 @@
 import { env } from "@ai-jakdang/config";
 import type { AiProvider, AiTextRequest, AiTextResponse, AiImageRequest, AiImageResponse } from "../types";
 import { estimateCostUsd } from "../pricing";
+import { assertProviderOk } from "../errors";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 
@@ -45,13 +46,6 @@ function requireApiKey(): string {
   return env.OPENAI_API_KEY;
 }
 
-async function assertOk(res: Response, tag: string): Promise<void> {
-  if (!res.ok) {
-    const body = await res.text().catch(() => "(응답 본문 읽기 실패)");
-    throw new Error(`[ai/openai/${tag}] API 오류 ${res.status}: ${body}`);
-  }
-}
-
 // ── 어댑터 구현 ───────────────────────────────────────────────────────────────
 
 export const openAiAdapter: AiProvider = {
@@ -76,7 +70,7 @@ export const openAiAdapter: AiProvider = {
       }),
     });
 
-    await assertOk(res, "chat/completions");
+    await assertProviderOk(res, "openai", req.model, "chat/completions");
     const json = (await res.json()) as OpenAiChatResponse;
     const text = json.choices[0]?.message.content ?? "";
     const { prompt_tokens, completion_tokens } = json.usage;
@@ -106,7 +100,7 @@ export const openAiAdapter: AiProvider = {
       }),
     });
 
-    await assertOk(res, "images/generations");
+    await assertProviderOk(res, "openai", req.model, "images/generations");
     const json = (await res.json()) as OpenAiImagesResponse;
 
     return {

@@ -36,12 +36,14 @@ function stripHtml(html: string): string {
  * @param query - 검색어. 한국어 토픽을 그대로 사용(국내 출처).
  * @param type - 검색 문서 유형. 기본 'news'.
  * @param maxResults - 최대 결과 수 (기본 5).
+ * @param sort - 'sim'(관련도순, 기본) | 'date'(최신순). 주제 발굴 시 'date'로 최신 소식 우선.
  * @returns SearchResult[] — 키 미설정·HTTP 오류·타임아웃 시 [] (graceful skip, throw 금지).
  */
 export async function searchNaver(
   query: string,
   type: NaverSearchType = 'news',
   maxResults = 5,
+  sort: 'sim' | 'date' = 'sim',
 ): Promise<SearchResult[]> {
   if (!env.NAVER_SEARCH_CLIENT_ID || !env.NAVER_SEARCH_CLIENT_SECRET) {
     console.log('[search/naver] API 키 미설정 — 검색 skip');
@@ -51,7 +53,7 @@ export async function searchNaver(
   const params = new URLSearchParams({
     query,
     display: String(maxResults),
-    sort: 'sim',
+    sort,
   });
 
   const controller = new AbortController();

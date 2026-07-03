@@ -238,6 +238,8 @@ decideImageStrategy(persona, board, postKind) → 'stock' | 'ai' | 'none' | 'mem
 - 이미지 파일은 기존 S3(MinIO/R2) 공개 버킷에 업로드 후 URL을 본문에 넣음(기존 업로드 서비스 재사용).
 - 밈·짤 외부 이미지는 게시 전 보류 큐(`copyright_risk`)로 점검 가능.
 
+> **📌 Epic 13 확장(이미지 3-모드)**: `decideImageStrategy`의 단일 상단 이미지 외에, ①커리큘럼=사전 준비, ②일반 글=사후 콘텐츠 기반 플래너, ③퍼오기=미디어 우선(기존 `curation.ts`)으로 라우팅한다. 본문 `[[IMG:키]]` 마커를 실제 이미지로 인라인 치환하는 `insertInlineImagesByMarker`(`packages/server-bot/src/image/tiptap.ts`)가 이미 구현돼 있다. 상세는 [GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md) §1·§3·§8, 데이터 모델은 같은 문서 §4.
+
 ## 7. 자기검열 & 인젝션 방어 파이프라인 (`packages/bot-core` + worker)
 
 ### 글 생성 파이프라인 (Story 11.9)
@@ -258,6 +260,17 @@ decideImageStrategy(persona, board, postKind) → 'stock' | 'ai' | 'none' | 'mem
   → 댓글 생성기: 맥락 객체 + 페르소나 말투로 반응 작성
   → 자기검열(맥락 항목 포함) → contentGuard → createCommentAsBot
 ```
+
+### 가이드 커리큘럼 편 (Epic 13, 프로토타입 구현됨)
+```
+관리자 페르소나 + 가이드 게시판(vibe-coding-guide·automation-guide) 감지(getGuideSeriesForBoard)
+  → discoverTopic(검색발굴) 건너뜀 → 커리큘럼 다음 미발행 챕터 선택 + 앞편 요약 연속성
+  → buildGuideChapterUserPrompt(마커·이전편·상투구금지) → 생성모델
+  → 자기검열(allowDidacticTone: ai_tone·duplicate 오탐 완화)
+  → insertInlineImagesByMarker(본문 [[IMG:키]] → 매니페스트 이미지+캡션) → createPostAsBot
+  → bot_settings.guide_progress(published[]·summaries) 갱신 · 완결 시 skip
+```
+> **현재 프로토타입은 생성+게시가 한 번에** 일어난다(post-pipeline Step 2.6). Epic 13은 이를 **스테이징(생성≠게시)**으로 분리하고, 커리큘럼을 DB 테이블(`bot_curriculum_*`)로 승격하며, 관리자 커리큘럼 플랜 UI·예약 스케줄러를 얹는다. 전체·현재상태: [GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md) §2·§10.
 
 ### 자기검열 6항목 (FR-SB-8.2)
 사실성 / AI 티(이모지 금지) / 페르소나 일관성 / 안전·위험 / 중복성 / 맥락(댓글). 강도 차등.
@@ -345,3 +358,19 @@ SEEDING_BOT_ENABLED=false  # 워커 부팅 시 봇 모듈 로드 여부(기본 o
 [E] 관리자 대시보드 (11.14~11.16)  ← 설정·운영 UI
 [F] 일일 리포트·텔레그램 (11.17~11.18) ← D의 로그 위
 ```
+
+## 13. 가이드 커리큘럼 · 이미지 3-모드 (Epic 13 확장)
+
+> 2026-07-03 설계 확정. 관리자 가이드 글을 **강의 커리큘럼 시리즈**로 개편하고, 봇 이미지를
+> **3-모드**로 조달하며, 커리큘럼은 **생성≠게시(스테이징)** + 예약 게시로 바꾼다.
+> **전체 설계·데이터 모델·현재 구현 상태·함정은 [GUIDE-CURRICULUM-AND-IMAGE-MODES.md](./GUIDE-CURRICULUM-AND-IMAGE-MODES.md) 단일 문서**에 있다. 여기서는 아키텍처 델타만 요약한다.
+
+**데이터 모델(신설)**: `bot_curriculum_series`(시리즈) · `bot_curriculum_chapters`(챕터: 초안·상태·예약시각·게시글ID) · `bot_curriculum_image_slots`(슬롯: assetKey·source_kind🟢🟡🔵·상태·image_url·안내문). 프로토타입은 코드 파일(`curriculum.ts`)+`bot_settings` jsonb(`guide_asset_manifest`·`guide_progress`)로 들고 있고, Epic 13에서 테이블로 승격(파일은 시드).
+
+**이미지 3-모드 라우팅**: ①커리큘럼=사전 준비(관리자 플랜) ②일반 글=사후 콘텐츠 기반 플래너(본문 보고 도식 생성) ③퍼오기=미디어 우선(`curation.ts` 기존). 마커 인라인 삽입 `insertInlineImagesByMarker` 공용.
+
+**스테이징 파이프라인(생성≠게시)**: 초안 생성→스테이징 / 이미지 채움 / 준비완료 / 예약 / 스케줄 게시. 새 크론 잡 `bot.curriculum-publish`(기존 단일 `bot` 큐 디스패처에 추가)가 `scheduled_at<=now` && `status=ready`인 챕터만 게시(이미지 미완이면 대기).
+
+**관리자 UI**: 봇 하위 "커리큘럼 플랜"(리스트=상세 규약). 상세=초안 편집 + 이미지 슬롯(🟢🟡🔵 배지·안내·업로드·미리보기) + 예약 datetime. API `/api/v1/admin/bots/curriculum/*`.
+
+**스크린샷 조달**: 크롬 확장 불필요 — Playwright(웹)·PowerShell 화면 캡처(로컬 CLI·데스크톱)·공식문서 다운로드·Gemini 도식을 `source_kind`로 선택.

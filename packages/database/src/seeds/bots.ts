@@ -91,26 +91,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 21, to: 24 }, { from: 12, to: 13 }],
       activeDays: { weekday: 0.8, weekend: 0.2 },
     },
-    topics: [
-      { titleSeed: "카드 결제 문자를 구글시트 가계부로 자동 입력하기",          board: "automation-cases" },
-      { titleSeed: "매일 아침 날씨·일정·뉴스 요약을 카톡으로 받기",            board: "automation-cases" },
-      { titleSeed: "노션 메모를 주간보고 초안으로 자동 변환",                   board: "automation-cases" },
-      { titleSeed: "받은 메일 중요도 자동 분류·라벨링",                         board: "automation-cases" },
-      { titleSeed: "관심 상품 최저가 추적해서 알림 받기",                       board: "automation-cases" },
-      { titleSeed: "구독 유튜브 새 영상 자동 요약해서 받아보기",                board: "automation-cases" },
-      { titleSeed: "1년간 만든 자동화 정리 — 제일 쓸모 있었던 것 베스트",      board: "automation-cases" },
-      { titleSeed: "새로 나온 OO 자동화 툴 며칠 써본 솔직 후기",               board: "automation-cases" },
-      { titleSeed: "n8n 처음 깔 때 헤매기 쉬운 3가지",                         board: "automation-tips" },
-      { titleSeed: "Make vs n8n, 뭐부터 시작할지 고르는 기준",                 board: "automation-tips" },
-      { titleSeed: "웹훅(webhook) 1분 정리",                                    board: "automation-tips" },
-      { titleSeed: "무료 한도 안에서 자동화 굴리는 현실적 방법",               board: "automation-tips" },
-      { titleSeed: "무한루프 돌아서 크레딧 날린 썰 + 예방법",                  board: "automation-tips" },
-      { titleSeed: "API 키 안전하게 관리하는 습관",                             board: "automation-tips" },
-      { titleSeed: "입문자에게 추천하는 첫 자동화 프로젝트",                    board: "automation-tips" },
-      { titleSeed: "자동화 만들어 보니 차라리 손으로 하는 게 빠른 일도 있더라", board: "talk" },
-      { titleSeed: "퇴근하고 자동화 만지는 게 어느새 취미가 됨",               board: "talk" },
-      { titleSeed: "회사에 자동화 슬쩍 도입했다가 팀장이 신기해한 썰",         board: "talk" },
-    ],
+    topics: [],
   },
 
   // ── rainy03 ────────────────────────────────────────────────────────────────
@@ -131,20 +112,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 15, to: 22 }],
       activeDays: { weekday: 0.4, weekend: 0.6 },
     },
-    topics: [
-      { titleSeed: "오늘 미드저니로 뽑은 그림 자랑",                           board: "ai-creation" },
-      { titleSeed: "같은 프롬프트인데 모델마다 이렇게 다르네요",               board: "ai-creation" },
-      { titleSeed: "감성 일러스트 뽑을 때 쓰는 키워드 공유",                  board: "ai-creation" },
-      { titleSeed: "AI로 만든 캐릭터에 이름 붙여봤어요",                      board: "ai-creation" },
-      { titleSeed: "실패작 모음 — 이상하게 나온 것들",                         board: "ai-creation" },
-      { titleSeed: "손그림이랑 AI 그림 섞어서 작업한 결과",                   board: "ai-creation" },
-      { titleSeed: "AI 그림으로 굿즈 시안 만들어봤어요",                      board: "ai-products" },
-      { titleSeed: "직접 만든 이모티콘 세트 공개",                            board: "ai-products" },
-      { titleSeed: "AI 그림 기반 미니 포스터 제작기",                         board: "ai-products" },
-      { titleSeed: "그림 뽑다 보면 시간 순삭이에요",                          board: "talk" },
-      { titleSeed: "AI 그림 저작권 어떻게들 생각하세요",                      board: "talk" },
-      { titleSeed: "오늘 만든 거 보고 가세요",                                board: "talk" },
-    ],
+    topics: [],
   },
 
   // ── semo_k ─────────────────────────────────────────────────────────────────
@@ -166,26 +134,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 23, to: 2, crossesMidnight: true }],
       activeDays: { weekday: 0.6, weekend: 0.4 },
     },
-    topics: [
-      { titleSeed: "AI가 짜준 코드 그대로 쓰면 안 되는 이유",                 board: "vibe-coding-tips" },
-      { titleSeed: "바이브코딩으로 만든 거 배포 전에 꼭 보는 체크 3개",       board: "vibe-coding-tips" },
-      { titleSeed: "프롬프트로 디버깅 시킬 때 효율 올리는 법",                board: "vibe-coding-tips" },
-      { titleSeed: "AI한테 컨텍스트 제대로 주는 법",                          board: "vibe-coding-tips" },
-      { titleSeed: "코드 리뷰를 AI한테 시킬 때 한계와 쓸모",                 board: "vibe-coding-tips" },
-      { titleSeed: "git 모르고 바이브코딩 하면 생기는 사고",                 board: "vibe-coding-tips" },
-      { titleSeed: "이거 왜 안 되냐는 질문에 자주 나오는 진짜 원인들",       board: "qna" },
-      { titleSeed: "환경변수 설정 안 해서 터지는 케이스 정리",               board: "qna" },
-      { titleSeed: "CORS 에러 만났을 때 차분하게 푸는 순서",                 board: "qna" },
-      { titleSeed: "로컬은 되는데 배포하면 안 될 때 의심할 것",              board: "qna" },
-      { titleSeed: "AI가 만든 코드 에러를 AI한테 다시 물을 때 요령",         board: "qna" },
-      { titleSeed: "패키지 버전 충돌 푸는 현실적인 방법",                    board: "qna" },
-      { titleSeed: "자동화 시나리오 짤 때 에러 핸들링 빼먹지 말 것",         board: "automation-tips" },
-      { titleSeed: "자동화 디버깅: 어디서 멈췄는지 추적하는 법",             board: "automation-tips" },
-      { titleSeed: "토큰·크레딧 아끼는 자동화 설계",                         board: "automation-tips" },
-      { titleSeed: "재시도(retry) 로직 없이 자동화 돌리면 생기는 일",        board: "automation-tips" },
-      { titleSeed: "새 AI 코딩툴 OO 써본 시큰둥한 평가",                     board: "vibe-coding-tips" },
-      { titleSeed: "노코드면 개발 안 배워도 되나요에 대한 현실적인 답",      board: "qna" },
-    ],
+    topics: [],
   },
 
   // ── 감자세개 ───────────────────────────────────────────────────────────────
@@ -207,20 +156,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 19, to: 23 }],
       activeDays: { weekday: 0.4, weekend: 0.6 },
     },
-    topics: [
-      { titleSeed: "진짜 처음인데 뭐부터 해야 할까요",                        board: "qna" },
-      { titleSeed: "인기글 따라 했는데 여기서 막혔어요",                      board: "qna" },
-      { titleSeed: "이 에러 메시지 무슨 뜻인가요 (초보 질문)",                board: "qna" },
-      { titleSeed: "무료로 연습할 수 있는 방법 있나요",                       board: "qna" },
-      { titleSeed: "다들 어떤 툴로 시작하셨어요",                             board: "qna" },
-      { titleSeed: "이거 제가 한 게 맞게 한 건지 봐주세요",                   board: "qna" },
-      { titleSeed: "처음으로 자동화 하나 만들어봤어요 (서툴지만)",            board: "automation-cases" },
-      { titleSeed: "가르쳐주신 대로 했더니 됐어요 후기",                      board: "automation-cases" },
-      { titleSeed: "따라 만든 첫 결과물 공유합니다",                          board: "automation-cases" },
-      { titleSeed: "입문자인데 이 커뮤니티 분위기 좋네요",                    board: "talk" },
-      { titleSeed: "다들 하루에 얼마나 시간 쓰세요",                          board: "talk" },
-      { titleSeed: "작은 거 성공해서 너무 기뻐서 글 남겨요",                 board: "talk" },
-    ],
+    topics: [],
   },
 
   // ── wolse99 ────────────────────────────────────────────────────────────────
@@ -241,26 +177,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 7, to: 9 }, { from: 12, to: 13 }],
       activeDays: { weekday: 0.85, weekend: 0.15 },
     },
-    topics: [
-      { titleSeed: "AI로 부수입 만든 첫 3개월 정산 솔직 공개",               board: "monetization-cases" },
-      { titleSeed: "GPT로 블로그 글 써서 애드센스 돌린 결과",                board: "monetization-cases" },
-      { titleSeed: "AI 썸네일 제작 외주로 첫 입금 받은 썰",                 board: "monetization-cases" },
-      { titleSeed: "스마트스토어 상세페이지를 AI로 만든 후기",              board: "monetization-cases" },
-      { titleSeed: "전자책 한 권 AI로 만들어 판 결과",                      board: "monetization-cases" },
-      { titleSeed: "실패한 수익화 시도 3개 — 왜 안 됐나",                   board: "monetization-cases" },
-      { titleSeed: "AI 자동화 대행 첫 클라이언트 받은 과정",                board: "monetization-cases" },
-      { titleSeed: "외주 견적 어떻게 잡는지",                               board: "monetization-tips" },
-      { titleSeed: "클라이언트한테 AI 썼다고 말해야 하나",                  board: "monetization-tips" },
-      { titleSeed: "포트폴리오 없을 때 첫 일감 따는 법",                    board: "monetization-tips" },
-      { titleSeed: "수정 요청 무한루프 막는 계약 문구",                     board: "monetization-tips" },
-      { titleSeed: "단가 후려치는 의뢰 거르는 기준",                        board: "monetization-tips" },
-      { titleSeed: "결과물 납품할 때 빠뜨리면 안 되는 것",                 board: "monetization-tips" },
-      { titleSeed: "리뷰·평점 쌓는 현실적인 초반 전략",                    board: "monetization-tips" },
-      { titleSeed: "AI 자동화 세팅 해드립니다 (의뢰 모집 글)",              board: "gigs" },
-      { titleSeed: "블로그 자동화 봇 만들어 드립니다",                      board: "gigs" },
-      { titleSeed: "같이 부업 스터디 하실 분 모집",                         board: "gigs" },
-      { titleSeed: "외주 받아보실 분, 간단한 작업부터 매칭해요",            board: "gigs" },
-    ],
+    topics: [],
   },
 
   // ── latte2x ────────────────────────────────────────────────────────────────
@@ -283,26 +200,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 9, to: 12 }],
       activeDays: { weekday: 1.0, weekend: 0.0 },
     },
-    topics: [
-      { titleSeed: "AI로 인스타 콘텐츠 한 달치 미리 만든 워크플로",           board: "automation-cases" },
-      { titleSeed: "블로그 글 주제 발굴부터 초안까지 자동화",                 board: "automation-cases" },
-      { titleSeed: "경쟁사 콘텐츠 모니터링 자동화",                           board: "automation-cases" },
-      { titleSeed: "뉴스레터 자동 작성·발송 세팅",                            board: "automation-cases" },
-      { titleSeed: "광고 카피 A/B안 대량 생성하는 법",                        board: "automation-cases" },
-      { titleSeed: "콘텐츠 마케팅 AI로 돌려서 나온 실제 전환율",             board: "monetization-cases" },
-      { titleSeed: "1인 마케터가 AI로 대행사 일 받은 썰",                    board: "monetization-cases" },
-      { titleSeed: "AI 콘텐츠로 SEO 트래픽 올린 결과",                       board: "monetization-cases" },
-      { titleSeed: "브랜드 톤앤매너를 AI에 학습시키는 프롬프트 설계",         board: "vibe-coding-tips" },
-      { titleSeed: "마케터가 노코드로 랜딩페이지 만든 과정",                  board: "vibe-coding-tips" },
-      { titleSeed: "AI한테 우리 브랜드 보이스 유지시키는 법",                 board: "vibe-coding-tips" },
-      { titleSeed: "콘텐츠 캘린더를 AI로 자동 관리",                          board: "vibe-coding-tips" },
-      { titleSeed: "요즘 마케터들이 쓰는 AI 툴 스택 정리",                   board: "automation-cases" },
-      { titleSeed: "새로 나온 OO 툴, 마케팅에 써보니",                       board: "automation-cases" },
-      { titleSeed: "카피라이팅 잘 뽑는 프롬프트 모음",                       board: "resource:prompt" },
-      { titleSeed: "SNS 콘텐츠 기획용 프롬프트 템플릿",                      board: "resource:prompt" },
-      { titleSeed: "콘텐츠 마케팅 주간 운영 체크리스트",                     board: "resource:template-checklist" },
-      { titleSeed: "광고 성과 리포트 자동화 템플릿",                          board: "resource:template-checklist" },
-    ],
+    topics: [],
   },
 
   // ── 냉장고털이 ─────────────────────────────────────────────────────────────
@@ -323,18 +221,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 0, to: 24 }],
       activeDays: { weekday: 0.5, weekend: 0.5 },
     },
-    topics: [
-      { titleSeed: "이거 봤어요? 요즘 화제인 거 퍼옴",                       board: "talk" },
-      { titleSeed: "오늘 축구/경기 어땠어요",                                board: "talk" },
-      { titleSeed: "짤 하나 투척하고 갑니다",                                board: "talk" },
-      { titleSeed: "다들 주말에 뭐 하세요",                                  board: "talk" },
-      { titleSeed: "이번 주 제일 웃겼던 거",                                 board: "talk" },
-      { titleSeed: "AI 관련 웃긴 짤 모음",                                   board: "talk" },
-      { titleSeed: "점심 뭐 먹을지 추천 좀",                                 board: "talk" },
-      { titleSeed: "남들 만든 AI 그림 구경하는 재미",                        board: "ai-creation" },
-      { titleSeed: "이 그림 분위기 미쳤다 (남 글에 반응형 글)",              board: "ai-creation" },
-      { titleSeed: "그냥 출석 겸 인사 남기고 가요",                          board: "talk" },
-    ],
+    topics: [],
   },
 
   // ── AI작당지기 ─────────────────────────────────────────────────────────────
@@ -357,19 +244,7 @@ const PERSONAS: PersonaSeed[] = [
       activeHours: [{ from: 10, to: 11 }],
       activeDays: { weekday: 1.0, weekend: 0.0 },
     },
-    topics: [
-      { titleSeed: "바이브코딩 입문 시리즈 (개념→첫 프로젝트→디버깅→배포)", board: "vibe-coding-guide",           seriesGroup: "vibe-intro" },
-      { titleSeed: "Claude Code 제대로 쓰기 시리즈",                         board: "vibe-coding-guide",           seriesGroup: "claude-code-guide" },
-      { titleSeed: "프롬프트 잘 쓰는 법 가이드",                             board: "vibe-coding-guide",           seriesGroup: "prompt-guide" },
-      { titleSeed: "n8n 자동화 완전정복 시리즈",                             board: "automation-guide",            seriesGroup: "n8n-mastery" },
-      { titleSeed: "Make로 시작하는 노코드 자동화",                          board: "automation-guide",            seriesGroup: "make-nocode" },
-      { titleSeed: "업무 시간 줄이는 AI 자동화 실무 시리즈",                 board: "automation-guide",            seriesGroup: "ai-workflow-biz" },
-      { titleSeed: "자동화 트러블슈팅 모음 가이드",                          board: "automation-guide",            seriesGroup: "auto-troubleshoot" },
-      { titleSeed: "엄선 프롬프트 모음 큐레이션",                            board: "resource:prompt",             seriesGroup: "prompt-curation" },
-      { titleSeed: "MCP 개념과 활용 가이드",                                 board: "resource:mcp",                seriesGroup: "mcp-guide" },
-      { titleSeed: "Rules·설정 베스트 프랙티스",                             board: "resource:rules-config",       seriesGroup: "rules-best-practice" },
-      { titleSeed: "바로 쓰는 템플릿·체크리스트 모음",                       board: "resource:template-checklist", seriesGroup: "template-collection" },
-    ],
+    topics: [],
   },
 ];
 
@@ -382,7 +257,8 @@ const BOT_SETTINGS_DEFAULTS = [
   { key: "bot_daily_comment_limit",  value: 40         }, // 하루 최대 댓글 수
   { key: "bot_daily_cost_limit_usd", value: 2.0        }, // 일일 AI 비용 상한 달러
   { key: "bot_exclude_from_ranking", value: true       }, // 랭킹 제외 기본 ON
-  { key: "bot_auto_refill_topics",   value: true       }, // 주제 자동 보충 ON
+  { key: "bot_auto_refill_topics",   value: false      }, // 주제 자동 보충 OFF (검색 발굴로 대체 — LLM 재생성 쓰레기 주제 방지)
+  { key: "bot_search_driven_topics", value: true       }, // 검색 주도 주제 발굴 ON
   { key: "bot_observation_mode",     value: true       }, // 초기 관찰 모드 ON
   { key: "bot_push_channel",         value: "telegram" }, // 푸시 채널
 ] as const;

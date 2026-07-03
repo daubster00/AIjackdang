@@ -119,10 +119,14 @@ describe("규칙 5: nickname === '냉장고털이' → 'meme'", () => {
   });
 });
 
-// ── 규칙 7: info_ratio >= 40 ─────────────────────────────────────────────────
+// ── 규칙 7: info_ratio >= 30 ─────────────────────────────────────────────────
 
-describe("규칙 7: info_ratio >= 40 → 'stock'", () => {
-  it("info_ratio=40 → 'stock' (경계값)", () => {
+describe("규칙 7: info_ratio >= 30 → 'stock' (preferWeb면 'web')", () => {
+  it("info_ratio=30 → 'stock' (경계값)", () => {
+    expect(decideImageStrategy(p({ info_ratio: 30 }), "automation-cases", "post")).toBe("stock");
+  });
+
+  it("info_ratio=40 → 'stock'", () => {
     expect(decideImageStrategy(p({ info_ratio: 40 }), "automation-cases", "post")).toBe("stock");
   });
 
@@ -133,17 +137,29 @@ describe("규칙 7: info_ratio >= 40 → 'stock'", () => {
   it("info_ratio=100 → 'stock'", () => {
     expect(decideImageStrategy(p({ info_ratio: 100 }), "general", "post")).toBe("stock");
   });
+
+  it("preferWeb=true면 정보형 글은 'web' (검색 이미지+출처)", () => {
+    expect(
+      decideImageStrategy(p({ info_ratio: 60 }), "automation-tips", "post", { preferWeb: true }),
+    ).toBe("web");
+  });
+
+  it("preferWeb=true여도 잡담형(info_ratio<30)은 'none'", () => {
+    expect(
+      decideImageStrategy(p({ info_ratio: 25 }), "talk", "post", { preferWeb: true }),
+    ).toBe("none");
+  });
 });
 
 // ── 규칙 8: 기본값 ────────────────────────────────────────────────────────────
 
 describe("규칙 8: 기본값 → 'none'", () => {
-  it("info_ratio=25 (20이상 40미만), 일반 게시판 → 'none'", () => {
+  it("info_ratio=25 (20이상 30미만), 일반 게시판 → 'none'", () => {
     expect(decideImageStrategy(p({ info_ratio: 25 }), "general", "post")).toBe("none");
   });
 
-  it("info_ratio=39 (경계값) → 'none'", () => {
-    expect(decideImageStrategy(p({ info_ratio: 39 }), "general", "post")).toBe("none");
+  it("info_ratio=29 (경계값) → 'none'", () => {
+    expect(decideImageStrategy(p({ info_ratio: 29 }), "general", "post")).toBe("none");
   });
 });
 
