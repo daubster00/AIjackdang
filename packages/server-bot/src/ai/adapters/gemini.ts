@@ -25,7 +25,8 @@ interface GeminiContent {
 }
 
 interface GeminiCandidate {
-  content: GeminiContent;
+  content?: GeminiContent;
+  finishReason?: string;
 }
 
 interface GeminiUsageMetadata {
@@ -56,6 +57,15 @@ export const geminiAdapter: AiProvider = {
     // URL: /v1beta/models/{model}:generateContent?key={apiKey}
     const url = `${GEMINI_BASE_URL}/${encodeURIComponent(req.model)}:generateContent?key=${apiKey}`;
 
+    // Gemini 2.5 계열은 "thinking" 모델 — 사고(thinking) 토큰이 출력 예산을 잠식한다.
+    // maxOutputTokens가 낮으면 사고에 전부 소진돼 content.parts 없이 finishReason=MAX_TOKENS만 반환된다.
+    // maxOutputTokens는 상한(ceiling)이라 실제 과금은 생성된 토큰만큼만 — 여유를 크게 줘도 비용 안전.
+    const isThinkingModel = /gemini-2\.5/i.test(req.model);
+    const requestedMax = req.maxTokens ?? 2000;
+    const maxOutputTokens = isThinkingModel
+      ? Math.max(requestedMax + 8000, 12000) // 사고 + 답변 둘 다 들어갈 헤드룸
+      : requestedMax;
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,7 +80,7 @@ export const geminiAdapter: AiProvider = {
           parts: [{ text: req.system }],
         },
         generationConfig: {
-          maxOutputTokens: req.maxTokens ?? 2000,
+          maxOutputTokens,
           temperature: req.temperature ?? 0.7,
           // tools 파라미터 절대 추가 금지 (ARCHITECTURE §4 — 생성 모델 격리)
         },
@@ -81,7 +91,13 @@ export const geminiAdapter: AiProvider = {
     const json = (await res.json()) as GeminiGenerateContentResponse;
 
     const firstCandidate = json.candidates?.[0];
-    const text = firstCandidate?.content.parts[0]?.text ?? "";
+    // 방어적 파싱: content·parts 누락(안전 차단·MAX_TOKENS 등) 시에도 크래시 금지.
+    const text = firstCandidate?.content?.parts?.[0]?.text ?? "";
+    if (!text) {
+      console.warn(
+        `[ai/gemini] 빈 응답 — model=${req.model} finishReason=${firstCandidate?.finishReason ?? "unknown"} candidates=${json.candidates?.length ?? 0}`,
+      );
+    }
     const inputTokens = json.usageMetadata?.promptTokenCount ?? 0;
     const outputTokens = json.usageMetadata?.candidatesTokenCount ?? 0;
 
