@@ -632,6 +632,44 @@ export async function runPostPipeline(
           finalContentJson = draftJson;
         }
 
+      } else if (imageStrategy === "meme") {
+        // 모드 C-3: 밈 특화 페르소나(냉장고털이 등)의 일반 글.
+        // 글 주제로 웹 이미지(밈)를 검색해 상단에 삽입한다. 사후 이미지 플래너는
+        // 정보형/도식 전용이라 캐주얼 밈 글엔 빈 계획을 반환 → 여기서 별도 처리.
+        // 큐레이션(의도적 퍼오기)과 달리 저작권 위험 시 보류하지 않고 이미지 없이 게시한다
+        // (장식용 이미지라 글 자체는 살린다).
+        try {
+          const memeImgResult = await fetchBotImage({
+            persona: personaContext,
+            board,
+            postKind: imagePostKind,
+            keyword: topicResult.topic.titleSeed,
+            webQuery: topicResult.topic.titleSeed,
+            strategyOptions: { preferWeb: true },
+            uploadFn: uploadImage,
+            imageModel,
+          });
+          const sourceUrl = memeImgResult.source?.url;
+          if (
+            memeImgResult.imageUrl &&
+            !(sourceUrl && checkCurationCopyrightRisk(sourceUrl))
+          ) {
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, memeImgResult.imageUrl, {
+              sourceLabel: memeImgResult.source?.label ?? undefined,
+              sourceUrl: memeImgResult.source?.url ?? undefined,
+            });
+          } else {
+            // 이미지 없음 또는 저작권 위험 → 이미지 없이 게시(보류 안 함)
+            finalContentJson = draftJson;
+          }
+        } catch (memeErr) {
+          console.warn(
+            "[post-pipeline] 밈 이미지 조달 실패 (이미지 없이 계속):",
+            (memeErr as Error).message,
+          );
+          finalContentJson = draftJson;
+        }
+
       } else if (imageStrategy !== "none") {
         // 모드 B: 일반 글 사후 이미지 플래너 (Story 13.7) — 비큐레이션 또는 ai 모드
         try {

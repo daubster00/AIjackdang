@@ -8,11 +8,15 @@
  * 1. board === 'ai-creation'                        → 'ai'
  * 2. persona.is_admin_persona === true              → 'ai'
  * 3. postKind === 'qna' | 'comment' | 'reply'     → 'none'
- * 4. persona.info_ratio < 20 (너무 짧은 잡담)        → 'none'
- * 5. persona.nickname === '냉장고털이' (밈 특화)      → 'meme'
- * 6. persona.info_ratio < 15 && board === 'talk'   → 'meme'
+ * 4. persona.nickname === '냉장고털이' (밈 특화)      → 'meme'
+ * 5. persona.info_ratio < 15 && board === 'talk'   → 'meme'
+ * 6. persona.info_ratio < 20 (너무 짧은 잡담)        → 'none'
  * 7. persona.info_ratio >= 30 (정보형 글)            → preferWeb면 'web'(검색 이미지+출처), 아니면 'stock'
  * 8. 기본값                                         → 'none'
+ *
+ * ⚠️ 순서 주의: 밈 특화 규칙(4·5)은 반드시 저정보 컷오프(6, info<20→none)보다 앞.
+ *   냉장고털이(info_ratio=5)처럼 밈 캐릭터는 info_ratio가 낮아, 컷오프가 앞서면
+ *   밈 규칙에 도달하지 못하고 이미지 없는 글만 나온다(과거 버그).
  *
  * [Source: docs/seeding-bot/ARCHITECTURE.md#6-이미지-엔진]
  */
@@ -67,14 +71,14 @@ export function decideImageStrategy(
     return "none";
   }
 
-  // 4. 너무 짧은 잡담 → 이미지 없는 게 자연스러움
-  if (persona.info_ratio < 20) return "none";
-
-  // 5. 밈 특화 캐릭터
+  // 4. 밈 특화 캐릭터 (저정보 컷오프보다 먼저 — 밈 캐릭터는 info_ratio가 낮다)
   if (persona.nickname === "냉장고털이") return "meme";
 
-  // 6. 짧은 잡담 + 토크 게시판
+  // 5. 짧은 잡담 + 토크 게시판 (저정보 컷오프보다 먼저)
   if (persona.info_ratio < 15 && board === "talk") return "meme";
+
+  // 6. 너무 짧은 잡담 → 이미지 없는 게 자연스러움
+  if (persona.info_ratio < 20) return "none";
 
   // 7. 정보형 글 → 실제 소재가 있으면 웹 검색 이미지(출처 표기), 아니면 무료 스톡
   if (persona.info_ratio >= 30) return opts?.preferWeb ? "web" : "stock";

@@ -117,6 +117,20 @@ describe("규칙 5: nickname === '냉장고털이' → 'meme'", () => {
       ),
     ).toBe("meme");
   });
+
+  // 회귀: 실제 냉장고털이는 info_ratio=5(밈 특화라 저정보). 과거 규칙 순서 버그로
+  // info<20 컷오프가 밈 규칙보다 앞서 'none'이 나와 밈 글에 이미지가 안 붙었다.
+  it("nickname=냉장고털이, info_ratio=5(실제값) → 'meme' (저정보 컷오프보다 우선)", () => {
+    expect(
+      decideImageStrategy(p({ nickname: "냉장고털이", info_ratio: 5 }), "talk", "post"),
+    ).toBe("meme");
+  });
+
+  it("저정보 잡담(info_ratio<15) + talk 게시판 → 'meme' (컷오프보다 우선)", () => {
+    expect(
+      decideImageStrategy(p({ nickname: "감자세개", info_ratio: 10 }), "talk", "post"),
+    ).toBe("meme");
+  });
 });
 
 // ── 규칙 7: info_ratio >= 30 ─────────────────────────────────────────────────
