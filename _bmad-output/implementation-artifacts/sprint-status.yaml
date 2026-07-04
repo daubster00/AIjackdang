@@ -166,3 +166,14 @@ development_status:
   12-5-admin-member-report-processing-crosslink: done # sanction-member 원자처리(resolved+제재+알림)·회원제재 버튼/모달·대상보기 라우팅·검토요망 필터. +제재 알림 누락 보완
   epic-12-retrospective: optional
 
+  epic-13: done # 가이드 커리큘럼·이미지 3-모드·스테이징 — 13.1~13.8 dev 완료. 전체 tsc 7패키지 green·admin build green·테스트(bot-core 113·server-bot 84·worker 60·api 커리큘럼계열 전부 green). Playwright 실로그인 브라우저 검수 통과(목록 2시리즈×5강·상세 4섹션·슬롯 도식 렌더·콘솔에러 0). 마이그 0032(커리큘럼 3테이블)·0033(bot_persona_boards curation 2컬럼). 사전존재 실패(dashboard DashboardAlertsResponse·messages sendMessage 제재)는 Epic13 무관.
+  13-1-curriculum-db-schema-seed: done # bot_curriculum_series/chapters/image_slots 3테이블+3enum(마이그0032 수동SQL·drizzle generate 스냅샷0020한계로)·seed-curriculum.ts(guide_progress/asset_manifest 이식). DB검증: 2시리즈/10챕터/10슬롯(9 ai_diagram+1 web_download)
+  13-2-curriculum-zod-contracts: done # contracts/bot-curriculum.ts enum3+도메인5+응답2+쿼리2+CRUD6+잡2. curriculum/botCurriculum 접두어로 bot.ts 충돌회피. enum 13.1 pgEnum 정합
+  13-3-staging-pipeline-generate-vs-publish: done # post-pipeline Step2.6 커리큘럼경로 제거(일반/퍼오기 회귀0)·curriculum-staging.ts(draft/checkAndPromote/publishChapter 전부 apps/api)·_tiptap-parser.ts 추출·buildGuideChapterUserPrompt export. ⚠️오케방침:publishChapter는 apps/api(createPostAsBot 이전불가), server-bot엔 PublishChapterResult 타입만. 테스트11/11
+  13-4-image-slot-workflow: done # slot-filler.ts(ai_diagram/web_download/capture/user_upload 4분기·playwright는 lazy dynamic import로 교정)·slot-guidance.ts(bot-core)·build-guide-assets DB슬롯 전환. 테스트 slot-filler16·slot-guidance9
+  13-5-admin-curriculum-plan-api-ui: done # 라우트 10엔드포인트(requireSuperAdmin)·curriculum.service·admin 목록/[chapterId]상세(4섹션). tiptap-renderer 실export=tiptapJsonToHtml(스토리 generateSafeHtml 오기). ⚠️검수서 목록 pageSize=200→계약상한100 초과 400버그 수정(100으로)
+  13-6-schedule-publisher-cron: done # ⚠️오케방침:worker→apps/api import불가라 HTTP브리지. apps/api runCurriculumPublishScan+internal 라우트(/internal/bots/curriculum/publish-scan, x-internal-key)·worker curriculumPublish.processor는 게이트후 fetch트리거·server-bot assignDefaultScheduledTimes+gates curriculum-publish분기. botActivityLog.personaId NOT NULL이라 커리큘럼로그 생략(console만). internal scan 실동작 검증됨
+  13-7-general-post-image-planner: done # server-bot/image/planner.ts(planImagesForPost·PLANNER_SYSTEM_PROMPT 한국어라벨규칙·markdownToTiptapFn 주입·fail-safe)·post-pipeline 이미지블록 교체. 테스트 planner4·strategy25·tiptap10·post-pipeline11
+  13-8-curation-media-first-scope-expansion: done # bot_persona_boards curation_enabled/weights 2컬럼(마이그0033 수동)·decideCurationMode 3-arg+하드코딩제거·checkCurationCopyrightRisk·post-pipeline 이미지블록 4브랜치(youtube/meme+저작권게이트/planner/none)·contracts·activity-config·BotActivitySection UI. ⚠️검수서 post-pipeline.test 회귀6건(신규 bot_persona_boards 쿼리가 mock schema/시퀀스 교란) 오케가 mock 수정
+  epic-13-retrospective: optional
+

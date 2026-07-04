@@ -31,9 +31,16 @@ import type {
 
 // ── 복합 응답 타입 ────────────────────────────────────────────────────────────
 
+export interface BoardWithCuration {
+  board: string;
+  weight: number;
+  curationEnabled: boolean;
+  curationWeights: Record<string, number> | null;
+}
+
 export interface RhythmWithBoards {
   rhythm: BotActivityRhythm | null;
-  boards: Array<{ board: string; weight: number }>;
+  boards: BoardWithCuration[];
 }
 
 // ── 페르소나 존재 확인 헬퍼 ───────────────────────────────────────────────────
@@ -63,7 +70,12 @@ export async function getRhythm(personaId: string): Promise<RhythmWithBoards> {
     .limit(1);
 
   const boardRows = await db
-    .select({ board: botPersonaBoards.board, weight: botPersonaBoards.weight })
+    .select({
+      board: botPersonaBoards.board,
+      weight: botPersonaBoards.weight,
+      curationEnabled: botPersonaBoards.curationEnabled,
+      curationWeights: botPersonaBoards.curationWeights,
+    })
     .from(botPersonaBoards)
     .where(eq(botPersonaBoards.personaId, personaId));
 
@@ -77,7 +89,12 @@ export async function getRhythm(personaId: string): Promise<RhythmWithBoards> {
           activeDays: rhythmRow.activeDays ?? null,
         }
       : null,
-    boards: boardRows,
+    boards: boardRows.map((r) => ({
+      board: r.board,
+      weight: r.weight,
+      curationEnabled: r.curationEnabled,
+      curationWeights: (r.curationWeights as Record<string, number> | null) ?? null,
+    })),
   };
 }
 
@@ -136,8 +153,13 @@ export async function upsertRhythm(
 
 export async function replaceBoards(
   personaId: string,
-  boards: Array<{ board: string; weight: number }>,
-): Promise<Array<{ board: string; weight: number }>> {
+  boards: Array<{
+    board: string;
+    weight: number;
+    curationEnabled?: boolean;
+    curationWeights?: { youtube?: number; meme?: number; ai?: number } | null;
+  }>,
+): Promise<BoardWithCuration[]> {
   await assertPersonaExists(personaId);
   const db = getDb();
 
@@ -145,17 +167,33 @@ export async function replaceBoards(
     await tx.delete(botPersonaBoards).where(eq(botPersonaBoards.personaId, personaId));
     if (boards.length > 0) {
       await tx.insert(botPersonaBoards).values(
-        boards.map((b) => ({ personaId, board: b.board, weight: b.weight })),
+        boards.map((b) => ({
+          personaId,
+          board: b.board,
+          weight: b.weight,
+          curationEnabled: b.curationEnabled ?? false,
+          curationWeights: b.curationWeights ?? null,
+        })),
       );
     }
   });
 
   const rows = await db
-    .select({ board: botPersonaBoards.board, weight: botPersonaBoards.weight })
+    .select({
+      board: botPersonaBoards.board,
+      weight: botPersonaBoards.weight,
+      curationEnabled: botPersonaBoards.curationEnabled,
+      curationWeights: botPersonaBoards.curationWeights,
+    })
     .from(botPersonaBoards)
     .where(eq(botPersonaBoards.personaId, personaId));
 
-  return rows;
+  return rows.map((r) => ({
+    board: r.board,
+    weight: r.weight,
+    curationEnabled: r.curationEnabled,
+    curationWeights: (r.curationWeights as Record<string, number> | null) ?? null,
+  }));
 }
 
 // ── 주제 풀 목록 조회 ─────────────────────────────────────────────────────────

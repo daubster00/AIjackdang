@@ -32,6 +32,9 @@ export * from "./page-views";
 // ── Epic 11: 시딩 봇 ──────────────────────────────────────────────────────────
 export * from "./bot";
 
+// ── Epic 13: 가이드 커리큘럼 ──────────────────────────────────────────────────
+export * from "./bot-curriculum";
+
 export { pointsLedger, grades } from "./gamification";
 export type {
   PointsLedgerRow,

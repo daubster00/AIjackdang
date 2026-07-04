@@ -7,7 +7,8 @@
  * 3. 정상 분기: bot.comment → commentProcessor 호출
  * 4. 정상 분기: bot.daily-report → botDailyReportProcessor 호출
  * 5. 정상 분기: bot.refill-topics → botRefillTopicsProcessor 호출
- * 6. 알 수 없는 job.name → throw 없이 console.warn만 출력, resolved
+ * 6. 정상 분기: bot.curriculum-publish → curriculumPublishProcessor 호출 (Story 13.6)
+ * 7. 알 수 없는 job.name → throw 없이 console.warn만 출력, resolved
  *
  * 격리 설계 근거 (주석):
  *   - 한 processor가 throw해도 BullMQ Worker가 내부적으로 catch → failed 이벤트 발행.
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   commentProcessor: vi.fn().mockResolvedValue(undefined),
   botDailyReportProcessor: vi.fn().mockResolvedValue(undefined),
   botRefillTopicsProcessor: vi.fn().mockResolvedValue(undefined),
+  curriculumPublishProcessor: vi.fn().mockResolvedValue(undefined), // Story 13.6
 }));
 
 // ── 모든 processor 모듈을 mock으로 교체 (gates/DB 호출 차단) ──────────────────
@@ -44,6 +46,9 @@ vi.mock("./daily-report.processor.js", () => ({
 }));
 vi.mock("./refill-topics.processor.js", () => ({
   botRefillTopicsProcessor: mocks.botRefillTopicsProcessor,
+}));
+vi.mock("./curriculumPublish.processor.js", () => ({
+  curriculumPublishProcessor: mocks.curriculumPublishProcessor,
 }));
 
 // ── 모듈 임포트 (mock 설정 이후) ─────────────────────────────────────────────
@@ -101,6 +106,13 @@ describe("botProcessor 디스패처", () => {
     await botProcessor(job);
     expect(mocks.botRefillTopicsProcessor).toHaveBeenCalledOnce();
     expect(mocks.botRefillTopicsProcessor).toHaveBeenCalledWith(job);
+  });
+
+  it("bot.curriculum-publish → curriculumPublishProcessor를 1회 호출한다", async () => {
+    const job = makeJob("bot.curriculum-publish");
+    await botProcessor(job);
+    expect(mocks.curriculumPublishProcessor).toHaveBeenCalledOnce();
+    expect(mocks.curriculumPublishProcessor).toHaveBeenCalledWith(job);
   });
 
   // ── 알 수 없는 잡 이름 ──────────────────────────────────────────────────────

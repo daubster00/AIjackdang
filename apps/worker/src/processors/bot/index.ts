@@ -5,11 +5,12 @@
  * 각 processor는 시작 시 bot_master_enabled(킬 스위치) 확인 후 skip 여부 결정 (Story 11.12).
  *
  * 잡 이름 → 처리기 대응:
- *   bot.daily-plan    → dailyPlanProcessor   (Story 11.11)
- *   bot.write         → botWriteProcessor    (Story 11.9, 현재 stub)
- *   bot.comment       → commentProcessor     (Story 11.10, 게이트 배선됨)
- *   bot.daily-report  → botDailyReportProcessor (Story 11.17, 현재 stub)
- *   bot.refill-topics → botRefillTopicsProcessor (Story 11.9 연결 예정, 현재 stub)
+ *   bot.daily-plan        → dailyPlanProcessor          (Story 11.11)
+ *   bot.write             → botWriteProcessor           (Story 11.9, 현재 stub)
+ *   bot.comment           → commentProcessor            (Story 11.10, 게이트 배선됨)
+ *   bot.daily-report      → botDailyReportProcessor     (Story 11.17, 현재 stub)
+ *   bot.refill-topics     → botRefillTopicsProcessor    (Story 11.9 연결 예정, 현재 stub)
+ *   bot.curriculum-publish → curriculumPublishProcessor  (Story 13.6)
  *
  * [Source: Story 11.13 Task 2]
  */
@@ -20,6 +21,7 @@ import { botWriteProcessor } from "./write.processor.js"; // Story 11.9 생성 (
 import { commentProcessor } from "./comment.processor.js"; // Story 11.10 생성 (게이트 배선됨)
 import { botDailyReportProcessor } from "./daily-report.processor.js"; // Story 11.17에서 실구현 예정
 import { botRefillTopicsProcessor } from "./refill-topics.processor.js"; // Story 11.9 연결 예정
+import { curriculumPublishProcessor } from "./curriculumPublish.processor.js"; // Story 13.6
 
 /**
  * 봇 잡 디스패처.
@@ -40,6 +42,8 @@ export async function botProcessor(job: Job): Promise<void> {
       return botDailyReportProcessor(job);
     case "bot.refill-topics":
       return botRefillTopicsProcessor(job);
+    case "bot.curriculum-publish":
+      return curriculumPublishProcessor(job); // Story 13.6
     default:
       // 알 수 없는 잡 이름 — throw 금지(BullMQ failed 큐 오염 방지)
       console.warn(`[bot-worker] 알 수 없는 job.name: ${job.name} (jobId=${job.id})`);

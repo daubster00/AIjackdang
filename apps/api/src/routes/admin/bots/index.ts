@@ -24,6 +24,7 @@ import { registerAdminBotHoldQueueActionRoutes } from "./hold-queue-actions.js";
 import { registerBotActivityConfigRoutes } from "./activity-config.js";
 import { registerAdminBotSettingsRoutes } from "./settings.js";
 import { registerAiUsageRoutes } from "./ai-usage.js";
+import { registerAdminBotCurriculumRoutes } from "./curriculum.js";
 
 // TODO(11.14): contracts/src/bot.ts에 adminBotListQuerySchema가 추가되면 이쪽 import로 교체.
 //              현재 contracts의 adminBotPersonasQuerySchema는 status(active|inactive|all) 필드가
@@ -144,4 +145,7 @@ export async function registerAdminBotsRoutes(app: FastifyInstance): Promise<voi
 
   // Story 11.19: AI 사용량·비용 집계
   await registerAiUsageRoutes(app);
+
+  // Story 13.5: 커리큘럼 플랜 API
+  await registerAdminBotCurriculumRoutes(app);
 }

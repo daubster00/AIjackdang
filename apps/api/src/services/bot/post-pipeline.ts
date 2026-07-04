@@ -5,15 +5,22 @@
  *
  * 단계:
  *  0) 공지사항 가드 (notices 게시판 즉시 skip)
- *  1) 주제 선정 (selectTopic)
- *  2) 생성 잡 레코드 생성 (bot_generation_jobs)
- *  3) 페르소나 조회 + 글 성격 결정
- *  4) 검색·그라운딩 (groundTopic, intensity 분기)
- *  5) 이미지 전략 결정 (decideImageStrategy + 관리자 override)
- *  6) 관리자 연재 컨텍스트 조회 (series_group)
- *  7~9) 생성 루프 (재생성 MAX_REGEN=3):
- *       → 생성 모델 callModel → Tiptap 변환 → 자기검열 → 분기
- *  10) 자동 보충 fire-and-forget
+ *  1) 페르소나 조회
+ *  2) 생성 모델 조회
+ *  2.5) AI 창작마당 큐레이션(퍼오기) 결정
+ *  3) 검색 주도 주제 발굴 (discoverTopic)
+ *  4) 주제 확정 (큐레이션 영상 → 발굴 → 고정 시드 → 실시간 폴백)
+ *  5) 생성 잡 레코드 생성 (bot_generation_jobs)
+ *  6) 검색·그라운딩 (groundTopic, intensity 분기)
+ *  6b) 이미지 전략 결정 (decideImageStrategy + 관리자 override)
+ *  7) 관리자 연재 컨텍스트 조회 (series_group)
+ *  8~10) 생성 루프 (재생성 MAX_REGEN=3):
+ *        → 생성 모델 callModel → Tiptap 변환 → 자기검열 → 분기
+ *  11) 자동 보충 fire-and-forget
+ *
+ * 커리큘럼 강의 경로(Story 13.3 이전의 Step 2.6)는 이 파이프라인에서 분리됐다.
+ * 커리큘럼 챕터의 초안 생성 · 준비완료 판정 · 게시 실행은
+ * apps/api/src/services/bot/curriculum-staging.ts에서 담당한다.
  *
  * [Source: docs/seeding-bot/ARCHITECTURE.md §7 글 생성 파이프라인]
  * [Source: docs/seeding-bot/PRD.md FR-SB-5.1~5.5]
@@ -28,16 +35,18 @@ import type { FactGrounding, DiscoveredTopic, CuratedVideo } from "@ai-jakdang/s
 import {
   decideImageStrategy,
   fetchBotImage,
-  prependImageToTiptapDoc,
-  prependImageWithSourceToTiptapDoc,
   prependYoutubeToTiptapDoc,
+  prependImageWithSourceToTiptapDoc,
   insertInlineImagesByMarker,
+  genImage,
+  planImagesForPost,
 } from "@ai-jakdang/server-bot/image";
 import type {
   PostKind,
   ImageStrategy,
   ImageStrategyOptions,
   GuideAssetManifest,
+  PostImagePlan,
 } from "@ai-jakdang/server-bot/image";
 import {
   buildPersonaSystemPrompt,
@@ -48,22 +57,15 @@ import type {
   BotPersonaForPrompt,
   CurationContext,
   FactSummary,
-  GuideChapterContext,
   SeriesContext,
 } from "@ai-jakdang/bot-core";
-import {
-  getGuideSeriesForBoard,
-  type GuideChapter,
-  type GuideSeries,
-} from "./curriculum.js";
-// botSettings는 @ai-jakdang/database/schema(서브패스)를 끌어오므로, 가이드 분기에서만
-// 필요할 때 동적 import한다(단위 테스트의 database 목이 서브패스를 덮지 않아 정적 import 시
-// 실제 스키마가 목 drizzle 위에서 로드돼 깨지는 것을 피함).
 import {
   decideCurationMode,
   curationVideoQuery,
   curationMemeQuery,
+  checkCurationCopyrightRisk,
   type CurationMode,
+  type BoardCurationConfig,
 } from "./curation.js";
 import { uploadImage } from "../../services/storage/index.js";
 import { runContentGuard } from "../../middleware/contentGuard.js";
@@ -82,6 +84,7 @@ import {
 } from "./topic.js";
 import type { BotTopicRow } from "./topic.js";
 import { runSelfCensor } from "./censor.js";
+import { parseResponseToTiptap, parseMarkdownLines } from "./_tiptap-parser.js";
 
 // ── 공개 타입 ─────────────────────────────────────────────────────────────────
 
@@ -114,40 +117,6 @@ export interface PostPipelineResult {
 
 const MAX_REGEN = 3;
 
-// 가이드 강의 시리즈 — bot_settings 키.
-const GUIDE_PROGRESS_KEY = "guide_progress";
-const GUIDE_ASSET_MANIFEST_KEY = "guide_asset_manifest";
-
-/** 시리즈별 진척: 발행 완료 편 번호 + 편별 요약(연속성용). */
-interface GuideSeriesProgress {
-  published: number[];
-  summaries: Record<string, string>;
-}
-type GuideProgressMap = Record<string, GuideSeriesProgress>;
-
-/** 시리즈 진척에서 다음에 쓸 미발행 챕터를 고른다(없으면 null=완결). */
-function pickNextChapter(
-  series: GuideSeries,
-  prog: GuideSeriesProgress,
-): GuideChapter | null {
-  return series.chapters.find((c) => !prog.published.includes(c.order)) ?? null;
-}
-
-/** 발행된 draft 텍스트에서 연속성용 한 줄 요약을 만든다(앞 180자). */
-function summarizeForContinuity(draftText: string): string {
-  const flat = draftText.replace(/\s+/g, " ").trim();
-  return flat.length > 180 ? `${flat.slice(0, 180)}…` : flat;
-}
-
-// ── 내부 헬퍼 타입 ────────────────────────────────────────────────────────────
-
-type TiptapInternalNode = {
-  type?: string;
-  text?: string;
-  attrs?: Record<string, unknown>;
-  content?: TiptapInternalNode[];
-};
-
 // ── logActivity ───────────────────────────────────────────────────────────────
 
 async function logActivity(
@@ -177,108 +146,6 @@ async function logActivity(
     // best-effort: 로그 실패는 파이프라인을 막지 않는다
     console.error("[post-pipeline] logActivity 실패 (무시):", (err as Error).message);
   }
-}
-
-// ── parseResponseToTiptap ─────────────────────────────────────────────────────
-
-/**
- * 모델 응답 텍스트를 Tiptap JSON으로 변환.
- * Tiptap JSON 직접 반환 감지 → 마크다운 파싱 → fallback(단순 paragraph) 순서.
- */
-function parseResponseToTiptap(text: string): Record<string, unknown> {
-  const trimmed = text.trim();
-
-  // 1) Tiptap JSON 직접 반환 감지
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      if (parsed.type === "doc" && Array.isArray(parsed.content)) {
-        return parsed;
-      }
-    } catch {
-      // 파싱 실패 → 다음 단계로
-    }
-  }
-
-  // 2) 마크다운 → Tiptap 변환
-  const content = parseMarkdownLines(trimmed);
-  return { type: "doc", content };
-}
-
-function parseMarkdownLines(markdown: string): TiptapInternalNode[] {
-  const lines = markdown.split("\n");
-  const nodes: TiptapInternalNode[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i] ?? "";
-
-    // 코드 블록
-    if (line.startsWith("```")) {
-      const lang = line.slice(3).trim();
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !(lines[i] ?? "").startsWith("```")) {
-        codeLines.push(lines[i] ?? "");
-        i++;
-      }
-      nodes.push({
-        type: "codeBlock",
-        attrs: lang ? { language: lang } : {},
-        content: [{ type: "text", text: codeLines.join("\n") }],
-      });
-      i++;
-      continue;
-    }
-
-    // 헤딩
-    const h3Match = line.match(/^###\s+(.+)/);
-    if (h3Match) {
-      nodes.push({ type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: h3Match[1] }] });
-      i++;
-      continue;
-    }
-    const h2Match = line.match(/^##\s+(.+)/);
-    if (h2Match) {
-      nodes.push({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: h2Match[1] }] });
-      i++;
-      continue;
-    }
-    const h1Match = line.match(/^#\s+(.+)/);
-    if (h1Match) {
-      nodes.push({ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: h1Match[1] }] });
-      i++;
-      continue;
-    }
-
-    // 빈 줄 → 빈 문단(문단 사이 간격). 표준 편집기와 동일하게 "빈 줄 = 간격".
-    // 맨 앞 빈 줄은 무시하고, 연속 빈 줄은 하나로 축약한다.
-    if (!line.trim()) {
-      const last = nodes[nodes.length - 1];
-      const lastIsEmptyParagraph =
-        !!last &&
-        last.type === "paragraph" &&
-        (!last.content || last.content.length === 0);
-      if (nodes.length > 0 && !lastIsEmptyParagraph) {
-        nodes.push({ type: "paragraph" });
-      }
-      i++;
-      continue;
-    }
-
-    // 단락
-    nodes.push({
-      type: "paragraph",
-      content: [{ type: "text", text: line.replace(/\*\*(.*?)\*\*/g, "$1") }],
-    });
-    i++;
-  }
-
-  if (nodes.length === 0) {
-    return [{ type: "paragraph", content: [{ type: "text", text: markdown.trim() }] }];
-  }
-
-  return nodes;
 }
 
 // ── generateTitle ─────────────────────────────────────────────────────────────
@@ -370,56 +237,31 @@ export async function runPostPipeline(
 
   let groundingCost = 0;
 
-  // ── Step 2.6: 가이드 강의 시리즈(고정 커리큘럼) 감지 ───────────────────────────
-  // 관리자 페르소나가 가이드 게시판(vibe-coding-guide·automation-guide)에 쓸 때는
-  // 검색 발굴 대신 커리큘럼의 "다음 미발행 편"을 순서대로 쓰고, 본문 정해진 자리에
-  // 이미지 마커([[IMG:key]])를 넣는다(파이프라인이 실제 이미지로 치환).
-  const guideSeries: GuideSeries | undefined = isAdminPersona
-    ? getGuideSeriesForBoard(board)
-    : undefined;
-  let guideChapter: GuideChapter | null = null;
-  let guideChapterCtx: GuideChapterContext | undefined;
-  let guideProgress: GuideProgressMap | undefined;
-  if (guideSeries) {
-    const { getBotSetting } = await import("../../lib/botSettings.js");
-    guideProgress = (await getBotSetting<GuideProgressMap>(GUIDE_PROGRESS_KEY)) ?? {};
-    const seriesProg = guideProgress[guideSeries.title] ?? { published: [], summaries: {} };
-    guideChapter = pickNextChapter(guideSeries, seriesProg);
-    if (!guideChapter) {
-      await logActivity(db, personaId, "skipped", null, {
-        reason: "guide-series-complete",
-        series: guideSeries.title,
-      });
-      return { status: "skipped", reason: "guide-series-complete" };
-    }
-    const nextOrder = guideChapter.order;
-    const previousChapters = guideSeries.chapters
-      .filter((c) => c.order < nextOrder && seriesProg.summaries[String(c.order)])
-      .map((c) => ({
-        order: c.order,
-        title: c.title,
-        summary: seriesProg.summaries[String(c.order)]!,
-      }));
-    guideChapterCtx = {
-      seriesTitle: guideSeries.title,
-      seriesIntro: guideSeries.intro,
-      tool: guideSeries.tool,
-      order: guideChapter.order,
-      totalChapters: guideSeries.chapters.length,
-      chapterTitle: guideChapter.title,
-      goal: guideChapter.goal,
-      outline: guideChapter.outline,
-      imageSlots: guideChapter.imageSlots.map((s) => ({
-        assetKey: s.assetKey,
-        caption: s.caption,
-      })),
-      previousChapters,
-    };
-  }
+  // ── Step 2.5: 큐레이션(퍼오기) 설정 조회 + 모드 결정 ─────────────────────────
+  // bot_persona_boards에서 (personaId, board) 행의 curation_enabled·curation_weights 조회.
+  // 설정 기반 판단으로 ai-creation 하드코딩을 제거하고 모든 게시판에 퍼오기 설정 가능.
+  const boardCurationRows = await db
+    .select({
+      curationEnabled: schema.botPersonaBoards.curationEnabled,
+      curationWeights: schema.botPersonaBoards.curationWeights,
+    })
+    .from(schema.botPersonaBoards)
+    .where(
+      and(
+        eq(schema.botPersonaBoards.personaId, personaId),
+        eq(schema.botPersonaBoards.board, board),
+      ),
+    )
+    .limit(1);
 
-  // ── Step 2.5: AI 창작마당 큐레이션(퍼오기) 결정 ───────────────────────────────
-  // ai-creation 비관리자 글은 "퍼오기 위주" — 유튜브 AI 영상 임베드 / AI 밈 퍼오기 / 봇 직접 생성.
-  const curationMode = decideCurationMode(board, isAdminPersona);
+  const boardCurationConfig: BoardCurationConfig | null = boardCurationRows[0]
+    ? {
+        enabled: boardCurationRows[0].curationEnabled,
+        weights: (boardCurationRows[0].curationWeights as Partial<Record<CurationMode, number>> | null) ?? undefined,
+      }
+    : null;
+
+  const curationMode = decideCurationMode(board, isAdminPersona, boardCurationConfig);
   let curatedVideo: CuratedVideo | null = null;
   if (curationMode === "youtube") {
     curatedVideo = await searchYoutubeVideo(curationVideoQuery());
@@ -438,7 +280,7 @@ export async function runPostPipeline(
   // ── Step 3: 검색 주도 주제 발굴 ───────────────────────────────────────────────
   // "주제를 미리 정하지 않고" 최근 소식을 먼저 검색해 신선한 글감을 만든다.
   // 발굴 대상 게시판(getDiscoveryQuery)이면 정보형·잡담·질문 톤 모두 발굴한다.
-  // (톤은 styleHint로 조정.) 실패 시 고정 시드(있으면)로 폴백.
+  // (커리큘럼 경로가 파이프라인에서 분리됐으므로 guideSeries 조건은 더 이상 없다.)
   let discovered: DiscoveredTopic | null = null;
   const discoveryQuery = getDiscoveryQuery(persona.nickname, board);
   const wantsDiscovery = discoveryQuery !== null;
@@ -453,7 +295,7 @@ export async function runPostPipeline(
           ? "실무에 바로 쓸 만한 정보형 커뮤니티 글 주제."
           : "가볍고 캐주얼한 잡담·리액션 톤의 주제. 최근 화제나 밈처럼 편하게 떠들 만한 것.";
 
-  if (wantsDiscovery && !guideSeries && (await isSearchDrivenTopicsEnabled(db))) {
+  if (wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -473,27 +315,7 @@ export async function runPostPipeline(
 
   // ── Step 4: 주제 확정 (큐레이션 영상 → 발굴 → 고정 시드 → 실시간 폴백) ──────────
   let topicResult: { topic: BotTopicRow; wasRealtime: boolean };
-  if (guideChapter && guideSeries) {
-    // 가이드 강의: 커리큘럼이 정한 편이 곧 주제(합성 토픽, 재검색·주제선점 없음).
-    const guideTopic: BotTopicRow = {
-      id: `guide-${Date.now()}`,
-      personaId,
-      board,
-      titleSeed: guideChapter.title,
-      topicKind: "fixed",
-      status: "unused",
-      usedAt: null,
-      seriesGroup: guideSeries.title,
-      createdAt: new Date(),
-    };
-    topicResult = { topic: guideTopic, wasRealtime: true };
-    await logActivity(db, personaId, "planned", null, {
-      reason: "guide-chapter",
-      series: guideSeries.title,
-      order: guideChapter.order,
-      chapter: guideChapter.title,
-    });
-  } else if (curatedVideo) {
+  if (curatedVideo) {
     // 유튜브 큐레이션: 영상 자체가 소재이므로 시드 주제가 필요 없다(제목=영상 제목).
     const videoTopic: BotTopicRow = {
       id: `curated-${Date.now()}`,
@@ -566,10 +388,7 @@ export async function runPostPipeline(
 
   // ── Step 6: 검색·그라운딩 (발굴했으면 그 근거 재사용, 아니면 새로 검색) ──────────
   let facts: FactSummary;
-  if (guideChapter) {
-    // 가이드 강의: 커리큘럼(저작 콘텐츠)이 근거이므로 별도 검색 그라운딩을 하지 않는다.
-    facts = { facts: [], sourceUrls: [], confidence: "low" };
-  } else if (discovered) {
+  if (discovered) {
     // 발굴 단계에서 이미 검색·근거를 확보했으므로 재검색하지 않는다.
     facts = adaptGrounding(discovered.grounding);
   } else {
@@ -602,9 +421,7 @@ export async function runPostPipeline(
     info_ratio: persona.infoRatio,
   };
   // 발굴로 실제 소재(제품/기능)가 있으면 웹 검색 이미지(출처 표기)를 우선한다.
-  let imageStrategyOptions: ImageStrategyOptions = { preferWeb: discovered !== null };
-  // 웹/스톡 이미지 검색어: 발굴이 준 영어 키워드 우선, 없으면 주제 제목.
-  let webImageQuery = discovered?.imageQuery || topicResult.topic.titleSeed;
+  const imageStrategyOptions: ImageStrategyOptions = { preferWeb: discovered !== null };
   // decideImageStrategy는 동기 함수 (isAdminPersona=true이면 이미 'ai' 반환)
   const baseStrategy = decideImageStrategy(
     personaContext,
@@ -619,15 +436,8 @@ export async function runPostPipeline(
     imageStrategy = "none";
   } else if (effectiveCuration === "meme") {
     imageStrategy = "web";
-    imageStrategyOptions = { preferWeb: true };
-    webImageQuery = curationMemeQuery(persona.nickname);
   } else if (effectiveCuration === "ai") {
     imageStrategy = "ai";
-  }
-
-  // 가이드 강의: 마커 기반 인라인 이미지를 쓰므로 단일 상단 이미지(fetchBotImage)는 끈다.
-  if (guideChapter) {
-    imageStrategy = "none";
   }
 
   // 큐레이션 소개글 컨텍스트(프롬프트에 전달). ai 모드·비큐레이션은 undefined.
@@ -645,7 +455,7 @@ export async function runPostPipeline(
   // ── Step 7: 관리자 연재 컨텍스트 조회 ────────────────────────────────────────
   let seriesContext: SeriesContext | undefined;
   const seriesGroup = topicResult.topic.seriesGroup ?? input.forceSeriesGroup;
-  if (isAdminPersona && seriesGroup && !guideChapter) {
+  if (isAdminPersona && seriesGroup) {
     const [episodeCountRow] = await db
       .select({ c: count() })
       .from(schema.botTopics)
@@ -681,7 +491,6 @@ export async function runPostPipeline(
       postKind: internalPostKind,
       seriesContext,
       curation: curationContext,
-      guideChapter: guideChapterCtx,
     });
 
     // 생성 모델 호출
@@ -739,8 +548,9 @@ export async function runPostPipeline(
       allowObvious:
         internalPostKind === "guide" ||
         (effectiveCuration !== null && effectiveCuration !== "ai"),
-      // 커리큘럼 강의 편은 교육적 문체라 ai_tone·duplicate 오탐이 잦아 비차단 완화.
-      allowDidacticTone: guideChapter !== null,
+      // 일반 파이프라인에서는 didacticTone 비차단하지 않는다.
+      // 커리큘럼 강의는 curriculum-staging.ts에서 allowDidacticTone: true로 전달.
+      allowDidacticTone: false,
     });
 
     const { censorResult, costUsd: censorCostUsd } = censorOutput;
@@ -758,26 +568,159 @@ export async function runPostPipeline(
     // ── 분기 처리 ────────────────────────────────────────────────────────────
 
     if (censorResult.overall === "pass") {
-      // 이미지 처리 (통과 시에만 비용 지출)
-      let imageUrl: string | null = null;
-      let imageSource: { label: string; url?: string } | null = null;
-      let imageAlt: string | null = null;
+      // ── 이미지 처리 ────────────────────────────────────────────────────────────
       let imageCost = 0;
-      if (imageStrategy !== "none") {
-        const imageResult = await fetchBotImage({
-          persona: personaContext,
-          board,
-          postKind: imagePostKind,
-          keyword: topicResult.topic.titleSeed,
-          webQuery: webImageQuery,
-          strategyOptions: imageStrategyOptions,
-          jobId,
-          uploadFn: uploadImage,
-          imageModel,
+      let finalContentJson: Record<string, unknown>;
+
+      if (curatedVideo) {
+        // 모드 C-1: 유튜브 큐레이션 — 영상 노드를 맨 위에 삽입
+        finalContentJson = prependYoutubeToTiptapDoc(draftJson, curatedVideo.url, {
+          channel: curatedVideo.channel,
+          sourceUrl: curatedVideo.pageUrl,
         });
-        imageUrl = imageResult.imageUrl;
-        imageSource = imageResult.source;
-        imageAlt = discovered?.imageQuery ?? topicResult.topic.titleSeed;
+
+      } else if (effectiveCuration === "meme") {
+        // 모드 C-2: 밈 퍼오기 — 웹 이미지 검색 + 저작권 위험 판정
+        try {
+          const memeQuery = curationMemeQuery(persona.nickname);
+          const memeImgResult = await fetchBotImage({
+            persona: personaContext,
+            board,
+            postKind: imagePostKind,
+            keyword: memeQuery,
+            webQuery: memeQuery,
+            strategyOptions: { preferWeb: true },
+            uploadFn: uploadImage,
+            imageModel,
+          });
+
+          const sourceUrl = memeImgResult.source?.url;
+          if (memeImgResult.imageUrl && sourceUrl && checkCurationCopyrightRisk(sourceUrl)) {
+            // 저작권 위험 → 보류 큐 적재 + 파이프라인 중단
+            await db.insert(schema.botHoldQueue).values({
+              jobId,
+              reason: "copyright_risk",
+              decided: false,
+            });
+            await db
+              .update(schema.botGenerationJobs)
+              .set({ status: "held", updatedAt: new Date() })
+              .where(eq(schema.botGenerationJobs.id, jobId));
+            await logActivity(db, personaId, "held", jobId, {
+              reason: "copyright_risk",
+              sourceUrl,
+            });
+            pipelineResult = { status: "held", jobId };
+            break;
+          } else if (memeImgResult.imageUrl) {
+            // 저작권 안전 → 이미지 + 출처 캡션 삽입
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, memeImgResult.imageUrl, {
+              sourceLabel: memeImgResult.source?.label ?? undefined,
+              sourceUrl: memeImgResult.source?.url ?? undefined,
+            });
+            imageCost += 0; // 웹 이미지는 AI 비용 없음
+          } else {
+            // 이미지 없음 → 원본 본문 사용(게시 차단 금지)
+            finalContentJson = draftJson;
+          }
+        } catch (memeErr) {
+          // 밈 이미지 실패 → 이미지 없이 계속(게시 차단 금지)
+          console.warn(
+            "[post-pipeline] 밈 이미지 조달 실패 (이미지 없이 계속):",
+            (memeErr as Error).message,
+          );
+          finalContentJson = draftJson;
+        }
+
+      } else if (imageStrategy !== "none") {
+        // 모드 B: 일반 글 사후 이미지 플래너 (Story 13.7) — 비큐레이션 또는 ai 모드
+        try {
+          const plan: PostImagePlan = await planImagesForPost(
+            draftJson,
+            topicResult.topic.titleSeed,
+            genAssignment,
+            (assignment, prompt) => callModel(assignment, prompt),
+            {
+              maxImages: 3,
+              preferDiagram: true,
+              markdownToTiptapFn: (md) => ({ type: "doc", content: parseMarkdownLines(md) }),
+            },
+          );
+          imageCost += plan.plannerCostUsd;
+
+          if (plan.items.length > 0) {
+            const manifest: GuideAssetManifest = {};
+            for (const item of plan.items) {
+              try {
+                if (item.kind === "ai_diagram" && item.diagramPrompt) {
+                  // AI 도식 생성 — jobId 미전달로 비용을 파이프라인에서 직접 합산
+                  const result = await genImage({
+                    prompt: item.diagramPrompt,
+                    imageModel,
+                  });
+                  if (result) {
+                    const ext = result.mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+                    const uploaded = await uploadImage(
+                      { filename: `bot-diagram-${item.key}.${ext}`, mimetype: result.mimetype, data: result.data },
+                      "editor-images",
+                    );
+                    manifest[item.key] = {
+                      url: uploaded.url,
+                      caption: item.positionHint ?? undefined,
+                    };
+                    imageCost += result.costUsd;
+                  }
+                } else if ((item.kind === "stock" || item.kind === "web") && item.searchQuery) {
+                  const imgResult = await fetchBotImage({
+                    persona: personaContext,
+                    board,
+                    postKind: imagePostKind,
+                    keyword: item.searchQuery,
+                    webQuery: item.searchQuery,
+                    strategyOptions: { preferWeb: item.kind === "web" },
+                    uploadFn: uploadImage,
+                    imageModel,
+                  });
+                  if (imgResult.imageUrl) {
+                    manifest[item.key] = {
+                      url: imgResult.imageUrl,
+                      caption: item.positionHint ?? undefined,
+                      sourceLabel: imgResult.source?.label ?? undefined,
+                      sourceUrl: imgResult.source?.url ?? undefined,
+                    };
+                  }
+                }
+              } catch (itemErr) {
+                console.warn(
+                  "[post-pipeline] 이미지 생성 항목 실패 (건너뜀):",
+                  item.key,
+                  (itemErr as Error).message,
+                );
+              }
+            }
+            // 마커 자리에 이미지 인라인 삽입
+            if (Object.keys(manifest).length > 0) {
+              finalContentJson = insertInlineImagesByMarker(plan.bodyWithMarkers, manifest).doc;
+            } else {
+              // 이미지 생성이 모두 실패 → 원본 본문 사용
+              finalContentJson = draftJson;
+            }
+          } else {
+            // 플래너가 0개 결정 → 이미지 없이 게시
+            finalContentJson = draftJson;
+          }
+        } catch (plannerErr) {
+          // 플래너 자체 실패 → 이미지 없이 게시(게시 차단 금지)
+          console.warn(
+            "[post-pipeline] 이미지 플래너 실패 (이미지 없이 계속):",
+            (plannerErr as Error).message,
+          );
+          finalContentJson = draftJson;
+        }
+
+      } else {
+        // imageStrategy === "none": 이미지 없음(유튜브 큐레이션 오버라이드 또는 명시적 none)
+        finalContentJson = draftJson;
       }
 
       // 비용 누적
@@ -795,33 +738,6 @@ export async function runPostPipeline(
         })
         .where(eq(schema.botGenerationJobs.id, jobId));
 
-      // Tiptap에 미디어 삽입.
-      // 유튜브 큐레이션이면 영상 노드를 맨 위에 삽입(출처=채널·원본URL).
-      // 그 외에는 이미지 삽입(출처 있으면 출처 캡션까지).
-      let finalContentJson: Record<string, unknown>;
-      if (guideChapter) {
-        // 가이드 강의: 본문 [[IMG:key]] 마커를 매니페스트의 실제 이미지로 인라인 치환.
-        const { getBotSetting } = await import("../../lib/botSettings.js");
-        const manifest =
-          (await getBotSetting<GuideAssetManifest>(GUIDE_ASSET_MANIFEST_KEY)) ?? {};
-        finalContentJson = insertInlineImagesByMarker(draftJson, manifest).doc;
-      } else if (curatedVideo) {
-        finalContentJson = prependYoutubeToTiptapDoc(draftJson, curatedVideo.url, {
-          channel: curatedVideo.channel,
-          sourceUrl: curatedVideo.pageUrl,
-        });
-      } else if (imageUrl) {
-        finalContentJson = imageSource
-          ? prependImageWithSourceToTiptapDoc(draftJson, imageUrl, {
-              alt: imageAlt,
-              sourceLabel: imageSource.label,
-              sourceUrl: imageSource.url ?? null,
-            })
-          : prependImageToTiptapDoc(draftJson, imageUrl, imageAlt ?? undefined);
-      } else {
-        finalContentJson = draftJson;
-      }
-
       // contentGuard 검사
       const guardResult = await runContentGuard(draftText);
       if (!guardResult.ok) {
@@ -837,10 +753,7 @@ export async function runPostPipeline(
       }
 
       // 게시 함수 분기 (#6 정합)
-      const title =
-        guideChapter && guideSeries
-          ? `${guideSeries.title} ${guideChapter.order}강. ${guideChapter.title}`
-          : generateTitle(topicResult.topic.titleSeed, seriesContext);
+      const title = generateTitle(topicResult.topic.titleSeed, seriesContext);
       const tags = topicResult.topic.titleSeed
         .split(/\s+/)
         .filter((w) => w.length > 1)
@@ -900,19 +813,6 @@ export async function runPostPipeline(
         jobId,
         postId: writeResult.refId,
       };
-
-      // 가이드 강의 발행 성공 → 진척도 갱신(다음 편이 이어받고 중복하지 않도록 요약 저장).
-      if (guideChapter && guideSeries && writeResult.status === "published") {
-        const prog: GuideProgressMap = guideProgress ?? {};
-        const sp = prog[guideSeries.title] ?? { published: [], summaries: {} };
-        if (!sp.published.includes(guideChapter.order)) {
-          sp.published.push(guideChapter.order);
-        }
-        sp.summaries[String(guideChapter.order)] = summarizeForContinuity(draftText);
-        prog[guideSeries.title] = sp;
-        const { setBotSetting } = await import("../../lib/botSettings.js");
-        await setBotSetting(GUIDE_PROGRESS_KEY, prog);
-      }
     } else if (censorResult.overall === "ambiguous") {
       // HELD → bot_hold_queue INSERT
       await db.insert(schema.botHoldQueue).values({

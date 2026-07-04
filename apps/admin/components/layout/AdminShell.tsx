@@ -89,9 +89,10 @@ const NAV_GROUPS: NavGroup[] = [
         icon: "ri-robot-line",
         label: "활동 봇",
         children: [
-          { key: "bots-list",       href: "/bots",            icon: "ri-list-check",       label: "봇 목록",   subKey: "" },
-          { key: "bots-operations", href: "/bots/operations", icon: "ri-settings-3-line",  label: "운영 패널", subKey: "operations" },
+          { key: "bots-list",       href: "/bots",            icon: "ri-list-check",       label: "봇 목록",      subKey: "" },
+          { key: "bots-operations", href: "/bots/operations", icon: "ri-settings-3-line",  label: "운영 패널",    subKey: "operations" },
           { key: "bots-ai-usage",   href: "/bots/ai-usage",   icon: "ri-money-dollar-circle-line", label: "AI 사용량", subKey: "ai-usage" },
+          { key: "bots-curriculum", href: "/bots/curriculum", icon: "ri-book-open-line",   label: "커리큘럼 플랜", subKey: "curriculum" },
         ],
       },
     ],
@@ -106,7 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** super_admin 전용으로 숨길 메뉴 key 집합(UX-DR-A6: 숨김, disabled 아님) */
-const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members", "bots"]);
+const SUPER_ADMIN_ONLY_KEYS = new Set(["ads", "settings", "admin-members", "bots", "bots-curriculum"]);
 
 export function AdminShell({
   breadcrumb,

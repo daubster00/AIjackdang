@@ -225,6 +225,20 @@
       "when": 1782560000000,
       "tag": "0031_admin_cols_reconcile",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782570000000,
+      "tag": "0032_guide_curriculum",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782580000000,
+      "tag": "0033_bot_persona_boards_curation",
+      "breakpoints": true
     }
   ]
 }

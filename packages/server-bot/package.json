@@ -13,7 +13,9 @@
     "./pipeline": "./src/pipeline/index.ts",
     "./guard": "./src/guard/index.ts",
     "./gates": "./src/gates.ts",
-    "./botSettings": "./src/botSettings.ts"
+    "./botSettings": "./src/botSettings.ts",
+    "./curriculum-publish": "./src/curriculum-publish.ts",
+    "./curriculum-schedule": "./src/curriculum-schedule.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

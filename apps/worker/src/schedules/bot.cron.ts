@@ -6,9 +6,10 @@
  * - 각 cron의 실 처리기는 해당 Story에서 구현 (daily-plan: 11.11, report: 11.17)
  *
  * 크론 시간 (UTC 기준):
- *   bot.daily-plan    UTC 17:00 = KST 02:00 (새벽, 다음 날 계획 수립)
- *   bot.daily-report  UTC 22:00 = KST 07:00 (아침 출근 전 전날 리포트)
- *   bot.refill-topics UTC 18:00 = KST 03:00 (daily-plan보다 1시간 앞서 주제 풀 보충)
+ *   bot.daily-plan       UTC 17:00 = KST 02:00 (새벽, 다음 날 계획 수립)
+ *   bot.daily-report     UTC 22:00 = KST 07:00 (아침 출근 전 전날 리포트)
+ *   bot.refill-topics    UTC 18:00 = KST 03:00 (daily-plan보다 1시간 앞서 주제 풀 보충)
+ *   bot.curriculum-publish  every 30 min  (30분마다) 준비완료 챕터 게시 스캔
  *
  * [Source: Story 11.13 Task 5]
  */
@@ -46,6 +47,19 @@ export async function setupBotCrons(botQueue: Queue): Promise<void> {
     { repeat: { pattern: "0 18 * * *" }, jobId: "bot-refill-topics-cron" },
   );
   console.log("[worker] bot.refill-topics 크론 등록 완료 (UTC 18:00 = KST 03:00)");
+
+  // ── 4. bot.curriculum-publish: 30분마다 스캔 (UTC) ──────────────────────────
+  // KST 무관 — 예약 시각 도달 여부만 판단하므로 UTC 기준 30분 간격이면 충분.
+  // jobId 고정 = BullMQ 멱등 (재기동 시 중복 등록 없음). (Story 13.6 AC: #2)
+  await botQueue.add(
+    "bot.curriculum-publish",
+    { triggeredAt: new Date().toISOString() },
+    {
+      repeat: { pattern: "*/30 * * * *" },
+      jobId: "bot-curriculum-publish-cron",
+    },
+  );
+  console.log("[worker] bot.curriculum-publish 크론 등록 완료 (30분 간격)");
 }
 
 // ── [11.13] 봇 cron END ───────────────────────────────────────────────────────

@@ -164,6 +164,10 @@ export const botPersonaBoards = pgTable(
     board: varchar("board", { length: 64 }).notNull(),
     /** 배분 가중치. */
     weight: integer("weight").notNull().default(1),
+    /** 이 게시판에서 퍼오기(큐레이션) 모드를 켤지 여부. */
+    curationEnabled: boolean("curation_enabled").notNull().default(false),
+    /** 퍼오기 가중치({ youtube?: number, meme?: number, ai?: number }). null이면 기본값 사용. */
+    curationWeights: jsonb("curation_weights"),
   },
   (t) => ({
     personaBoardUq: unique("bot_persona_boards_persona_board_uq").on(t.personaId, t.board),

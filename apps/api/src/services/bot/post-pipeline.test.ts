@@ -65,6 +65,12 @@ vi.mock("@ai-jakdang/database", () => ({
     botTopics: {},
     botHoldQueue: {},
     botActivityLog: {},
+    botPersonaBoards: {
+      personaId: {},
+      board: {},
+      curationEnabled: {},
+      curationWeights: {},
+    },
   },
 }));
 
@@ -399,14 +405,21 @@ describe("runPostPipeline", () => {
 
     // count() 쿼리도 있음
     // select 호출 순서:
-    //   1) 첫 번째 mockReturnValueOnce → 페르소나 조회 (Step 3): .where().limit()
-    //   2) 두 번째 mockReturnValueOnce → 연재 에피소드 수 집계 (Step 7):
-    //      await db.select().from().where() (limit 없음) → where() 자체가 Promise
+    //   1) 페르소나 조회 (Step 1): .where().limit()
+    //   2) 큐레이션 설정 조회 (Step 2.5, 13.8): .where().limit() → 관리자라 curation null
+    //   3) 연재 에피소드 수 집계 (Step 7): await ...where() (limit 없음) → where()가 Promise
     mockDb.select
       .mockReturnValueOnce({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([adminPersona]),
+          }),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
           }),
         }),
       })

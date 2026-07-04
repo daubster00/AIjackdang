@@ -257,6 +257,17 @@ export async function checkBotGates(jobKind: string): Promise<GateResult> {
     return { allowed: true, observationMode: obsMode ?? false };
   }
 
+  // ── curriculum-publish 잡: 킬 스위치 + 비용 상한만 확인 ─────────────────────
+  // 커리큘럼은 관리자가 사전 승인한 콘텐츠 → 글/댓글 수 상한·관찰 모드 미적용.
+  // 비용 상한은 여전히 적용(과금 폭주 방지). (Story 13.6 AC: #5)
+  if (jobKind === "curriculum-publish") {
+    const costReached = await isCostLimitReached().catch(() => false);
+    if (costReached) {
+      return { allowed: false, reason: "daily_cost_limit_reached" };
+    }
+    return { allowed: true, observationMode: false };
+  }
+
   // ── Step 2~5: write/comment 잡 — 병렬 조회 (지연 최소화) ─────────────────────
   const [
     postCount,

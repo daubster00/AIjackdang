@@ -257,6 +257,12 @@ export const botPersonaDetailSchema = z.object({
     z.object({
       board: z.string(),
       weight: z.number().int(),
+      curationEnabled: z.boolean().optional(),
+      curationWeights: z.object({
+        youtube: z.number().optional(),
+        meme: z.number().optional(),
+        ai: z.number().optional(),
+      }).nullable().optional(),
     }),
   ),
 });
@@ -435,6 +441,14 @@ export const botPersonaBoardUpsertSchema = z.object({
     z.object({
       board: z.string(),
       weight: z.number().int().min(1).max(10),
+      /** 이 게시판에서 퍼오기(큐레이션) 모드를 켤지 여부. 기본 false. */
+      curationEnabled: z.boolean().optional().default(false),
+      /** 퍼오기 가중치({ youtube?, meme?, ai? }). null이면 기본값 사용. */
+      curationWeights: z.object({
+        youtube: z.number().optional(),
+        meme: z.number().optional(),
+        ai: z.number().optional(),
+      }).nullable().optional(),
     }),
   ),
 });

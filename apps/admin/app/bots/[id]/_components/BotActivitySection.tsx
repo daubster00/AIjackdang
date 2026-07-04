@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * 활동 설정 탭 (Story 11.15 — Task 6).
+ * 활동 설정 탭 (Story 11.15 — Task 6, Story 13.8 — 퍼오기 설정 확장).
  *
  * - 활동 리듬(글/주·댓글/주·활동시간대·요일가중치) 편집
- * - 담당 게시판(board + weight) 추가/삭제
+ * - 담당 게시판(board + weight + curationEnabled + curationWeights) 추가/삭제
  * - 저장 → PATCH /rhythm + PUT /boards 순차 호출
  */
 
@@ -26,9 +26,19 @@ interface ActiveDays {
   weekend: number;
 }
 
+interface CurationWeights {
+  youtube?: number;
+  meme?: number;
+  ai?: number;
+}
+
 interface BoardEntry {
   board: string;
   weight: number;
+  /** 이 게시판에서 퍼오기(큐레이션) 모드를 켤지 여부. */
+  curationEnabled: boolean;
+  /** 퍼오기 가중치. null이면 기본값(youtube:45, meme:40, ai:15) 사용. */
+  curationWeights: CurationWeights | null;
 }
 
 export interface BotActivitySectionProps {
@@ -97,7 +107,14 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
           weekend: days?.weekend ?? 0.3,
         });
       }
-      setBoards(data.boards ?? []);
+      setBoards(
+        (data.boards ?? []).map((b: BoardEntry) => ({
+          board: b.board,
+          weight: b.weight,
+          curationEnabled: b.curationEnabled ?? false,
+          curationWeights: b.curationWeights ?? null,
+        })),
+      );
     } catch {
       showToast("활동 설정을 불러오지 못했습니다.", "error");
     } finally {
@@ -131,13 +148,47 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
   function addBoard() {
     if (!addBoardValue) return;
     if (boards.some((b) => b.board === addBoardValue)) return;
-    setBoards((prev) => [...prev, { board: addBoardValue, weight: addBoardWeight }]);
+    setBoards((prev) => [
+      ...prev,
+      {
+        board: addBoardValue,
+        weight: addBoardWeight,
+        curationEnabled: false,
+        curationWeights: null,
+      },
+    ]);
     setAddBoardValue("");
     setAddBoardWeight(5);
   }
 
   function removeBoard(board: string) {
     setBoards((prev) => prev.filter((b) => b.board !== board));
+  }
+
+  function updateBoardField<K extends keyof BoardEntry>(
+    board: string,
+    field: K,
+    value: BoardEntry[K],
+  ) {
+    setBoards((prev) =>
+      prev.map((b) => (b.board === board ? { ...b, [field]: value } : b)),
+    );
+  }
+
+  function updateCurationWeight(
+    board: string,
+    key: keyof CurationWeights,
+    rawValue: string,
+  ) {
+    const parsed = parseInt(rawValue, 10);
+    const value = isNaN(parsed) ? undefined : parsed;
+    setBoards((prev) =>
+      prev.map((b) =>
+        b.board === board
+          ? { ...b, curationWeights: { ...(b.curationWeights ?? {}), [key]: value } }
+          : b,
+      ),
+    );
   }
 
   const availableBoardOptions = ALL_BOARD_OPTIONS.filter(
@@ -166,12 +217,19 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
         throw new Error((err as { error?: { message?: string } })?.error?.message ?? "리듬 저장 실패");
       }
 
-      // 2. PUT /boards
+      // 2. PUT /boards (curationEnabled·curationWeights 포함)
       const boardsRes = await fetch(`${API_BASE_URL}/api/v1/admin/bots/${botId}/boards`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ boards }),
+        body: JSON.stringify({
+          boards: boards.map((b) => ({
+            board: b.board,
+            weight: b.weight,
+            curationEnabled: b.curationEnabled,
+            curationWeights: b.curationWeights,
+          })),
+        }),
       });
       if (!boardsRes.ok) {
         const err = await boardsRes.json().catch(() => ({}));
@@ -190,6 +248,13 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
 
   function getBoardLabel(value: string): string {
     return ALL_BOARD_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  }
+
+  // ── 퍼오기 가중치 합계 계산 ──────────────────────────────────────────────────
+
+  function curationWeightTotal(w: CurationWeights | null): number {
+    if (!w) return 0;
+    return (w.youtube ?? 0) + (w.meme ?? 0) + (w.ai ?? 0);
   }
 
   // ── 렌더 ──────────────────────────────────────────────────────────────────
@@ -398,39 +463,115 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
           <h2 className="section-title">담당 게시판</h2>
           <p className="section-description">
             이 봇이 글을 올릴 게시판과 배분 가중치(1~10)를 설정합니다.
+            퍼오기(미디어 우선) 모드를 켜면 유튜브·밈 퍼오기 글을 생성합니다.
           </p>
         </div>
         <article className="card">
           <div className="card-body">
             {/* 현재 담당 목록 */}
             {boards.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <table className="admin-table" style={{ width: "100%" }}>
+              <div style={{ marginBottom: 16, overflowX: "auto" }}>
+                <table className="admin-table" style={{ width: "100%", minWidth: 640 }}>
                   <thead>
                     <tr>
                       <th>게시판</th>
                       <th>가중치</th>
+                      <th style={{ whiteSpace: "nowrap" }}>퍼오기 ON</th>
+                      <th style={{ whiteSpace: "nowrap" }}>YouTube %</th>
+                      <th style={{ whiteSpace: "nowrap" }}>Meme %</th>
+                      <th style={{ whiteSpace: "nowrap" }}>AI %</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {boards.map((b) => (
-                      <tr key={b.board}>
-                        <td>{getBoardLabel(b.board)}</td>
-                        <td>{b.weight}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-danger"
-                            onClick={() => removeBoard(b.board)}
-                          >
-                            <i className="ri-delete-bin-line" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {boards.map((b) => {
+                      const wTotal = curationWeightTotal(b.curationWeights);
+                      const wOk = !b.curationEnabled || b.curationWeights === null || wTotal === 0 || wTotal === 100;
+                      return (
+                        <tr key={b.board}>
+                          <td style={{ whiteSpace: "nowrap" }}>{getBoardLabel(b.board)}</td>
+                          <td>{b.weight}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={b.curationEnabled}
+                              onChange={(e) =>
+                                updateBoardField(b.board, "curationEnabled", e.target.checked)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              disabled={!b.curationEnabled}
+                              value={b.curationWeights?.youtube ?? ""}
+                              placeholder="45"
+                              className="control"
+                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                              onChange={(e) =>
+                                updateCurationWeight(b.board, "youtube", e.target.value)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              disabled={!b.curationEnabled}
+                              value={b.curationWeights?.meme ?? ""}
+                              placeholder="40"
+                              className="control"
+                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                              onChange={(e) =>
+                                updateCurationWeight(b.board, "meme", e.target.value)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              disabled={!b.curationEnabled}
+                              value={b.curationWeights?.ai ?? ""}
+                              placeholder="15"
+                              className="control"
+                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                              onChange={(e) =>
+                                updateCurationWeight(b.board, "ai", e.target.value)
+                              }
+                            />
+                          </td>
+                          <td>
+                            {b.curationEnabled && b.curationWeights !== null && !wOk && (
+                              <span style={{ color: "var(--warning, #d97706)", fontSize: 12, marginRight: 8 }}>
+                                합계 {wTotal}
+                              </span>
+                            )}
+                            {b.curationEnabled && b.curationWeights === null && (
+                              <span style={{ color: "var(--gray-400)", fontSize: 11, marginRight: 8 }}>
+                                기본값
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
+                              onClick={() => removeBoard(b.board)}
+                            >
+                              <i className="ri-delete-bin-line" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+                <p style={{ fontSize: 12, color: "var(--gray-400)", marginTop: 8 }}>
+                  퍼오기 가중치(YouTube·Meme·AI): 비워두면 기본값(45·40·15) 사용. 입력 시 합계 100 권장.
+                </p>
               </div>
             )}
             {/* 추가 행 */}

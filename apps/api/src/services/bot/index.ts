@@ -12,3 +12,4 @@ export * from "./censor.js";
 export * from "./post-pipeline.js";
 export * from "./comment-pipeline.js";
 export * from "./holdQueue.js";
+export * from "./curriculum-staging.js";

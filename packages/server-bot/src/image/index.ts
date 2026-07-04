@@ -44,6 +44,8 @@ export { pickStock } from "./stock.js";
 export { genImage } from "./generate.js";
 export { searchWebImage } from "./web.js";
 export { prependImageToTiptapDoc, prependImageWithSourceToTiptapDoc, prependYoutubeToTiptapDoc, insertInlineImagesByMarker } from "./tiptap.js";
+export type { ImagePlanItem, PostImagePlan, PlanImagesOptions } from './planner.js';
+export { planImagesForPost } from './planner.js';
 
 /**
  * 이미지 업로드 함수 타입.

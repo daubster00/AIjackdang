@@ -174,8 +174,12 @@ function buildCurationUserPrompt(
  *
  * 강의 챕터처럼: 앞 편 요약으로 이어받고 → 이번 편 학습목표·소주제를 순서대로 → 정해진
  * 자리에 이미지 마커([[IMG:key]])를 넣게 한다. 이미지 실물은 파이프라인이 치환한다.
+ *
+ * curriculum-staging.ts(Story 13.3)에서 직접 호출하므로 export.
+ * index.ts가 이미 `export * from "./prompt-builder.js"` 로 재수출하므로
+ * index.ts는 건드리지 않아도 된다.
  */
-function buildGuideChapterUserPrompt(
+export function buildGuideChapterUserPrompt(
   gc: GuideChapterContext,
   facts: FactSummary,
 ): string {

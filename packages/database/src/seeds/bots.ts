@@ -15,7 +15,7 @@
  * [Source: docs/seeding-bot/ARCHITECTURE.md], [Source: docs/seeding-bot-topic-pools.md]
  */
 
-import { eq, count as drizzleCount } from "drizzle-orm";
+import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { getDb, closeDb } from "../index.js";
 import * as schemaExports from "../schema/index.js";
 
@@ -408,6 +408,21 @@ export async function seedBotPersonas(db: DbLike): Promise<void> {
           .onConflictDoNothing();
       }
       console.info(`  [+] bot_persona_boards: ${persona.boards.length}개 보드 (중복 스킵)`);
+
+      // ai-creation 게시판 행은 curation_enabled=true 보장 (멱등 — 신규 컬럼 초기화)
+      // 기존 동작: ai-creation은 퍼오기 위주. migration DEFAULT false를 true로 설정.
+      if (persona.boards.includes("ai-creation")) {
+        await tx
+          .update(botPersonaBoards)
+          .set({ curationEnabled: true })
+          .where(
+            and(
+              eq(botPersonaBoards.personaId, personaId),
+              eq(botPersonaBoards.board, "ai-creation"),
+            ),
+          );
+        console.info(`  [~] bot_persona_boards: "${persona.nickname}" ai-creation curation_enabled=true 설정`);
+      }
 
       // ── 4. bot_activity_rhythm (persona_id 당 1개, 없으면 INSERT) ──────────────
       const [existingRhythm] = await tx

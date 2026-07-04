@@ -12,3 +12,4 @@ export * from "./duplicate-check.js";
 export * from "./injection-guard.js";
 export * from "./context-types.js";
 export * from "./reaction-randomizer.js";
+export * from "./slot-guidance.js";
