@@ -121,6 +121,33 @@ const resourceDraftSchema = z.object({
   status: z.enum(["published", "draft"]).optional(),
 });
 
+// ── Tiptap 본문 텍스트 추출 (미리보기용) ──────────────────────────────────────
+
+type TiptapNode = { type?: string; text?: string; content?: TiptapNode[] };
+
+function extractTiptapText(node: TiptapNode): string {
+  if (!node || typeof node !== "object") return "";
+  const parts: string[] = [];
+  if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) parts.push(extractTiptapText(child));
+  }
+  return parts.join(" ");
+}
+
+/**
+ * draftContent가 봉투(envelope) 형태가 아니라 Tiptap 본문 문서 그대로인지 판별.
+ * (봇 파이프라인은 held 시 draft_content에 Tiptap 문서만 저장한다 — post-pipeline.ts)
+ */
+function isBareTiptapDoc(v: unknown): v is TiptapNode {
+  if (!v || typeof v !== "object") return false;
+  const d = v as Record<string, unknown>;
+  if ("board" in d || "title" in d || "contentJson" in d || "descriptionJson" in d) {
+    return false; // 이미 봉투 형태
+  }
+  return d.type === "doc" || Array.isArray(d.content);
+}
+
 // ── 초안 미리보기 추출 ────────────────────────────────────────────────────────
 
 function extractDraftPreview(draftContent: unknown): string | null {
@@ -128,7 +155,84 @@ function extractDraftPreview(draftContent: unknown): string | null {
   const d = draftContent as Record<string, unknown>;
   if (typeof d.title === "string") return d.title.slice(0, 200);
   if (typeof d.content === "string") return d.content.slice(0, 200);
+  if (typeof d.text === "string") return d.text.slice(0, 200); // 댓글 초안 { text }
+  // Tiptap 본문 문서 그대로 저장된 경우 — 본문 텍스트에서 추출
+  if (isBareTiptapDoc(draftContent)) {
+    const text = extractTiptapText(draftContent).trim();
+    return text ? text.slice(0, 200) : null;
+  }
   return null;
+}
+
+/**
+ * draftContent를 job_kind별 봉투(envelope) 형태로 정규화한다.
+ *
+ * 봇 파이프라인은 held 시 draft_content에 Tiptap 본문 문서만 저장하므로,
+ * 통과(approve) 시 postDraftSchema 등 봉투 스키마와 형태가 맞지 않아 항상 검증 실패한다.
+ * 이미 봉투 형태면 그대로 반환하고, Tiptap 본문 문서면 잡 메타(게시판·제목 씨앗)로 감싼다.
+ *
+ * @param board     - bot_generation_jobs.targetBoard (post/resource 게시판 슬러그)
+ * @param titleSeed - 연결된 bot_topics.titleSeed (제목 씨앗, 없으면 대체 문구)
+ */
+function normalizeDraftToEnvelope(
+  jobKind: string,
+  draftContent: unknown,
+  ctx: { board: string | null; titleSeed: string | null; targetPostId: string | null },
+): unknown {
+  // ── 댓글·대댓글: 파이프라인은 draft_content에 { text } 만 저장 ─────────────────
+  if (jobKind === "comment" || jobKind === "reply") {
+    const d =
+      draftContent && typeof draftContent === "object"
+        ? (draftContent as Record<string, unknown>)
+        : {};
+    if (typeof d.content === "string") return draftContent; // 이미 봉투 형태
+    if (typeof d.text === "string" && ctx.targetPostId) {
+      return { targetType: "post", targetId: ctx.targetPostId, content: d.text };
+    }
+    return draftContent; // 형태 불명 — 원본 유지(하위 파싱에서 422 처리)
+  }
+
+  if (!isBareTiptapDoc(draftContent)) return draftContent; // 이미 봉투 형태
+  const doc = draftContent as Record<string, unknown>;
+  const title = ctx.titleSeed?.trim() || "(제목 미상)";
+
+  if (jobKind === "question") {
+    return { title, contentJson: doc, tags: [], status: "published" };
+  }
+  if (jobKind === "resource") {
+    const board = ctx.board ?? "";
+    const rawType = board.startsWith("resource:")
+      ? board.slice("resource:".length)
+      : "prompt";
+    const resourceType = [
+      "prompt",
+      "claude-code-skill",
+      "mcp",
+      "rules-config",
+      "template-checklist",
+    ].includes(rawType)
+      ? rawType
+      : "prompt";
+    return {
+      title,
+      summary: title,
+      resourceType,
+      environment: [],
+      difficulty: "beginner",
+      descriptionJson: doc,
+      usageJson: { type: "doc", content: [] },
+      tags: [],
+      status: "published",
+    };
+  }
+  // post (기본)
+  return {
+    board: ctx.board ?? "",
+    title,
+    contentJson: doc,
+    tags: [],
+    status: "published",
+  };
 }
 
 // ── 라우트 등록 ───────────────────────────────────────────────────────────────
@@ -259,7 +363,9 @@ export async function registerAdminBotHoldQueueActionRoutes(
             holdReason: schema.botHoldQueue.reason,
             jobKind: schema.botGenerationJobs.jobKind,
             draftContent: schema.botGenerationJobs.draftContent,
+            targetBoard: schema.botGenerationJobs.targetBoard,
             targetPostId: schema.botGenerationJobs.targetPostId,
+            topicTitleSeed: schema.botTopics.titleSeed,
             personaId: schema.botGenerationJobs.personaId,
             personaUserId: schema.botPersonas.userId,
             personaNickname: schema.botPersonas.nickname,
@@ -272,6 +378,10 @@ export async function registerAdminBotHoldQueueActionRoutes(
           .innerJoin(
             schema.botPersonas,
             eq(schema.botGenerationJobs.personaId, schema.botPersonas.id),
+          )
+          .leftJoin(
+            schema.botTopics,
+            eq(schema.botGenerationJobs.topicId, schema.botTopics.id),
           )
           .where(
             and(
@@ -301,8 +411,18 @@ export async function registerAdminBotHoldQueueActionRoutes(
         }
 
         // ── draft_content 역직렬화 (job_kind별 방어적 파싱) ─────────────────────
+        // 봇 파이프라인은 held 시 draft_content에 Tiptap 본문 문서만 저장하므로,
+        // 잡 메타(게시판·제목 씨앗)로 봉투(envelope) 형태로 정규화한 뒤 파싱한다.
         const jobKind = holdWithJob.jobKind;
-        const draftContent = holdWithJob.draftContent;
+        const draftContent = normalizeDraftToEnvelope(
+          jobKind,
+          holdWithJob.draftContent,
+          {
+            board: holdWithJob.targetBoard,
+            titleSeed: holdWithJob.topicTitleSeed,
+            targetPostId: holdWithJob.targetPostId,
+          },
+        );
 
         // ── job_kind별 작성 함수 분기 ───────────────────────────────────────────
         let writeResult: { status: "published" | "blocked"; refId?: string };
