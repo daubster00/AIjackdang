@@ -14,8 +14,15 @@ import type {
   AdminCurriculumChaptersQuery,
   CurriculumChapterDraftUpdate,
   CurriculumSlotGenerate,
+  CurriculumPlanCreate,
+  CurriculumAutoGenerate,
 } from "@ai-jakdang/contracts";
-import { checkAndPromoteChapter } from "../../../services/bot/curriculum-staging.js";
+import {
+  checkAndPromoteChapter,
+  draftCurriculumChapter,
+} from "../../../services/bot/curriculum-staging.js";
+import type { DraftChapterResult } from "../../../services/bot/curriculum-staging.js";
+import { generateCurriculumPlanDraft } from "../../../services/bot/curriculum-autogen.js";
 import { fillImageSlot } from "../../../services/bot/slot-filler.js";
 import type { FillSlotResult } from "../../../services/bot/slot-filler.js";
 import { uploadImage } from "../../../services/storage/index.js";
@@ -450,6 +457,140 @@ export async function requestSlotGenerate(
   }
 
   return result;
+}
+
+// ── 1.10b sourceKind별 기본 준비 안내문 ───────────────────────────────────────
+
+/** 슬롯 guidance 미지정 시 sourceKind에 맞는 기본 안내문을 만든다. */
+function defaultSlotGuidance(sourceKind: string): string {
+  switch (sourceKind) {
+    case "ai_diagram":
+      return "AI 도식으로 자동 생성합니다. 상세 화면에서 '지금 생성'을 누르세요.";
+    case "web_download":
+      return "원본 URL의 이미지를 자동 다운로드합니다. sourceUrl을 확인하세요.";
+    case "capture":
+      return "사람이 실제 화면을 준비해 캡처한 뒤 업로드해야 합니다.";
+    case "user_upload":
+      return "관리자가 직접 이미지를 업로드해야 합니다.";
+    default:
+      return "이미지 준비가 필요합니다.";
+  }
+}
+
+// ── 1.12 createCurriculumPlan (플랜 통째 생성) ────────────────────────────────
+
+/**
+ * 커리큘럼 플랜(시리즈 + 챕터들 + 이미지 슬롯)을 한 번에 생성한다.
+ * - 시리즈 title unique 위반은 409 DUPLICATE.
+ * - 챕터 orderIndex는 배열 순서(1-based)로 자동 부여.
+ * - 슬롯은 전부 status=pending, 챕터는 status=planned로 생성.
+ * - assetKey는 챕터 내 유일해야 한다(중복 시 400 DUPLICATE_ASSET_KEY).
+ */
+export async function createCurriculumPlan(data: CurriculumPlanCreate) {
+  const db = getDb();
+  const { botCurriculumSeries, botCurriculumChapters, botCurriculumImageSlots } = schema;
+
+  // title 중복 사전 확인 (unique 제약과 별개로 친절한 에러)
+  const [dup] = await db
+    .select({ id: botCurriculumSeries.id })
+    .from(botCurriculumSeries)
+    .where(eq(botCurriculumSeries.title, data.title))
+    .limit(1);
+  if (dup) throw makeError(`이미 존재하는 시리즈 제목입니다: ${data.title}`, "DUPLICATE");
+
+  // 트랜잭션: 시리즈 → 챕터 → 슬롯
+  const seriesId = await db.transaction(async (tx) => {
+    const [series] = await tx
+      .insert(botCurriculumSeries)
+      .values({
+        title: data.title,
+        board: data.board,
+        tool: data.tool,
+        intro: data.intro,
+        isActive: data.isActive ?? true,
+      })
+      .returning({ id: botCurriculumSeries.id });
+
+    const newSeriesId = series!.id;
+
+    for (let i = 0; i < data.chapters.length; i++) {
+      const ch = data.chapters[i]!;
+
+      // 챕터 내 assetKey 중복 검사
+      const keys = ch.slots.map((s) => s.assetKey);
+      const dupKey = keys.find((k, idx) => keys.indexOf(k) !== idx);
+      if (dupKey) {
+        throw makeError(`챕터 ${i + 1}에 중복 assetKey: ${dupKey}`, "DUPLICATE_ASSET_KEY");
+      }
+
+      const [chapter] = await tx
+        .insert(botCurriculumChapters)
+        .values({
+          seriesId: newSeriesId,
+          orderIndex: i + 1,
+          title: ch.title,
+          goal: ch.goal,
+          outline: ch.outline,
+          status: "planned",
+        })
+        .returning({ id: botCurriculumChapters.id });
+
+      const chapterId = chapter!.id;
+
+      if (ch.slots.length > 0) {
+        await tx.insert(botCurriculumImageSlots).values(
+          ch.slots.map((s) => ({
+            chapterId,
+            assetKey: s.assetKey,
+            caption: s.caption,
+            alt: s.alt,
+            sourceKind: s.sourceKind,
+            status: "pending" as const,
+            guidance: s.guidance ?? defaultSlotGuidance(s.sourceKind),
+            positionHint: s.positionHint ?? null,
+            diagramPrompt: s.diagramPrompt ?? null,
+            sourceUrl: s.sourceUrl ?? null,
+          })),
+        );
+      }
+    }
+
+    return newSeriesId;
+  });
+
+  return getCurriculumSeries(seriesId);
+}
+
+// ── 1.13 autoGenerateCurriculumPlan (AI 자동 생성) ────────────────────────────
+
+/**
+ * AI에게 커리큘럼 플랜(시리즈 구성 + 챕터별 학습목표·소주제·이미지 슬롯)을 생성시켜
+ * 곧바로 DB에 저장한다. 초안 본문·게시는 이후 단계.
+ * - AI가 만든 구조를 CurriculumPlanCreate로 검증·정규화 후 createCurriculumPlan 재사용.
+ */
+export async function autoGenerateCurriculumPlan(data: CurriculumAutoGenerate) {
+  const plan = await generateCurriculumPlanDraft(data);
+  return createCurriculumPlan(plan);
+}
+
+// ── 1.14 triggerChapterDraft (초안 AI 생성 트리거) ────────────────────────────
+
+/**
+ * 챕터 초안을 AI로 생성한다(13.3 draftCurriculumChapter 위임).
+ * planned·drafted 챕터만 처리. 성공 시 status=drafted(슬롯 0개면 ready).
+ */
+export async function triggerChapterDraft(chapterId: string): Promise<DraftChapterResult> {
+  const db = getDb();
+  const { botCurriculumChapters } = schema;
+
+  const [existing] = await db
+    .select({ id: botCurriculumChapters.id })
+    .from(botCurriculumChapters)
+    .where(eq(botCurriculumChapters.id, chapterId))
+    .limit(1);
+  if (!existing) throw makeError(`챕터 없음: ${chapterId}`, "NOT_FOUND");
+
+  return draftCurriculumChapter(chapterId);
 }
 
 // ── 1.11 completeSlot ────────────────────────────────────────────────────────

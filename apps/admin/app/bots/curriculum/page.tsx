@@ -14,6 +14,14 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Select } from "@/components/ui/Select";
 import { API_BASE_URL } from "@/lib/api";
+import { BOARDS } from "@/lib/boards";
+
+// ── 게시판 옵션 (apiBoard = DB posts.board 실제값) ────────────────────────────
+
+const BOARD_OPTIONS = BOARDS.map((b) => ({
+  value: b.apiBoard ?? b.slug,
+  label: `${b.label} (${b.apiBoard ?? b.slug})`,
+}));
 
 // ── 로컬 타입 ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +125,119 @@ function Toast({
   );
 }
 
+// ── AI 자동 생성 모달 ──────────────────────────────────────────────────────────
+
+function AutoGenerateModal({
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [topic, setTopic] = useState("");
+  const [board, setBoard] = useState(BOARD_OPTIONS[0]?.value ?? "");
+  const [tool, setTool] = useState("");
+  const [title, setTitle] = useState("");
+  const [audience, setAudience] = useState("");
+  const [chapterCount, setChapterCount] = useState("5");
+  const [generating, setGenerating] = useState(false);
+
+  async function handleGenerate() {
+    if (!topic.trim()) return onError("주제를 입력하세요.");
+    if (!board) return onError("게시판을 선택하세요.");
+    if (!tool.trim()) return onError("주력 도구명을 입력하세요.");
+
+    setGenerating(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/bots/curriculum/plan/auto-generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          topic: topic.trim(),
+          board,
+          tool: tool.trim(),
+          chapterCount: Number(chapterCount) || 5,
+          ...(title.trim() ? { title: title.trim() } : {}),
+          ...(audience.trim() ? { audience: audience.trim() } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: { message?: string } })?.error?.message ?? "자동 생성 실패");
+      }
+      onSuccess("AI가 커리큘럼 플랜을 생성했습니다.");
+      onClose();
+    } catch (e) {
+      onError((e as Error).message || "자동 생성 중 오류가 발생했습니다.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{ width: "100%", maxWidth: 520, padding: 24, background: "#fff", maxHeight: "90vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 700 }}>AI 자동 생성</h2>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--gray-500)" }}>
+          주제·도구·챕터 수를 주면 AI가 시리즈 구성과 이미지 슬롯까지 자동으로 설계해 플랜으로 저장합니다.
+          (본문 초안·이미지는 이후 상세 페이지에서 진행)
+        </p>
+
+        <div style={{ display: "grid", gap: 14 }}>
+          <label style={{ display: "block" }}>
+            <span style={{ fontSize: 13, color: "var(--gray-500)" }}>주제 / 방향 *</span>
+            <textarea className="control" value={topic} onChange={(e) => setTopic(e.target.value)} rows={2} placeholder="예: 노코드로 반복업무를 자동화하는 실전 입문 강의" style={{ width: "100%", marginTop: 4, resize: "vertical" }} />
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <label style={{ display: "block" }}>
+              <span style={{ fontSize: 13, color: "var(--gray-500)" }}>게시판 *</span>
+              <div style={{ marginTop: 4 }}>
+                <Select value={board} onChange={setBoard} options={BOARD_OPTIONS} />
+              </div>
+            </label>
+            <label style={{ display: "block" }}>
+              <span style={{ fontSize: 13, color: "var(--gray-500)" }}>주력 도구명 *</span>
+              <input className="control" value={tool} onChange={(e) => setTool(e.target.value)} placeholder="예: Make" style={{ width: "100%", marginTop: 4 }} />
+            </label>
+            <label style={{ display: "block" }}>
+              <span style={{ fontSize: 13, color: "var(--gray-500)" }}>챕터 수</span>
+              <input className="control" type="number" min={1} max={12} value={chapterCount} onChange={(e) => setChapterCount(e.target.value)} style={{ width: "100%", marginTop: 4 }} />
+            </label>
+            <label style={{ display: "block" }}>
+              <span style={{ fontSize: 13, color: "var(--gray-500)" }}>대상 독자</span>
+              <input className="control" value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="입문자" style={{ width: "100%", marginTop: 4 }} />
+            </label>
+          </div>
+          <label style={{ display: "block" }}>
+            <span style={{ fontSize: 13, color: "var(--gray-500)" }}>시리즈 제목 힌트 (선택)</span>
+            <input className="control" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="비우면 AI가 제목을 생성" style={{ width: "100%", marginTop: 4 }} />
+          </label>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 24, justifyContent: "flex-end" }}>
+          <button className="btn btn-outline" type="button" disabled={generating} onClick={onClose}>취소</button>
+          <button className="btn btn-primary" type="button" disabled={generating} onClick={handleGenerate}>
+            {generating ? <><i className="ri-loader-4-line" /> 생성 중...</> : <><i className="ri-magic-line" /> 자동 생성</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 콘텐츠 ────────────────────────────────────────────────────────────────
 
 function CurriculumContent() {
@@ -129,6 +250,7 @@ function CurriculumContent() {
   const [chaptersMap, setChaptersMap] = useState<Record<string, ChapterItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [autoGenOpen, setAutoGenOpen] = useState(false);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -190,12 +312,20 @@ function CurriculumContent() {
       activeKey="bots"
       activeSubKey="curriculum"
     >
-      <div className="page-header">
+      <div className="page-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <div>
           <h1 className="page-title">커리큘럼 플랜</h1>
           <p className="page-description">
             강의 시리즈의 챕터별 초안 본문·이미지 슬롯·예약 시각을 관리합니다.
           </p>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexShrink: 0 }}>
+          <button className="btn btn-outline" type="button" onClick={() => setAutoGenOpen(true)}>
+            <i className="ri-magic-line" /> AI 자동 생성
+          </button>
+          <Link href="/bots/curriculum/new" className="btn btn-primary">
+            <i className="ri-add-line" /> 새 커리큘럼
+          </Link>
         </div>
       </div>
 
@@ -304,6 +434,17 @@ function CurriculumContent() {
           })
         )}
       </section>
+
+      {autoGenOpen && (
+        <AutoGenerateModal
+          onClose={() => setAutoGenOpen(false)}
+          onSuccess={(msg) => {
+            showToast(msg, "success");
+            fetchData();
+          }}
+          onError={(msg) => showToast(msg, "error")}
+        />
+      )}
 
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />

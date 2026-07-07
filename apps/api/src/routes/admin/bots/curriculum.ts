@@ -25,6 +25,8 @@ import {
   curriculumChapterDraftUpdateSchema,
   curriculumChapterScheduleSchema,
   curriculumSlotGenerateSchema,
+  curriculumPlanCreateSchema,
+  curriculumAutoGenerateSchema,
 } from "@ai-jakdang/contracts";
 import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../../../services/storage/index.js";
@@ -39,6 +41,9 @@ import {
   uploadSlotImage,
   requestSlotGenerate,
   completeSlot,
+  createCurriculumPlan,
+  autoGenerateCurriculumPlan,
+  triggerChapterDraft,
 } from "./curriculum.service.js";
 
 /** 서비스 에러 처리 공통 헬퍼. */
@@ -52,6 +57,19 @@ function handleServiceError(err: unknown, reply: { status: (code: number) => { s
   }
   if (e.code === "IMAGE_URL_REQUIRED") {
     return reply.status(400).send({ error: { code: "IMAGE_URL_REQUIRED", message: e.message } });
+  }
+  if (e.code === "DUPLICATE") {
+    return reply.status(409).send({ error: { code: "DUPLICATE", message: e.message } });
+  }
+  if (
+    e.code === "DUPLICATE_ASSET_KEY" ||
+    e.code === "AUTOGEN_PARSE_FAILED" ||
+    e.code === "AUTOGEN_INVALID_STRUCTURE"
+  ) {
+    return reply.status(400).send({ error: { code: e.code, message: e.message } });
+  }
+  if (e.code === "NO_GENERATION_MODEL" || e.code === "AUTOGEN_MODEL_ERROR") {
+    return reply.status(422).send({ error: { code: e.code, message: e.message } });
   }
   log.error(err);
   return reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } });
@@ -71,6 +89,44 @@ export async function registerAdminBotCurriculumRoutes(app: FastifyInstance): Pr
       }
       try {
         return reply.send(await listCurriculumSeries(parsed.data));
+      } catch (err) {
+        return handleServiceError(err, reply, request.log);
+      }
+    },
+  );
+
+  // ── 1b. POST /admin/bots/curriculum/plan (플랜 통째 생성) ─────────────────────
+  app.post(
+    "/admin/bots/curriculum/plan",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const parsed = curriculumPlanCreateSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: { code: "VALIDATION_ERROR", message: "잘못된 요청입니다.", details: parsed.error.flatten() },
+        });
+      }
+      try {
+        return reply.status(201).send(await createCurriculumPlan(parsed.data));
+      } catch (err) {
+        return handleServiceError(err, reply, request.log);
+      }
+    },
+  );
+
+  // ── 1c. POST /admin/bots/curriculum/plan/auto-generate (AI 자동 생성) ─────────
+  app.post(
+    "/admin/bots/curriculum/plan/auto-generate",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const parsed = curriculumAutoGenerateSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: { code: "VALIDATION_ERROR", message: "잘못된 요청입니다.", details: parsed.error.flatten() },
+        });
+      }
+      try {
+        return reply.status(201).send(await autoGenerateCurriculumPlan(parsed.data));
       } catch (err) {
         return handleServiceError(err, reply, request.log);
       }
@@ -138,6 +194,21 @@ export async function registerAdminBotCurriculumRoutes(app: FastifyInstance): Pr
       }
       try {
         return reply.send(await updateChapterDraft(chapterId, parsed.data));
+      } catch (err) {
+        return handleServiceError(err, reply, request.log);
+      }
+    },
+  );
+
+  // ── 5b. POST /admin/bots/curriculum/chapters/:chapterId/generate-draft ────────
+  //        (초안 AI 생성 트리거 — planned·drafted 챕터만)
+  app.post(
+    "/admin/bots/curriculum/chapters/:chapterId/generate-draft",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { chapterId } = request.params as { chapterId: string };
+      try {
+        return reply.send(await triggerChapterDraft(chapterId));
       } catch (err) {
         return handleServiceError(err, reply, request.log);
       }

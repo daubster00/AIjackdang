@@ -217,6 +217,90 @@ export type CurriculumSeriesCreate = z.infer<typeof curriculumSeriesCreateSchema
 export const curriculumSeriesUpdateSchema = curriculumSeriesCreateSchema.partial();
 export type CurriculumSeriesUpdate = z.infer<typeof curriculumSeriesUpdateSchema>;
 
+// ── Task 4b: 커리큘럼 플랜 통째 생성(시리즈 + 챕터 + 슬롯) ────────────────────────
+
+/**
+ * 플랜 생성 시 챕터 1개의 이미지 슬롯 입력.
+ * 저장 시 status=pending으로 삽입. assetKey는 챕터 내 유일해야 한다.
+ * guidance 미지정 시 서비스가 sourceKind별 기본 안내문을 채운다.
+ */
+export const curriculumSlotInputSchema = z.object({
+  /** 본문 [[IMG:키]] 마커 매칭 키 — 유일. */
+  assetKey: z.string().min(1),
+  /** 본문 캡션. */
+  caption: z.string().min(1),
+  /** 대체 텍스트. */
+  alt: z.string().min(1),
+  sourceKind: curriculumSlotSourceKindSchema,
+  guidance: z.string().optional(),
+  positionHint: z.string().optional(),
+  /** ai_diagram 슬롯의 이미지 생성 프롬프트. */
+  diagramPrompt: z.string().optional(),
+  /** web_download·capture 슬롯의 원본 URL. */
+  sourceUrl: z.string().optional(),
+});
+export type CurriculumSlotInput = z.infer<typeof curriculumSlotInputSchema>;
+
+/**
+ * 플랜 생성 시 챕터 1개 입력.
+ * orderIndex는 배열 순서(1-based)로 서버가 자동 부여한다.
+ */
+export const curriculumChapterInputSchema = z.object({
+  title: z.string().min(1),
+  goal: z.string().min(1),
+  outline: z.array(z.string()).default([]),
+  slots: z.array(curriculumSlotInputSchema).default([]),
+});
+export type CurriculumChapterInput = z.infer<typeof curriculumChapterInputSchema>;
+
+/**
+ * POST /api/v1/admin/bots/curriculum/plan — 커리큘럼 플랜 통째 생성.
+ * 시리즈 헤더 + 챕터들 + 각 챕터 이미지 슬롯을 한 번에 삽입한다.
+ * 챕터는 전부 status=planned 상태로 생성된다(초안·게시는 이후 단계).
+ */
+export const curriculumPlanCreateSchema = z.object({
+  title: z.string().min(1),
+  board: z.string().min(1),
+  tool: z.string().min(1),
+  intro: z.string().min(1),
+  isActive: z.boolean().optional(),
+  chapters: z.array(curriculumChapterInputSchema).min(1),
+});
+export type CurriculumPlanCreate = z.infer<typeof curriculumPlanCreateSchema>;
+
+/**
+ * POST /api/v1/admin/bots/curriculum/plan/auto-generate — AI가 커리큘럼 플랜 자동 생성.
+ * 주제·게시판·도구·챕터 수를 주면 AI가 시리즈 제목·소개·챕터 구성·이미지 슬롯을 생성해
+ * 곧바로 DB에 플랜으로 저장한다(반환은 생성된 시리즈 상세).
+ */
+export const curriculumAutoGenerateSchema = z.object({
+  /** 시리즈 주제·방향(자유 서술). */
+  topic: z.string().min(1),
+  /** 대상 게시판 슬러그(BOARDS apiBoard 값). */
+  board: z.string().min(1),
+  /** 주력 도구명. */
+  tool: z.string().min(1),
+  /** 생성할 챕터(편) 수. */
+  chapterCount: z.coerce.number().int().min(1).max(12).default(5),
+  /** 대상 독자(미지정 시 '입문자'). */
+  audience: z.string().optional(),
+  /** 시리즈 제목 힌트(미지정 시 AI가 생성). */
+  title: z.string().optional(),
+});
+export type CurriculumAutoGenerate = z.infer<typeof curriculumAutoGenerateSchema>;
+
+/**
+ * POST /api/v1/admin/bots/curriculum/chapters/:id/generate-draft — 챕터 초안 AI 생성 트리거.
+ * body 없음. 서비스가 draftCurriculumChapter를 호출한다.
+ * (planned·drafted 챕터만 처리; slots 0개면 즉시 ready 승격.)
+ */
+export const curriculumDraftResultSchema = z.object({
+  status: z.enum(["drafted", "skipped", "error"]),
+  chapterId: z.string().uuid(),
+  reason: z.string().optional(),
+});
+export type CurriculumDraftResult = z.infer<typeof curriculumDraftResultSchema>;
+
 /**
  * PATCH /api/v1/admin/bots/curriculum/chapters/:id/draft — 챕터 초안 본문 수정.
  * draftContent: Tiptap JSON 전체 교체.

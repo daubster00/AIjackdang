@@ -154,6 +154,7 @@ export default function ChapterDetailPage() {
   // 섹션 A — 초안 편집 상태
   const [draftText, setDraftText] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
 
   // 섹션 B — 슬롯 액션 로딩 상태
   const [slotLoading, setSlotLoading] = useState<Record<string, boolean>>({});
@@ -228,6 +229,35 @@ export default function ChapterDetailPage() {
       showToast("초안 저장 중 오류가 발생했습니다.", "error");
     } finally {
       setSavingDraft(false);
+    }
+  }
+
+  // ── 섹션 A: 초안 AI 생성 트리거 ──────────────────────────────────────────
+
+  async function handleGenerateDraft() {
+    setGeneratingDraft(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/generate-draft`,
+        { method: "POST", credentials: "include" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: { message?: string } })?.error?.message ?? "초안 생성 실패");
+      }
+      const result = data as { status: string; reason?: string };
+      if (result.status === "drafted") {
+        showToast("AI 초안이 생성되었습니다.", "success");
+      } else if (result.status === "skipped") {
+        showToast(`건너뜀: ${result.reason ?? "처리 대상 아님"}`, "error");
+      } else {
+        showToast(`생성 실패: ${result.reason ?? "오류"}`, "error");
+      }
+      await fetchChapter();
+    } catch (e) {
+      showToast((e as Error).message || "초안 생성 중 오류가 발생했습니다.", "error");
+    } finally {
+      setGeneratingDraft(false);
     }
   }
 
@@ -422,9 +452,20 @@ export default function ChapterDetailPage() {
           <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>A. 초안 본문 편집</h2>
         </div>
         {chapter.draftContent === null ? (
-          <p style={{ color: "var(--gray-400)", fontSize: 13 }}>
-            (초안 미생성 — 13.3 스테이징 파이프라인 실행 필요)
-          </p>
+          <div>
+            <p style={{ color: "var(--gray-400)", fontSize: 13, marginBottom: 12 }}>
+              아직 초안이 없습니다. 아래 버튼을 누르면 AI가 이 편의 학습목표·소주제·이미지 슬롯을 바탕으로 본문 초안을 생성합니다.
+            </p>
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={generatingDraft || chapter.status === "published"}
+              onClick={handleGenerateDraft}
+            >
+              {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />}
+              AI 초안 생성
+            </button>
+          </div>
         ) : (
           <>
             <textarea
@@ -445,6 +486,17 @@ export default function ChapterDetailPage() {
                 {savingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-save-line" />}
                 초안 저장
               </button>
+              {(chapter.status === "planned" || chapter.status === "drafted") && (
+                <button
+                  className="btn btn-outline"
+                  type="button"
+                  disabled={generatingDraft}
+                  onClick={handleGenerateDraft}
+                >
+                  {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />}
+                  AI로 다시 생성
+                </button>
+              )}
             </div>
           </>
         )}
