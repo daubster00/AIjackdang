@@ -33,6 +33,55 @@ const RANGE_LABELS: Record<Range, string> = {
   month: "이번 달",
 };
 
+// ── AI 제공사 크레딧·충전 메타 ────────────────────────────────────────────────
+//
+// 잔여 충전 잔액(남은 크레딧 금액)은 세 제공사 모두 표준 API 키로 조회할 수 있는
+// 공개 API가 없다(OpenAI 구 billing 엔드포인트는 세션키 필요·폐기, Anthropic·Google은
+// 잔액 API 미제공). 따라서 여기서는 우리 봇이 실제로 사용한 비용/호출/토큰(ai_usage_log
+// 기반 byProvider 집계)만 보여주고, 잔액 확인·충전은 각 제공사 결제 콘솔로 바로가기 링크를 건다.
+//
+// provider 키는 ai_usage_log.provider 에 기록되는 값과 일치해야 한다: openai | anthropic | google.
+
+type ProviderMeta = {
+  key: string; // ai_usage_log.provider 값
+  label: string; // 화면 표기 제공사명
+  desc: string; // 어떤 AI인지 짧은 설명
+  icon: string; // remixicon 클래스
+  color: string; // 브랜드 색 (아이콘/버튼 강조)
+  billingUrl: string; // 크레딧 충전·결제 대시보드 URL (새 탭)
+  billingLabel: string; // 링크 버튼 라벨
+};
+
+const PROVIDER_META: ProviderMeta[] = [
+  {
+    key: "anthropic",
+    label: "Anthropic · Claude",
+    desc: "글 작성·검열 등 텍스트 생성",
+    icon: "ri-sparkling-2-line",
+    color: "#d97757",
+    billingUrl: "https://console.anthropic.com/settings/billing",
+    billingLabel: "Anthropic 콘솔에서 충전",
+  },
+  {
+    key: "openai",
+    label: "OpenAI · ChatGPT",
+    desc: "텍스트·이미지(gpt-image) 생성",
+    icon: "ri-cpu-line",
+    color: "#10a37f",
+    billingUrl: "https://platform.openai.com/settings/organization/billing/overview",
+    billingLabel: "OpenAI 결제 페이지에서 충전",
+  },
+  {
+    key: "google",
+    label: "Google · Gemini",
+    desc: "텍스트·이미지(Gemini) 생성",
+    icon: "ri-google-line",
+    color: "#4285f4",
+    billingUrl: "https://console.cloud.google.com/billing",
+    billingLabel: "Google Cloud 결제에서 확인",
+  },
+];
+
 // ── 포맷 헬퍼 ────────────────────────────────────────────────────────────────
 
 function fmtUsd(value: number): string {
@@ -110,6 +159,132 @@ function UsageTable({
             )}
           </tbody>
         </table>
+      </div>
+    </article>
+  );
+}
+
+// ── AI 제공사 크레딧·충전 섹션 ────────────────────────────────────────────────
+
+/**
+ * 제공사별 카드: 선택 기간 우리 앱 사용액 + 충전 대시보드 바로가기 버튼.
+ * byProvider 집계에서 해당 provider 행을 찾아 사용액을 표시한다(없으면 0).
+ */
+function ProviderCreditSection({
+  byProvider,
+  rangeLabel,
+}: {
+  byProvider: UsageGroup[];
+  rangeLabel: string;
+}) {
+  // provider 키 → 집계 행 (대소문자 무시 매칭)
+  const usageByKey = new Map<string, UsageGroup>();
+  for (const row of byProvider) {
+    usageByKey.set(row.key.toLowerCase(), row);
+  }
+
+  return (
+    <article className="card" style={{ marginBottom: "1.5rem" }}>
+      <div className="card-header">
+        <div>
+          <h2 className="card-title">AI 제공사 크레딧 · 충전</h2>
+          <div className="card-subtitle">
+            {rangeLabel} 기준 제공사별 사용액입니다. 남은 잔액은 각 제공사 결제 콘솔에서 확인·충전하세요.
+          </div>
+        </div>
+      </div>
+      <div className="card-body">
+        <div
+          style={{
+            display: "grid",
+            gap: "1rem",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          }}
+        >
+          {PROVIDER_META.map((p) => {
+            const usage = usageByKey.get(p.key);
+            const costUsd = usage?.costUsd ?? 0;
+            const callCount = usage?.callCount ?? 0;
+            const tokens = (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
+            return (
+              <div
+                key={p.key}
+                style={{
+                  border: "1px solid var(--gray-200, #e5e7eb)",
+                  borderRadius: 10,
+                  padding: "1rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {/* 헤더: 아이콘 + 제공사명 */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 38,
+                      height: 38,
+                      borderRadius: 9,
+                      background: `${p.color}1a`, // 색 + 10% 투명
+                      color: p.color,
+                      fontSize: "1.125rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <i className={p.icon} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{p.label}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--gray-500)" }}>{p.desc}</div>
+                  </div>
+                </div>
+
+                {/* 사용액 */}
+                <div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--gray-500)", marginBottom: "0.125rem" }}>
+                    {rangeLabel} 사용액
+                  </div>
+                  <div style={{ fontSize: "1.375rem", fontWeight: 700, color: p.color }}>
+                    {fmtUsd(costUsd)}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--gray-500)", marginTop: "0.125rem" }}>
+                    호출 {fmtNum(callCount)}회 · 토큰 {fmtNum(tokens)}
+                  </div>
+                </div>
+
+                {/* 잔액 안내 */}
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--gray-500)",
+                    background: "var(--gray-50, #f9fafb)",
+                    borderRadius: 6,
+                    padding: "0.5rem 0.625rem",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <i className="ri-information-line" style={{ marginRight: "0.25rem" }} />
+                  남은 충전 잔액은 API로 조회할 수 없어, 아래 버튼으로 제공사 콘솔에서 직접 확인하세요.
+                </div>
+
+                {/* 충전 바로가기 버튼 */}
+                <a
+                  href={p.billingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  style={{ justifyContent: "center", marginTop: "auto" }}
+                >
+                  <i className="ri-external-link-line" style={{ marginRight: "0.375rem" }} />
+                  {p.billingLabel}
+                </a>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </article>
   );
@@ -308,6 +483,11 @@ export default function AiUsagePage() {
             </div>
           </article>
         </section>
+      )}
+
+      {/* AI 제공사 크레딧·충전 (제공자별 사용액 + 충전 대시보드 바로가기) */}
+      {!loading && report && (
+        <ProviderCreditSection byProvider={report.byProvider} rangeLabel={RANGE_LABELS[range]} />
       )}
 
       {/* 비용 상한 게이지 */}
