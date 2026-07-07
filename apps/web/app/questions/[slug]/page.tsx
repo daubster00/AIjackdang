@@ -18,7 +18,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { AuthorName, Icon } from "@/components/ui";
-import { BoardHero, AttachmentList, RecentViewedTracker } from "@/components/board";
+import { BoardHero, AttachmentList, RecentViewedTracker, ViewBeacon } from "@/components/board";
 import styles from "../questions.module.css";
 import { QuestionActions } from "./QuestionActions";
 import { QuestionDetailClient } from "./QuestionDetailClient";
@@ -233,6 +233,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(qaPageJsonLd) }}
       />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <ViewBeacon targetType="question" targetId={question.id} />
       <RecentViewedTracker
         href={`/questions/${question.slug}`}
         board="묻고답하기"

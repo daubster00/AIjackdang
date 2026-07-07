@@ -16,7 +16,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
+import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker, ViewBeacon } from "@/components/board";
 import {
   SITE_URL,
   buildNoticeMeta,
@@ -114,6 +114,7 @@ export default async function NoticeDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <ViewBeacon targetType="post" targetId={post.id} />
       <RecentViewedTracker
         href={`/notice/${post.slug}`}
         board="공지사항"

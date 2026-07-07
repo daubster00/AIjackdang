@@ -30,6 +30,7 @@ import { sitemapRoutes } from "./sitemap/routes.js";
 import { registerPublicSiteSettingsRoute } from "./site-settings-public.js";
 import { registerPublicAdsRoute } from "./ads.js";
 import { registerAnalyticsCollectRoute } from "./analytics/collect.js";
+import { registerViewsCollectRoute } from "./views/collect.js";
 
 /**
  * /api/v1 라우트.
@@ -134,4 +135,7 @@ export async function v1Routes(app: FastifyInstance) {
 
   // ── 방문 로그 적재 라우트 (공개 비인증: POST /analytics/collect) ───────────────
   await registerAnalyticsCollectRoute(app);
+
+  // ── 조회수 집계 비콘 라우트 (공개 비인증: POST /views) ────────────────────────
+  await registerViewsCollectRoute(app);
 }

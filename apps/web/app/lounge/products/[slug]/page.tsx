@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker } from "@/components/board";
+import { AttachmentList, BoardHero, CodeBlockCopyButton, RecentViewedTracker, ViewBeacon } from "@/components/board";
 import {
   SITE_URL,
   buildPostMeta,
@@ -91,6 +91,7 @@ export default async function LoungeProductDetailPage({ params }: { params: Para
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <ViewBeacon targetType="post" targetId={post.id} />
       <RecentViewedTracker
         href={`/lounge/products/${post.slug}`}
         board="내가 만든 AI 제품"

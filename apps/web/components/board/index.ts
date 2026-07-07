@@ -9,5 +9,6 @@ export * from "./LightEditor";
 export * from "./PostWriteForm";
 export * from "./RecentViewedPanel";
 export * from "./RecentViewedTracker";
+export * from "./ViewBeacon";
 export * from "./SearchAutocomplete";
 export * from "./heroConfig";

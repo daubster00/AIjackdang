@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { BOARDS } from "@ai-jakdang/contracts";
 import type { PostDetail } from "@ai-jakdang/contracts";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RecentViewedTracker } from "@/components/board";
+import { BoardHero, AttachmentList, CodeBlockCopyButton, DeleteButton, RecentViewedTracker, ViewBeacon } from "@/components/board";
 import {
   SITE_URL,
   buildPostMeta,
@@ -95,6 +95,7 @@ export default async function MonetizeDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <ViewBeacon targetType="post" targetId={post.id} />
       <RecentViewedTracker
         href={`${listUrl}/${post.slug}`}
         board={boardLabel}

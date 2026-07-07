@@ -25,6 +25,10 @@ export function buildApp(): FastifyInstance {
     logger: {
       level: env.LOG_LEVEL,
     },
+    // 프록시(Caddy·Next rewrite) 뒤에 있으므로 X-Forwarded-For를 신뢰해
+    // request.ip 가 실제 클라이언트 IP를 반환하도록 한다.
+    // (조회수 IP 중복 제거·sign-in 레이트리밋이 프록시 IP 하나로 뭉치는 것 방지)
+    trustProxy: true,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);

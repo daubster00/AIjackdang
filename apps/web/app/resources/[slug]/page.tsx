@@ -17,7 +17,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { AuthorName, Icon, Tag } from "@/components/ui";
-import { BoardHero, RecentViewedTracker } from "@/components/board";
+import { BoardHero, RecentViewedTracker, ViewBeacon } from "@/components/board";
 import { ResourceDetailClient } from "./ResourceDetailClient";
 import { ResourceOwnerActions } from "./ResourceOwnerActions";
 import { ReactionBar } from "./ReactionBar";
@@ -245,6 +245,7 @@ export default async function ResourceDetailPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* 열람 이력 기록 — localStorage 기반 최근 본 글 */}
+      <ViewBeacon targetType="resource" targetId={resource.id} />
       <RecentViewedTracker
         href={`/resources/${resource.slug}`}
         board={typeMeta.label}

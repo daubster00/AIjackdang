@@ -22,23 +22,11 @@ import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { eq, and, isNull, desc, count, inArray, sql } from "drizzle-orm";
 import { slugify, generateUniqueSlug, generateSummary } from "@ai-jakdang/utilities";
 import { getDefaultAvatarUrl } from "@ai-jakdang/core";
-import { Redis } from "ioredis";
 import sanitizeHtml from "sanitize-html";
 import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.service.js";
 import { extractExternalUrls } from "../../../lib/extract-urls.js";
 import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 import { getOgFetchQueue, OG_FETCH_JOB_NAME } from "../../../lib/queues.js";
-
-// ── Redis 싱글톤 (조회수 버퍼링용) ───────────────────────────────────────────
-let _redis: Redis | null = null;
-function getRedis(): Redis {
-  if (!_redis) {
-    const url = process.env.REDIS_URL ?? "redis://localhost:6380";
-    _redis = new Redis(url, { lazyConnect: true });
-    _redis.on("error", (err) => console.error("[view-redis] 연결 오류:", err.message));
-  }
-  return _redis;
-}
 
 /** byte 크기를 사람이 읽기 쉬운 문자열로 변환한다. 예: 2516582 → "2.4 MB" */
 function formatFileSize(bytes: number): string {
@@ -904,31 +892,11 @@ export async function deletePost({
 
 
 /**
- * Redis INCR 조회수 버퍼링.
- * dedup key: view:post:{postId}:{fingerprint} — NX EX 1800
- * incr key:  view:post:{postId} (집계, worker가 flush)
- * AR-16·AR-17: 직접 DB UPDATE 절대 금지.
- */
-async function incrementViewCount(postId: string, fingerprint: string): Promise<void> {
-  try {
-    const redis = getRedis();
-    const dedupKey = `view:post:${postId}:${fingerprint}`;
-    const incrKey = `view:post:${postId}`;
-    // NX = 없을 때만 SET. "OK" = 새 조회, null = dedup
-    const result = await redis.set(dedupKey, "1", "EX", 1800, "NX");
-    if (result === "OK") {
-      await redis.incr(incrKey);
-    }
-  } catch (err) {
-    console.warn("[view-redis] INCR 실패 (무시):", (err as Error).message);
-  }
-}
-
-/**
  * slug로 게시글 상세를 조회한다.
  *
  * - status !== 'published' 이고 본인이 아니면 null 반환 (→ 404).
- * - 조회 시 Redis INCR 버퍼링 (fire-and-forget) — AR-16·AR-17.
+ * - 조회수는 여기서 올리지 않는다. 브라우저 ViewBeacon → POST /api/v1/views 가 담당
+ *   (SSR fetch는 실제 클라이언트 IP를 알 수 없어 IP 중복 제거가 불가능하기 때문).
  * - contentHtml: Tiptap JSON → `@tiptap/html` + sanitize-html 화이트리스트 (Story 2.6).
  */
 export async function getPostBySlug(
@@ -1060,9 +1028,7 @@ export async function getPostBySlug(
   // contentHtml — Tiptap JSON → HTML + sanitize-html 화이트리스트 (Story 2.6)
   const contentHtml = tiptapJsonToHtml(row.contentJson);
 
-  // View count: Redis INCR with dedup (30min TTL per IP/session)
-  // Fire-and-forget — don't let Redis failures block the response
-  void incrementViewCount(row.id, currentUserId ?? "anon");
+  // 조회수: 브라우저 ViewBeacon(POST /api/v1/views)이 담당하므로 여기서 올리지 않는다.
 
   // Story 2.11: 창작 스펙 조립 — spec 레코드 존재 여부는 postId(non-null) 로 판별
   const hasSpec = row.specPostprocess !== undefined || row.specPrompt !== null || row.specTools !== null || row.specMediaType !== null;

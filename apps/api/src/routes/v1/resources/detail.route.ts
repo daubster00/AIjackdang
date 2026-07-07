@@ -13,7 +13,6 @@ import { z } from "zod";
 import { resourceDetailSchema, errorResponseSchema } from "@ai-jakdang/contracts";
 import { userAuth } from "../../../auth/user-auth.js";
 import { getResourceBySlug } from "./detail.service.js";
-import { trackView } from "../../../lib/viewTracker.js";
 
 /**
  * 상세 응답 = resourceDetailSchema + userIsOwner + HTML 변환본.
@@ -69,9 +68,8 @@ export async function registerResourceDetailRoutes(app: FastifyInstance): Promis
         });
       }
 
-      // 조회수 Redis 버퍼링 (fire-and-forget) — Story 5.3
-      const fp = `${request.ip}:${currentUserId ?? "anon"}`;
-      void trackView({ targetType: "resource", targetId: resource.id, fingerprint: fp });
+      // 조회수는 브라우저 ViewBeacon(POST /api/v1/views)이 담당한다.
+      // (SSR fetch는 실제 클라이언트 IP를 알 수 없어 IP 중복 제거 불가)
 
       return reply.code(200).send(resource);
     },

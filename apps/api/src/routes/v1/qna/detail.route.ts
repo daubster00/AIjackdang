@@ -5,7 +5,7 @@
  * PATCH /qna/questions/:id/resolve — 작성자 전용. is_resolved=true
  * DELETE /qna/questions/:id        — 작성자 전용. soft-delete (AR-7)
  *
- * 조회수: GET 요청 시 trackView('question', id, fingerprint) — fire-and-forget
+ * 조회수: 브라우저 ViewBeacon(POST /api/v1/views)이 담당 (SSR는 실제 IP 불가).
  */
 
 import type { FastifyInstance } from "fastify";
@@ -18,7 +18,6 @@ import {
 import { getDb, schema } from "@ai-jakdang/database";
 import { eq, and, isNull } from "drizzle-orm";
 import { userAuth } from "../../../auth/user-auth.js";
-import { trackView } from "../../../lib/viewTracker.js";
 import { getQuestionBySlug } from "./detail.service.js";
 
 /** 상세 응답 스키마 (questionDetailResponseSchema + contentHtml 추가) */
@@ -47,17 +46,6 @@ export async function registerQnaDetailRoutes(app: FastifyInstance): Promise<voi
     async (request, reply) => {
       const { slug } = request.params;
 
-      // ── 선택적 인증 (실패 시 비회원으로 처리) ───────────────────────────────
-      let currentUserId: string | undefined;
-      try {
-        const session = await userAuth.api.getSession({
-          headers: request.headers as unknown as Headers,
-        });
-        currentUserId = session?.user?.id;
-      } catch {
-        // 비회원 — 무시
-      }
-
       const question = await getQuestionBySlug({ slug });
 
       if (!question) {
@@ -69,9 +57,8 @@ export async function registerQnaDetailRoutes(app: FastifyInstance): Promise<voi
         });
       }
 
-      // 조회수 Redis 버퍼링 (fire-and-forget) — AR-16·AR-17
-      const fp = `${request.ip}:${currentUserId ?? "anon"}`;
-      void trackView({ targetType: "question", targetId: question.id, fingerprint: fp });
+      // 조회수는 브라우저 ViewBeacon(POST /api/v1/views)이 담당한다.
+      // (SSR fetch는 실제 클라이언트 IP를 알 수 없어 IP 중복 제거 불가)
 
       return reply.code(200).send(question);
     },
