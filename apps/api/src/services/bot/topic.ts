@@ -80,11 +80,11 @@ const DISCOVERY_QUERY_BY_NICKNAME: Record<string, PersonaDiscoveryQuery> = {
 /**
  * 발굴이 어울리지 않는 게시판.
  * - gigs(의뢰 모집): "해드립니다" 모집글이라 최신 소식 발굴과 무관.
- * - ai-creation(AI 창작마당): 뉴스 발굴이 아니라 별도 "큐레이션"(유튜브 AI 영상·AI 밈
- *   퍼오기 / 봇 직접 생성)이 소재를 정한다. → curation.ts / post-pipeline Step 2.5 참조.
  * talk·qna는 발굴 확장됨(캐주얼/질문 톤으로 최근 화제를 소재화).
+ * ai-creation도 발굴 대상으로 확장됨 — 큐레이션(유튜브/밈 미디어 우선)이 소재를 못
+ * 구하거나 ai 모드(봇 직접 생성)로 굴러가면 발굴이 소재를 만든다(주제 풀 의존 제거).
  */
-const DISCOVERY_EXCLUDED_BOARDS = new Set(["gigs", "ai-creation"]);
+const DISCOVERY_EXCLUDED_BOARDS = new Set(["gigs"]);
 
 /**
  * 이 페르소나·게시판 조합에서 검색 주도 발굴을 쓸지 판단하고,
