@@ -17,7 +17,8 @@
       "WebFetch(domain:docs.cursor.com)",
       "WebFetch(domain:www.make.com)",
       "WebFetch(domain:cursor.com)",
-      "WebFetch(domain:help.make.com)"
+      "WebFetch(domain:help.make.com)",
+      "Skill(claude-api)"
     ]
   },
   "hooks": {
