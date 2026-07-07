@@ -87,6 +87,20 @@ export interface GuideChapterContext {
   previousChapters: { order: number; title: string; summary: string }[];
 }
 
+/**
+ * 재작성(부분 수정) 컨텍스트.
+ *
+ * 검열에서 일부 항목이 fail 나 반려되면, 처음부터 새로 쓰는 대신
+ * 직전 초안 전문 + "걸린 항목만" 지적을 프롬프트에 실어 그 부분만 고쳐 다시 쓰게 한다.
+ * post-pipeline 재생성 루프가 매 실패마다 채워 넣는다.
+ */
+export interface RevisionContext {
+  /** 직전 검열에서 탈락한 초안 전문(본문 텍스트). */
+  previousDraft: string;
+  /** 이번에 고쳐야 할 검열 탈락 항목(검열 항목 키 + 지적 사유). */
+  failedItems: { key: string; reason: string }[];
+}
+
 /** buildPostUserPrompt 입력 */
 export interface PostUserPromptOptions {
   titleSeed: string;
@@ -98,6 +112,11 @@ export interface PostUserPromptOptions {
   curation?: CurationContext;
   /** 고정 커리큘럼 강의 편일 때 전달. 있으면 커리큘럼 전용 지침으로 전환. */
   guideChapter?: GuideChapterContext;
+  /**
+   * 검열 반려 후 재작성일 때 전달. 있으면 직전 초안 + 걸린 항목 지적을 덧붙여
+   * "통과한 부분은 살리고 걸린 부분만 고쳐" 다시 쓰게 한다. (없으면 최초 생성)
+   */
+  revision?: RevisionContext;
 }
 
 /** buildCensorUserPrompt 입력 */

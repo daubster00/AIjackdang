@@ -193,6 +193,82 @@ describe("buildPostUserPrompt — 큐레이션 소개글", () => {
   });
 });
 
+// ── buildPostUserPrompt (검열 반려 후 부분 수정 재작성) ──────────────────────────
+
+describe("buildPostUserPrompt — revision(부분 수정)", () => {
+  it("revision이 없으면 재작성 지시 블록이 붙지 않는다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "테스트",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+    });
+    expect(prompt).not.toContain("재작성 지시");
+  });
+
+  it("revision이 있으면 직전 초안과 재작성 지시가 포함된다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "테스트 주제",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "info",
+      revision: {
+        previousDraft: "직전에 쓴 반려된 본문입니다.",
+        failedItems: [{ key: "ai_tone", reason: "이모지가 3개 사용됨" }],
+      },
+    });
+    expect(prompt).toContain("재작성 지시");
+    expect(prompt).toContain("직전에 쓴 반려된 본문입니다.");
+    // 걸린 항목에 대한 한국어 수정 지침 + 검열 지적 사유가 실려야 한다
+    expect(prompt).toContain("AI 티");
+    expect(prompt).toContain("이모지가 3개 사용됨");
+  });
+
+  it("걸린 항목만 지침으로 나열되고 통과 항목은 언급되지 않는다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "테스트",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "info",
+      revision: {
+        previousDraft: "본문",
+        failedItems: [{ key: "insight", reason: "뻔한 일반론뿐" }],
+      },
+    });
+    expect(prompt).toContain("내용 비범함");
+    expect(prompt).not.toContain("페르소나 —");
+    expect(prompt).not.toContain("안전 —");
+  });
+
+  it("failedItems가 빈 배열이면 재작성 블록을 붙이지 않는다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "테스트",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+      revision: { previousDraft: "본문", failedItems: [] },
+    });
+    expect(prompt).not.toContain("재작성 지시");
+  });
+
+  it("curation 소개글도 revision이 있으면 재작성 지시가 붙는다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "AI 밈",
+      facts: emptyFacts,
+      board: "ai-creation",
+      postKind: "chat",
+      curation: { kind: "meme" },
+      revision: {
+        previousDraft: "이전 소개글",
+        failedItems: [{ key: "factuality", reason: "지어낸 수치" }],
+      },
+    });
+    expect(prompt).toContain("자동으로 첨부"); // 큐레이션 지침은 유지
+    expect(prompt).toContain("재작성 지시"); // 재작성 블록도 덧붙음
+    expect(prompt).toContain("이전 소개글");
+  });
+});
+
 // ── buildTopicRefillPrompt ────────────────────────────────────────────────────
 
 describe("buildTopicRefillPrompt", () => {

@@ -61,6 +61,7 @@ import type {
   BotPersonaForPrompt,
   CurationContext,
   FactSummary,
+  RevisionContext,
   SeriesContext,
 } from "@ai-jakdang/bot-core";
 import {
@@ -517,6 +518,9 @@ export async function runPostPipeline(
   // ── Step 8~10: 생성 루프 ──────────────────────────────────────────────────────
   let regenCount = 0;
   let pipelineResult: PostPipelineResult | null = null;
+  // 검열 반려 시 다음 회차에 실을 "부분 수정" 컨텍스트(직전 초안 + 걸린 항목).
+  // 최초 생성은 undefined, 재생성부터 채워진다.
+  let revision: RevisionContext | undefined;
 
   while (regenCount <= MAX_REGEN && pipelineResult === null) {
     // 상태: generating 업데이트
@@ -534,6 +538,7 @@ export async function runPostPipeline(
       postKind: internalPostKind,
       seriesContext,
       curation: curationContext,
+      revision,
     });
 
     // 생성 모델 호출
@@ -923,11 +928,23 @@ export async function runPostPipeline(
       await logActivity(db, personaId, "held", jobId, { censorResult });
       pipelineResult = { status: "held", jobId };
     } else {
-      // FAIL → 재생성 시도
+      // FAIL → 부분 수정 재생성 시도.
+      // 직전 초안 + 이번에 걸린 항목만 골라 다음 회차 프롬프트에 실어,
+      // 통과한 부분은 살리고 지적된 부분만 고쳐 다시 쓰게 한다.
+      const failedItems = censorResult.items
+        .filter((it) => it.result === "fail")
+        .map((it) => ({ key: it.key, reason: it.reason }));
+      revision =
+        failedItems.length > 0
+          ? { previousDraft: draftText, failedItems }
+          : undefined;
+
       regenCount++;
       await logActivity(db, personaId, "regenerated", jobId, {
         attempt: regenCount,
         censorResult,
+        // 이번 회차에서 어떤 항목을 고치라고 지시했는지 로그에 남긴다.
+        revisionTargets: failedItems.map((it) => it.key),
       });
       if (regenCount > MAX_REGEN) {
         await db

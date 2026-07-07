@@ -12,6 +12,7 @@ import type {
   FactSummary,
   GuideChapterContext,
   PostUserPromptOptions,
+  RevisionContext,
   SeriesContext,
 } from "./context-types.js";
 
@@ -57,18 +58,26 @@ export function buildPersonaSystemPrompt(persona: BotPersonaForPrompt): string {
  * 사실 요약은 <search_summary> 블록으로 격리한다 (인젝션 방어).
  */
 export function buildPostUserPrompt(options: PostUserPromptOptions): string {
-  const { titleSeed, facts, board, postKind, seriesContext, curation, guideChapter } =
-    options;
+  const {
+    titleSeed,
+    facts,
+    board,
+    postKind,
+    seriesContext,
+    curation,
+    guideChapter,
+    revision,
+  } = options;
 
   // 고정 커리큘럼 강의 편: 커리큘럼이 주제·범위·이미지 자리를 정하므로 전용 지침으로 전환.
   if (guideChapter) {
-    return buildGuideChapterUserPrompt(guideChapter, facts);
+    return appendRevisionBlock(buildGuideChapterUserPrompt(guideChapter, facts), revision);
   }
 
   // 큐레이션(퍼오기) 소개글: 미디어는 파이프라인이 본문 위에 자동 첨부하므로,
   // 여기서는 "그 소재를 소개하는 짧은 글"만 쓰도록 전용 지침으로 전환한다.
   if (curation) {
-    return buildCurationUserPrompt(curation, board);
+    return appendRevisionBlock(buildCurationUserPrompt(curation, board), revision);
   }
 
   const factsBlock =
@@ -106,7 +115,59 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
     formatLine,
   ].filter(Boolean);
 
-  return sections.join("\n\n");
+  return appendRevisionBlock(sections.join("\n\n"), revision);
+}
+
+/**
+ * 검열 항목 키 → 재작성 시 그 항목을 어떻게 고쳐야 하는지에 대한 한국어 지침.
+ * 검열관이 반환하는 CensorItemKey와 1:1 대응한다.
+ */
+const CENSOR_ITEM_FIX_GUIDE: Record<string, string> = {
+  factuality:
+    "사실성 — 근거 없이 지어낸 수치·이름·날짜 단정을 빼거나 \"~로 알려짐\" 형태로 완화하세요.",
+  ai_tone:
+    "AI 티 — 이모지, 자기언급(\"저는 AI/언어모델\"), 기계적 상투어(결론적으로·정리하자면·마무리하며·~해드립니다)를 제거하세요.",
+  persona: "페르소나 — 캐릭터의 말투·성격을 처음부터 끝까지 일관되게 유지하세요.",
+  safety: "안전 — 혐오·폭력·불법을 시사하는 표현을 삭제하세요.",
+  duplicate: "중복 — 기존 글과 겹치는 부분을 다른 관점·소재로 새로 쓰세요.",
+  context: "게시판 맥락 — 이 게시판 성격에 맞는 내용으로 조정하세요.",
+  insight:
+    "내용 비범함 — 뻔한 일반론을 빼고, 직접 해봐야 아는 구체적 디테일(설정값·수치·단축키·함정·최신 소식) 중 하나 이상을 실제로 넣으세요.",
+};
+
+/**
+ * 재작성(부분 수정) 지시 블록을 기존 프롬프트 뒤에 덧붙인다.
+ *
+ * revision이 없거나 걸린 항목이 없으면(=최초 생성) 원본 프롬프트를 그대로 반환한다.
+ * 있으면 직전 초안 전문 + "걸린 항목만" 지적을 실어, 통과한 부분은 살리고
+ * 지적된 부분만 고쳐 글 전체를 다시 출력하도록 지시한다.
+ */
+function appendRevisionBlock(base: string, revision?: RevisionContext): string {
+  if (!revision || revision.failedItems.length === 0) return base;
+
+  const fixLines = revision.failedItems.map((item) => {
+    const guide = CENSOR_ITEM_FIX_GUIDE[item.key] ?? item.key;
+    const reason = item.reason?.trim();
+    return reason ? `- ${guide}\n  (검열 지적: ${reason})` : `- ${guide}`;
+  });
+
+  const block = [
+    "[재작성 지시 — 매우 중요]",
+    "아래는 직전에 당신이 쓴 글인데, 검열에서 일부 항목이 걸려 반려되었습니다.",
+    "처음부터 완전히 새로 쓰지 말고, 통과한 부분은 최대한 그대로 살린 채 아래에 지적된 문제 부분만 고쳐서 글 전체를 다시 출력하세요.",
+    "",
+    "이번에 반드시 고쳐야 할 부분(이 항목들만 수정):",
+    ...fixLines,
+    "",
+    "직전 초안:",
+    "---",
+    revision.previousDraft.trim(),
+    "---",
+    "",
+    "위 지적 사항만 반영해 수정한 글 전문을 출력하세요(설명·머리말 없이 본문만).",
+  ].join("\n");
+
+  return `${base}\n\n${block}`;
 }
 
 /**
