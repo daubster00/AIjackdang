@@ -642,3 +642,94 @@ export const aiUsageReportSchema = z.object({
   }),
 });
 export type AiUsageReport = z.infer<typeof aiUsageReportSchema>;
+
+// ── 글 작성 로그 (운영 패널 — 봇별 글 작성 시도·검수·게시 결과) ──────────────
+
+/** 검열 항목 판정 enum — CensorItemResult(bot-core censor-rules)와 1:1 일치. */
+export const botCensorItemResultSchema = z.enum(["pass", "fail", "ambiguous"]);
+export type BotCensorItemResult = z.infer<typeof botCensorItemResultSchema>;
+
+/** 검열 축 1건 (censorResult.items 요소). */
+export const botPostLogCensorItemSchema = z.object({
+  /** factuality|ai_tone|persona|safety|duplicate|context|insight */
+  key: z.string(),
+  result: botCensorItemResultSchema,
+  reason: z.string(),
+});
+export type BotPostLogCensorItem = z.infer<typeof botPostLogCensorItemSchema>;
+
+/**
+ * 검수 시도 1건 — bot_activity_log 'regenerated' 이벤트(payload {attempt, censorResult}) 변환.
+ * overall이 null이면 payload 파싱 실패(방어적 처리).
+ */
+export const botPostLogAttemptSchema = z.object({
+  attempt: z.number().int(),
+  createdAt: z.string(),
+  overall: botCensorItemResultSchema.nullable(),
+  items: z.array(botPostLogCensorItemSchema),
+});
+export type BotPostLogAttempt = z.infer<typeof botPostLogAttemptSchema>;
+
+/**
+ * 글 작성 로그 목록 항목 (bot_generation_jobs + personas/topics/posts/ai_usage_log join 요약).
+ * title 우선순위: posts.title → draft_content->>'title' → bot_topics.title_seed.
+ * genModel: ai_usage_log purpose='generation' 최신 model (실사용 모델).
+ */
+export const botPostLogItemSchema = z.object({
+  /** jobId (bot_generation_jobs.id) */
+  id: z.string().uuid(),
+  personaId: z.string().uuid(),
+  personaNickname: z.string().nullable(),
+  jobKind: botJobKindSchema,
+  board: z.string().nullable(),
+  title: z.string().nullable(),
+  status: botJobStatusSchema,
+  genModel: z.string().nullable(),
+  regenCount: z.number().int(),
+  publishedPostId: z.string().uuid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type BotPostLogItem = z.infer<typeof botPostLogItemSchema>;
+
+/**
+ * 글 작성 로그 상세 — 검수 시도 타임라인 + 실사용 모델 + 비용 합산 + 최종 이벤트.
+ * lastCensorResult: bot_generation_jobs.censor_result(마지막 시도) 원본 jsonb.
+ */
+export const botPostLogDetailSchema = botPostLogItemSchema.extend({
+  topicTitleSeed: z.string().nullable(),
+  censorModel: z.string().nullable(),
+  /** 시도별 실사용 생성 모델 distinct (시간순) */
+  genModels: z.array(z.string()),
+  censorModels: z.array(z.string()),
+  /** ai_usage_log 합산 비용 (달러) */
+  usageCost: z.object({
+    generation: z.number(),
+    censor: z.number(),
+    image: z.number(),
+    total: z.number(),
+  }),
+  attempts: z.array(botPostLogAttemptSchema),
+  lastCensorResult: z.unknown(),
+  finalEvent: z
+    .object({
+      eventType: botActivityEventTypeSchema,
+      reason: z.string().nullable(),
+      createdAt: z.string(),
+    })
+    .nullable(),
+});
+export type BotPostLogDetail = z.infer<typeof botPostLogDetailSchema>;
+
+/** GET /admin/bots/post-logs 응답 */
+export const paginatedBotPostLogsSchema = paginatedResponseSchema(botPostLogItemSchema);
+export type PaginatedBotPostLogs = z.infer<typeof paginatedBotPostLogsSchema>;
+
+/** GET /admin/bots/post-logs 쿼리 파라미터 */
+export const adminBotPostLogsQuerySchema = z.object({
+  personaId: z.string().uuid().optional(),
+  status: botJobStatusSchema.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type AdminBotPostLogsQuery = z.infer<typeof adminBotPostLogsQuerySchema>;

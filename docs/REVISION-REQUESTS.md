@@ -64,6 +64,14 @@ _(없음)_
 > Claude가 수정 + 자체 검증을 마쳤으나 **사용자 검수 전**인 항목.
 > 사용자가 확인 후 통과면 `검수` 박스를 v로 체크해 주세요(통과 항목은 Claude가 삭제). 여전히 문제면 그대로 비워두세요.
 
+> **17차 배치(신규 2건) — 2026-07-07 수정 완료, 검수 대기.**
+
+- [x] `Claude` / [ ] `검수` — [봇 운영 패널] 입력창·토글 디자인 시스템 적용
+  - 1차 (2026-07-07): 사용자 요청 "운영 패널 입력창을 디자인 시스템 적용된 것으로". 원인: `apps/admin/app/bots/operations/page.tsx`의 입력 3개가 `className="form-input"`(코드 전역 어디에도 미정의 클래스)라 브라우저 기본 스타일로 렌더, 토글 3개도 `toggle-label`(미정의)+raw checkbox. → 숫자 입력 3개(하루 최대 글/댓글 수·일일 비용 상한)를 디자인 시스템 `.field`+`.field-label`+`.control`(settings 페이지 패턴)로, 토글 3개(킬 스위치·관찰 모드·랭킹 제외)를 `.switch`/`.switch-track`으로 교체(핸들러·저장 로직 무변경). **검증(실렌더)**: 로컬 DB+API+admin 기동, Playwright로 super_admin 로그인 → /bots/operations 실측 — `.control` 3개(높이 40px·디자인 토큰 테두리), `.switch` 3개 렌더 + 스크린샷 확인. admin tsc 클린. **검수: 운영 패널에서 입력창이 다른 관리자 화면과 같은 스타일(테두리·포커스 링)인지, 토글이 스위치 모양으로 정상 저장되는지.**
+
+- [x] `Claude` / [ ] `검수` — [봇 운영 패널] 글 작성 로그 — 봇별 작성 시도·모델·검수 반려 사유·최종 결과 확인 (목록=요약, 행 클릭=우측 흰 배경 드로어 상세)
+  - 1차 (2026-07-07): 사용자 요청 "어떤 글을 언제 시도, 생성/검수 모델, 게시판, 반려 횟수·사유, 성공/실패 확인 + 목록은 간추리고 클릭 시 오른쪽 모달(배경 흰색 필수)". **신규 테이블 없음** — 기존 `bot_generation_jobs`(스파인)·`bot_activity_log`(`regenerated` payload `{attempt, censorResult}`=시도별 반려 사유)·`ai_usage_log`(실사용 모델·비용)를 join 재구성: ① contracts `packages/contracts/src/bot.ts`에 `botPostLogItemSchema`·`botPostLogDetailSchema`(attempts 타임라인·usageCost·finalEvent)·쿼리 스키마 추가 ② 신규 `apps/api/src/routes/admin/bots/post-logs.ts` — `GET /admin/bots/post-logs`(댓글 제외, persona/status 필터, 제목 폴백 posts.title→draft->>'title'→title_seed, 생성 모델은 ai_usage_log 배치조회) + `GET /admin/bots/post-logs/:jobId`(검수 시도별 반려 사유, gen/censor 모델, purpose별 비용 합산, `refId=jobId OR payload->>'jobId'` 양쪽 관례 커버) + index.ts 등록(static이 `/:id`보다 우선이라 안전) ③ 신규 `apps/admin/app/bots/operations/PostLogSection.tsx` — 목록 표(시각·봇·게시판·제목·생성 모델·반려 N회·결과 배지)+봇/상태 필터+페이지네이션, 행 클릭 → 디자인 시스템 `.drawer` 우측 드로어(**배경 `#fff` 인라인 명시 — 투명 사고 방지**): 개요/모델 정보/검수 이력(시도별 축 배지+사유)/최종 이벤트/발행 글 링크, ESC·스크림·X 닫기. **검증(실호출+실렌더)**: 로컬 PG(마이그레이션 34개)+Redis+API 기동, super_admin 쿠키로 목록·상세 실호출(반려 사유·모델·비용·404·401 확인), Playwright로 행 클릭 → 드로어 배경 `rgb(255,255,255)` 실측 + 검수 이력("출시일 정보가 사실과 다름" 등)·gpt-5-mini/claude-haiku-4-5 표시 스크린샷 확인. contracts·api·admin tsc 클린, api vitest 무회귀(기존 실패 9건은 변경 전과 동일). **검수: 운영 패널 하단 "글 작성 로그"에서 봇 글 시도 목록 확인 → 행 클릭 → 우측 흰 배경 드로어에 반려 사유·모델·비용·최종 결과가 보이는지. (실데이터는 봇이 글을 쓴 뒤부터 쌓임)**
+
 > **16차 배치(신규 1건) — 2026-06-30 수정 완료, 검수 대기.**
 > (15차 배치 #1 "유저웹 첨부 확장자 즉시반영"은 사용자 검수 통과(`[v]`) 확인 후 삭제 — 토큰 절약.)
 

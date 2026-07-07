@@ -27,6 +27,7 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { confirmDialog } from "@/lib/dialog";
 import { API_BASE_URL } from "@/lib/api";
 import { BotCostChart } from "./BotCostChart";
+import { PostLogSection } from "./PostLogSection";
 
 // ── 로컬 타입 ─────────────────────────────────────────────────────────────────
 
@@ -325,14 +326,16 @@ export default function BotOperationsPage() {
             </div>
             <div className="card-body">
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <label className="toggle-label" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.bot_master_enabled ?? false}
-                    onChange={handleMasterToggle}
-                    disabled={settingsLoading}
-                    style={{ width: 18, height: 18 }}
-                  />
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={settings.bot_master_enabled ?? false}
+                      onChange={handleMasterToggle}
+                      disabled={settingsLoading}
+                    />
+                    <span className="switch-track" />
+                  </span>
                   <span style={{ fontWeight: 500 }}>
                     봇 전체 가동 {settings.bot_master_enabled ? "ON" : "OFF"}
                   </span>
@@ -351,14 +354,16 @@ export default function BotOperationsPage() {
             </div>
             <div className="card-body">
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <label className="toggle-label" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.bot_observation_mode ?? false}
-                    onChange={handleObservationToggle}
-                    disabled={settingsLoading}
-                    style={{ width: 18, height: 18 }}
-                  />
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={settings.bot_observation_mode ?? false}
+                      onChange={handleObservationToggle}
+                      disabled={settingsLoading}
+                    />
+                    <span className="switch-track" />
+                  </span>
                   <span style={{ fontWeight: 500 }}>
                     관찰 모드 {settings.bot_observation_mode ? "ON" : "OFF"}
                   </span>
@@ -377,14 +382,16 @@ export default function BotOperationsPage() {
             </div>
             <div className="card-body">
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <label className="toggle-label" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.bot_exclude_from_ranking ?? true}
-                    onChange={handleRankingExcludeToggle}
-                    disabled={settingsLoading}
-                    style={{ width: 18, height: 18 }}
-                  />
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={settings.bot_exclude_from_ranking ?? true}
+                      onChange={handleRankingExcludeToggle}
+                      disabled={settingsLoading}
+                    />
+                    <span className="switch-track" />
+                  </span>
                   <span style={{ fontWeight: 500 }}>
                     봇 랭킹 제외 {settings.bot_exclude_from_ranking ? "ON" : "OFF"}
                   </span>
@@ -406,31 +413,33 @@ export default function BotOperationsPage() {
               <h2 className="card-title">속도 안전선</h2>
             </div>
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="botDailyPostLimit">
                   하루 최대 글 수
                 </label>
                 <input
+                  id="botDailyPostLimit"
                   type="number"
                   min={1}
                   value={postLimit}
                   onChange={(e) => setPostLimit(Number(e.target.value))}
-                  className="form-input"
-                  style={{ width: "100%", maxWidth: 160 }}
+                  className="control"
+                  style={{ maxWidth: 160 }}
                   disabled={settingsLoading}
                 />
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="botDailyCommentLimit">
                   하루 최대 댓글 수
                 </label>
                 <input
+                  id="botDailyCommentLimit"
                   type="number"
                   min={1}
                   value={commentLimit}
                   onChange={(e) => setCommentLimit(Number(e.target.value))}
-                  className="form-input"
-                  style={{ width: "100%", maxWidth: 160 }}
+                  className="control"
+                  style={{ maxWidth: 160 }}
                   disabled={settingsLoading}
                 />
               </div>
@@ -452,18 +461,19 @@ export default function BotOperationsPage() {
               <h2 className="card-title">비용 상한</h2>
             </div>
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="botDailyCostLimit">
                   일일 비용 상한 (달러)
                 </label>
                 <input
+                  id="botDailyCostLimit"
                   type="number"
                   min={0}
                   step={0.01}
                   value={costLimit}
                   onChange={(e) => setCostLimit(parseFloat(e.target.value) || 0)}
-                  className="form-input"
-                  style={{ width: "100%", maxWidth: 160 }}
+                  className="control"
+                  style={{ maxWidth: 160 }}
                   disabled={settingsLoading}
                 />
               </div>
@@ -643,6 +653,9 @@ export default function BotOperationsPage() {
             )}
           </div>
         </article>
+
+        {/* ── 글 작성 로그 ──────────────────────────────────────────────── */}
+        <PostLogSection />
 
       </div>
     </AdminShell>
