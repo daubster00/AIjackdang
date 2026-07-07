@@ -44,21 +44,31 @@ const PROVIDER_OPTIONS = [
 // (비용 추정 맵 packages/server-bot/src/ai/pricing.ts 와 정합 유지).
 const TEXT_MODELS: Record<string, SelectOption[]> = {
   anthropic: [
-    { value: "claude-opus-4-5", label: "Claude Opus 4.5 (최고 품질)" },
-    { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5 (균형)" },
+    { value: "claude-fable-5", label: "Claude Fable 5 (최상위·최고 성능)" },
+    { value: "claude-opus-4-8", label: "Claude Opus 4.8 (최신 Opus·최고 품질)" },
+    { value: "claude-opus-4-7", label: "Claude Opus 4.7" },
+    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (최신·균형)" },
     { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (저비용·빠름)" },
+    { value: "claude-opus-4-5", label: "Claude Opus 4.5 (구형)" },
+    { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5 (구형)" },
   ],
   openai: [
-    { value: "gpt-4o", label: "GPT-4o" },
-    { value: "gpt-4o-mini", label: "GPT-4o mini (저비용)" },
-    { value: "gpt-4.1", label: "GPT-4.1" },
-    { value: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-    { value: "gpt-4.1-nano", label: "GPT-4.1 nano (최저비용)" },
+    { value: "gpt-5.5", label: "GPT-5.5 (최신 플래그십)" },
+    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro (최고 성능·고비용)" },
+    { value: "gpt-5.4", label: "GPT-5.4 (균형)" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 mini (저비용)" },
+    { value: "gpt-5.4-nano", label: "GPT-5.4 nano (최저비용)" },
+    { value: "gpt-4.1", label: "GPT-4.1 (구형)" },
+    { value: "gpt-4o", label: "GPT-4o (구형)" },
+    { value: "gpt-4o-mini", label: "GPT-4o mini (구형·저비용)" },
   ],
   google: [
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (고품질)" },
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (균형)" },
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (저비용)" },
+    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash (최신·최고지능 Flash)" },
+    { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (고품질·프리뷰)" },
+    { value: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite (최저비용)" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (구형·고품질)" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (구형·균형)" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (구형·저비용)" },
   ],
 };
 
@@ -67,10 +77,14 @@ const TEXT_MODELS: Record<string, SelectOption[]> = {
 // OpenAI gpt-image 계열은 조직 인증(Verify Organization)이 필요할 수 있음.
 const IMAGE_MODELS: Record<string, SelectOption[]> = {
   google: [
-    { value: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image (Nano Banana 2·최신·기본)" },
+    { value: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image (Nano Banana 2·기본·조직 인증 불필요)" },
+    { value: "gemini-3-pro-image", label: "Gemini 3 Pro Image (Nano Banana Pro·4K 고품질)" },
+    { value: "gemini-3.1-flash-lite-image", label: "Gemini 3.1 Flash-Lite Image (Nano Banana Lite·초저지연)" },
   ],
   openai: [
     { value: "gpt-image-2", label: "GPT Image 2 (조직 인증 필요)" },
+    { value: "gpt-image-1.5", label: "GPT Image 1.5 (조직 인증 필요)" },
+    { value: "gpt-image-1-mini", label: "GPT Image 1 mini (저비용·조직 인증 필요)" },
     { value: "gpt-image-1", label: "GPT Image 1 (조직 인증 필요)" },
     { value: "dall-e-3", label: "DALL·E 3" },
   ],

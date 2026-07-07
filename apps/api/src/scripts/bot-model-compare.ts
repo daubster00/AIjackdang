@@ -3,9 +3,9 @@
  *
  * 한 봇(감자세개)이 **같은 주제**로 글을 3번 쓰되,
  * 생성 모델만 각 제공사의 최고 사양으로 바꿔가며 작성한다.
- *   - GPT     : gpt-4.1        (openai)
- *   - 클로드   : claude-opus-4-5 (anthropic)
- *   - 제미나이 : gemini-2.5-pro  (google)
+ *   - GPT     : gpt-5.5         (openai)
+ *   - 클로드   : claude-opus-4-8 (anthropic)
+ *   - 제미나이 : gemini-3.5-flash (google)
  *
  * 목적: "같은 페르소나·같은 주제"를 고정한 상태에서 모델별로 위트/구성/
  * 자연스러움이 어떻게 다른지 나란히 비교하기 위함.
@@ -42,15 +42,15 @@ const BOARD = "talk";
 const TOPIC = "AI 도구에 매달 돈 쓰는 거 여러분은 어떻게 생각하세요?";
 
 /**
- * 각 제공사의 최고 사양(검증된 최상위) 모델.
- * gemini-2.5-pro는 내부 추론(thinking) 토큰을 소비하므로 maxTokens를 넉넉히
+ * 각 제공사의 최고 사양(2026-07 최신 최상위) 모델.
+ * Gemini는 내부 추론(thinking) 토큰을 소비하므로 maxTokens를 넉넉히
  * 줘야 실제 본문 파트가 빈 채로 반환되는 것을 막을 수 있다.
  * 재실행 시 이미 게시된 모델은 주석 처리해 중복 게시를 피한다.
  */
 const MODELS: { label: string; provider: string; model: string; maxTokens?: number }[] = [
-  { label: "GPT", provider: "openai", model: "gpt-4.1" },
-  { label: "클로드", provider: "anthropic", model: "claude-opus-4-5" },
-  { label: "제미나이", provider: "google", model: "gemini-2.5-pro", maxTokens: 4000 },
+  { label: "GPT", provider: "openai", model: "gpt-5.5" },
+  { label: "클로드", provider: "anthropic", model: "claude-opus-4-8" },
+  { label: "제미나이", provider: "google", model: "gemini-3.5-flash", maxTokens: 4000 },
 ];
 
 // ── 모델 응답 텍스트 → Tiptap JSON (경량 마크다운 변환) ────────────────────────

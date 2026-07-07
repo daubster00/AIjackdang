@@ -9,19 +9,37 @@
  * 모델명은 callModel이 DB에서 읽어 전달하며, 여기서 하드코딩하지 않는다.
  */
 
-/** 알려진 모델별 가격 (USD per 1M 토큰). 모델 라인업 변경 시 이 맵만 갱신. */
+/** 알려진 모델별 가격 (USD per 1M 토큰). 2026-07 기준. 모델 라인업 변경 시 이 맵만 갱신. */
 const PRICE_TABLE: Record<string, { input: number; output: number }> = {
   // ── OpenAI ─────────────────────────────────────────────────────────────────
+  // 최신 GPT-5 계열
+  "gpt-5.5": { input: 5.0, output: 30.0 },
+  "gpt-5.5-pro": { input: 30.0, output: 180.0 },
+  "gpt-5.4": { input: 2.5, output: 15.0 },
+  "gpt-5.4-mini": { input: 0.75, output: 4.5 },
+  "gpt-5.4-nano": { input: 0.2, output: 1.25 },
+  // 구형 GPT-4 계열 (하위호환)
   "gpt-4o": { input: 2.5, output: 10.0 },
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
   "gpt-4.1": { input: 2.0, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, output: 1.6 },
   "gpt-4.1-nano": { input: 0.1, output: 0.4 },
   // ── Anthropic ──────────────────────────────────────────────────────────────
-  "claude-haiku-4-5": { input: 0.8, output: 4.0 },
+  // 최신 Claude 계열
+  "claude-fable-5": { input: 10.0, output: 50.0 },
+  "claude-opus-4-8": { input: 5.0, output: 25.0 },
+  "claude-opus-4-7": { input: 5.0, output: 25.0 },
+  "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+  "claude-haiku-4-5": { input: 1.0, output: 5.0 },
+  // 구형 Claude 계열 (하위호환)
   "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
   "claude-opus-4-5": { input: 15.0, output: 75.0 },
   // ── Google Gemini ──────────────────────────────────────────────────────────
+  // 최신 Gemini 3 계열
+  "gemini-3.5-flash": { input: 1.5, output: 9.0 },
+  "gemini-3.1-pro-preview": { input: 2.0, output: 12.0 },
+  "gemini-3.1-flash-lite": { input: 0.25, output: 1.5 },
+  // 구형 Gemini 2 계열 (하위호환)
   "gemini-2.0-flash": { input: 0.075, output: 0.3 },
   "gemini-2.5-flash": { input: 0.15, output: 0.6 },
   "gemini-2.5-pro": { input: 1.25, output: 10.0 },
