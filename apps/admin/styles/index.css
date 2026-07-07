@@ -13,3 +13,36 @@
 /* 초기 스캐폴딩(로그인/AdminShell 자리표시)이 참조하는 --admin-* 토큰 유지.
    추후 해당 페이지를 디자인 시스템 컴포넌트로 교체하면 이 import 는 제거한다. */
 @import "./tokens/placeholder.css";
+
+/* ---------------------------------------------------------------------------
+ * 게시글 상세 본문(admin /posts/[board]/[id]) — 서버 변환 HTML 렌더 영역.
+ * 이미지·유튜브 임베드가 카드 폭을 넘치지 않게 하고 코드블록을 읽기 좋게 한다.
+ * ------------------------------------------------------------------------- */
+.admin-post-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 12px auto;
+}
+.admin-post-body iframe,
+.admin-post-body video {
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.admin-post-body pre {
+  background: var(--gray-900, #111);
+  color: var(--gray-50, #f8fafc);
+  padding: 14px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.admin-post-body p { margin: 8px 0; }
+.admin-post-body a { color: var(--primary-600, #2563eb); text-decoration: underline; }

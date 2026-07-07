@@ -21,6 +21,8 @@ type AdminPostDetail = {
   title: string;
   slug: string;
   contentJson: unknown;
+  /** 서버에서 변환된 본문 HTML(이미지·영상·코드블록 포함). */
+  contentHtml?: string;
   status: string;
   userId: string | null;
   authorNickname: string | null;
@@ -70,9 +72,9 @@ function formatDateTime(iso: string): string {
 }
 
 /**
- * contentJson → 렌더 가능한 HTML 문자열.
- * LightEditor 래퍼 `{ html: "..." }` 우선, 없으면 Tiptap JSON 에서 재귀 추출.
- * (qna 상세 페이지와 동일 규약)
+ * contentJson → 렌더 가능한 HTML 문자열 (폴백).
+ * 서버가 contentHtml 을 주지 않는 경우에만 사용. LightEditor 래퍼 `{ html }` 우선.
+ * 이미지/영상은 서버 변환(contentHtml) 경로에서만 완전히 렌더된다.
  */
 function contentJsonToHtml(json: unknown): string {
   if (!json || typeof json !== "object") return "";
@@ -145,7 +147,8 @@ export default function PostDetailPage({
     void fetchPost();
   }, [fetchPost]);
 
-  const bodyHtml = post ? contentJsonToHtml(post.contentJson) : "";
+  // 서버가 변환한 contentHtml(이미지·영상·코드블록 포함) 우선, 없으면 클라 폴백.
+  const bodyHtml = post ? (post.contentHtml || contentJsonToHtml(post.contentJson)) : "";
   const comments = post?.comments ?? [];
 
   // post.board 는 DB board 값(예: "monetization-tips").
@@ -276,7 +279,10 @@ export default function PostDetailPage({
                   }}
                 >
                   {bodyHtml ? (
-                    <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+                    <div
+                      className="admin-post-body"
+                      dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                    />
                   ) : (
                     <p style={{ color: "var(--gray-400)" }}>(본문 없음)</p>
                   )}
