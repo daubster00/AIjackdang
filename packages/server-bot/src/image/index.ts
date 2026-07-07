@@ -29,7 +29,7 @@ import {
 } from "./strategy.js";
 import { pickStock, type StockImage } from "./stock.js";
 import { genImage } from "./generate.js";
-import { searchWebImage } from "./web.js";
+import { searchWebImage, type WebImage } from "./web.js";
 
 // 하위 모듈 공개 타입 re-export
 export type { PersonaContext, ImageStrategy, ImageStrategyOptions, PostKind } from "./strategy.js";
@@ -146,6 +146,30 @@ async function downloadImageFromUrl(
 }
 
 /**
+ * 이미 검색해 둔 웹 이미지(WebImage)를 다운로드해 스토리지에 업로드한다.
+ *
+ * 미디어 우선 큐레이션(밈을 먼저 찾고 그 밈 자체를 글감으로 쓰는 경로)처럼
+ * 검색 시점과 첨부 시점이 분리될 때 사용한다.
+ * 다운로드·업로드 실패 시 null — 이미지 실패로 게시가 막히면 안 된다.
+ */
+export async function uploadWebImage(
+  web: WebImage,
+  uploadFn: UploadImageFn,
+): Promise<{ imageUrl: string; source: ImageSource } | null> {
+  try {
+    const downloaded = await downloadImageFromUrl(web.url);
+    if (!downloaded) return null;
+    const { url } = await uploadFn(downloaded, "editor-images");
+    return {
+      imageUrl: url,
+      source: { label: web.sourceLabel, url: web.sourcePageUrl },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 봇 이미지를 조달·업로드하고 URL을 반환한다.
  *
  * 처리 흐름:
@@ -234,13 +258,12 @@ export async function fetchBotImage(
     if (strategy === "web") {
       const web = await searchWebImage(webQuery ?? keyword);
       if (web) {
-        const downloaded = await downloadImageFromUrl(web.url);
-        if (downloaded) {
-          const { url } = await uploadFn(downloaded, "editor-images");
+        const uploaded = await uploadWebImage(web, uploadFn);
+        if (uploaded) {
           return {
-            imageUrl: url,
+            imageUrl: uploaded.imageUrl,
             strategy: "web",
-            source: { label: web.sourceLabel, url: web.sourcePageUrl },
+            source: uploaded.source,
             isMeme: false,
           };
         }

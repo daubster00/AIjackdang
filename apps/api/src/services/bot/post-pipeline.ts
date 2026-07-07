@@ -8,8 +8,9 @@
  *  1) 페르소나 조회
  *  2) 생성 모델 조회
  *  2.5) AI 창작마당 큐레이션(퍼오기) 결정
- *  3) 검색 주도 주제 발굴 (discoverTopic)
- *  4) 주제 확정 (큐레이션 영상 → 발굴 → 고정 시드 → 실시간 폴백)
+ *  2.6) 밈 미디어 우선 — 밈 이미지를 먼저 검색해 소재로 확보 (meme 모드)
+ *  3) 검색 주도 주제 발굴 (discoverTopic) — 큐레이션 소재 확보 시 생략
+ *  4) 주제 확정 (큐레이션 영상/밈 → 발굴 → 고정 시드 → 실시간 폴백)
  *  5) 생성 잡 레코드 생성 (bot_generation_jobs)
  *  6) 검색·그라운딩 (groundTopic, intensity 분기)
  *  6b) 이미지 전략 결정 (decideImageStrategy + 관리자 override)
@@ -35,6 +36,8 @@ import type { FactGrounding, DiscoveredTopic, CuratedVideo } from "@ai-jakdang/s
 import {
   decideImageStrategy,
   fetchBotImage,
+  searchWebImage,
+  uploadWebImage,
   prependYoutubeToTiptapDoc,
   prependImageWithSourceToTiptapDoc,
   insertInlineImagesByMarker,
@@ -47,6 +50,7 @@ import type {
   ImageStrategyOptions,
   GuideAssetManifest,
   PostImagePlan,
+  WebImage,
 } from "@ai-jakdang/server-bot/image";
 import {
   buildPersonaSystemPrompt,
@@ -277,6 +281,25 @@ export async function runPostPipeline(
   const effectiveCuration: CurationMode | null =
     curationMode === "youtube" && !curatedVideo ? "meme" : curationMode;
 
+  // ── Step 2.6: 밈 미디어 우선 — 밈 이미지를 먼저 찾고, 찾은 밈 자체를 글감으로 쓴다 ──
+  // 유튜브 모드(영상=글감)와 같은 구조. 주제 풀·발굴 없이도 밈 소개글이 성립하므로
+  // 발굴 제외 게시판(ai-creation 등)에서 주제 풀이 비어도 no-topic으로 죽지 않는다.
+  // 유료 스톡 출처는 소재로 쓰지 않는다(저작권 위험 후보는 폐기 → 기존 폴백 사다리로 진행).
+  let curatedMeme: WebImage | null = null;
+  if (effectiveCuration === "meme") {
+    curatedMeme = await searchWebImage(curationMemeQuery(persona.nickname));
+    if (curatedMeme && checkCurationCopyrightRisk(curatedMeme.sourcePageUrl)) {
+      curatedMeme = null;
+    }
+    if (curatedMeme) {
+      await logActivity(db, personaId, "planned", null, {
+        reason: "curation-meme",
+        memeTitle: curatedMeme.alt,
+        sourceUrl: curatedMeme.sourcePageUrl,
+      });
+    }
+  }
+
   // ── Step 3: 검색 주도 주제 발굴 ───────────────────────────────────────────────
   // "주제를 미리 정하지 않고" 최근 소식을 먼저 검색해 신선한 글감을 만든다.
   // 발굴 대상 게시판(getDiscoveryQuery)이면 정보형·잡담·질문 톤 모두 발굴한다.
@@ -295,7 +318,9 @@ export async function runPostPipeline(
           ? "실무에 바로 쓸 만한 정보형 커뮤니티 글 주제."
           : "가볍고 캐주얼한 잡담·리액션 톤의 주제. 최근 화제나 밈처럼 편하게 떠들 만한 것.";
 
-  if (wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
+  // 큐레이션 소재(영상/밈)가 이미 확보됐으면 발굴 생략 — Step 4에서 어차피 큐레이션이 우선이라
+  // 발굴 결과는 버려지므로 검색·모델 비용만 아낀다.
+  if (!curatedVideo && !curatedMeme && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -313,7 +338,7 @@ export async function runPostPipeline(
     }
   }
 
-  // ── Step 4: 주제 확정 (큐레이션 영상 → 발굴 → 고정 시드 → 실시간 폴백) ──────────
+  // ── Step 4: 주제 확정 (큐레이션 영상/밈 → 발굴 → 고정 시드 → 실시간 폴백) ────────
   let topicResult: { topic: BotTopicRow; wasRealtime: boolean };
   if (curatedVideo) {
     // 유튜브 큐레이션: 영상 자체가 소재이므로 시드 주제가 필요 없다(제목=영상 제목).
@@ -329,6 +354,20 @@ export async function runPostPipeline(
       createdAt: new Date(),
     };
     topicResult = { topic: videoTopic, wasRealtime: true };
+  } else if (curatedMeme) {
+    // 밈 큐레이션(미디어 우선): 찾은 밈 자체가 소재이므로 시드 주제가 필요 없다(제목=검색 결과 제목).
+    const memeTopic: BotTopicRow = {
+      id: `curated-meme-${Date.now()}`,
+      personaId,
+      board,
+      titleSeed: curatedMeme.alt ?? "요즘 화제인 AI 밈",
+      topicKind: "realtime",
+      status: "unused",
+      usedAt: null,
+      seriesGroup: null,
+      createdAt: new Date(),
+    };
+    topicResult = { topic: memeTopic, wasRealtime: true };
   } else if (discovered) {
     const syntheticTopic: BotTopicRow = {
       id: `discovered-${Date.now()}`,
@@ -449,7 +488,11 @@ export async function runPostPipeline(
           channel: curatedVideo?.channel ?? undefined,
         }
       : effectiveCuration === "meme"
-        ? { kind: "meme" }
+        ? {
+            kind: "meme",
+            title: curatedMeme?.alt ?? undefined,
+            channel: curatedMeme?.sourceLabel ?? undefined,
+          }
         : undefined;
 
   // ── Step 7: 관리자 연재 컨텍스트 조회 ────────────────────────────────────────
@@ -579,8 +622,23 @@ export async function runPostPipeline(
           sourceUrl: curatedVideo.pageUrl,
         });
 
+      } else if (effectiveCuration === "meme" && curatedMeme) {
+        // 모드 C-2a: 밈 퍼오기(미디어 우선) — Step 2.6에서 찾아 둔 밈을 그대로 첨부.
+        // 출처는 검색 시점에 저작권 위험 검증을 통과했으므로 보류 없이 게시한다.
+        const uploaded = await uploadWebImage(curatedMeme, uploadImage);
+        if (uploaded) {
+          finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.imageUrl, {
+            sourceLabel: uploaded.source.label,
+            sourceUrl: uploaded.source.url,
+          });
+        } else {
+          // 다운로드·업로드 실패 → 이미지 없이 계속(게시 차단 금지)
+          finalContentJson = draftJson;
+        }
+
       } else if (effectiveCuration === "meme") {
-        // 모드 C-2: 밈 퍼오기 — 웹 이미지 검색 + 저작권 위험 판정
+        // 모드 C-2b: 밈 퍼오기(레거시) — 미디어 우선 검색이 빈손이라 발굴/주제 풀로 주제를
+        // 확보한 경우. 게시 직전에 웹 이미지를 재검색 + 저작권 위험 판정.
         try {
           const memeQuery = curationMemeQuery(persona.nickname);
           const memeImgResult = await fetchBotImage({

@@ -17,6 +17,8 @@ const {
   mockDiscoverTopic,
   mockDecideImageStrategy,
   mockFetchBotImage,
+  mockSearchWebImage,
+  mockUploadWebImage,
   mockPrependImageToTiptapDoc,
   mockPrependImageWithSourceToTiptapDoc,
   mockRunContentGuard,
@@ -42,6 +44,8 @@ const {
   mockDiscoverTopic: vi.fn(),
   mockDecideImageStrategy: vi.fn(),
   mockFetchBotImage: vi.fn(),
+  mockSearchWebImage: vi.fn(),
+  mockUploadWebImage: vi.fn(),
   mockPrependImageToTiptapDoc: vi.fn(),
   mockPrependImageWithSourceToTiptapDoc: vi.fn(),
   mockRunContentGuard: vi.fn(),
@@ -95,6 +99,8 @@ vi.mock("@ai-jakdang/server-bot/search", () => ({
 vi.mock("@ai-jakdang/server-bot/image", () => ({
   decideImageStrategy: mockDecideImageStrategy,
   fetchBotImage: mockFetchBotImage,
+  searchWebImage: mockSearchWebImage,
+  uploadWebImage: mockUploadWebImage,
   prependImageToTiptapDoc: mockPrependImageToTiptapDoc,
   prependImageWithSourceToTiptapDoc: mockPrependImageWithSourceToTiptapDoc,
 }));
@@ -270,6 +276,9 @@ describe("runPostPipeline", () => {
     mockRunContentGuard.mockResolvedValue({ ok: true });
     mockRunSelfCensor.mockResolvedValue(passAllCensorResult);
     mockCreatePostAsBot.mockResolvedValue({ status: "published", refId: POST_ID });
+    // 밈 미디어 우선(Step 2.6): 기본 빈손(null) → 기존 폴백 사다리 경로를 그대로 검증
+    mockSearchWebImage.mockResolvedValue(null);
+    mockUploadWebImage.mockResolvedValue(null);
   });
 
   // ── 시나리오 1: 정상 게시 (published) ─────────────────────────────────────
@@ -480,5 +489,56 @@ describe("runPostPipeline", () => {
     });
 
     expect(mockMarkTopicUsed).not.toHaveBeenCalled();
+  });
+
+  // ── 시나리오 12: 밈 큐레이션 미디어 우선 (Step 2.6) ────────────────────────
+
+  it("밈 큐레이션(미디어 우선): 밈을 먼저 찾으면 주제 풀 없이 발행 + 찾아둔 밈 첨부", async () => {
+    // 1번째 select=페르소나, 2번째 select=게시판 큐레이션 설정(밈 100%로 고정해 랜덤 제거)
+    const personaChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([mockPersona]),
+        }),
+      }),
+    };
+    const curationChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([
+            { curationEnabled: true, curationWeights: { youtube: 0, meme: 100, ai: 0 } },
+          ]),
+        }),
+      }),
+    };
+    mockDb.select
+      .mockReturnValueOnce(personaChain)
+      .mockReturnValueOnce(curationChain);
+
+    const meme = {
+      url: "https://img.example.com/meme.jpg",
+      sourcePageUrl: "https://community.example.com/post/1",
+      sourceLabel: "community.example.com",
+      alt: "AI가 만든 웃긴 밈",
+    };
+    mockSearchWebImage.mockResolvedValue(meme);
+    mockUploadWebImage.mockResolvedValue({
+      imageUrl: "https://cdn.example.com/meme-uploaded.jpg",
+      source: { label: meme.sourceLabel, url: meme.sourcePageUrl },
+    });
+    mockSelectTopic.mockResolvedValue(null); // 주제 풀 완전 고갈 상황
+
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: BOARD });
+
+    expect(result.status).toBe("published");
+    expect(mockSelectTopic).not.toHaveBeenCalled(); // 풀 의존 없음
+    expect(mockDiscoverTopic).not.toHaveBeenCalled(); // 소재 확보 시 발굴 생략
+    expect(mockUploadWebImage).toHaveBeenCalledWith(meme, expect.anything());
+    expect(mockFetchBotImage).not.toHaveBeenCalled(); // 게시 시점 재검색 없음
+    expect(mockPrependImageWithSourceToTiptapDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      "https://cdn.example.com/meme-uploaded.jpg",
+      expect.objectContaining({ sourceUrl: meme.sourcePageUrl }),
+    );
   });
 });
