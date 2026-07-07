@@ -48,9 +48,40 @@ function requireApiKey(): string {
 
 // ── 어댑터 구현 ───────────────────────────────────────────────────────────────
 
+/**
+ * GPT-5 계열(및 o-시리즈 추론 모델)은 chat/completions 파라미터 규약이 다르다:
+ *  - max_tokens → max_completion_tokens (구 파라미터 전달 시 400 unsupported_parameter)
+ *  - temperature 는 기본값(1)만 허용 — 0.7 등 커스텀값 전달 시 400 unsupported_value
+ * 따라서 이 계열은 max_completion_tokens 를 쓰고 temperature 는 아예 보내지 않는다.
+ * gpt-4o·gpt-4.1 등 구형 모델은 기존대로 max_tokens + temperature 를 사용한다.
+ */
+function usesNewCompletionParams(model: string): boolean {
+  return /^(gpt-5|o[0-9])/i.test(model);
+}
+
 export const openAiAdapter: AiProvider = {
   async generateText(req: AiTextRequest): Promise<AiTextResponse> {
     const apiKey = requireApiKey();
+
+    const body: Record<string, unknown> = {
+      model: req.model,
+      messages: [
+        { role: "system", content: req.system },
+        { role: "user", content: req.user },
+      ],
+      // tools 파라미터 절대 추가 금지 (ARCHITECTURE §4 — 생성 모델 격리)
+    };
+
+    if (usesNewCompletionParams(req.model)) {
+      // GPT-5 계열: max_completion_tokens 사용, temperature 미전달(기본 1만 허용)
+      body.max_completion_tokens = req.maxTokens ?? 2000;
+      if (req.temperature !== undefined && req.temperature === 1) {
+        body.temperature = 1;
+      }
+    } else {
+      body.max_tokens = req.maxTokens ?? 2000;
+      body.temperature = req.temperature ?? 0.7;
+    }
 
     const res = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
       method: "POST",
@@ -58,16 +89,7 @@ export const openAiAdapter: AiProvider = {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: req.model,
-        messages: [
-          { role: "system", content: req.system },
-          { role: "user", content: req.user },
-        ],
-        max_tokens: req.maxTokens ?? 2000,
-        temperature: req.temperature ?? 0.7,
-        // tools 파라미터 절대 추가 금지 (ARCHITECTURE §4 — 생성 모델 격리)
-      }),
+      body: JSON.stringify(body),
     });
 
     await assertProviderOk(res, "openai", req.model, "chat/completions");
