@@ -16,7 +16,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Youtube } from "@tiptap/extension-youtube";
-import { Extension } from "@tiptap/core";
+import { Extension, Node, mergeAttributes } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { sanitizeHtml } from "./sanitize.js";
 
@@ -50,6 +50,27 @@ const FontSizeRenderer = Extension.create({
 });
 
 /**
+ * Caption 서버 사이드 렌더 노드.
+ * 클라이언트의 apps/web/features/editor/extensions/Caption.ts 와 동일한 renderHTML 로직.
+ * generateHTML 이 "caption" 노드를 <p class="caption"> 로 출력하기 위해 필요하다.
+ */
+const CaptionRenderer = Node.create({
+  name: "caption",
+  group: "block",
+  content: "inline*",
+  // 확장 레벨 priority 는 주지 않는다(클라이언트 Caption.ts 와 동일). 파스 우선순위는 규칙 레벨로.
+  parseHTML() {
+    return [
+      { tag: "p.caption", priority: 60 },
+      { tag: "figcaption", priority: 60 },
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["p", mergeAttributes(HTMLAttributes, { class: "caption" }), 0];
+  },
+});
+
+/**
  * FULL_ALLOWED_NODES 에 대응하는 Tiptap 확장 목록.
  * StarterKit 은 paragraph·text·hardBreak·bold·italic·heading·bulletList·orderedList·
  * listItem·blockquote·codeBlock·code·link·strike·underline·horizontalRule 을 포함한다.
@@ -61,8 +82,10 @@ const EXTENSIONS = [
   Highlight.configure({ multicolor: true }),
   TextStyle,
   Color,
-  // 폰트 크기 — font-size 인라인 스타일 렌더
+  // 폰트 크기 — font-size 인라인 스타일 렌더 (옛 글 호환용)
   FontSizeRenderer,
+  // 캡션 — <p class="caption"> 시맨틱 문단 렌더
+  CaptionRenderer,
   // 좌/가운데/우 정렬 — text-align style 로 렌더
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   // 동영상 — YouTube iframe 으로 렌더 (sanitize 에서 youtube 도메인만 허용)

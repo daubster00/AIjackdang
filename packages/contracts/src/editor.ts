@@ -27,6 +27,8 @@ export const FULL_ALLOWED_NODES: AllowedNode[] = [
   { type: "doc" },
   // 문단/제목에 좌·가운데·우 정렬(textAlign) 허용 — text-align style 로 렌더됨
   { type: "paragraph", attrs: ["textAlign"] },
+  // 캡션(이미지 설명·출처 등) — <p class="caption"> 시맨틱 문단. class 허용은 sanitize.ts.
+  { type: "caption" },
   { type: "text" },
   { type: "hardBreak" },
   // 인라인 서식

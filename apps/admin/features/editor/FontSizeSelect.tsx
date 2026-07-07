@@ -17,10 +17,13 @@ export function FontSizeSelect({
   value,
   options,
   onChange,
+  ariaLabel = "글 형식",
 }: {
   value: string;
   options: FontSizeOption[];
   onChange: (value: string) => void;
+  /** 트리거 버튼의 접근성 레이블 (기본: "글 형식") */
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number; width: number }>({
@@ -66,8 +69,8 @@ export function FontSizeSelect({
         className={styles.trigger}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="글자 크기"
-        title="글자 크기 선택"
+        aria-label={ariaLabel}
+        title={ariaLabel}
         onClick={() => setOpen((v) => !v)}
       >
         <span className={styles.triggerLabel}>{selected?.label ?? "기본"}</span>

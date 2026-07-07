@@ -23,6 +23,7 @@ function tiptapNodeToHtmlTag(type: string): string | null {
   const map: Record<string, string> = {
     // 블록 노드
     paragraph: "p",
+    caption: "p", // 캡션은 <p class="caption"> 로 렌더 (class 는 allowedClasses 로 허용)
     hardBreak: "br",
     heading: "h1", // h1~h6 — 별도로 h2·h3 도 허용 태그에 추가
     bulletList: "ul",
@@ -166,9 +167,10 @@ export function buildSanitizeOptions(
           ],
         }
       : {}),
-    // code 태그 내 class="language-xxx" 만 허용 (정규식)
+    // 허용 class: code 는 language-xxx(정규식), p 는 caption(시맨틱 캡션 문단) 만.
     allowedClasses: {
       code: [CODE_CLASS_PATTERN],
+      p: ["caption"],
     },
     // javascript: href 를 가진 링크 제거 (data:·vbscript: 도 차단)
     exclusiveFilter(frame) {

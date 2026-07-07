@@ -11,6 +11,7 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { Youtube } from "@tiptap/extension-youtube";
 import { EditorToolbar } from "./EditorToolbar";
 import { FontSize } from "./extensions/FontSize";
+import { Caption } from "./extensions/Caption";
 import { TrailingNode } from "./extensions/TrailingNode";
 import styles from "./Editor.module.css";
 
@@ -56,7 +57,10 @@ function buildExtensions(preset: EditorPreset) {
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
+      // 폰트 크기 — 옛 글의 인라인 크기 렌더 호환용 (신규는 '글 형식' 시맨틱 서식 사용)
       FontSize,
+      // 캡션 — <p class="caption"> 시맨틱 문단
+      Caption,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Youtube.configure({
         controls: true,

@@ -25,25 +25,25 @@ const FONT_COLORS = [
 ];
 
 /**
- * 폰트 크기 선택 옵션.
- * - type="fontSize"  : TextStyle 에 font-size 인라인 스타일 적용
- * - type="paragraph" : 단락으로 복귀 (크기 해제)
+ * 글 형식(블록 서식) 선택 옵션 — 검색 노출(SEO)을 위한 시맨틱 마크업.
+ *
+ * 옛 방식(인라인 font-size 스팬)은 큰 글씨를 <span style="font-size:36px"> 로만 만들어
+ * 검색엔진이 문서 구조(제목/본문)를 인식하지 못했다. 이제 '글자 크기' 대신 '글 형식' 으로
+ * 각 블록을 의미 있는 태그로 지정한다.
+ *
+ * - paragraph : 본문 → <p>
+ * - h2        : 제목 → <h2>
+ * - h3        : 소제목 → <h3>
+ * - caption   : 캡션(이미지 설명·출처 등) → <p class="caption">
  */
-const FONT_SIZES: Array<{
+const BLOCK_FORMATS: Array<{
   label: string;
-  type: "paragraph" | "fontSize";
-  value: string;
+  value: "paragraph" | "h2" | "h3" | "caption";
 }> = [
-  { label: "기본", type: "paragraph", value: "" },
-  { label: "작게 (12px)", type: "fontSize", value: "12px" },
-  { label: "보통 (15px)", type: "fontSize", value: "15px" },
-  { label: "크게 (18px)", type: "fontSize", value: "18px" },
-  { label: "더 크게 (22px)", type: "fontSize", value: "22px" },
-  { label: "26px", type: "fontSize", value: "26px" },
-  { label: "30px", type: "fontSize", value: "30px" },
-  { label: "36px", type: "fontSize", value: "36px" },
-  { label: "42px", type: "fontSize", value: "42px" },
-  { label: "48px", type: "fontSize", value: "48px" },
+  { label: "본문", value: "paragraph" },
+  { label: "제목 (H2)", value: "h2" },
+  { label: "소제목 (H3)", value: "h3" },
+  { label: "캡션", value: "caption" },
 ];
 
 type EditorToolbarProps = {
@@ -81,11 +81,14 @@ export function EditorToolbar({ editor, preset }: EditorToolbarProps) {
           textAlignLeft: false,
           textAlignCenter: false,
           textAlignRight: false,
-          fontSizeValue: "",
+          blockFormat: "paragraph" as "paragraph" | "h2" | "h3" | "caption",
         };
       }
-      const fs = (ed.getAttributes("textStyle") as { fontSize?: string })?.fontSize;
-      const fontSizeValue = fs ?? "";
+      // 현재 커서 블록의 시맨틱 형식(본문/제목/소제목/캡션)을 판별한다.
+      let blockFormat: "paragraph" | "h2" | "h3" | "caption" = "paragraph";
+      if (ed.isActive("heading", { level: 2 })) blockFormat = "h2";
+      else if (ed.isActive("heading", { level: 3 })) blockFormat = "h3";
+      else if (ed.isActive("caption")) blockFormat = "caption";
       return {
         isLink: ed.isActive("link"),
         isCodeBlock: ed.isActive("codeBlock"),
@@ -96,7 +99,7 @@ export function EditorToolbar({ editor, preset }: EditorToolbarProps) {
         textAlignLeft: ed.isActive({ textAlign: "left" }),
         textAlignCenter: ed.isActive({ textAlign: "center" }),
         textAlignRight: ed.isActive({ textAlign: "right" }),
-        fontSizeValue,
+        blockFormat,
       };
     },
   });
@@ -162,17 +165,24 @@ export function EditorToolbar({ editor, preset }: EditorToolbarProps) {
     setShowColorPalette(false);
   };
 
-  /** 폰트 크기 적용 */
-  const handleFontSize = (rawValue: string) => {
-    const option = FONT_SIZES.find((s) => s.value === rawValue);
-    if (!option) return;
-
-    if (option.type === "paragraph") {
-      // 기본: 단락 복귀 + 크기 해제
-      editor.chain().focus().setParagraph().unsetFontSize().run();
-    } else {
-      // 인라인 폰트 크기 (fontSize via TextStyle)
-      editor.chain().focus().setFontSize(option.value).run();
+  /** 글 형식(블록 서식) 적용 — 시맨틱 태그로 변환(SEO) */
+  const handleBlockFormat = (value: string) => {
+    // 형식 변경 시 옛 인라인 글자 크기(font-size 스팬)는 해제해 시맨틱 크기로 통일한다.
+    const chain = editor.chain().focus().unsetFontSize();
+    switch (value) {
+      case "h2":
+        chain.setHeading({ level: 2 }).run();
+        break;
+      case "h3":
+        chain.setHeading({ level: 3 }).run();
+        break;
+      case "caption":
+        chain.setCaption().run();
+        break;
+      case "paragraph":
+      default:
+        chain.setParagraph().run();
+        break;
     }
   };
 
@@ -275,17 +285,17 @@ export function EditorToolbar({ editor, preset }: EditorToolbarProps) {
 
           <span className={styles.toolbarDivider} aria-hidden="true" />
 
-          {/* 폰트 크기 선택 드롭다운 (H2/H3 버튼 대체) */}
+          {/* 글 형식 선택 드롭다운 — 제목/소제목/본문/캡션을 시맨틱 태그로 지정(SEO) */}
           <select
             className={styles.fontSizeSelect}
-            aria-label="글자 크기"
-            title="글자 크기 선택"
-            value={editorState.fontSizeValue}
-            onChange={(e) => handleFontSize(e.target.value)}
+            aria-label="글 형식"
+            title="글 형식 (제목·소제목·본문·캡션)"
+            value={editorState.blockFormat}
+            onChange={(e) => handleBlockFormat(e.target.value)}
           >
-            {FONT_SIZES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+            {BLOCK_FORMATS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
               </option>
             ))}
           </select>

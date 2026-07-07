@@ -106,6 +106,31 @@
   margin-block: var(--space-6) var(--space-3);
 }
 
+/*
+ * 제목/소제목 글자 크기 — 에디터(.ProseMirror h2/h3)와 1:1로 맞춘다.
+ * 전역 h2·h3 규칙은 굵기·줄높이만 주고 font-size 는 주지 않아, 이 규칙이 없으면
+ * 본문(<h2>)이 본문 크기 그대로 렌더돼 제목이 시각적으로 구분되지 않았다.
+ * (검색엔진은 <h2>/<h3> 태그로 구조를 인식하고, 사람 눈에도 크기로 구분된다.)
+ */
+.articleContent.articleContent > h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+}
+.articleContent.articleContent > h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+
+/* 캡션 문단(<p class="caption">) — 이미지 설명·출처. 작고 흐린 글씨. */
+.articleContent.articleContent > p.caption {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-snug);
+  margin-block: var(--space-1) var(--space-3);
+}
+
 /* 첫/마지막 블록의 바깥 여백은 카드 패딩과 겹치지 않도록 제거 */
 .articleContent.articleContent > :first-child {
   margin-block-start: 0;

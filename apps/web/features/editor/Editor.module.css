@@ -337,6 +337,14 @@
   margin: 0;
 }
 
+/* 캡션 문단(<p class="caption">) — 이미지 설명·출처. 작고 흐린 글씨. */
+.editorContent :global(.ProseMirror p.caption) {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-snug);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
 /*
  * reset.css 가 ul, ol { list-style: none; padding: 0; } 으로 마커를 전체 초기화한다.
  * ProseMirror 에디터 영역은 충분한 specificity 로 마커와 들여쓰기를 복원한다.

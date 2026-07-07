@@ -11,6 +11,7 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { Youtube } from "@tiptap/extension-youtube";
 import { EditorToolbar } from "./EditorToolbar";
 import { FontSize } from "./extensions/FontSize";
+import { Caption } from "./extensions/Caption";
 import { TrailingNode } from "./extensions/TrailingNode";
 import styles from "./Editor.module.css";
 
@@ -72,7 +73,10 @@ function buildExtensions(preset: EditorPreset) {
       // 그대로 렌더하기 위해 확장 자체는 유지한다.
       Highlight.configure({ multicolor: true }),
       // 폰트 크기 — TextStyle 을 확장해 font-size 인라인 스타일 적용
+      // (신규 글은 '글 형식' 시맨틱 서식을 쓰지만, 옛 글의 인라인 크기 렌더를 위해 확장은 유지)
       FontSize,
+      // 캡션 — <p class="caption"> 시맨틱 문단 (제목/소제목/본문/캡션 '글 형식' 서식)
+      Caption,
       // 좌/가운데/우 정렬 — 문단·제목에 text-align 속성 부여
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       // 동영상 삽입 (YouTube)
