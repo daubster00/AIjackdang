@@ -101,10 +101,10 @@ function UsageTable({
                   <td>
                     <span className="badge badge-gray" style={{ fontFamily: "monospace" }}>{row.key}</span>
                   </td>
-                  <td className="num" style={{ fontWeight: 600 }}>{fmtUsd(row.costUsd)}</td>
-                  <td className="num">{fmtNum(row.callCount)}</td>
-                  <td className="num">{fmtNum(row.inputTokens)}</td>
-                  <td className="num">{fmtNum(row.outputTokens)}</td>
+                  <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{fmtUsd(row.costUsd)}</td>
+                  <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.callCount)}</td>
+                  <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.inputTokens)}</td>
+                  <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.outputTokens)}</td>
                 </tr>
               ))
             )}

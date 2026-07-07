@@ -594,8 +594,8 @@ export default function BotOperationsPage() {
                 보류 항목 없음
               </div>
             ) : (
-              <div className="data-table-wrap" style={{ overflowX: "auto" }}>
-                <table className="data-table">
+              <div className="table-wrap" style={{ overflowX: "auto" }}>
+                <table className="admin-table" style={{ minWidth: 720 }}>
                   <thead>
                     <tr>
                       <th>사유</th>

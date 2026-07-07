@@ -502,8 +502,8 @@ export function PostLogSection() {
           </div>
         ) : (
           <>
-            <div className="data-table-wrap" style={{ overflowX: "auto" }}>
-              <table className="data-table">
+            <div className="table-wrap" style={{ overflowX: "auto" }}>
+              <table className="admin-table" style={{ minWidth: 820 }}>
                 <thead>
                   <tr>
                     <th>시각</th>
