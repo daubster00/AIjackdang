@@ -87,8 +87,13 @@ const SOURCE_KIND_BADGE: Record<string, string> = {
 
 function formatSchedule(iso: string | null): string {
   if (!iso) return "";
-  // datetime-local 형식으로 변환: "2026-07-15T14:30"
-  return iso.slice(0, 16);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  // 저장 시 new Date(로컬입력).toISOString() 으로 UTC 변환하므로, 표시할 때도
+  // UTC 인스턴트를 브라우저 로컬 벽시계로 되돌려야 입력값과 왕복 일치한다.
+  // (단순 slice(0,16) 은 UTC 시각을 그대로 노출해 KST 기준 -9시간 어긋남.)
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ── 토스트 (화면 중앙) ────────────────────────────────────────────────────────
@@ -440,7 +445,7 @@ export default function ChapterDetailPage() {
           <div style={{ textAlign: "right", fontSize: 13, color: "var(--gray-500)" }}>
             <div>이미지: <strong style={{ color: chapter.readySlots === chapter.totalSlots && chapter.totalSlots > 0 ? "var(--success)" : "inherit" }}>{chapter.readySlots}/{chapter.totalSlots}</strong> 완료</div>
             <div style={{ marginTop: 4 }}>
-              예약: {chapter.scheduledAt ? chapter.scheduledAt.slice(0, 16).replace("T", " ") : "미예약"}
+              예약: {chapter.scheduledAt ? formatSchedule(chapter.scheduledAt).replace("T", " ") : "미예약"}
             </div>
           </div>
         </div>

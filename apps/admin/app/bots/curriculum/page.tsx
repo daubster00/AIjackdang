@@ -57,7 +57,11 @@ interface SeriesItem {
 
 function formatDatetime(iso: string | null): string {
   if (!iso) return "미예약";
-  return iso.slice(0, 16).replace("T", " ");
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "미예약";
+  // UTC 인스턴트를 브라우저 로컬 벽시계로 표시(입력·저장과 왕복 일치).
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const STATUS_LABEL: Record<string, string> = {
