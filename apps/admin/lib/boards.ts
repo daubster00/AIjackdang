@@ -42,6 +42,10 @@ export const BOARDS: Board[] = [
   { slug: "money-case",    label: "수익화 사례",         badge: "badge-orange", group: "수익화",    apiBoard: "monetization-tips" },
   { slug: "ai-art",        label: "AI 창작마당",         badge: "badge-purple", group: "창작",      apiBoard: "ai-creation" },
   { slug: "ai-product",    label: "내가 만든 AI 제품",   badge: "badge-blue",   group: "AI 제품",   apiBoard: "ai-products" },
+  // ── 커뮤니티 (라운지) ─────────────────────────────────────────────────────────
+  // DB posts.board 값 'talk'. 봇(냉장고털이 등)·일반 회원 자유글이 저장되는 게시판.
+  // slug === apiBoard('talk')이라 apiBoard 생략. 누락 시 /posts/talk 목록이 notFound()로 404.
+  { slug: "talk",          label: "작당 라운지",          badge: "badge-green",  group: "커뮤니티" },
   // ── 공지 관리 (Story 9.17) ────────────────────────────────────────────────────
   // URL slug 은 복수형 'notices', DB/API board 값은 단수형 'notice'.
   { slug: "notices",       label: "공지사항",            badge: "badge-red",    group: "공지",      apiBoard: "notice" },
