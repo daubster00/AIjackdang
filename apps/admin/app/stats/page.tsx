@@ -66,6 +66,7 @@ function sourceIcon(source: string): { icon: string; style: Record<string, strin
     case "검색엔진": return { icon: "ri-search-line",    style: { background: "var(--primary-50)",   color: "var(--primary-600)" } };
     case "SNS":      return { icon: "ri-instagram-line", style: { background: "var(--warning-bg)",   color: "var(--warning)" } };
     case "직접":     return { icon: "ri-cursor-line",    style: { background: "var(--success-bg)",   color: "var(--success)" } };
+    case "내부 이동": return { icon: "ri-links-line",     style: { background: "var(--primary-50)",   color: "var(--primary-500)" } };
     default:         return { icon: "ri-more-line",      style: { background: "var(--gray-100)",     color: "var(--gray-500)" } };
   }
 }
@@ -251,6 +252,11 @@ export default async function AdminStatsPage({ searchParams }: StatsPageProps) {
                 })}
               </div>
             )}
+            <p style={{ marginTop: "0.85rem", fontSize: 12, lineHeight: 1.6, color: "var(--gray-400)" }}>
+              방문 시 브라우저가 전달하는 이전 페이지 주소(referrer)로 분류합니다.
+              <strong>검색엔진</strong>(네이버·구글 등) · <strong>SNS</strong> · <strong>직접</strong>(주소 직접 입력·북마크 등 referrer 없음) ·
+              <strong>내부 이동</strong>(사이트 내 페이지 이동) · <strong>기타</strong>(위에 해당하지 않는 외부 사이트).
+            </p>
           </div>
         </article>
       </section>

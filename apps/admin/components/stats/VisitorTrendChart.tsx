@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js";
 import { API_BASE_URL } from "@/lib/api";
-import type { VisitorTrendResponse } from "@ai-jakdang/contracts";
+import type { VisitorTrendResponse, VisitorTrendItem } from "@ai-jakdang/contracts";
 
 /**
  * 접속 통계용 방문자 추이 차트 — page_views 집계 실데이터를 표시한다.
@@ -32,8 +32,19 @@ function getFromTo(range: string): { from: string; to: string } {
 
 type ChartInstance = ReturnType<typeof createLineChart>;
 
+/** YYYY-MM-DD → "M월 D일 (요일)" 표기 */
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+function formatDateLabel(iso: string): string {
+  const [y, m, d] = iso.split("-").map((v) => parseInt(v, 10));
+  if (!y || !m || !d) return iso;
+  // 요일 계산은 UTC 기준(집계가 UTC 날짜라 표시도 UTC로 맞춘다)
+  const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${m}월 ${d}일 (${WEEKDAYS[wd]})`;
+}
+
 export function VisitorTrendChart() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [items, setItems] = useState<VisitorTrendItem[]>([]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -72,6 +83,7 @@ export function VisitorTrendChart() {
         const data = (await res.json()) as VisitorTrendResponse;
         if (destroyed) return;
         chart.setData(toChartData(data));
+        setItems(data.items);
       } catch {
         // 조용히 무시
       }
@@ -125,6 +137,52 @@ export function VisitorTrendChart() {
             <span className="legend-dot" style={{ background: "var(--brand-accent)" }} />
             페이지뷰
           </span>
+        </div>
+
+        {/* 날짜별 방문자 목록 — 그래프에 표시된 기간과 동일한 데이터, 최신순 */}
+        <div className="visitor-trend-table" style={{ marginTop: "1.25rem" }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--gray-600)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            날짜별 방문자
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 320, overflowY: "auto" }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th style={{ textAlign: "right" }}>방문자수</th>
+                  <th style={{ textAlign: "right" }}>페이지뷰</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: "center", color: "var(--gray-400)", padding: "1.5rem" }}>
+                      방문 로그가 누적되면 날짜별 방문자 수가 표시됩니다.
+                    </td>
+                  </tr>
+                ) : (
+                  [...items].reverse().map((it) => (
+                    <tr key={it.date}>
+                      <td>{formatDateLabel(it.date)}</td>
+                      <td className="num" style={{ textAlign: "right" }}>
+                        <strong>{it.visitors.toLocaleString("ko-KR")}</strong>명
+                      </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--gray-500)" }}>
+                        {it.pageViews.toLocaleString("ko-KR")}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </article>

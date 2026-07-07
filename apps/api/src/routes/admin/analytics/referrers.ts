@@ -18,6 +18,18 @@ function parseDate(str: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * 자사 도메인(내부 이동) 판별에 쓰는 호스트 조각.
+ * SITE_HOST env 가 있으면 우선 사용하고, 없으면 알려진 도메인/오타 변형·로컬을 기본값으로 둔다.
+ * (운영 도메인 aijackdang.com, 과거 오타 도메인 aijakdang, 개발 localhost)
+ */
+const INTERNAL_HOST_FRAGMENTS = [
+  process.env.SITE_HOST?.toLowerCase().replace(/^www\./, ""),
+  "aijackdang",
+  "aijakdang",
+  "localhost",
+].filter((v): v is string => Boolean(v));
+
 /** referrer_host를 채널명으로 분류 */
 function classifyHost(host: string | null): string {
   if (!host) return "직접";
@@ -34,6 +46,8 @@ function classifyHost(host: string | null): string {
     h.includes("tiktok")     || h.includes("linkedin")  || h.includes("reddit")  ||
     h.includes("kakaostory") || h.includes("pinterest")
   ) return "SNS";
+  // 자사 도메인에서 온 유입 = 사이트 내부 이동(페이지→페이지). 외부 유입 '기타'와 분리한다.
+  if (INTERNAL_HOST_FRAGMENTS.some((frag) => h.includes(frag))) return "내부 이동";
   return "기타";
 }
 
@@ -83,8 +97,8 @@ export async function registerReferrersRoute(app: FastifyInstance): Promise<void
       total += Number(row.count);
     }
 
-    // 정렬: 검색엔진 → SNS → 직접 → 기타 순, 없으면 0
-    const ORDER = ["검색엔진", "SNS", "직접", "기타"];
+    // 정렬 기준 채널 목록(실제 표시는 count 내림차순). 없으면 0으로 잡아 필터에서 제거.
+    const ORDER = ["검색엔진", "SNS", "직접", "내부 이동", "기타"];
     const items = ORDER
       .map((source) => {
         const count   = channelMap.get(source) ?? 0;
