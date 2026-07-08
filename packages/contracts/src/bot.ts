@@ -640,6 +640,15 @@ export const aiUsageReportSchema = z.object({
     /** bot_settings.bot_daily_cost_limit_usd (0 = 미설정). */
     dailyLimitUsd: z.number(),
   }),
+  /**
+   * USD→KRW 환율(관리자 원화 표기용). 한국수출입은행 매매기준율 기반, 매일 갱신.
+   * usdKrw: 1달러 = usdKrw 원 / baseDate: 환율 기준일(영업일, 없으면 null) / stale: 오늘자 갱신 실패 여부.
+   */
+  exchangeRate: z.object({
+    usdKrw: z.number(),
+    baseDate: z.string().nullable(),
+    stale: z.boolean(),
+  }),
 });
 export type AiUsageReport = z.infer<typeof aiUsageReportSchema>;
 

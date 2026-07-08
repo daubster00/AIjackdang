@@ -12,6 +12,31 @@ import { ogFetchProcessor } from "./processors/og-fetch.js"; // Story 8.6
 import { contentCleanupProcessor } from "./jobs/cleanup.js"; // Story 9.10
 
 /**
+ * 일일 USD→KRW 환율 갱신을 apps/api 내부 엔드포인트로 위임한다.
+ * (worker는 apps/api를 직접 import할 수 없으므로 내부 HTTP 브리지 사용)
+ * throw 금지 — 실패해도 로그만 남기고 다음 날 재시도.
+ */
+async function refreshExchangeRate(): Promise<void> {
+  const apiBaseUrl = (process.env.API_INTERNAL_URL ?? "http://localhost:4003").replace(/\/$/, "");
+  const internalKey = process.env.INTERNAL_API_KEY ?? "";
+  try {
+    const res = await fetch(`${apiBaseUrl}/internal/exchange-rate/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-internal-key": internalKey },
+      body: "{}",
+    });
+    if (!res.ok) {
+      console.error(`[worker] 환율 갱신 응답 오류: ${res.status} ${res.statusText}`);
+      return;
+    }
+    const data = (await res.json()) as { ok: boolean; rate: number | null; baseDate: string | null };
+    console.info(`[worker] 환율 갱신 완료: USD 1 = ${data.rate}원 (기준일 ${data.baseDate})`);
+  } catch (err) {
+    console.error("[worker] 환율 갱신 미도달 (네트워크 오류):", (err as Error).message);
+  }
+}
+
+/**
  * 워커 엔트리.
  *
  * 이번 기반 단계에서는 실제 작업 로직(Sharp 이미지 변환, Nodemailer 발송, 통계 집계)을
@@ -295,6 +320,9 @@ const cleanupWorker = new Worker(
     } else if (job.name === "content.cleanup") {
       // Story 9.10: soft-delete 보존 기간 초과 콘텐츠 hard-delete
       await contentCleanupProcessor(job);
+    } else if (job.name === "exchange-rate.refresh") {
+      // 일일 USD→KRW 환율 갱신: apps/api 내부 엔드포인트로 위임 (수출입은행 API 호출)
+      await refreshExchangeRate();
     } else {
       console.log(`[worker] cleanup job 수신: ${job.id} name=${job.name} (처리기 미구현)`);
     }
@@ -334,6 +362,35 @@ void (async () => {
   }
 })();
 // ── [9.10] content.cleanup cron END ──────────────────────────────────────────
+
+// ── 일일 USD→KRW 환율 갱신 cron (매일 KST 12:00 = UTC 03:00) ─────────────────
+// 수출입은행은 영업일 11시경 이후 당일 환율을 제공하므로 정오에 갱신하면 당일값 확보.
+// 기동 시 1회 즉시 갱신(seed)해 최초 캐시를 채운다. cleanup 큐 재사용(봇 비활성과 무관하게 상시 가동).
+void (async () => {
+  try {
+    const exchangeRateQueue = new Queue(QUEUE_NAMES.cleanup, {
+      connection: createConnection(),
+    });
+    await exchangeRateQueue.add(
+      "exchange-rate.refresh",
+      { triggeredAt: new Date().toISOString() },
+      {
+        repeat: { pattern: "0 3 * * *" }, // 매일 UTC 03:00 = KST 12:00
+        jobId: "exchange-rate-refresh-daily",
+      },
+    );
+    // 기동 즉시 1회 seed (최초 캐시 채우기)
+    await exchangeRateQueue.add(
+      "exchange-rate.refresh",
+      { triggeredAt: new Date().toISOString(), seed: true },
+      { jobId: `exchange-rate-seed-${Date.now()}` },
+    );
+    console.log("[worker] 환율 갱신 cron 등록 완료 (매일 KST 12:00 + 기동 seed)");
+  } catch (err) {
+    console.warn("[worker] 환율 갱신 cron 등록 실패:", (err as Error).message);
+  }
+})();
+// ── 환율 갱신 cron END ────────────────────────────────────────────────────────
 
 // ── [11.13] 봇 워커 (SEEDING_BOT_ENABLED=true 시에만 등록) ──────────────────
 void (async () => {

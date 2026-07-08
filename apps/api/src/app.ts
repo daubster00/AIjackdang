@@ -16,6 +16,7 @@ import { v1Routes } from "./routes/v1/index";
 import { adminRoutes } from "./routes/admin/index.js";
 import { internalCurriculumRoutes } from "./routes/internal/curriculum.js";
 import { internalBotRoutes } from "./routes/internal/bots.js";
+import { internalExchangeRateRoutes } from "./routes/internal/exchange-rate.js";
 import { toNodeHandler } from "better-auth/node";
 import { adminAuthPlugin } from "./plugins/adminAuth.js";
 import { adminGuardHook } from "./plugins/adminGuard.js";
@@ -105,6 +106,7 @@ export function buildApp(): FastifyInstance {
   app.register(adminRoutes, { prefix: "/api/v1" });
   app.register(internalCurriculumRoutes); // Story 13.6: 내부 커리큘럼 예약 게시 트리거 (prefix 없음)
   app.register(internalBotRoutes); // 봇 자동 운영 트리거 (write/comment/refill-topics, prefix 없음)
+  app.register(internalExchangeRateRoutes); // 일일 USD→KRW 환율 갱신 트리거 (prefix 없음)
 
   return app;
 }

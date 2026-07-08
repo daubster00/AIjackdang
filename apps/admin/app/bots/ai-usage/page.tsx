@@ -22,6 +22,10 @@ import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { API_BASE_URL } from "@/lib/api";
 import type { AiUsageReport } from "@ai-jakdang/contracts";
+import { formatKrwFromUsd, formatRateNote, krwToUsd } from "@/lib/currency";
+
+/** 환율 미수신 시 폴백 환율(달러당 원) — 서버 exchangeRate.usdKrw가 없을 때만 사용. */
+const FALLBACK_USD_KRW = 1400;
 
 type ChartInstance = ReturnType<typeof createLineChart>;
 type Range = "today" | "7d" | "30d" | "month";
@@ -84,13 +88,6 @@ const PROVIDER_META: ProviderMeta[] = [
 
 // ── 포맷 헬퍼 ────────────────────────────────────────────────────────────────
 
-function fmtUsd(value: number): string {
-  if (value === 0) return "$0.00";
-  if (value < 0.0001) return `$${value.toFixed(6)}`;
-  if (value < 0.01) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(2)}`;
-}
-
 function fmtNum(value: number): string {
   return value.toLocaleString("ko-KR");
 }
@@ -114,10 +111,13 @@ function UsageTable({
   title,
   keyLabel,
   rows,
+  fmtCost,
 }: {
   title: string;
   keyLabel: string;
   rows: UsageGroup[];
+  /** 달러 원본 → 원화 표기 문자열 변환기. */
+  fmtCost: (usd: number) => string;
 }) {
   return (
     <article className="card">
@@ -150,7 +150,7 @@ function UsageTable({
                   <td>
                     <span className="badge badge-gray" style={{ fontFamily: "monospace" }}>{row.key}</span>
                   </td>
-                  <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{fmtUsd(row.costUsd)}</td>
+                  <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{fmtCost(row.costUsd)}</td>
                   <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.callCount)}</td>
                   <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.inputTokens)}</td>
                   <td className="num" style={{ textAlign: "right" }}>{fmtNum(row.outputTokens)}</td>
@@ -173,9 +173,12 @@ function UsageTable({
 function ProviderCreditSection({
   byProvider,
   rangeLabel,
+  fmtCost,
 }: {
   byProvider: UsageGroup[];
   rangeLabel: string;
+  /** 달러 원본 → 원화 표기 문자열 변환기. */
+  fmtCost: (usd: number) => string;
 }) {
   // provider 키 → 집계 행 (대소문자 무시 매칭)
   const usageByKey = new Map<string, UsageGroup>();
@@ -248,7 +251,7 @@ function ProviderCreditSection({
                     {rangeLabel} 사용액
                   </div>
                   <div style={{ fontSize: "1.375rem", fontWeight: 700, color: p.color }}>
-                    {fmtUsd(costUsd)}
+                    {fmtCost(costUsd)}
                   </div>
                   <div style={{ fontSize: "0.75rem", color: "var(--gray-500)", marginTop: "0.125rem" }}>
                     호출 {fmtNum(callCount)}회 · 토큰 {fmtNum(tokens)}
@@ -300,6 +303,11 @@ export default function AiUsagePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartInstance | null>(null);
 
+  // ── 일일 비용 상한 편집 상태 (원화 입력) ─────────────────────────────────────
+  const [limitInput, setLimitInput] = useState<string>(""); // 원화 문자열
+  const [savingLimit, setSavingLimit] = useState(false);
+  const [limitMsg, setLimitMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
   // ── fetch ─────────────────────────────────────────────────────────────────
   const fetchReport = useCallback(async (r: Range) => {
     setLoading(true);
@@ -348,11 +356,12 @@ export default function AiUsagePage() {
       return;
     }
 
+    const dayRate = report.exchangeRate.usdKrw || FALLBACK_USD_KRW;
     const chartData = {
       labels: report.daily.map((d) => d.date.slice(5)), // MM-DD
       series: [
         {
-          values: report.daily.map((d) => d.costUsd),
+          values: report.daily.map((d) => Math.round(d.costUsd * dayRate)), // 원화 환산
           color: primary,
           fill: "rgba(37,99,235,0.15)",
         },
@@ -397,13 +406,75 @@ export default function AiUsagePage() {
   const isOverLimit = dailyLimitUsd > 0 && todayCostUsd >= dailyLimitUsd;
   const totalTokens = totals.inputTokens + totals.outputTokens;
 
+  // ── 환율(원화 표기 기준) ─────────────────────────────────────────────────
+  const rate = report?.exchangeRate.usdKrw ?? FALLBACK_USD_KRW;
+  const rateBaseDate = report?.exchangeRate.baseDate ?? null;
+  const rateStale = report?.exchangeRate.stale ?? false;
+  /** 달러 원본 → 원화 표기 문자열. */
+  const fmtCost = (usd: number) => formatKrwFromUsd(usd, rate);
+
+  // 리포트 로드/환율 변동 시, 상한 입력값을 현재 상한의 원화 환산으로 초기화(편집 중 아니면).
+  useEffect(() => {
+    if (report) {
+      setLimitInput(String(Math.round(dailyLimitUsd * rate)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report]);
+
+  // ── 일일 비용 상한 저장 (원화 입력 → 달러 환산 저장) ─────────────────────────
+  const handleSaveLimit = async () => {
+    const krw = Number(limitInput);
+    if (!Number.isFinite(krw) || krw < 0) {
+      setLimitMsg({ text: "올바른 금액을 입력하세요.", ok: false });
+      return;
+    }
+    const usd = krwToUsd(krw, rate);
+    setSavingLimit(true);
+    setLimitMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/bots/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ bot_daily_cost_limit_usd: Number(usd.toFixed(4)) }),
+      });
+      if (!res.ok) {
+        setLimitMsg({ text: "저장 실패", ok: false });
+      } else {
+        setLimitMsg({ text: `저장됨 (달러 환산 약 $${usd.toFixed(2)})`, ok: true });
+        await fetchReport(range);
+      }
+    } catch {
+      setLimitMsg({ text: "저장 실패", ok: false });
+    } finally {
+      setSavingLimit(false);
+    }
+  };
+
   return (
     <AdminShell breadcrumb={["관리자", "활동 봇", "AI 사용량"]} activeKey="bots" activeSubKey="ai-usage">
       <div className="page-header">
         <div>
           <h1 className="page-title">AI 사용량</h1>
-          <p className="page-description">모델·제공자·용도별 AI 호출 비용·토큰 사용량을 확인합니다.</p>
+          <p className="page-description">
+            모델·제공자·용도별 AI 호출 비용·토큰 사용량을 확인합니다.
+            모든 금액은 한국수출입은행 환율로 원화 환산해 표기합니다.
+          </p>
         </div>
+        {report && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: rateStale ? "var(--warning, #b45309)" : "var(--gray-500)",
+              alignSelf: "center",
+              whiteSpace: "nowrap",
+            }}
+            title="한국수출입은행 매매기준율 기준. 매일 갱신됩니다."
+          >
+            <i className="ri-exchange-dollar-line" style={{ marginRight: 4 }} />
+            {formatRateNote(rate, rateBaseDate, rateStale)}
+          </div>
+        )}
       </div>
 
       {/* 기간 토글 */}
@@ -443,7 +514,7 @@ export default function AiUsagePage() {
               <span className="stat-label">총 비용</span>
               <span className="stat-icon green"><i className="ri-money-dollar-circle-line" /></span>
             </div>
-            <div className="stat-value">{fmtUsd(totals.costUsd)}</div>
+            <div className="stat-value">{fmtCost(totals.costUsd)}</div>
             <div className="stat-foot"><span>{RANGE_LABELS[range]} 누적</span></div>
           </article>
           <article className="stat-card">
@@ -477,8 +548,8 @@ export default function AiUsagePage() {
             <div className="stat-foot">
               <span>
                 {dailyLimitUsd > 0
-                  ? `오늘 ${fmtUsd(todayCostUsd)} / 상한 ${fmtUsd(dailyLimitUsd)}`
-                  : "bot_daily_cost_limit_usd 미설정"}
+                  ? `오늘 ${fmtCost(todayCostUsd)} / 상한 ${fmtCost(dailyLimitUsd)}`
+                  : "상한 미설정"}
               </span>
             </div>
           </article>
@@ -487,7 +558,67 @@ export default function AiUsagePage() {
 
       {/* AI 제공사 크레딧·충전 (제공자별 사용액 + 충전 대시보드 바로가기) */}
       {!loading && report && (
-        <ProviderCreditSection byProvider={report.byProvider} rangeLabel={RANGE_LABELS[range]} />
+        <ProviderCreditSection byProvider={report.byProvider} rangeLabel={RANGE_LABELS[range]} fmtCost={fmtCost} />
+      )}
+
+      {/* 일일 비용 상한 설정 (원화 입력 → 달러 환산 저장) */}
+      {!loading && report && (
+        <article className="card" style={{ marginBottom: "1.5rem" }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">일일 비용 상한 설정</h2>
+              <div className="card-subtitle">
+                하루 AI 호출 누적 비용이 이 상한을 넘으면 신규 봇 AI 호출이 차단됩니다.
+                원화로 입력하면 오늘 환율({formatRateNote(rate, rateBaseDate, rateStale)})로 달러 환산해 저장합니다.
+              </div>
+            </div>
+          </div>
+          <div className="card-body">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "0.75rem" }}>
+              <div className="field" style={{ margin: 0 }}>
+                <label className="field-label" htmlFor="aiDailyCostLimitKrw">
+                  일일 비용 상한 (원)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                  <span style={{ color: "var(--gray-500)" }}>₩</span>
+                  <input
+                    id="aiDailyCostLimitKrw"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={limitInput}
+                    onChange={(e) => setLimitInput(e.target.value)}
+                    className="control"
+                    style={{ maxWidth: 200 }}
+                    disabled={savingLimit}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveLimit}
+                disabled={savingLimit}
+              >
+                {savingLimit ? "저장 중..." : "상한 저장"}
+              </button>
+              {limitMsg && (
+                <span
+                  style={{
+                    fontSize: "0.8125rem",
+                    color: limitMsg.ok ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
+                  }}
+                >
+                  {limitMsg.text}
+                </span>
+              )}
+            </div>
+            <p style={{ marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--gray-500)" }}>
+              현재 상한: {dailyLimitUsd > 0 ? `${fmtCost(dailyLimitUsd)} (약 $${dailyLimitUsd.toFixed(2)})` : "미설정"}
+              {" · 0원으로 저장하면 상한이 해제됩니다."}
+            </p>
+          </div>
+        </article>
       )}
 
       {/* 비용 상한 게이지 */}
@@ -496,12 +627,12 @@ export default function AiUsagePage() {
           <div className="card-header">
             <div>
               <h2 className="card-title">일일 비용 상한 게이지</h2>
-              <div className="card-subtitle">오늘 누적 AI 비용 vs 일일 상한 ({fmtUsd(dailyLimitUsd)})</div>
+              <div className="card-subtitle">오늘 누적 AI 비용 vs 일일 상한 ({fmtCost(dailyLimitUsd)})</div>
             </div>
           </div>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem", color: "var(--gray-500)", marginBottom: "0.5rem" }}>
-              <span>오늘 누적: <strong style={{ color: isOverLimit ? "var(--danger)" : "inherit" }}>{fmtUsd(todayCostUsd)}</strong></span>
+              <span>오늘 누적: <strong style={{ color: isOverLimit ? "var(--danger)" : "inherit" }}>{fmtCost(todayCostUsd)}</strong></span>
               <span><strong style={{ color: isOverLimit ? "var(--danger)" : undefined }}>{limitPct}%</strong> 사용</span>
             </div>
             <div style={{ height: 12, background: "var(--gray-100)", borderRadius: 6, overflow: "hidden" }}>
@@ -534,7 +665,7 @@ export default function AiUsagePage() {
           <div className="card-header">
             <div>
               <h2 className="card-title">일별 비용 추이</h2>
-              <div className="card-subtitle">{RANGE_LABELS[range]} KST 날짜 기준 일별 AI 호출 비용</div>
+              <div className="card-subtitle">{RANGE_LABELS[range]} KST 날짜 기준 일별 AI 호출 비용 (원화 환산)</div>
             </div>
           </div>
           <div className="card-body">
@@ -544,7 +675,7 @@ export default function AiUsagePage() {
             <div className="chart-legend">
               <span className="legend-item">
                 <span className="legend-dot" style={{ background: "var(--primary-600)" }} />
-                AI 비용 (USD)
+                AI 비용 (원)
               </span>
             </div>
           </div>
@@ -558,16 +689,19 @@ export default function AiUsagePage() {
             title="제공자별 집계"
             keyLabel="AI 제공자"
             rows={report.byProvider}
+            fmtCost={fmtCost}
           />
           <UsageTable
             title="모델별 집계"
             keyLabel="모델명"
             rows={report.byModel}
+            fmtCost={fmtCost}
           />
           <UsageTable
             title="용도별 집계"
             keyLabel="호출 용도"
             rows={report.byPurpose}
+            fmtCost={fmtCost}
           />
         </div>
       )}

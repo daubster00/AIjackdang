@@ -27,8 +27,12 @@ import { createPortal } from "react-dom";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { confirmDialog } from "@/lib/dialog";
 import { API_BASE_URL } from "@/lib/api";
+import { formatKrwFromUsd, krwToUsd, formatRateNote } from "@/lib/currency";
 import { BotCostChart } from "./BotCostChart";
 import { PostLogSection } from "./PostLogSection";
+
+/** 환율 미수신 시 폴백 환율(달러당 원). */
+const FALLBACK_USD_KRW = 1400;
 
 // ── 로컬 타입 ─────────────────────────────────────────────────────────────────
 
@@ -315,7 +319,16 @@ export default function BotOperationsPage() {
   // 속도·비용 카드 로컬 입력값 (저장 버튼 클릭 시 적용)
   const [postLimit, setPostLimit] = useState<number>(10);
   const [commentLimit, setCommentLimit] = useState<number>(40);
-  const [costLimit, setCostLimit] = useState<number>(5.0);
+  // 비용 상한은 내부적으로 달러(bot_daily_cost_limit_usd)로 저장하되, 입력·표기는 원화.
+  const [costLimitUsd, setCostLimitUsd] = useState<number>(5.0); // settings에서 읽은 달러 상한
+  const [costKrwInput, setCostKrwInput] = useState<string>(""); // 원화 입력 문자열
+
+  // ── 환율(원화 표기·환산 기준) ─────────────────────────────────────────────
+  const [rate, setRate] = useState<number>(FALLBACK_USD_KRW);
+  const [rateInfo, setRateInfo] = useState<{ baseDate: string | null; stale: boolean }>({
+    baseDate: null,
+    stale: false,
+  });
 
   // ── 일일 리포트 상태 ──────────────────────────────────────────────────────────
   const [report, setReport] = useState<DailyReport | null>(null);
@@ -347,11 +360,28 @@ export default function BotOperationsPage() {
       setSettings(data);
       setPostLimit(data.bot_daily_post_limit ?? 10);
       setCommentLimit(data.bot_daily_comment_limit ?? 40);
-      setCostLimit(data.bot_daily_cost_limit_usd ?? 5.0);
+      setCostLimitUsd(data.bot_daily_cost_limit_usd ?? 5.0);
     } catch {
       // 조용히 무시
     } finally {
       setSettingsLoading(false);
+    }
+  }, []);
+
+  // ── 환율 조회 ─────────────────────────────────────────────────────────────────
+  const fetchRate = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/exchange-rate`, {
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { usdKrw: number; baseDate: string | null; stale: boolean };
+      if (data.usdKrw && data.usdKrw > 0) {
+        setRate(data.usdKrw);
+        setRateInfo({ baseDate: data.baseDate, stale: data.stale });
+      }
+    } catch {
+      // 조용히 무시 — 폴백 환율 유지
     }
   }, []);
 
@@ -394,7 +424,13 @@ export default function BotOperationsPage() {
     fetchSettings();
     fetchReport();
     fetchHoldQueue();
-  }, [fetchSettings, fetchReport, fetchHoldQueue]);
+    fetchRate();
+  }, [fetchSettings, fetchReport, fetchHoldQueue, fetchRate]);
+
+  // 달러 상한/환율이 로드되면 원화 입력값을 환산 초기화.
+  useEffect(() => {
+    setCostKrwInput(String(Math.round(costLimitUsd * rate)));
+  }, [costLimitUsd, rate]);
 
   // ── 설정 저장 헬퍼 ────────────────────────────────────────────────────────────
   const patchSettings = useCallback(
@@ -447,9 +483,16 @@ export default function BotOperationsPage() {
     );
   };
 
-  // ── 비용 상한 저장 ────────────────────────────────────────────────────────────
+  // ── 비용 상한 저장 (원화 입력 → 달러 환산 저장) ───────────────────────────────
   const handleCostSave = async () => {
-    await patchSettings({ bot_daily_cost_limit_usd: costLimit }, "비용 상한");
+    const krw = Number(costKrwInput);
+    if (!Number.isFinite(krw) || krw < 0) {
+      showToast("올바른 금액을 입력하세요.", "error");
+      return;
+    }
+    const usd = Number(krwToUsd(krw, rate).toFixed(4));
+    const ok = await patchSettings({ bot_daily_cost_limit_usd: usd }, "비용 상한");
+    if (ok) setCostLimitUsd(usd);
   };
 
   // ── 보류 항목 상세 조회 (모달 오픈) ────────────────────────────────────────────
@@ -705,25 +748,32 @@ export default function BotOperationsPage() {
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="field">
                 <label className="field-label" htmlFor="botDailyCostLimit">
-                  일일 비용 상한 (달러)
+                  일일 비용 상한 (원)
                 </label>
-                <input
-                  id="botDailyCostLimit"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={costLimit}
-                  onChange={(e) => setCostLimit(parseFloat(e.target.value) || 0)}
-                  className="control"
-                  style={{ maxWidth: 160 }}
-                  disabled={settingsLoading}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--gray-500, #6b7280)" }}>₩</span>
+                  <input
+                    id="botDailyCostLimit"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={costKrwInput}
+                    onChange={(e) => setCostKrwInput(e.target.value)}
+                    className="control"
+                    style={{ maxWidth: 180 }}
+                    disabled={settingsLoading}
+                  />
+                </div>
+                <p style={{ marginTop: 6, fontSize: 12, color: "var(--gray-500, #6b7280)" }}>
+                  {formatRateNote(rate, rateInfo.baseDate, rateInfo.stale)} · 달러 환산 약 $
+                  {(krwToUsd(Number(costKrwInput) || 0, rate)).toFixed(2)}
+                </p>
               </div>
               {report && (
                 <div style={{ fontSize: 13, color: "var(--gray-600, #4b5563)" }}>
                   오늘 누적 비용:{" "}
                   <strong style={{ color: "var(--primary-700, #1d4ed8)" }}>
-                    ${report.totalCostUsd.toFixed(4)}
+                    {formatKrwFromUsd(report.totalCostUsd, rate)}
                   </strong>
                 </div>
               )}
@@ -798,7 +848,7 @@ export default function BotOperationsPage() {
                 </div>
                 <div className="stat-item">
                   <div style={{ fontSize: 24, fontWeight: 700, color: "var(--gray-700, #374151)" }}>
-                    ${report.totalCostUsd.toFixed(4)}
+                    {formatKrwFromUsd(report.totalCostUsd, rate)}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--gray-500, #6b7280)" }}>누적 비용</div>
                 </div>

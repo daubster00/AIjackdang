@@ -19,6 +19,7 @@ import { aiUsageLog, botSettings } from "@ai-jakdang/database/schema";
 import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
 import type { AiUsageReport } from "@ai-jakdang/contracts";
 import { getKstDayBounds } from "./report.js";
+import { getUsdKrwRate } from "../../../lib/exchangeRate.js";
 
 // ── 범위 파라미터 스키마 ──────────────────────────────────────────────────────
 
@@ -125,6 +126,7 @@ function buildGroupMap(rows: RawRow[], keyFn: (r: RawRow) => string): Map<string
 export async function buildAiUsageReport(
   range: UsageRange,
   db: Database = getDb(),
+  fetchRate: () => Promise<{ usdKrw: number; baseDate: string | null; stale: boolean }> = getUsdKrwRate,
 ): Promise<AiUsageReport> {
   const now = new Date();
   const start = getRangeStart(range, now);
@@ -199,6 +201,9 @@ export async function buildAiUsageReport(
     .limit(1);
   const dailyLimitUsd = (limitRow[0]?.value as number) ?? 0;
 
+  // ── 6. USD→KRW 환율 (관리자 원화 표기용) ────────────────────────────────────
+  const rate = await fetchRate();
+
   return {
     range,
     totals,
@@ -210,6 +215,11 @@ export async function buildAiUsageReport(
     todayVsLimit: {
       todayCostUsd,
       dailyLimitUsd,
+    },
+    exchangeRate: {
+      usdKrw: rate.usdKrw,
+      baseDate: rate.baseDate,
+      stale: rate.stale,
     },
   };
 }
@@ -225,6 +235,17 @@ export async function buildAiUsageReport(
  *  - range 생략 시 기본값 '7d'
  */
 export async function registerAiUsageRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /api/v1/admin/exchange-rate ─────────────────────────────────────────
+  //    현재 적용 중인 USD→KRW 환율(원화 표기 기준). 오늘자 아니면 백그라운드 갱신.
+  app.get(
+    "/admin/exchange-rate",
+    { preHandler: [requireSuperAdmin] },
+    async (_request, reply) => {
+      const rate = await getUsdKrwRate();
+      return reply.send(rate);
+    },
+  );
+
   app.get(
     "/admin/ai-usage",
     { preHandler: [requireSuperAdmin] },

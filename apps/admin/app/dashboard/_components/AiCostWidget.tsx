@@ -17,15 +17,12 @@ import { useEffect, useRef, useState } from "react";
 import { createLineChart } from "@ai-jakdang/admin-design-system/js/chart.js";
 import { API_BASE_URL } from "@/lib/api";
 import type { AiUsageReport } from "@ai-jakdang/contracts";
+import { formatKrwFromUsd } from "@/lib/currency";
 
 type ChartInstance = ReturnType<typeof createLineChart>;
 
-/** $N.NNNNNN → "$0.0015" 표기 (소수 4자리). */
-function fmtUsd(value: number): string {
-  if (value === 0) return "$0.00";
-  if (value < 0.01) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(2)}`;
-}
+/** 환율 미수신 시 폴백 환율(달러당 원). */
+const FALLBACK_USD_KRW = 1400;
 
 /** 진행바 퍼센트 (0 ~ 100, 상한 초과 시 100 클램프). */
 function limitPercent(today: number, limit: number): number {
@@ -75,12 +72,13 @@ export function AiCostWidget() {
     const primary = css.getPropertyValue("--primary-600").trim() || "#2563eb";
 
     const daily = report7d.daily;
+    const dayRate = report7d.exchangeRate?.usdKrw || FALLBACK_USD_KRW;
 
     const chartData = {
       labels: daily.map((d) => d.date.slice(5)), // MM-DD
       series: [
         {
-          values: daily.map((d) => d.costUsd),
+          values: daily.map((d) => Math.round(d.costUsd * dayRate)), // 원화 환산
           color: primary,
           fill: "rgba(37,99,235,0.15)",
         },
@@ -150,6 +148,9 @@ export function AiCostWidget() {
   const monthCostUsd = reportMonth?.totals.costUsd ?? 0;
   const limitPct = limitPercent(todayCostUsd, dailyLimitUsd);
   const isOverLimit = dailyLimitUsd > 0 && todayCostUsd >= dailyLimitUsd;
+  // 원화 표기 환율(달러당 원). 서버 exchangeRate 우선, 없으면 폴백.
+  const rate = report7d?.exchangeRate?.usdKrw ?? reportMonth?.exchangeRate?.usdKrw ?? FALLBACK_USD_KRW;
+  const fmtCost = (usd: number) => formatKrwFromUsd(usd, rate);
 
   return (
     <article className="card">
@@ -165,11 +166,11 @@ export function AiCostWidget() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
           <div className="stat-card" style={{ padding: "0.75rem" }}>
             <div className="stat-label" style={{ fontSize: "0.75rem" }}>오늘 누적</div>
-            <div className="stat-value" style={{ fontSize: "1.25rem" }}>{fmtUsd(todayCostUsd)}</div>
+            <div className="stat-value" style={{ fontSize: "1.25rem" }}>{fmtCost(todayCostUsd)}</div>
           </div>
           <div className="stat-card" style={{ padding: "0.75rem" }}>
             <div className="stat-label" style={{ fontSize: "0.75rem" }}>이번 달 누적</div>
-            <div className="stat-value" style={{ fontSize: "1.25rem" }}>{fmtUsd(monthCostUsd)}</div>
+            <div className="stat-value" style={{ fontSize: "1.25rem" }}>{fmtCost(monthCostUsd)}</div>
           </div>
         </div>
 
@@ -179,7 +180,7 @@ export function AiCostWidget() {
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--gray-500)", marginBottom: "0.25rem" }}>
               <span>일일 상한 대비</span>
               <span style={{ color: isOverLimit ? "var(--danger)" : undefined }}>
-                {fmtUsd(todayCostUsd)} / {fmtUsd(dailyLimitUsd)} ({limitPct}%)
+                {fmtCost(todayCostUsd)} / {fmtCost(dailyLimitUsd)} ({limitPct}%)
               </span>
             </div>
             <div style={{ height: 6, background: "var(--gray-100)", borderRadius: 4, overflow: "hidden" }}>

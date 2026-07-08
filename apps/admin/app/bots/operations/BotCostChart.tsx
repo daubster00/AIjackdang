@@ -39,13 +39,21 @@ export function BotCostChart() {
 
     const loadData = async () => {
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/v1/admin/bots/report?range=7d`,
-          { credentials: "include" },
-        );
+        // 비용(달러) + 환율(달러당 원)을 함께 조회해 원화로 환산 표기
+        const [res, rateRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/v1/admin/bots/report?range=7d`, { credentials: "include" }),
+          fetch(`${API_BASE_URL}/api/v1/admin/exchange-rate`, { credentials: "include" }).catch(() => null),
+        ]);
         if (!res.ok || destroyed) return;
         const data = await res.json();
         if (destroyed) return;
+
+        // 환율(실패 시 폴백 1400)
+        let rate = 1400;
+        if (rateRes && rateRes.ok) {
+          const r = (await rateRes.json()) as { usdKrw?: number };
+          if (r.usdKrw && r.usdKrw > 0) rate = r.usdKrw;
+        }
 
         const days: Array<{ date: string; costUsd?: number }> = data.days ?? [];
         if (days.length === 0) return; // 데이터 없으면 플레이스홀더 유지
@@ -54,7 +62,7 @@ export function BotCostChart() {
           labels: days.map((d) => d.date.slice(5)), // MM-DD
           series: [
             {
-              values: days.map((d) => d.costUsd ?? 0),
+              values: days.map((d) => Math.round((d.costUsd ?? 0) * rate)), // 원화 환산
               color: primary,
               fill: "rgba(37,99,235,0.18)",
             },
@@ -78,7 +86,7 @@ export function BotCostChart() {
       <div className="card-header">
         <div>
           <h2 className="card-title">7일 비용 추이</h2>
-          <div className="card-subtitle">일별 AI API 비용(달러)</div>
+          <div className="card-subtitle">일별 AI API 비용(원화 환산)</div>
         </div>
       </div>
       <div className="card-body">
@@ -94,7 +102,7 @@ export function BotCostChart() {
               className="legend-dot"
               style={{ background: "var(--primary-600)" }}
             />
-            일별 비용(달러)
+            일별 비용(원)
           </span>
         </div>
       </div>

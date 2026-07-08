@@ -63,6 +63,11 @@ function makeChain<T>(data: T[]) {
  *  - range='today'  : 1st=DUMMY_ROWS, 2nd=BOT_SETTINGS (today 별도 쿼리 없음)
  *  - range≠'today'  : 1st=DUMMY_ROWS (범위), 2nd=today_rows, 3rd=BOT_SETTINGS
  */
+
+/** 환율 조회 스텁 — 외부 API·Redis 의존 없이 고정 환율 반환. */
+const STUB_RATE = { usdKrw: 1320, baseDate: "2026-06-30", stale: false };
+const stubFetchRate = () => Promise.resolve(STUB_RATE);
+
 function createMockDb(range: "today" | "7d" | "30d" | "month") {
   const today_rows = DUMMY_ROWS.filter((r) => r.createdAt.getTime() >= DAY2.getTime());
 
@@ -98,7 +103,7 @@ describe("buildAiUsageReport", () => {
 
   it("① totals: 4행 합산이 정확하다", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.totals.callCount).toBe(4);
     expect(report.totals.inputTokens).toBe(430);   // 100+80+200+50
@@ -109,7 +114,7 @@ describe("buildAiUsageReport", () => {
 
   it("② byProvider: openai·anthropic·google 3종 + 비용 내림차순 정렬", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.byProvider.length).toBe(3);
 
@@ -133,7 +138,7 @@ describe("buildAiUsageReport", () => {
 
   it("③ byModel: 3개 모델 집계", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.byModel.length).toBe(3);
     const gpt = report.byModel.find((m) => m.key === "gpt-4o-mini");
@@ -143,7 +148,7 @@ describe("buildAiUsageReport", () => {
 
   it("④ byPurpose: generation·censor·search_summary 3종 집계", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.byPurpose.length).toBe(3);
     const gen = report.byPurpose.find((p) => p.key === "generation");
@@ -152,7 +157,7 @@ describe("buildAiUsageReport", () => {
 
   it("⑤ daily: 두 KST 날짜로 구분·오름차순 정렬", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.daily.length).toBe(2);
     // DAY1 = UTC 01:00 → KST 10:00 → 2026-06-29
@@ -167,7 +172,7 @@ describe("buildAiUsageReport", () => {
 
   it("⑥ range='today': todayCostUsd = totals.costUsd (별도 쿼리 없음)", async () => {
     const db = createMockDb("today");
-    const report = await buildAiUsageReport("today", db);
+    const report = await buildAiUsageReport("today", db, stubFetchRate);
 
     // range='today'일 때 todayCostUsd는 totals.costUsd와 동일
     expect(report.todayVsLimit.todayCostUsd).toBeCloseTo(report.totals.costUsd, 6);
@@ -175,14 +180,22 @@ describe("buildAiUsageReport", () => {
 
   it("⑦ todayVsLimit.dailyLimitUsd: bot_settings 에서 읽는다", async () => {
     const db = createMockDb("7d");
-    const report = await buildAiUsageReport("7d", db);
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
 
     expect(report.todayVsLimit.dailyLimitUsd).toBe(5.0);
   });
 
   it("⑧ range 필드가 응답에 포함된다", async () => {
     const db = createMockDb("30d");
-    const report = await buildAiUsageReport("30d", db);
+    const report = await buildAiUsageReport("30d", db, stubFetchRate);
     expect(report.range).toBe("30d");
+  });
+
+  it("⑨ exchangeRate: 원화 표기용 환율이 응답에 포함된다", async () => {
+    const db = createMockDb("7d");
+    const report = await buildAiUsageReport("7d", db, stubFetchRate);
+    expect(report.exchangeRate.usdKrw).toBe(1320);
+    expect(report.exchangeRate.baseDate).toBe("2026-06-30");
+    expect(report.exchangeRate.stale).toBe(false);
   });
 });
