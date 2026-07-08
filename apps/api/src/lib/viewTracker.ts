@@ -5,7 +5,7 @@
  *
  * 키 구조:
  *   incr key  : view:{targetType}:{id}              — worker가 주기적으로 flush
- *   dedup key : view:dedup:{targetType}:{id}:{fp}   — 30분 TTL, 중복 INCR 스킵
+ *   dedup key : view:dedup:{targetType}:{id}:{fp}   — 24시간 TTL, 중복 INCR 스킵
  *
  * AR-16·AR-17: DB 직접 UPDATE 절대 금지 — worker(view-flush)만 flush한다.
  */
@@ -34,10 +34,13 @@ export interface TrackViewOptions {
   fingerprint: string;
 }
 
+/** 중복 제거 창(초). 동일 fingerprint 재방문을 이 시간 동안 1회로 집계. */
+const DEDUP_TTL_SECONDS = 24 * 60 * 60; // 24시간
+
 /**
  * 상세 페이지 진입 시 조회수를 Redis에 버퍼링한다.
  *
- * - 30분 이내 동일 fingerprint 재방문은 스킵(dedup).
+ * - 24시간 이내 동일 fingerprint 재방문은 스킵(dedup).
  * - Redis 오류는 무시(fire-and-forget) — 응답을 블록하지 않는다.
  */
 export async function trackView({
@@ -49,7 +52,7 @@ export async function trackView({
     const redis = getRedis();
     const dedupKey = `view:dedup:${targetType}:${targetId}:${fingerprint}`;
     const incrKey = `view:${targetType}:${targetId}`;
-    const result = await redis.set(dedupKey, "1", "EX", 1800, "NX");
+    const result = await redis.set(dedupKey, "1", "EX", DEDUP_TTL_SECONDS, "NX");
     if (result === "OK") {
       await redis.incr(incrKey);
     }
