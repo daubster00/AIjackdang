@@ -79,13 +79,11 @@ function blockPlainText(node: Record<string, unknown>): string {
     .trim();
 }
 
-/** 이미지 자리 상한(초안당 최대 개수). */
-const MAX_AUTO_IMAGE_SLOTS = 4;
-
 /**
  * 초안 본문의 구조(제목 H2/H3)를 기준으로 이미지 자리([[IMG:sec-N]] 마커)를 결정적으로 삽입한다.
  * LLM 플래너(불안정·간헐적 0건)에 의존하지 않고, 섹션마다 이미지 자리를 보장한다.
  *  - 제목이 있으면 각 제목 바로 다음(제목 뒤 첫 문단 아래)에 이미지 자리를 넣는다.
+ *    개수 상한은 없다 — 제목(섹션) 개수만큼 이미지 자리가 생겨 글 길이에 비례한다.
  *  - 제목이 없으면 본문 문단 사이에 1~2개를 균등 배치한다.
  * 각 자리의 guidance는 해당 섹션 제목에서 만들고, diagramPrompt는 비워 둔다
  * (관리자가 'AI 생성'을 누르면 본문 맥락으로 프롬프트가 자동 작성된다).
@@ -119,7 +117,8 @@ function planImageSlotsByHeadings(
     }
   }
 
-  const chosen = picks.slice(0, MAX_AUTO_IMAGE_SLOTS);
+  // 상한 없음: 제목(섹션) 개수만큼 이미지 자리를 만든다(글 길이에 비례).
+  const chosen = picks;
   const slots = chosen.map((p, i) => ({
     assetKey: `sec-${i}`,
     guidance: p.heading
