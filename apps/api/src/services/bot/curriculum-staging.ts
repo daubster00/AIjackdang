@@ -122,7 +122,9 @@ function planImageSlotsByHeadings(
   const chosen = picks.slice(0, MAX_AUTO_IMAGE_SLOTS);
   const slots = chosen.map((p, i) => ({
     assetKey: `sec-${i}`,
-    guidance: p.heading ? `"${p.heading}" 부분을 설명하는 이미지` : "이 부분을 설명하는 이미지",
+    guidance: p.heading
+      ? `"${p.heading}" 주제를 상징하는 실사풍 이미지`
+      : "이 주제를 상징하는 실사풍 이미지",
   }));
 
   // 뒤에서부터 마커 삽입(인덱스 밀림 방지)
