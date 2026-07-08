@@ -308,7 +308,10 @@ export async function planImagesForPost(
     const response = await callModelFn(modelAssignment, {
       system: PLANNER_SYSTEM_PROMPT,
       user: userPrompt,
-      maxTokens: 800,
+      // 플래너는 마커를 삽입한 "본문 전체(bodyMarkdown)"를 통째로 다시 출력해야 하므로
+      // 상한이 본문보다 작으면 응답이 잘려 JSON 파싱이 실패하고 items=[]로 떨어진다
+      // (이미지 누락 원인). 본문 생성 상한(최대 5500)보다 크게 잡는다.
+      maxTokens: 7000,
     });
 
     // 4. 응답 파싱
