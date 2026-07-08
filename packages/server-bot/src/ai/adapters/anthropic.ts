@@ -41,11 +41,38 @@ function requireApiKey(): string {
   return env.ANTHROPIC_API_KEY;
 }
 
+/**
+ * 최신 세대 Claude 모델(Opus/Sonnet/Haiku 4.x 이상, Fable 5)은 `temperature`
+ * 파라미터를 폐기(deprecated)했다 — 전달하면 400 invalid_request_error
+ * ("`temperature` is deprecated for this model.")로 호출이 실패한다.
+ * (GPT-5 계열이 temperature 커스텀값을 거부하는 것과 동일한 규약 변경.)
+ *
+ * 이 계열에는 temperature 를 아예 보내지 않는다(모델 기본값 사용).
+ * 구세대(claude-3, claude-3-5 등)는 기존대로 temperature 를 전달한다.
+ * temperature 는 모든 Claude 모델에서 선택 파라미터이므로, 신세대에 생략해도
+ * 무해하고 구세대에 보내도 무해하다 — 다만 신세대는 보내면 하드 400이라 분기한다.
+ */
+function deprecatesTemperature(model: string): boolean {
+  return /^claude-(opus|sonnet|haiku)-[4-9]/i.test(model) || /^claude-fable-/i.test(model);
+}
+
 // ── 어댑터 구현 ───────────────────────────────────────────────────────────────
 
 export const anthropicAdapter: AiProvider = {
   async generateText(req: AiTextRequest): Promise<AiTextResponse> {
     const apiKey = requireApiKey();
+
+    const body: Record<string, unknown> = {
+      model: req.model,
+      max_tokens: req.maxTokens ?? 2000,
+      system: req.system,
+      messages: [{ role: "user", content: req.user }],
+      // tools 파라미터 절대 추가 금지 (ARCHITECTURE §4 — 생성 모델 격리)
+    };
+    // 신세대 모델은 temperature 폐기 → 전달 시 400. 이 계열에만 생략한다.
+    if (!deprecatesTemperature(req.model)) {
+      body.temperature = req.temperature ?? 0.7;
+    }
 
     const res = await fetch(`${ANTHROPIC_BASE_URL}/messages`, {
       method: "POST",
@@ -54,14 +81,7 @@ export const anthropicAdapter: AiProvider = {
         "anthropic-version": ANTHROPIC_API_VERSION,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        model: req.model,
-        max_tokens: req.maxTokens ?? 2000,
-        temperature: req.temperature ?? 0.7,
-        system: req.system,
-        messages: [{ role: "user", content: req.user }],
-        // tools 파라미터 절대 추가 금지 (ARCHITECTURE §4 — 생성 모델 격리)
-      }),
+      body: JSON.stringify(body),
     });
 
     await assertProviderOk(res, "anthropic", req.model, "messages");

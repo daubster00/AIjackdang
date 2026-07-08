@@ -155,11 +155,40 @@ async function logActivity(
 
 // ── generateTitle ─────────────────────────────────────────────────────────────
 
-function generateTitle(titleSeed: string, seriesContext?: SeriesContext): string {
+/**
+ * 본문 평문에서 제목을 유도 — titleSeed가 비어 있을 때의 최후 폴백.
+ * 첫 비어있지 않은 줄의 첫 문장(최대 45자)을 제목으로 쓴다.
+ */
+function deriveTitleFromText(text: string): string {
+  const firstLine = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!firstLine) return "제목 없는 글";
+  const sentence = firstLine.split(/(?<=[.!?。…])\s/)[0] ?? firstLine;
+  const t = sentence.replace(/^[#>\-*\s]+/, "").trim();
+  if (!t) return "제목 없는 글";
+  return t.length > 45 ? `${t.slice(0, 45)}…` : t;
+}
+
+/**
+ * 게시글 제목을 결정한다 — **항상 비어있지 않은 제목을 보장**한다.
+ * 1) 시리즈(연재) 글이면 "그룹명 — 제N편".
+ * 2) titleSeed(주제 씨앗)가 있으면 그대로.
+ * 3) 둘 다 없으면 본문 평문(fallbackText)에서 유도.
+ * (사용자 정책: 모든 봇 글은 제목이 무조건 존재해야 한다.)
+ */
+function generateTitle(
+  titleSeed: string,
+  seriesContext?: SeriesContext,
+  fallbackText?: string,
+): string {
   if (seriesContext) {
     return `${seriesContext.groupTitle} — 제${seriesContext.episodeIndex}편`;
   }
-  return titleSeed;
+  const seed = titleSeed?.trim();
+  if (seed) return seed;
+  return fallbackText ? deriveTitleFromText(fallbackText) : "제목 없는 글";
 }
 
 // ── adaptGrounding ────────────────────────────────────────────────────────────
@@ -605,11 +634,22 @@ export async function runPostPipeline(
 
     const { censorResult, costUsd: censorCostUsd } = censorOutput;
 
+    // 제목을 이 시점에 확정한다(항상 비어있지 않음 — 사용자 정책).
+    // 보류(held) 시 draft_content에 제목·게시판을 함께 저장해야, 통과할 때
+    // 조인(주제)에 의존하지 않고 정확한 제목·게시판으로 게시된다.
+    const postTitle = generateTitle(
+      topicResult.topic.titleSeed,
+      seriesContext,
+      draftText,
+    );
+
     await db
       .update(schema.botGenerationJobs)
       .set({
         status: "censoring",
-        draftContent: draftJson,
+        // 봉투(envelope) 형태로 저장: { board, title, contentJson }.
+        // (구형은 Tiptap 문서만 저장했지만, 제목·게시판 유실을 막기 위해 봉투로 바꾼다.)
+        draftContent: { board, title: postTitle, contentJson: draftJson },
         censorResult,
         updatedAt: new Date(),
       })
@@ -855,8 +895,8 @@ export async function runPostPipeline(
         break;
       }
 
-      // 게시 함수 분기 (#6 정합)
-      const title = generateTitle(topicResult.topic.titleSeed, seriesContext);
+      // 게시 함수 분기 (#6 정합) — 제목은 위에서 확정한 postTitle 재사용(항상 비어있지 않음)
+      const title = postTitle;
       const tags = topicResult.topic.titleSeed
         .split(/\s+/)
         .filter((w) => w.length > 1)

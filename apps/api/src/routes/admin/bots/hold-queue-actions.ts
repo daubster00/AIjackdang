@@ -20,9 +20,10 @@
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import { requireSuperAdmin } from "../../../plugins/adminGuard.js";
+import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import {
   adminBotHoldQueueQuerySchema,
 } from "@ai-jakdang/contracts";
@@ -164,6 +165,108 @@ function extractDraftPreview(draftContent: unknown): string | null {
   return null;
 }
 
+// ── 상세 조회용: 제목·본문 HTML 해석 ──────────────────────────────────────────
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** 평문 텍스트(줄바꿈 구분)를 문단 HTML로 감싼다 — 댓글/대댓글 초안용. */
+function plainTextToHtml(text: string): string {
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join("");
+}
+
+/** Tiptap 문서(또는 봉투)에서 제목을 유도 — 첫 문단 텍스트 앞부분(최대 45자). */
+function deriveTitleFromDoc(draftContent: unknown): string | null {
+  let node: unknown = draftContent;
+  if (draftContent && typeof draftContent === "object") {
+    const d = draftContent as Record<string, unknown>;
+    if (d.contentJson && typeof d.contentJson === "object") node = d.contentJson;
+  }
+  if (!node || typeof node !== "object") return null;
+  const text = extractTiptapText(node as TiptapNode).trim();
+  if (!text) return null;
+  const firstLine = text.split(/\s{2,}|\n+/)[0]?.trim() ?? text;
+  const t = firstLine.replace(/^[#>\-*\s]+/, "").trim();
+  if (!t) return null;
+  return t.length > 45 ? `${t.slice(0, 45)}…` : t;
+}
+
+/**
+ * 초안 제목 해석(상세 화면용) — 항상 비어있지 않은 제목을 보장한다.
+ * 봉투 title → 주제 씨앗 → 본문 유도 → 최후 문구.
+ */
+function resolveDraftTitle(
+  draftContent: unknown,
+  titleSeed: string | null,
+): string {
+  if (draftContent && typeof draftContent === "object") {
+    const d = draftContent as Record<string, unknown>;
+    if (typeof d.title === "string" && d.title.trim()) return d.title.trim();
+  }
+  return (
+    titleSeed?.trim() ||
+    deriveTitleFromDoc(draftContent) ||
+    "제목 없는 글"
+  );
+}
+
+/**
+ * 초안 본문을 렌더 가능한 HTML로 변환한다(이미지·유튜브 영상 포함).
+ * - 댓글/대댓글: { content | text } 평문 → 문단 HTML
+ * - 봉투(envelope): contentJson(post/question) 또는 descriptionJson(resource) Tiptap → HTML
+ * - bare Tiptap 문서: 그대로 HTML 변환
+ */
+function resolveDraftBodyHtml(draftContent: unknown): string {
+  if (!draftContent || typeof draftContent !== "object") return "";
+  const d = draftContent as Record<string, unknown>;
+
+  // 댓글/대댓글 초안 — 평문
+  if (typeof d.content === "string") return plainTextToHtml(d.content);
+  if (typeof d.text === "string") return plainTextToHtml(d.text);
+
+  // 봉투 형태 — Tiptap 본문 필드 우선
+  if (d.contentJson && typeof d.contentJson === "object") {
+    return tiptapJsonToHtml(d.contentJson);
+  }
+  if (d.descriptionJson && typeof d.descriptionJson === "object") {
+    return tiptapJsonToHtml(d.descriptionJson);
+  }
+
+  // bare Tiptap 본문 문서 그대로 저장된 경우
+  if (isBareTiptapDoc(draftContent)) {
+    return tiptapJsonToHtml(draftContent);
+  }
+  return "";
+}
+
+/** censor_result(jsonb)에서 통과하지 못한 항목만 추려 반환. */
+function extractCensorFindings(
+  censorResult: unknown,
+): { key: string; result: string; reason: string | null }[] {
+  if (!censorResult || typeof censorResult !== "object") return [];
+  const items = (censorResult as Record<string, unknown>).items;
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter(
+      (it): it is Record<string, unknown> =>
+        !!it && typeof it === "object" && (it as Record<string, unknown>).result !== "pass",
+    )
+    .map((it) => ({
+      key: String(it.key ?? ""),
+      result: String(it.result ?? ""),
+      reason: typeof it.reason === "string" ? it.reason : null,
+    }));
+}
+
 /**
  * draftContent를 job_kind별 봉투(envelope) 형태로 정규화한다.
  *
@@ -192,15 +295,41 @@ function normalizeDraftToEnvelope(
     return draftContent; // 형태 불명 — 원본 유지(하위 파싱에서 422 처리)
   }
 
-  if (!isBareTiptapDoc(draftContent)) return draftContent; // 이미 봉투 형태
-  const doc = draftContent as Record<string, unknown>;
-  const title = ctx.titleSeed?.trim() || "(제목 미상)";
+  // ── 본문 문서(doc)·제목·게시판 추출 ────────────────────────────────────────
+  // 신형 봉투 { board?, title, contentJson } 와 구형 bare Tiptap 문서를 모두 지원한다.
+  let doc: Record<string, unknown>;
+  let envTitle: string | null = null;
+  let envBoard: string | null = null;
+  if (
+    draftContent &&
+    typeof draftContent === "object" &&
+    typeof (draftContent as Record<string, unknown>).contentJson === "object" &&
+    (draftContent as Record<string, unknown>).contentJson !== null
+  ) {
+    const d = draftContent as Record<string, unknown>;
+    doc = d.contentJson as Record<string, unknown>;
+    if (typeof d.title === "string" && d.title.trim()) envTitle = d.title.trim();
+    if (typeof d.board === "string" && d.board.trim()) envBoard = d.board.trim();
+    // post 봉투가 이미 완전하면(게시판·제목 존재) 그대로 통과시킨다.
+    if (jobKind === "post" && envBoard && envTitle) return draftContent;
+  } else if (isBareTiptapDoc(draftContent)) {
+    doc = draftContent as Record<string, unknown>;
+  } else {
+    return draftContent; // 형태 불명 — 원본 유지(하위 파싱에서 422 처리)
+  }
+
+  // 제목은 항상 비어있지 않게 보장: 봉투 제목 → 주제 씨앗 → 본문 유도 → 최후 문구.
+  const title =
+    envTitle ||
+    ctx.titleSeed?.trim() ||
+    deriveTitleFromDoc(doc) ||
+    "제목 없는 글";
 
   if (jobKind === "question") {
     return { title, contentJson: doc, tags: [], status: "published" };
   }
   if (jobKind === "resource") {
-    const board = ctx.board ?? "";
+    const board = envBoard ?? ctx.board ?? "";
     const rawType = board.startsWith("resource:")
       ? board.slice("resource:".length)
       : "prompt";
@@ -227,7 +356,7 @@ function normalizeDraftToEnvelope(
   }
   // post (기본)
   return {
-    board: ctx.board ?? "",
+    board: envBoard ?? ctx.board ?? "",
     title,
     contentJson: doc,
     tags: [],
@@ -331,6 +460,99 @@ export async function registerAdminBotHoldQueueActionRoutes(
         });
       } catch (err) {
         request.log.error(err, "[bot-hold-queue] 목록 조회 실패");
+        return reply.status(500).send({
+          error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
+        });
+      }
+    },
+  );
+
+  // ── GET /api/v1/admin/bots/hold-queue/:id ───────────────────────────────────
+  //    보류 항목 상세: 제목 + 전체 본문 HTML(이미지·영상 포함) + 검수 결과.
+  //    관리자가 통과/폐기 판단 전 봇이 쓴 글 전문을 확인하기 위한 용도.
+  app.get(
+    "/admin/bots/hold-queue/:id",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const db = getDb();
+
+      try {
+        const [row] = await db
+          .select({
+            id: schema.botHoldQueue.id,
+            jobId: schema.botHoldQueue.jobId,
+            reason: schema.botHoldQueue.reason,
+            decided: schema.botHoldQueue.decided,
+            decision: schema.botHoldQueue.decision,
+            createdAt: schema.botHoldQueue.createdAt,
+            jobKind: schema.botGenerationJobs.jobKind,
+            targetBoard: schema.botGenerationJobs.targetBoard,
+            draftContent: schema.botGenerationJobs.draftContent,
+            censorResult: schema.botGenerationJobs.censorResult,
+            regenCount: schema.botGenerationJobs.regenCount,
+            topicTitleSeed: schema.botTopics.titleSeed,
+            personaNickname: schema.botPersonas.nickname,
+          })
+          .from(schema.botHoldQueue)
+          .innerJoin(
+            schema.botGenerationJobs,
+            eq(schema.botHoldQueue.jobId, schema.botGenerationJobs.id),
+          )
+          .innerJoin(
+            schema.botPersonas,
+            eq(schema.botGenerationJobs.personaId, schema.botPersonas.id),
+          )
+          .leftJoin(
+            schema.botTopics,
+            eq(schema.botGenerationJobs.topicId, schema.botTopics.id),
+          )
+          .where(eq(schema.botHoldQueue.id, id))
+          .limit(1);
+
+        if (!row) {
+          return reply.status(404).send({
+            error: { code: "NOT_FOUND", message: "해당 보류 항목을 찾을 수 없습니다." },
+          });
+        }
+
+        // 검수 모델: ai_usage_log에서 purpose='censor' 최신 모델 (호출 실패 시 없음)
+        const usageRows = await db
+          .select({
+            purpose: schema.aiUsageLog.purpose,
+            provider: schema.aiUsageLog.provider,
+            model: schema.aiUsageLog.model,
+          })
+          .from(schema.aiUsageLog)
+          .where(eq(schema.aiUsageLog.jobId, row.jobId))
+          .orderBy(asc(schema.aiUsageLog.createdAt));
+
+        let censorModel: string | null = null;
+        let genModel: string | null = null;
+        for (const u of usageRows) {
+          if (u.purpose === "censor") censorModel = `${u.provider}/${u.model}`;
+          if (u.purpose === "generation") genModel = `${u.provider}/${u.model}`;
+        }
+
+        return reply.send({
+          id: row.id,
+          jobId: row.jobId,
+          reason: row.reason,
+          decided: row.decided,
+          decision: row.decision ?? null,
+          jobKind: row.jobKind,
+          board: row.targetBoard ?? null,
+          personaNickname: row.personaNickname ?? null,
+          regenCount: row.regenCount ?? 0,
+          createdAt: row.createdAt.toISOString(),
+          title: resolveDraftTitle(row.draftContent, row.topicTitleSeed),
+          bodyHtml: resolveDraftBodyHtml(row.draftContent),
+          genModel,
+          censorModel,
+          censorFindings: extractCensorFindings(row.censorResult),
+        });
+      } catch (err) {
+        request.log.error(err, "[bot-hold-queue] 상세 조회 실패");
         return reply.status(500).send({
           error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." },
         });

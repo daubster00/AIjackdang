@@ -23,6 +23,7 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { confirmDialog } from "@/lib/dialog";
 import { API_BASE_URL } from "@/lib/api";
@@ -59,6 +60,22 @@ interface HoldQueueItem {
   draftPreview: string | null;
   personaNickname: string | null;
   createdAt: string;
+}
+
+interface HoldQueueDetail {
+  id: string;
+  jobId: string;
+  reason: string;
+  jobKind: string;
+  board: string | null;
+  personaNickname: string | null;
+  regenCount: number;
+  createdAt: string;
+  title: string | null;
+  bodyHtml: string;
+  genModel: string | null;
+  censorModel: string | null;
+  censorFindings: { key: string; result: string; reason: string | null }[];
 }
 
 // ── 토스트 ─────────────────────────────────────────────────────────────────────
@@ -104,6 +121,190 @@ function Toast({
   );
 }
 
+// ── 보류 항목 상세 모달 ─────────────────────────────────────────────────────────
+
+const REASON_LABEL: Record<string, string> = {
+  ambiguous: "검수 판정 애매(검수 불가/파싱 실패 포함)",
+  policy: "정책 위반 의심",
+  manual: "수동 보류",
+};
+
+const CENSOR_KEY_LABEL: Record<string, string> = {
+  factuality: "사실성",
+  ai_tone: "AI 티",
+  persona: "페르소나",
+  safety: "안전",
+  duplicate: "중복",
+  context: "게시판 맥락",
+  insight: "내용 비범함",
+};
+
+function HoldDetailModal({
+  detail,
+  loading,
+  onClose,
+  onApprove,
+  onDiscard,
+}: {
+  detail: HoldQueueDetail | null;
+  loading: boolean;
+  onClose: () => void;
+  onApprove: () => void;
+  onDiscard: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "40px 16px",
+        overflowY: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          width: "100%",
+          maxWidth: 780,
+          boxShadow: "0 12px 48px rgba(0,0,0,0.25)",
+          overflow: "hidden",
+        }}
+      >
+        {/* 헤더 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--gray-200, #e5e7eb)",
+          }}
+        >
+          <strong style={{ fontSize: 15 }}>보류 항목 상세 — 봇 작성 글 전문</strong>
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            닫기
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div style={{ padding: 20, maxHeight: "70vh", overflowY: "auto" }}>
+          {loading || !detail ? (
+            <p style={{ color: "var(--gray-500, #6b7280)", fontSize: 14 }}>불러오는 중...</p>
+          ) : (
+            <>
+              {/* 메타 */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16, fontSize: 12 }}>
+                <span className="badge" style={{ background: "var(--gray-100,#f3f4f6)", color: "var(--gray-700,#374151)", borderRadius: 4, padding: "3px 8px" }}>
+                  게시판: {detail.board ?? "-"}
+                </span>
+                <span className="badge" style={{ background: "var(--gray-100,#f3f4f6)", color: "var(--gray-700,#374151)", borderRadius: 4, padding: "3px 8px" }}>
+                  작성 봇: {detail.personaNickname ?? "-"}
+                </span>
+                <span className="badge" style={{ background: "var(--gray-100,#f3f4f6)", color: "var(--gray-700,#374151)", borderRadius: 4, padding: "3px 8px" }}>
+                  생성 모델: {detail.genModel ?? "-"}
+                </span>
+                <span className="badge" style={{ background: detail.censorModel ? "var(--gray-100,#f3f4f6)" : "var(--warning-100,#fef3c7)", color: detail.censorModel ? "var(--gray-700,#374151)" : "var(--warning-700,#92400e)", borderRadius: 4, padding: "3px 8px" }}>
+                  검수 모델: {detail.censorModel ?? "검수 미실행(호출 실패)"}
+                </span>
+                <span className="badge" style={{ background: "var(--gray-100,#f3f4f6)", color: "var(--gray-700,#374151)", borderRadius: 4, padding: "3px 8px" }}>
+                  재생성: {detail.regenCount}회
+                </span>
+              </div>
+
+              {/* 보류 사유 */}
+              <div style={{ marginBottom: 16, padding: "10px 12px", background: "var(--warning-50,#fffbeb)", border: "1px solid var(--warning-200,#fde68a)", borderRadius: 8, fontSize: 13, color: "var(--warning-800,#854d0e)" }}>
+                <strong>보류 사유: </strong>
+                {REASON_LABEL[detail.reason] ?? detail.reason}
+                {detail.censorFindings.length > 0 && (
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                    {detail.censorFindings.map((f, i) => (
+                      <li key={i} style={{ marginBottom: 2 }}>
+                        [{CENSOR_KEY_LABEL[f.key] ?? f.key} · {f.result}] {f.reason ?? ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* 제목 */}
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.4 }}>
+                {detail.title ?? (
+                  <span style={{ color: "var(--gray-400,#9ca3af)", fontWeight: 400, fontSize: 15 }}>
+                    (제목 없음 — 이 글은 제목 없는 큐레이션/캐주얼 글입니다)
+                  </span>
+                )}
+              </h2>
+
+              {/* 본문 HTML (이미지·유튜브 영상 포함) */}
+              {detail.bodyHtml ? (
+                <div
+                  className="hold-detail-body"
+                  dangerouslySetInnerHTML={{ __html: detail.bodyHtml }}
+                />
+              ) : (
+                <p style={{ color: "var(--gray-400,#9ca3af)", fontSize: 14 }}>(본문 없음)</p>
+              )}
+
+              <style>{`
+                .hold-detail-body { font-size: 15px; line-height: 1.75; color: var(--gray-800,#1f2937); word-break: break-word; }
+                .hold-detail-body p { margin: 0 0 0.9em; }
+                .hold-detail-body img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 8px; }
+                .hold-detail-body h2 { font-size: 18px; font-weight: 700; margin: 1.2em 0 0.5em; }
+                .hold-detail-body h3 { font-size: 16px; font-weight: 700; margin: 1em 0 0.5em; }
+                .hold-detail-body iframe { max-width: 100%; aspect-ratio: 16/9; width: 100%; height: auto; border: 0; border-radius: 8px; margin: 12px 0; }
+                .hold-detail-body blockquote { border-left: 3px solid var(--gray-300,#d1d5db); padding-left: 12px; color: var(--gray-600,#4b5563); margin: 0.9em 0; }
+                .hold-detail-body a { color: var(--primary-600,#2563eb); text-decoration: underline; }
+                .hold-detail-body ul, .hold-detail-body ol { padding-left: 22px; margin: 0 0 0.9em; }
+              `}</style>
+            </>
+          )}
+        </div>
+
+        {/* 푸터 액션 */}
+        {detail && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: "14px 20px",
+              borderTop: "1px solid var(--gray-200, #e5e7eb)",
+            }}
+          >
+            <button type="button" className="btn btn-danger" onClick={onDiscard}>
+              폐기
+            </button>
+            <button type="button" className="btn btn-primary" onClick={onApprove}>
+              통과(게시)
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
 export default function BotOperationsPage() {
@@ -123,6 +324,10 @@ export default function BotOperationsPage() {
   // ── 보류 큐 상태 ──────────────────────────────────────────────────────────────
   const [holdItems, setHoldItems] = useState<HoldQueueItem[]>([]);
   const [holdLoading, setHoldLoading] = useState(true);
+
+  // 보류 항목 상세 모달 (제목 + 전체 본문 미리보기)
+  const [detail, setDetail] = useState<HoldQueueDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // ── 토스트 ────────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -247,6 +452,29 @@ export default function BotOperationsPage() {
     await patchSettings({ bot_daily_cost_limit_usd: costLimit }, "비용 상한");
   };
 
+  // ── 보류 항목 상세 조회 (모달 오픈) ────────────────────────────────────────────
+  const openDetail = useCallback(async (id: string) => {
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/admin/bots/hold-queue/${id}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) {
+        showToast("상세 조회 실패", "error");
+        setDetailLoading(false);
+        return;
+      }
+      const data = (await res.json()) as HoldQueueDetail;
+      setDetail(data);
+    } catch {
+      showToast("상세 조회 실패", "error");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
   // ── 보류 큐 통과 ──────────────────────────────────────────────────────────────
   const handleApprove = async (id: string) => {
     const ok = await confirmDialog({
@@ -266,6 +494,7 @@ export default function BotOperationsPage() {
         return;
       }
       showToast("통과 처리됨", "success");
+      setDetail(null);
       await fetchHoldQueue();
     } catch {
       showToast("통과 처리 실패", "error");
@@ -291,6 +520,7 @@ export default function BotOperationsPage() {
         return;
       }
       showToast("폐기 처리됨", "success");
+      setDetail(null);
       await fetchHoldQueue();
     } catch {
       showToast("폐기 처리 실패", "error");
@@ -308,6 +538,18 @@ export default function BotOperationsPage() {
           onClose={() => setToast(null)}
         />
       )}
+
+      {(detail || detailLoading) &&
+        createPortal(
+          <HoldDetailModal
+            detail={detail}
+            loading={detailLoading}
+            onClose={() => setDetail(null)}
+            onApprove={() => detail && handleApprove(detail.id)}
+            onDiscard={() => detail && handleDiscard(detail.id)}
+          />,
+          document.body,
+        )}
 
       <div className="page-header">
         <h1 className="page-title">봇 운영 패널</h1>
@@ -616,8 +858,14 @@ export default function BotOperationsPage() {
                             {item.reason}
                           </span>
                         </td>
-                        <td style={{ maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "var(--gray-700, #374151)" }}>
-                          {item.draftPreview ?? "(미리보기 없음)"}
+                        <td
+                          style={{ maxWidth: 280, fontSize: 13, color: "var(--primary-600, #2563eb)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+                          onClick={() => openDetail(item.id)}
+                          title="클릭하면 제목·전체 본문(이미지/영상 포함)을 봅니다"
+                        >
+                          <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.draftPreview ?? "(미리보기 없음)"}
+                          </span>
                         </td>
                         <td style={{ fontSize: 13 }}>{item.personaNickname ?? "(알 수 없음)"}</td>
                         <td style={{ fontSize: 12, color: "var(--gray-500, #6b7280)", whiteSpace: "nowrap" }}>
@@ -629,6 +877,14 @@ export default function BotOperationsPage() {
                           })}
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary"
+                            style={{ marginRight: 6 }}
+                            onClick={() => openDetail(item.id)}
+                          >
+                            전체 보기
+                          </button>
                           <button
                             type="button"
                             className="btn btn-sm btn-primary"
