@@ -170,7 +170,7 @@ export default async function AutomationDetailPage({ params }: PageProps) {
           </section>
 
           <footer className={styles.detailFooter}>
-            <Link href="/automation" className={styles.listButton}>
+            <Link href={listUrl} className={styles.listButton}>
               <Icon name="list-check" />
               목록으로
             </Link>
