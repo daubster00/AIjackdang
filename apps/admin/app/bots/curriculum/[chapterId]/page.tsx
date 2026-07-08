@@ -159,16 +159,27 @@ function SlotBox({
   slot: ImageSlot;
   busy: boolean;
   readOnly: boolean;
-  onGenerate: () => void;
+  onGenerate: (prompt: string) => void;
   onUpload: (file: File) => void;
   onClear: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const promptText =
-    slot.diagramPrompt?.trim() ||
-    slot.guidance?.trim() ||
-    slot.caption?.trim() ||
-    "이 자리에 들어갈 이미지";
+
+  // 슬롯에 저장된 실제 프롬프트(자동 생성/이전 사용값). 없으면 guidance·caption 순으로.
+  const initialPrompt =
+    slot.diagramPrompt?.trim() || slot.guidance?.trim() || slot.caption?.trim() || "";
+
+  // 관리자가 직접 수정 가능한 프롬프트 — 슬롯 id 단위로 유지(SlotBox는 slot.id로 key됨).
+  const [prompt, setPrompt] = useState(initialPrompt);
+  // 서버에서 프롬프트가 새로 채워졌는데(자동 맥락 생성 등) 사용자가 아직 손대지 않았다면 반영.
+  const lastSyncedRef = useRef(initialPrompt);
+  useEffect(() => {
+    if (lastSyncedRef.current !== initialPrompt) {
+      // 서버값이 바뀌었고 로컬 편집이 이전 서버값 그대로면(=사용자 미편집) 새 값으로 갱신.
+      setPrompt((cur) => (cur === lastSyncedRef.current ? initialPrompt : cur));
+      lastSyncedRef.current = initialPrompt;
+    }
+  }, [initialPrompt]);
 
   const pickFile = () => fileRef.current?.click();
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +187,35 @@ function SlotBox({
     if (file) onUpload(file);
     e.target.value = "";
   };
+
+  // 편집한 프롬프트를 실어 생성 요청. 비어 있으면 서버가 본문 맥락으로 자동 생성.
+  const triggerGenerate = () => onGenerate(prompt.trim());
+
+  // 프롬프트 편집기 (수정 가능 상태에서만 노출)
+  const promptEditor = (
+    <div style={{ margin: "0 auto 12px", maxWidth: 620, textAlign: "left" }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--gray-500)",
+          marginBottom: 4,
+        }}
+      >
+        이미지 프롬프트 (직접 수정 후 생성)
+      </label>
+      <textarea
+        className="control"
+        rows={3}
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        disabled={busy}
+        placeholder="AI에게 요청할 이미지 설명을 입력하세요. 비워 두면 본문 맥락으로 자동 생성됩니다."
+        style={{ width: "100%", resize: "vertical", fontSize: 13 }}
+      />
+    </div>
+  );
 
   // ── 채워진 이미지 ──
   if (slot.imageUrl) {
@@ -192,23 +232,26 @@ function SlotBox({
           </figcaption>
         )}
         {!readOnly && (
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
-            <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
-            <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
-              <i className="ri-upload-line" /> 교체 업로드
-            </button>
-            <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={onGenerate}>
-              {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 재생성
-            </button>
-            <button
-              className="btn btn-sm btn-outline"
-              type="button"
-              disabled={busy}
-              onClick={onClear}
-              style={{ color: "var(--danger, #dc2626)", borderColor: "var(--danger, #dc2626)" }}
-            >
-              <i className="ri-delete-bin-line" /> 삭제
-            </button>
+          <div style={{ marginTop: 12 }}>
+            {promptEditor}
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
+              <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
+                <i className="ri-upload-line" /> 교체 업로드
+              </button>
+              <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={triggerGenerate}>
+                {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 재생성
+              </button>
+              <button
+                className="btn btn-sm btn-outline"
+                type="button"
+                disabled={busy}
+                onClick={onClear}
+                style={{ color: "var(--danger, #dc2626)", borderColor: "var(--danger, #dc2626)" }}
+              >
+                <i className="ri-delete-bin-line" /> 삭제
+              </button>
+            </div>
           </div>
         )}
       </figure>
@@ -232,7 +275,7 @@ function SlotBox({
           fontSize: 12,
           fontWeight: 600,
           color: "var(--gray-500)",
-          marginBottom: 6,
+          marginBottom: 10,
           display: "flex",
           gap: 6,
           justifyContent: "center",
@@ -241,21 +284,34 @@ function SlotBox({
       >
         <i className="ri-image-add-line" /> 이미지 자리
       </div>
-      <p style={{ fontSize: 13, color: "var(--gray-600)", margin: "0 auto 14px", maxWidth: 560, whiteSpace: "pre-wrap" }}>
-        {promptText}
-      </p>
       {readOnly ? (
-        <p style={{ fontSize: 12, color: "var(--gray-400)", margin: 0 }}>(비어 있음 — 발행 시 이미지 없이 표시됩니다)</p>
+        <>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--gray-600)",
+              margin: "0 auto 14px",
+              maxWidth: 560,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {initialPrompt || "이 자리에 들어갈 이미지"}
+          </p>
+          <p style={{ fontSize: 12, color: "var(--gray-400)", margin: 0 }}>(비어 있음 — 발행 시 이미지 없이 표시됩니다)</p>
+        </>
       ) : (
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-          <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={onGenerate}>
-            {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 생성
-          </button>
-          <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
-          <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
-            <i className="ri-upload-line" /> 이미지 업로드
-          </button>
-        </div>
+        <>
+          {promptEditor}
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={triggerGenerate}>
+              {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 생성
+            </button>
+            <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
+            <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
+              <i className="ri-upload-line" /> 이미지 업로드
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -435,16 +491,18 @@ export default function ChapterDetailPage() {
     }
   }
 
-  async function handleGenerate(slotId: string) {
+  async function handleGenerate(slotId: string, prompt?: string) {
     setBusy(slotId, true);
     try {
+      // 프롬프트를 입력했으면 override로 전달, 비었으면 서버가 본문 맥락으로 자동 생성.
+      const trimmed = prompt?.trim();
       const res = await fetch(
         `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/slots/${slotId}/generate`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({}),
+          body: JSON.stringify(trimmed ? { diagramPrompt: trimmed } : {}),
         },
       );
       const data = await res.json();
@@ -666,7 +724,7 @@ export default function ChapterDetailPage() {
                   slot={seg.slot}
                   busy={!!slotLoading[seg.slot.id]}
                   readOnly={isPublished}
-                  onGenerate={() => handleGenerate(seg.slot!.id)}
+                  onGenerate={(prompt) => handleGenerate(seg.slot!.id, prompt)}
                   onUpload={(file) => handleUpload(seg.slot!.id, file)}
                   onClear={() => handleClear(seg.slot!.id)}
                 />
