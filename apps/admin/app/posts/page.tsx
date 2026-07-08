@@ -9,7 +9,7 @@ import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
 import type { AdminPostItem } from "@ai-jakdang/contracts";
-import { BOARDS as ADMIN_BOARDS } from "@/lib/boards";
+import { BOARDS as ADMIN_BOARDS, dbBoardToAdminSlug } from "@/lib/boards";
 
 /**
  * 게시글 관리 페이지 (Story 9.6).
@@ -742,6 +742,10 @@ function AdminPostsContent() {
                       const [badgeClass, statusLabel] = statusBadge(p.status);
                       const boardBadge = BOARD_BADGE[p.board] ?? "badge-gray";
                       const boardLabel = BOARD_LABEL[p.board] ?? p.board;
+                      // p.board 는 DB 실제값(예: monetization-cases). 관리자 URL 은 slug(money-case)를
+                      // 써야 하므로 dbBoardToAdminSlug 로 변환한다. 변환 없이 p.board 를 쓰면
+                      // slug≠apiBoard 인 게시판(수익화 사례·공지사항·바이브코딩 등)에서 수정/목록 진입이 404.
+                      const adminSlug = dbBoardToAdminSlug(p.board);
                       return (
                         <tr key={p.id}>
                           <td>
@@ -768,7 +772,7 @@ function AdminPostsContent() {
                                 <i className="ri-home-4-fill" title="메인 노출" style={{ color: "var(--brand-accent)" }} />
                               ) : null}
                               <Link
-                                href={`/posts/${p.board}/${p.id}`}
+                                href={`/posts/${adminSlug}/${p.id}`}
                                 style={{ marginLeft: (p.isNotice || p.isPinned || p.isFeatured || p.isMainFeatured) ? 6 : 0 }}
                               >
                                 {p.title}
@@ -798,8 +802,8 @@ function AdminPostsContent() {
                           <td>
                             <RowActionMenu
                               items={[
-                                { label: "보기", icon: "ri-eye-line", href: `/posts/${p.board}/${p.id}` },
-                                { label: "수정", icon: "ri-edit-line", href: `/posts/${p.board}/${p.id}/edit` },
+                                { label: "보기", icon: "ri-eye-line", href: `/posts/${adminSlug}/${p.id}` },
+                                { label: "수정", icon: "ri-edit-line", href: `/posts/${adminSlug}/${p.id}/edit` },
                                 { label: p.isNotice ? "공지 해제" : "공지 설정", icon: "ri-megaphone-line", onClick: () => handleFlag(p.id, "isNotice", p.isNotice) },
                                 { label: p.isPinned ? "상단고정 해제" : "상단고정 설정", icon: "ri-pushpin-2-line", onClick: () => handleFlag(p.id, "isPinned", p.isPinned) },
                                 { label: p.isFeatured ? "추천 해제" : "추천 지정", icon: "ri-star-line", onClick: () => handleFlag(p.id, "isFeatured", p.isFeatured) },
