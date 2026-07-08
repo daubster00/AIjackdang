@@ -1,0 +1,291 @@
+/**
+ * "AI 자동화 입문 로드맵" 12편 커리큘럼 플랜 시드 스크립트 (멱등).
+ *
+ * 자료/ai-automation-beginner-series-plan.md 기획서를 그대로 옮겨
+ * bot_curriculum_series / _chapters 에 적재한다.
+ *  - 시리즈: "AI 자동화 입문 로드맵: 반복 업무를 줄이는 실전 가이드" (board=automation-guide)
+ *  - 1~12편: 제목/학습목표/소주제(outline)만 status=planned 로 적재.
+ *    (본문·이미지는 이후 관리자 초안 생성 단계에서 채운다.)
+ *
+ * 재실행 안전:
+ *  - 시리즈/챕터는 유니크 키(series.title / chapters.(series_id, order_index)) 기준
+ *    ON CONFLICT DO NOTHING. 이미 있으면 건드리지 않는다.
+ *
+ * 실행:
+ *   pnpm --filter @ai-jakdang/api exec tsx src/scripts/seed-automation-guide-curriculum.ts
+ */
+
+import { getDb, closeDb } from "@ai-jakdang/database";
+import {
+  botCurriculumSeries,
+  botCurriculumChapters,
+} from "@ai-jakdang/database/schema";
+import { eq } from "drizzle-orm";
+
+// ── 시리즈 헤더 ─────────────────────────────────────────────────────────────────
+
+const SERIES = {
+  title: "AI 자동화 입문 로드맵: 반복 업무를 줄이는 실전 가이드",
+  board: "automation-guide",
+  tool: "n8n / Make / Zapier / Google Apps Script / ChatGPT·Claude·Gemini",
+  intro:
+    "AI 자동화를 처음 접하는 입문자를 위한 단계별 가이드 시리즈. AI 자동화가 무엇인지, 어떤 업무에 적합한지, 자동화 흐름을 어떻게 설계하고 도구를 언제 써야 하는지, AI를 어디까지 맡겨야 안전한지까지 현실적인 기준으로 정리한다. 완전 자동화를 무리하게 목표하기보다 반복 업무를 줄여 사람이 더 중요한 일에 집중하도록 만드는 실전형 입문 콘텐츠.",
+};
+
+// ── 12편 챕터 정의 (전편 제목/목표/소주제만, status=planned) ──────────────────────
+
+interface ChapterDef {
+  order: number;
+  title: string;
+  goal: string;
+  outline: string[];
+}
+
+const CHAPTERS: ChapterDef[] = [
+  {
+    order: 1,
+    title: "AI 자동화란? 반복 업무를 줄이는 가장 현실적인 방법",
+    goal: "AI 자동화의 기본 개념을 이해하고, AI 자동화가 모든 일을 대신해주는 마법이 아니라 반복 업무를 줄이는 실전적인 방법이라는 점을 이해한다.",
+    outline: [
+      "AI 자동화의 기본 의미",
+      "자동화 도구와 AI의 역할 차이",
+      "AI 자동화로 줄일 수 있는 반복 업무",
+      "AI 자동화가 필요한 이유",
+      "자동화가 잘 맞는 업무와 맞지 않는 업무",
+      "처음에는 완전 자동화보다 반자동화가 안전한 이유",
+      "AI 자동화 입문자가 가져야 할 현실적인 기대치",
+    ],
+  },
+  {
+    order: 2,
+    title: "AI 자동화를 시작하기 전에 업무 흐름부터 정리해야 하는 이유",
+    goal: "도구를 먼저 고르기보다 자동화할 업무의 흐름을 먼저 정리해야 하는 이유를 이해하고, 자동화 대상을 찾는 기본 기준을 익힌다.",
+    outline: [
+      "자동화 도구보다 업무 흐름이 먼저인 이유",
+      "반복 업무를 찾는 방법",
+      "업무를 입력, 처리, 출력으로 나누는 방식",
+      "사람이 꼭 해야 하는 일과 AI가 맡을 수 있는 일 구분",
+      "자동화 대상 선정 기준",
+      "너무 큰 자동화 목표가 실패하는 이유",
+      "입문자가 첫 자동화 대상을 고르는 방법",
+    ],
+  },
+  {
+    order: 3,
+    title: "트리거와 액션만 이해해도 자동화 구조가 보인다",
+    goal: "자동화의 기본 구조인 트리거, 액션, 조건 분기, 데이터 전달 개념을 이해하고 대부분의 자동화 흐름을 읽을 수 있게 된다.",
+    outline: [
+      "트리거란 무엇인가",
+      "액션이란 무엇인가",
+      "조건 분기란 무엇인가",
+      "데이터가 단계별로 전달되는 방식",
+      "메일 도착 자동화 예시",
+      "구글폼 접수 자동화 예시",
+      "자동화 흐름을 그림처럼 생각하는 방법",
+    ],
+  },
+  {
+    order: 4,
+    title: "n8n, Make, Zapier, Apps Script는 각각 언제 써야 할까?",
+    goal: "대표적인 자동화 도구들의 성격과 차이를 이해하고, 상황에 따라 어떤 도구를 선택해야 하는지 판단할 수 있다.",
+    outline: [
+      "자동화 도구를 고를 때 봐야 할 기준",
+      "Zapier가 잘 맞는 경우",
+      "Make가 잘 맞는 경우",
+      "n8n이 잘 맞는 경우",
+      "Google Apps Script가 잘 맞는 경우",
+      "비용, 난이도, 확장성 비교",
+      "입문자에게 현실적으로 추천하는 시작 방식",
+    ],
+  },
+  {
+    order: 5,
+    title: "AI는 자동화 안에서 어떤 역할을 할까?",
+    goal: "AI가 자동화 흐름 안에서 맡을 수 있는 역할을 이해하고, AI에게 맡겨도 되는 일과 사람이 검수해야 하는 일을 구분한다.",
+    outline: [
+      "AI는 자동화의 실행자가 아니라 판단 보조자에 가깝다",
+      "요약 작업에서 AI 활용하기",
+      "분류 작업에서 AI 활용하기",
+      "답변 초안 작성에 AI 활용하기",
+      "데이터 추출에 AI 활용하기",
+      "AI 판단 결과를 그대로 믿으면 위험한 이유",
+      "AI 결과에 사람 검수 단계를 넣는 방법",
+    ],
+  },
+  {
+    order: 6,
+    title: "처음 만들어볼 만한 AI 자동화 예시 5가지",
+    goal: "입문자가 부담 없이 시도할 수 있는 작은 자동화 사례를 이해하고, 실제로 어떤 업무부터 자동화하면 좋은지 감을 잡는다.",
+    outline: [
+      "문의 내용 자동 정리",
+      "메일 요약 자동화",
+      "구글 시트 데이터 정리",
+      "회의록 요약 후 저장",
+      "특정 조건 발생 시 알림 보내기",
+      "각 자동화 예시의 난이도",
+      "첫 자동화는 작고 단순해야 하는 이유",
+    ],
+  },
+  {
+    order: 7,
+    title: "고객 문의 자동 분류 흐름 만들기",
+    goal: "고객 문의를 자동으로 수집하고, AI가 내용을 요약·분류한 뒤, 필요한 경우 관리자에게 알림을 보내는 기본 자동화 흐름을 설계할 수 있다.",
+    outline: [
+      "고객 문의 자동화의 기본 구조",
+      "문의 접수 채널 정리",
+      "문의 유형 분류 기준 만들기",
+      "AI에게 문의 내용을 요약시키는 방법",
+      "중요 문의만 알림 보내는 방식",
+      "구글 시트에 처리 결과 저장하기",
+      "처음부터 고객에게 자동 답변하지 말아야 하는 이유",
+    ],
+  },
+  {
+    order: 8,
+    title: "AI가 답변까지 자동으로 보내게 하면 위험한 이유",
+    goal: "AI 자동 답변의 위험성을 이해하고, 초반에는 AI가 답변 초안을 만들고 사람이 최종 확인하는 반자동화 구조가 안전하다는 점을 이해한다.",
+    outline: [
+      "AI 자동 답변이 위험한 이유",
+      "잘못된 답변이 고객 신뢰를 떨어뜨리는 방식",
+      "정책, 가격, 일정 안내에서 생길 수 있는 문제",
+      "답변 초안 자동화와 최종 발송의 차이",
+      "사람 검수 단계를 넣는 방법",
+      "자동 발송이 가능한 업무와 아닌 업무",
+      "반자동화에서 완전 자동화로 넘어가는 기준",
+    ],
+  },
+  {
+    order: 9,
+    title: "AI 자동화 실패를 줄이는 예외 처리 기본",
+    goal: "자동화가 항상 정상 작동하지 않는다는 점을 이해하고, 오류 발생 시 알림·기록·재시도·사람 확인 단계를 설계하는 기본 방법을 익힌다.",
+    outline: [
+      "자동화는 왜 실패하는가",
+      "데이터가 비어 있을 때의 처리",
+      "API 오류가 발생했을 때의 처리",
+      "AI 응답이 이상할 때의 처리",
+      "실패 기록을 남겨야 하는 이유",
+      "오류 발생 시 관리자에게 알림 보내기",
+      "자동화 안정성을 높이는 기본 원칙",
+    ],
+  },
+  {
+    order: 10,
+    title: "AI 자동화에서 보안과 개인정보를 가볍게 보면 안 되는 이유",
+    goal: "AI 자동화에서 API Key, 고객 정보, 내부 문서, 결제 정보 같은 민감한 데이터를 다룰 때 주의해야 할 기본 보안 원칙을 이해한다.",
+    outline: [
+      "자동화에서 자주 다루는 민감 정보",
+      "API Key를 코드나 공개 문서에 넣으면 안 되는 이유",
+      "고객 개인정보 자동 처리 시 주의할 점",
+      "외부 AI 서비스에 보내면 안 되는 데이터",
+      "권한을 최소화해야 하는 이유",
+      "자동화 계정과 개인 계정을 분리하는 방법",
+      "보안 검수 없이 자동화를 운영하면 생기는 문제",
+    ],
+  },
+  {
+    order: 11,
+    title: "AI 자동화를 외주나 수익화로 연결하는 방법",
+    goal: "AI 자동화를 단순한 개인 편의 기능이 아니라 외주, 업무 개선 컨설팅, 자동화 구축 대행, 템플릿 판매로 확장할 수 있는 방향을 이해한다.",
+    outline: [
+      "AI 자동화가 수익화와 연결되는 이유",
+      "고객이 실제로 원하는 자동화 유형",
+      "자동화 외주 상담 시 물어봐야 할 질문",
+      "단순 자동화와 업무 개선 컨설팅의 차이",
+      "자동화 구축 견적을 잡을 때 고려할 요소",
+      "자동화 템플릿과 체크리스트 판매 가능성",
+      "초보자가 무리하게 수주하면 위험한 자동화 영역",
+    ],
+  },
+  {
+    order: 12,
+    title: "AI 자동화 입문자가 꼭 기억해야 할 최종 체크리스트",
+    goal: "AI 자동화 입문 시리즈의 핵심 내용을 정리하고, 실제 자동화를 만들기 전에 확인해야 할 기준을 체크리스트 형태로 정리한다.",
+    outline: [
+      "자동화할 업무가 반복 업무인지 확인하기",
+      "입력, 처리, 출력 흐름 정리하기",
+      "AI가 맡을 일과 사람이 확인할 일 구분하기",
+      "처음에는 작은 자동화부터 시작하기",
+      "고객 최종 답변은 처음부터 자동 발송하지 않기",
+      "오류 발생 시 알림과 기록 남기기",
+      "개인정보와 API Key 보안 확인하기",
+      "실제로 시간이 줄어드는지 측정하기",
+      "자동화 후에도 사람이 관리할 수 있는 구조 만들기",
+    ],
+  },
+];
+
+// ── 메인 ────────────────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const db = getDb();
+
+  console.info("[seed-automation-guide] 시작 — AI 자동화 입문 로드맵 12편");
+
+  // 1. 시리즈 upsert
+  const insertedSeries = await db
+    .insert(botCurriculumSeries)
+    .values({
+      title: SERIES.title,
+      board: SERIES.board,
+      tool: SERIES.tool,
+      intro: SERIES.intro,
+      isActive: true,
+    })
+    .onConflictDoNothing({ target: botCurriculumSeries.title })
+    .returning({ id: botCurriculumSeries.id });
+
+  let seriesId: string;
+  if (insertedSeries.length > 0) {
+    seriesId = insertedSeries[0]!.id;
+    console.info(`  [series] 삽입: "${SERIES.title}" (id=${seriesId})`);
+  } else {
+    const [existing] = await db
+      .select({ id: botCurriculumSeries.id })
+      .from(botCurriculumSeries)
+      .where(eq(botCurriculumSeries.title, SERIES.title))
+      .limit(1);
+    seriesId = existing!.id;
+    console.info(`  [series] 기존: "${SERIES.title}" (id=${seriesId})`);
+  }
+
+  // 2. 챕터 삽입 (전편 planned)
+  let inserted = 0;
+  let existingCount = 0;
+  for (const ch of CHAPTERS) {
+    const res = await db
+      .insert(botCurriculumChapters)
+      .values({
+        seriesId,
+        orderIndex: ch.order,
+        title: ch.title,
+        goal: ch.goal,
+        outline: ch.outline,
+        status: "planned",
+      })
+      .onConflictDoNothing({
+        target: [botCurriculumChapters.seriesId, botCurriculumChapters.orderIndex],
+      })
+      .returning({ id: botCurriculumChapters.id });
+
+    if (res.length > 0) {
+      inserted += 1;
+      console.info(`    [chapter] 삽입: ${ch.order}편 "${ch.title}"`);
+    } else {
+      existingCount += 1;
+      console.info(`    [chapter] 기존: ${ch.order}편 "${ch.title}"`);
+    }
+  }
+
+  console.info("\n[seed-automation-guide] 완료");
+  console.info(`  - 시리즈 1개 · 챕터 ${CHAPTERS.length}편`);
+  console.info(`  - 신규 삽입 ${inserted}편 · 기존 ${existingCount}편 (전편 status=planned)`);
+}
+
+main()
+  .catch((err) => {
+    console.error("[seed-automation-guide] 오류:", err);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    closeDb().catch(() => {});
+  });
