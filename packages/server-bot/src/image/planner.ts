@@ -19,7 +19,7 @@
  */
 
 import type { CallModelAssignment, AiTextResponse } from '../ai/index.js';
-import { extractTextFromTiptap } from '@ai-jakdang/bot-core';
+import { tiptapDocToMarkdown } from '@ai-jakdang/bot-core';
 
 // ── 공개 타입 ─────────────────────────────────────────────────────────────────
 
@@ -133,7 +133,13 @@ AI 도식(ai_diagram) 필수 규칙 — 반드시 준수:
 
 마커 삽입 위치:
 - 해당 내용을 설명하는 문단 끝에 [[IMG:planned-N]]을 한 줄로 삽입한다.
-- N은 0부터 시작한다.`;
+- N은 0부터 시작한다.
+
+본문 보존 규칙 — 반드시 준수:
+- bodyMarkdown은 입력 본문을 "글자 그대로" 유지하고, 마커만 추가한다.
+  문장을 다시 쓰거나 요약·삭제·합치지 않는다.
+- 문단과 문단 사이의 빈 줄(빈 줄 하나)을 그대로 보존한다. 문단을 붙여 쓰지 않는다.
+- ## 소제목, 목록, 코드블록 등 원문의 구조를 그대로 둔다.`;
 
 // ── 유저 프롬프트 빌더 ────────────────────────────────────────────────────────
 
@@ -289,8 +295,11 @@ export async function planImagesForPost(
   const markdownToTiptapFn = opts?.markdownToTiptapFn;
 
   try {
-    // 1. 본문 평문 추출
-    const bodyText = extractTextFromTiptap(body);
+    // 1. 본문을 "구조 보존" 마크다운으로 직렬화.
+    //    ⚠️ extractTextFromTiptap(공백 뭉치기)를 쓰면 문단·빈 줄 구분이 사라져
+    //    재파싱 시 빈 문단(줄 간격)이 전멸한다 → tiptapDocToMarkdown으로 블록
+    //    사이 빈 줄을 유지해야 원문 간격이 보존된다.
+    const bodyText = tiptapDocToMarkdown(body);
 
     // 2. 유저 프롬프트 생성
     const userPrompt = buildPlannerUserPrompt(bodyText, titleSeed, maxImages);
