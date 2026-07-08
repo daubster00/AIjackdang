@@ -77,16 +77,40 @@ const TEXT_MODELS: Record<string, SelectOption[]> = {
 // OpenAI gpt-image 계열은 조직 인증(Verify Organization)이 필요할 수 있음.
 const IMAGE_MODELS: Record<string, SelectOption[]> = {
   google: [
-    { value: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image (Nano Banana 2·기본·조직 인증 불필요)" },
-    { value: "gemini-3-pro-image", label: "Gemini 3 Pro Image (Nano Banana Pro·4K 고품질)" },
-    { value: "gemini-3.1-flash-lite-image", label: "Gemini 3.1 Flash-Lite Image (Nano Banana Lite·초저지연)" },
+    {
+      value: "gemini-3.1-flash-image",
+      label: "Gemini 3.1 Flash Image (Nano Banana 2·기본값·속도/비용/품질 균형·조직 인증 불필요·일반 본문 삽화 권장)",
+    },
+    {
+      value: "gemini-3-pro-image",
+      label: "Gemini 3 Pro Image (Nano Banana Pro·최고 품질·4K·글자/도표 렌더 정확·느리고 고비용·조직 인증 불필요)",
+    },
+    {
+      value: "gemini-3.1-flash-lite-image",
+      label: "Gemini 3.1 Flash-Lite Image (Nano Banana Lite·최저 비용·초저지연·품질은 낮음·대량 생성용)",
+    },
   ],
   openai: [
-    { value: "gpt-image-2", label: "GPT Image 2 (조직 인증 필요)" },
-    { value: "gpt-image-1.5", label: "GPT Image 1.5 (조직 인증 필요)" },
-    { value: "gpt-image-1-mini", label: "GPT Image 1 mini (저비용·조직 인증 필요)" },
-    { value: "gpt-image-1", label: "GPT Image 1 (조직 인증 필요)" },
-    { value: "dall-e-3", label: "DALL·E 3" },
+    {
+      value: "gpt-image-2",
+      label: "GPT Image 2 (최신·고품질·복잡한 지시 이해 우수·느림·고비용·조직 인증(여권) 필요)",
+    },
+    {
+      value: "gpt-image-1.5",
+      label: "GPT Image 1.5 (중상 품질·균형·조직 인증 필요)",
+    },
+    {
+      value: "gpt-image-1-mini",
+      label: "GPT Image 1 mini (저비용·빠름·품질 보통·조직 인증 필요)",
+    },
+    {
+      value: "gpt-image-1",
+      label: "GPT Image 1 (구형·조직 인증 필요)",
+    },
+    {
+      value: "dall-e-3",
+      label: "DALL·E 3 (예술적·회화풍 스타일·저렴·조직 인증 불필요)",
+    },
   ],
   anthropic: [], // Anthropic 은 이미지 생성 미지원
 };
