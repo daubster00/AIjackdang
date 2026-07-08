@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import styles from "./Editor.module.css";
 import { FontSizeSelect } from "./FontSizeSelect";
 import { notifyDialog } from "@/lib/dialog";
+import { API_BASE_URL } from "@/lib/api";
 
 /**
  * 허용 색상 팔레트 (12개 제한 팔레트).
@@ -116,7 +117,9 @@ export function EditorToolbar({ editor, preset }: EditorToolbarProps) {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/v1/users/uploads/editor-image", {
+      // 관리자 앱은 /api/v1 리라이트가 없고 관리자 세션(aj_admin_session)만 가지므로
+      // 절대 URL + 관리자 전용 업로드 라우트를 사용한다. (사용자 세션용 경로는 401)
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/uploads/editor-image`, {
         method: "POST",
         body: formData,
         credentials: "include",

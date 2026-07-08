@@ -29,6 +29,7 @@ import { registerAdminMessagesRoutes } from "./messages/index.js";
 import { registerAdminReportsRoutes } from "./reports/index.js";
 import { registerAdminAccountRoutes } from "./account/index.js";
 import { registerAdminBotsRoutes } from "./bots/index.js";
+import { registerAdminUploadsRoutes } from "./uploads/index.js";
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   await registerAdminSignInRoute(app);
@@ -62,4 +63,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   // Epic 11 — 시딩 봇 관리 (11.14~).
   await registerAdminBotsRoutes(app);
+
+  // 관리자 에디터 인라인 이미지 업로드 (게시글 작성·수정 시 이미지 삽입).
+  await registerAdminUploadsRoutes(app);
 }
