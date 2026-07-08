@@ -9,6 +9,7 @@ import { RowActionMenu, type RowActionItem } from "@/components/ui/RowActionMenu
 import { API_BASE_URL } from "../../lib/api";
 import { downloadCsv } from "../../lib/csv";
 import type { AdminPostItem } from "@ai-jakdang/contracts";
+import { BOARDS as ADMIN_BOARDS } from "@/lib/boards";
 
 /**
  * 게시글 관리 페이지 (Story 9.6).
@@ -18,18 +19,12 @@ import type { AdminPostItem } from "@ai-jakdang/contracts";
  * 삭제는 super_admin 역할만 표시.
  */
 
-// 게시판 목록. value = 필터 식별자, label = 화면 표기.
+// 게시판 필터 목록. value = posts.board(DB 실제값), label = 화면 표기.
+// lib/boards.ts(웹 대메뉴와 일치하는 단일 소스)에서 파생한다. API 필터는 board 를
+// posts.board 와 정확히 일치(eq)로 비교하므로 value 는 반드시 DB 실제값이어야 한다.
 const BOARDS = [
   { value: "all", label: "게시판: 전체" },
-  { value: "vibe-guide", label: "바이브코딩 가이드" },
-  { value: "vibe-tip", label: "바이브코딩 팁" },
-  { value: "auto-guide", label: "자동화 가이드" },
-  { value: "auto-case", label: "자동화 사례" },
-  { value: "auto-tip", label: "자동화 팁" },
-  { value: "outsource-tip", label: "외주·판매 팁" },
-  { value: "money-case", label: "수익화 사례" },
-  { value: "ai-art", label: "AI 창작마당" },
-  { value: "ai-product", label: "내가 만든 AI 제품" },
+  ...ADMIN_BOARDS.map((b) => ({ value: b.apiBoard ?? b.slug, label: b.label })),
 ] as const;
 
 const STATUSES = [
@@ -48,29 +43,14 @@ const FLAGS = [
   { value: "main", label: "메인노출만" },
 ] as const;
 
-const BOARD_BADGE: Record<string, string> = {
-  "vibe-guide": "badge-blue",
-  "vibe-tip": "badge-blue",
-  "auto-guide": "badge-purple",
-  "auto-case": "badge-purple",
-  "auto-tip": "badge-cyan",
-  "outsource-tip": "badge-cyan",
-  "money-case": "badge-orange",
-  "ai-art": "badge-purple",
-  "ai-product": "badge-blue",
-};
+// p.board(DB 실제값) → 뱃지 클래스 / 라벨. lib/boards.ts 에서 DB 값으로 키를 잡는다.
+const BOARD_BADGE: Record<string, string> = Object.fromEntries(
+  ADMIN_BOARDS.map((b) => [b.apiBoard ?? b.slug, b.badge]),
+);
 
-const BOARD_LABEL: Record<string, string> = {
-  "vibe-guide": "바이브코딩 가이드",
-  "vibe-tip": "바이브코딩 팁",
-  "auto-guide": "자동화 가이드",
-  "auto-case": "자동화 사례",
-  "auto-tip": "자동화 팁",
-  "outsource-tip": "외주·판매 팁",
-  "money-case": "수익화 사례",
-  "ai-art": "AI 창작마당",
-  "ai-product": "내가 만든 AI 제품",
-};
+const BOARD_LABEL: Record<string, string> = Object.fromEntries(
+  ADMIN_BOARDS.map((b) => [b.apiBoard ?? b.slug, b.label]),
+);
 
 function statusBadge(status: string): [string, string] {
   switch (status) {
