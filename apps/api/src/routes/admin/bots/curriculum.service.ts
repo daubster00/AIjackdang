@@ -493,10 +493,10 @@ type SlotRow = typeof schema.botCurriculumImageSlots.$inferSelect;
 function templateDiagramPrompt(chapterTitle: string, goal: string, slot: SlotRow): string {
   const subject = slot.caption || slot.guidance || chapterTitle;
   return [
-    `교육용 강의 "${chapterTitle}"에 들어갈 깔끔한 개념 도식/일러스트.`,
+    `교육용 강의 "${chapterTitle}"에 어울리는, 세련되고 디자인 완성도 높은 심플한 이미지.`,
     `주제: "${subject}".`,
-    goal ? `학습 목표: ${goal}.` : "",
-    `플랫 벡터 스타일, 여백 넉넉히, 텍스트는 최소화하고 한국어 라벨은 큰따옴표로 감싼 짧은 단어만 사용.`,
+    goal ? `학습 맥락: ${goal}.` : "",
+    `글을 설명하려 하지 말고, 주제를 상징하는 실사에 가까운 장면(사람이 코딩하는 모습·코드 에디터 화면·실제 도구/설정 화면·작업 공간)이나 미니멀한 단일 개념 일러스트로. 이미지 안 글자는 넣지 않는다. 복잡한 도식·정보 과밀 금지, 넉넉한 여백.`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -554,7 +554,8 @@ async function buildContextAwareDiagramPrompt(chapterId: string, slot: SlotRow):
 
   const system =
     "당신은 교육 콘텐츠용 이미지 생성 프롬프트 작가입니다. 강의 본문 맥락을 읽고, " +
-    "그 지점에 넣을 이미지 1장을 위한 이미지 생성 프롬프트를 한국어로 작성합니다.";
+    "그 지점에 넣을 세련되고 심플한 이미지 1장을 위한 이미지 생성 프롬프트를 한국어로 작성합니다. " +
+    "이미지는 글을 설명하는 도구가 아니라, 주제를 상징하는 시각물입니다.";
   const user = [
     `[시리즈] ${ctx.seriesTitle}`,
     `[강의 제목] ${ctx.title}`,
@@ -563,8 +564,8 @@ async function buildContextAwareDiagramPrompt(chapterId: string, slot: SlotRow):
     `[이 이미지의 역할/캡션] ${slot.caption ?? slot.guidance ?? "본문 이해를 돕는 도식"}`,
     draftText ? `[본문 발췌]\n${draftText}` : "",
     "",
-    "위 맥락에 가장 어울리는 교육용 도식/일러스트 1장을 만들기 위한 이미지 생성 프롬프트만 출력하세요.",
-    "요구사항: 플랫 벡터 스타일, 실제 스크린샷이 아닌 개념 도식, 텍스트는 최소화하고 한국어 라벨은 큰따옴표로 감쌀 것, 200자 이내 한 문단, 프롬프트 문장만 출력.",
+    "위 맥락에 어울리는 이미지 1장을 만들기 위한 이미지 생성 프롬프트만 출력하세요.",
+    "요구사항: 글을 설명하지 말고 주제를 상징하는 실사에 가까운 장면(사람이 코딩하는 모습·코드 에디터 화면·실제 도구/설정 화면·작업 공간)이나 미니멀한 단일 개념 일러스트. 단계·흐름이 핵심일 때만 미니멀한 도식(요소 3~4개·넉넉한 여백). 복잡한 정보 과밀·여러 도식 난무 금지. 이미지 안 글자는 넣지 않되 도식에 꼭 필요하면 짧은 한국어 단어 라벨만 큰따옴표로. 200자 이내 한 문단, 프롬프트 문장만 출력.",
   ]
     .filter(Boolean)
     .join("\n");

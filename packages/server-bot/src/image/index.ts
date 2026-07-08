@@ -279,8 +279,14 @@ export async function fetchBotImage(
 
     // AI 이미지 생성 (strategy === 'ai')
     // gpt-image-2는 base64로 반환하므로 genImage가 Buffer를 직접 준다(다운로드 단계 불필요).
-    const prompt =
-      aiPrompt ?? `high quality illustration for article: ${keyword}`;
+    // 폴백 프롬프트도 게시판 성격에 맞춘다.
+    // - ai-creation(창작마당): 창의·신비·비현실의 예술 이미지, 글자 없음.
+    // - 그 외: 주제를 상징하는 세련되고 심플한 이미지, 정보 나열·글자 없음.
+    const fallbackPrompt =
+      board === "ai-creation"
+        ? `A highly creative, surreal and dreamlike digital art piece inspired by "${keyword}". Imaginative, mysterious, artistic, bold colors, no text, no charts, no labels.`
+        : `A refined, minimal and design-focused image symbolizing "${keyword}". Clean composition, tasteful, no cluttered diagrams, no text or labels.`;
+    const prompt = aiPrompt ?? fallbackPrompt;
     const result = await genImage({ prompt, jobId, imageModel });
     if (!result) return failResult();
 

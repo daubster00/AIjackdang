@@ -786,6 +786,10 @@ export async function runPostPipeline(
             {
               maxImages: 3,
               preferDiagram: true,
+              // AI 창작마당(전시글)만 창의·신비·비현실의 예술 이미지로 분기.
+              // 그 외(가이드·정보·일반)는 실사·상징 우선 기본 모드.
+              styleMode:
+                board === "ai-creation" || effectiveCuration === "ai" ? "creative" : "default",
               markdownToTiptapFn: (md) => ({ type: "doc", content: parseMarkdownLines(md) }),
             },
           );

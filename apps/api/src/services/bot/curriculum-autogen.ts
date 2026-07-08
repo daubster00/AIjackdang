@@ -126,7 +126,7 @@ function buildUserPrompt(input: CurriculumAutoGenerate): string {
     '          "caption": string,        // 본문에 표시할 한국어 캡션',
     '          "alt": string,            // 한국어 대체 텍스트',
     '          "sourceKind": "ai_diagram",  // 항상 "ai_diagram"',
-    '          "diagramPrompt": string   // 영문 이미지 생성 프롬프트. 개념/흐름을 나타내는 깔끔한 플랫 인포그래픽. 한국어 라벨은 정확히 렌더하도록 지시.',
+    '          "diagramPrompt": string   // 영문 이미지 생성 프롬프트. 글을 설명하지 말고 주제를 상징하는 세련된 실사 장면(코딩/에디터/실제 도구·설정 화면·작업 공간)이나 미니멀한 단일 개념 일러스트. 도식은 흐름이 핵심일 때만 미니멀하게.',
     "        }",
     "      ]",
     "    }",
@@ -137,8 +137,9 @@ function buildUserPrompt(input: CurriculumAutoGenerate): string {
     `- chapters 배열 길이는 정확히 ${input.chapterCount}.`,
     "- 모든 assetKey는 시리즈 전체에서 유일해야 한다(편 번호나 주제 접두어 활용).",
     "- slots는 편당 1개를 기본으로 하되, 개념 설명에 도움되면 넣고 불필요하면 빈 배열도 허용.",
-    "- diagramPrompt는 영문으로 쓰되 한국어 라벨은 그대로 렌더하도록 'render this Korean precisely, do NOT translate' 지시를 포함.",
-    "- 실제 스크린샷이 필요한 UI 조작 화면은 만들지 말고 개념/흐름 도식으로 대체.",
+    "- diagramPrompt는 영문으로 쓰되, 라벨을 넣는 도식이라면 한국어 라벨은 그대로 렌더하도록 'render this Korean precisely, do NOT translate' 지시를 포함한다.",
+    "- 세련되고 심플한 이미지를 지향한다: 주제를 상징하는 실사 장면(사람이 코딩하는 모습·코드 에디터·실제 도구/설정 화면·작업 공간)이나 미니멀한 단일 개념 일러스트를 우선한다. 실사/에디터/작업 화면 장면도 적극 활용.",
+    "- 단계·흐름·비교가 그 편의 핵심일 때만 미니멀한 도식을 쓰되 요소 3~4개 이내·넉넉한 여백. 여러 설명·라벨이 난무하는 복잡하고 정보 과밀한 인포그래픽은 금지한다.",
     "- JSON 외 텍스트를 절대 출력하지 마라.",
   ].join("\n");
 }
