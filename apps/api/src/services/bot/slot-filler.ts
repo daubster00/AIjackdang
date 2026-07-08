@@ -36,6 +36,11 @@ export interface FillSlotOptions {
    * 미지정 시 슬롯의 diagram_prompt(AI 도식 생성 프롬프트) 사용.
    */
   diagramPrompt?: string;
+  /**
+   * true면 슬롯 source_kind와 무관하게 AI 도식 경로(fillAiDiagram)로 생성한다.
+   * 관리자 상세 화면의 'AI 생성' 버튼은 모든 슬롯에서 AI 이미지를 만들 수 있어야 하므로 사용.
+   */
+  forceAiDiagram?: boolean;
   /** 비용 기록용 job_id (선택). bot_generation_jobs.cost jsonb에 기록된다. */
   jobId?: string;
 }
@@ -210,6 +215,15 @@ export async function fillImageSlot(
   // 이미 ready 이면 force=true 없이는 건너뜀
   if (slot.status === "ready" && !opts?.force) {
     return { ok: true, imageUrl: slot.imageUrl, outcome: "skipped" };
+  }
+
+  // 관리자 'AI 생성' 버튼: 슬롯 종류와 무관하게 AI 도식 경로 강제.
+  if (opts?.forceAiDiagram) {
+    try {
+      return await fillAiDiagram(slot, opts);
+    } catch (err) {
+      return { ok: false, imageUrl: null, outcome: "failed", reason: String(err) };
+    }
   }
 
   try {

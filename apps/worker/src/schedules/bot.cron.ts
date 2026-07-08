@@ -48,18 +48,19 @@ export async function setupBotCrons(botQueue: Queue): Promise<void> {
   );
   console.log("[worker] bot.refill-topics 크론 등록 완료 (UTC 18:00 = KST 03:00)");
 
-  // ── 4. bot.curriculum-publish: 30분마다 스캔 (UTC) ──────────────────────────
-  // KST 무관 — 예약 시각 도달 여부만 판단하므로 UTC 기준 30분 간격이면 충분.
+  // ── 4. bot.curriculum-publish: 1분마다 스캔 (UTC) ───────────────────────────
+  // KST 무관 — 예약 시각 도달 여부만 판단. 발행 대상은 예약 시각이 지난 drafted·ready
+  // 챕터뿐이라 빈 스캔 비용이 거의 없어 1분 간격이 안전하다(예약↔발행 오차 최대 1분).
   // jobId 고정 = BullMQ 멱등 (재기동 시 중복 등록 없음). (Story 13.6 AC: #2)
   await botQueue.add(
     "bot.curriculum-publish",
     { triggeredAt: new Date().toISOString() },
     {
-      repeat: { pattern: "*/30 * * * *" },
+      repeat: { pattern: "*/1 * * * *" },
       jobId: "bot-curriculum-publish-cron",
     },
   );
-  console.log("[worker] bot.curriculum-publish 크론 등록 완료 (30분 간격)");
+  console.log("[worker] bot.curriculum-publish 크론 등록 완료 (1분 간격)");
 }
 
 // ── [11.13] 봇 cron END ───────────────────────────────────────────────────────

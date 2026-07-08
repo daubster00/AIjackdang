@@ -26,6 +26,7 @@ const {
     insert: vi.fn(),
     update: vi.fn(),
     select: vi.fn(),
+    delete: vi.fn(),
   },
   mockCallModel: vi.fn(),
   mockGetModelAssignment: vi.fn(),
@@ -73,6 +74,8 @@ vi.mock("@ai-jakdang/bot-core", () => ({
 
 vi.mock("@ai-jakdang/server-bot/image", () => ({
   insertInlineImagesByMarker: mockInsertInlineImagesByMarker,
+  // 이미지 플래너: 기본 0건 계획(슬롯 미생성) — 개별 시나리오에서 override 가능.
+  planImagesForPost: vi.fn(async () => ({ bodyWithMarkers: {}, items: [], plannerCostUsd: 0 })),
 }));
 
 vi.mock("./write.js", () => ({
@@ -89,6 +92,7 @@ vi.mock("../../middleware/contentGuard.js", () => ({
 
 vi.mock("./_tiptap-parser.js", () => ({
   parseResponseToTiptap: mockParseResponseToTiptap,
+  parseMarkdownLines: vi.fn(() => []),
 }));
 
 // 테스트 대상 import
@@ -214,6 +218,12 @@ function setupUpdateMock() {
   });
 }
 
+function setupDeleteMock() {
+  mockDb.delete.mockReturnValue({
+    where: vi.fn().mockResolvedValue(undefined),
+  });
+}
+
 // ── 테스트: draftCurriculumChapter ───────────────────────────────────────────
 
 describe("draftCurriculumChapter", () => {
@@ -221,6 +231,7 @@ describe("draftCurriculumChapter", () => {
     vi.resetAllMocks();
     setupInsertMock();
     setupUpdateMock();
+    setupDeleteMock();
 
     // 기본 mock 설정
     mockBuildPersonaSystemPrompt.mockReturnValue("mock system prompt");
@@ -415,20 +426,21 @@ describe("publishChapter", () => {
     expect(mockDb.update).toHaveBeenCalled();
   });
 
-  // ── 시나리오 9: pending 슬롯 존재 ───────────────────────────────────────────
+  // ── 시나리오 9: pending 슬롯(빈 이미지 자리)이 있어도 게시 ──────────────────
+  // 개편: 비어 있는 이미지 자리는 게시를 막지 않고, 그 자리는 이미지 없이 발행된다.
 
-  it("pending 슬롯 존재 → status: 'error', createPostAsBot 미호출", async () => {
+  it("pending 슬롯 존재 → 게시 진행(빈 자리는 이미지 없이 발행), createPostAsBot 호출", async () => {
     const pendingSlot = { id: "slot-1", assetKey: "img-1", caption: "캡션", alt: "alt", status: "pending" as const, imageUrl: null, sourceUrl: null };
 
     mockDb.select
       .mockReturnValueOnce(makeSelectChain([{ chapter: mockReadyChapter, series: mockSeries }]))
-      .mockReturnValueOnce(makeSelectChain([pendingSlot]));  // pending 슬롯 있음
+      .mockReturnValueOnce(makeSelectChain([pendingSlot]))  // pending 슬롯 있음 → 매니페스트에서 제외
+      .mockReturnValueOnce(makeSelectChain([{ persona: mockPersona }]));  // persona
 
     const result = await publishChapter(CHAPTER_ID);
 
-    expect(result.status).toBe("error");
-    expect(result.reason).toBe("image-slot-still-pending");
-    expect(mockCreatePostAsBot).not.toHaveBeenCalled();
+    expect(result.status).toBe("published");
+    expect(mockCreatePostAsBot).toHaveBeenCalledOnce();
   });
 
   // ── 시나리오 10: contentGuard 차단 ──────────────────────────────────────────

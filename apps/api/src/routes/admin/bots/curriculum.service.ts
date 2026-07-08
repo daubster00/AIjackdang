@@ -17,6 +17,8 @@ import type {
   CurriculumPlanCreate,
   CurriculumAutoGenerate,
 } from "@ai-jakdang/contracts";
+import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
+import { extractTextFromTiptap } from "@ai-jakdang/bot-core";
 import {
   checkAndPromoteChapter,
   draftCurriculumChapter,
@@ -437,19 +439,25 @@ export async function requestSlotGenerate(
 
   if (!slot) throw makeError(`슬롯 없음: ${slotId}`, "NOT_FOUND");
 
-  // capture·user_upload는 자동 생성 불가 (400 INVALID_SOURCE_KIND)
-  if (slot.sourceKind !== "ai_diagram" && slot.sourceKind !== "web_download") {
-    throw makeError(
-      `source_kind '${slot.sourceKind}'는 자동 생성을 지원하지 않습니다. ai_diagram·web_download만 허용됩니다.`,
-      "INVALID_SOURCE_KIND",
-    );
+  // "AI 생성" 버튼은 슬롯 종류와 무관하게 항상 AI 이미지를 생성한다.
+  // 프롬프트 우선순위: 요청 override > 슬롯 저장값 > 본문 맥락 자동 생성.
+  let effectivePrompt = data.diagramPrompt ?? slot.diagramPrompt ?? undefined;
+  if (!effectivePrompt || effectivePrompt.trim().length === 0) {
+    effectivePrompt = await buildContextAwareDiagramPrompt(chapterId, slot);
   }
+  // 재현성·투명성을 위해 사용한 프롬프트를 슬롯에 저장(관리자가 확인·재사용 가능)
+  await db
+    .update(botCurriculumImageSlots)
+    .set({ diagramPrompt: effectivePrompt, updatedAt: new Date() })
+    .where(eq(botCurriculumImageSlots.id, slotId));
 
-  // 13.4 fillImageSlot 직접 호출 (재구현 금지)
+  // 13.4 fillImageSlot 직접 호출 (재구현 금지). forceAiDiagram=true → 슬롯 종류와
+  // 무관하게 AI 도식 경로로 생성(capture·user_upload 슬롯도 'AI 생성' 지원).
   const result = await fillImageSlot(slotId, {
-    force: data.force,
+    force: true,
     imageModel: data.imageModel,
-    diagramPrompt: data.diagramPrompt,
+    diagramPrompt: effectivePrompt,
+    forceAiDiagram: true,
   });
 
   if (result.ok && result.outcome === "filled") {
@@ -475,6 +483,248 @@ function defaultSlotGuidance(sourceKind: string): string {
     default:
       return "이미지 준비가 필요합니다.";
   }
+}
+
+// ── 1.10d 맥락 기반 AI 도식 프롬프트 생성 ─────────────────────────────────────
+
+type SlotRow = typeof schema.botCurriculumImageSlots.$inferSelect;
+
+/** LLM 미가용 시 슬롯 캡션·학습목표로 조립하는 폴백 프롬프트. */
+function templateDiagramPrompt(chapterTitle: string, goal: string, slot: SlotRow): string {
+  const subject = slot.caption || slot.guidance || chapterTitle;
+  return [
+    `교육용 강의 "${chapterTitle}"에 들어갈 깔끔한 개념 도식/일러스트.`,
+    `주제: "${subject}".`,
+    goal ? `학습 목표: ${goal}.` : "",
+    `플랫 벡터 스타일, 여백 넉넉히, 텍스트는 최소화하고 한국어 라벨은 큰따옴표로 감싼 짧은 단어만 사용.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * 챕터 본문 맥락을 파악해 이 슬롯에 어울리는 AI 이미지 생성 프롬프트를 만든다.
+ * 관리자 페르소나의 generation 모델로 본문·학습목표·캡션을 요약해 프롬프트를 짓고,
+ * 모델 미가용·오류 시 템플릿 프롬프트로 폴백한다(생성 자체는 막지 않음).
+ */
+async function buildContextAwareDiagramPrompt(chapterId: string, slot: SlotRow): Promise<string> {
+  const db = getDb();
+
+  const [ctx] = await db
+    .select({
+      title: schema.botCurriculumChapters.title,
+      goal: schema.botCurriculumChapters.goal,
+      outline: schema.botCurriculumChapters.outline,
+      draftContent: schema.botCurriculumChapters.draftContent,
+      board: schema.botCurriculumSeries.board,
+      seriesTitle: schema.botCurriculumSeries.title,
+    })
+    .from(schema.botCurriculumChapters)
+    .innerJoin(
+      schema.botCurriculumSeries,
+      eq(schema.botCurriculumChapters.seriesId, schema.botCurriculumSeries.id),
+    )
+    .where(eq(schema.botCurriculumChapters.id, chapterId))
+    .limit(1);
+
+  if (!ctx) return templateDiagramPrompt("강의", "", slot);
+  const fallback = templateDiagramPrompt(ctx.title, ctx.goal, slot);
+
+  // 게시판 담당 관리자 페르소나 → generation 모델 할당 조회
+  const [personaRow] = await db
+    .select({ id: schema.botPersonas.id })
+    .from(schema.botPersonaBoards)
+    .innerJoin(schema.botPersonas, eq(schema.botPersonaBoards.personaId, schema.botPersonas.id))
+    .where(
+      and(
+        eq(schema.botPersonaBoards.board, ctx.board),
+        eq(schema.botPersonas.isAdminPersona, true),
+      ),
+    )
+    .limit(1);
+  if (!personaRow) return fallback;
+
+  const assignment = await getModelAssignment(db, personaRow.id, "generation");
+  if (!assignment) return fallback;
+
+  const draftText = ctx.draftContent
+    ? extractTextFromTiptap(ctx.draftContent as Record<string, unknown>).slice(0, 1600)
+    : "";
+  const outline = Array.isArray(ctx.outline) ? (ctx.outline as string[]).join(", ") : "";
+
+  const system =
+    "당신은 교육 콘텐츠용 이미지 생성 프롬프트 작가입니다. 강의 본문 맥락을 읽고, " +
+    "그 지점에 넣을 이미지 1장을 위한 이미지 생성 프롬프트를 한국어로 작성합니다.";
+  const user = [
+    `[시리즈] ${ctx.seriesTitle}`,
+    `[강의 제목] ${ctx.title}`,
+    `[학습 목표] ${ctx.goal}`,
+    outline ? `[소주제] ${outline}` : "",
+    `[이 이미지의 역할/캡션] ${slot.caption ?? slot.guidance ?? "본문 이해를 돕는 도식"}`,
+    draftText ? `[본문 발췌]\n${draftText}` : "",
+    "",
+    "위 맥락에 가장 어울리는 교육용 도식/일러스트 1장을 만들기 위한 이미지 생성 프롬프트만 출력하세요.",
+    "요구사항: 플랫 벡터 스타일, 실제 스크린샷이 아닌 개념 도식, 텍스트는 최소화하고 한국어 라벨은 큰따옴표로 감쌀 것, 200자 이내 한 문단, 프롬프트 문장만 출력.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const res = await callModel(
+      assignment,
+      { system, user, maxTokens: 400, temperature: 0.7 },
+      { personaId: personaRow.id, usageContext: { purpose: "generation" } },
+    );
+    const prompt = res.text.trim();
+    return prompt.length >= 8 ? prompt : fallback;
+  } catch (err) {
+    console.warn(
+      "[curriculum] 맥락 기반 프롬프트 생성 실패, 템플릿 폴백:",
+      (err as Error).message,
+    );
+    return fallback;
+  }
+}
+
+// ── 1.10e clearSlotImage (이미지 비우기 → 점선 박스로 되돌림) ──────────────────
+
+/**
+ * 슬롯의 이미지를 비운다(삭제·수정 시 처음 상태로 되돌림).
+ * imageUrl=null, status=pending 으로 되돌려 상세 화면에 점선 박스+프롬프트+버튼이 다시 뜨게 한다.
+ * ready 챕터였으면 drafted로 되돌린다(이미지 하나가 다시 미완이 됨).
+ * 본문의 [[IMG:키]] 마커는 그대로 둔다 — 자리는 유지되고, 발행 시 비어 있으면 이미지 없이 렌더된다.
+ */
+export async function clearSlotImage(chapterId: string, slotId: string) {
+  const db = getDb();
+  const { botCurriculumChapters, botCurriculumImageSlots } = schema;
+
+  const [slot] = await db
+    .select({ id: botCurriculumImageSlots.id })
+    .from(botCurriculumImageSlots)
+    .where(
+      and(
+        eq(botCurriculumImageSlots.id, slotId),
+        eq(botCurriculumImageSlots.chapterId, chapterId),
+      ),
+    )
+    .limit(1);
+  if (!slot) throw makeError(`슬롯 없음: ${slotId}`, "NOT_FOUND");
+
+  await db
+    .update(botCurriculumImageSlots)
+    .set({ imageUrl: null, status: "pending", updatedAt: new Date() })
+    .where(eq(botCurriculumImageSlots.id, slotId));
+
+  // ready 챕터였다면 drafted로 되돌림(발행은 여전히 가능하나 준비완료 표기는 해제)
+  await db
+    .update(botCurriculumChapters)
+    .set({ status: "drafted", updatedAt: new Date() })
+    .where(
+      and(
+        eq(botCurriculumChapters.id, chapterId),
+        eq(botCurriculumChapters.status, "ready"),
+      ),
+    );
+
+  return getCurriculumChapter(chapterId);
+}
+
+// ── 1.10f getChapterEditorSegments (인터랙티브 미리보기 세그먼트) ───────────────
+
+export interface ChapterEditorSegment {
+  /** 'html' = 렌더된 본문 조각, 'slot' = 이미지 자리(점선 박스/이미지). */
+  kind: "html" | "slot";
+  html?: string;
+  slot?: ReturnType<typeof serializeSlot>;
+}
+
+/**
+ * 챕터 초안 본문을 [[IMG:키]] 마커 기준으로 잘라, 관리자 상세 화면이 그대로 렌더할 수 있는
+ * 세그먼트 배열로 반환한다.
+ *  - 'html' 세그먼트: 마커 사이 본문을 tiptapJsonToHtml로 렌더한 HTML.
+ *  - 'slot' 세그먼트: 그 자리의 이미지 슬롯(점선 박스 또는 채워진 이미지).
+ * insertInlineImagesByMarker와 같은 규약(문단 텍스트 내 마커 분할)을 따른다.
+ */
+export async function getChapterEditorSegments(
+  chapterId: string,
+): Promise<{ hasDraft: boolean; segments: ChapterEditorSegment[] }> {
+  const db = getDb();
+  const { botCurriculumChapters, botCurriculumImageSlots } = schema;
+
+  const [chapter] = await db
+    .select({
+      id: botCurriculumChapters.id,
+      draftContent: botCurriculumChapters.draftContent,
+    })
+    .from(botCurriculumChapters)
+    .where(eq(botCurriculumChapters.id, chapterId))
+    .limit(1);
+  if (!chapter) throw makeError(`챕터 없음: ${chapterId}`, "NOT_FOUND");
+
+  const slotRows = await db
+    .select()
+    .from(botCurriculumImageSlots)
+    .where(eq(botCurriculumImageSlots.chapterId, chapterId));
+  const slotByKey = new Map(slotRows.map((s) => [s.assetKey, s]));
+
+  if (!chapter.draftContent) {
+    return { hasDraft: false, segments: [] };
+  }
+
+  const doc = chapter.draftContent as Record<string, unknown>;
+  const content = Array.isArray(doc.content) ? (doc.content as Record<string, unknown>[]) : [];
+
+  const segments: ChapterEditorSegment[] = [];
+  let buffer: Record<string, unknown>[] = []; // 누적 중인 비-마커 노드
+
+  const flushHtml = () => {
+    if (buffer.length === 0) return;
+    const html = tiptapJsonToHtml({ type: "doc", content: buffer });
+    if (html) segments.push({ kind: "html", html });
+    buffer = [];
+  };
+
+  const paragraphText = (node: Record<string, unknown>): string => {
+    if (node.type !== "paragraph" || !Array.isArray(node.content)) return "";
+    return (node.content as Record<string, unknown>[])
+      .map((c) => (typeof c.text === "string" ? (c.text as string) : ""))
+      .join("");
+  };
+
+  const re = /\[\[IMG:([a-zA-Z0-9_-]+)\]\]/g;
+  const seen = new Set<string>();
+
+  for (const node of content) {
+    const text = paragraphText(node);
+    if (node.type !== "paragraph" || !text.includes("[[IMG:")) {
+      buffer.push(node);
+      continue;
+    }
+
+    // 마커가 든 문단 → 앞뒤 텍스트/마커 순서대로 분해
+    let lastIndex = 0;
+    let m: RegExpExecArray | null;
+    re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null) {
+      const before = text.slice(lastIndex, m.index).trim();
+      if (before) buffer.push({ type: "paragraph", content: [{ type: "text", text: before }] });
+
+      const key = m[1]!;
+      const slot = slotByKey.get(key);
+      if (slot && !seen.has(key)) {
+        flushHtml();
+        segments.push({ kind: "slot", slot: serializeSlot(slot) });
+        seen.add(key);
+      }
+      lastIndex = m.index + m[0].length;
+    }
+    const tail = text.slice(lastIndex).trim();
+    if (tail) buffer.push({ type: "paragraph", content: [{ type: "text", text: tail }] });
+  }
+
+  flushHtml();
+
+  return { hasDraft: true, segments };
 }
 
 // ── 1.12 createCurriculumPlan (플랜 통째 생성) ────────────────────────────────

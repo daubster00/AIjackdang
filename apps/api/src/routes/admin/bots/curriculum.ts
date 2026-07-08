@@ -41,6 +41,8 @@ import {
   uploadSlotImage,
   requestSlotGenerate,
   completeSlot,
+  clearSlotImage,
+  getChapterEditorSegments,
   createCurriculumPlan,
   autoGenerateCurriculumPlan,
   triggerChapterDraft,
@@ -307,6 +309,36 @@ export async function registerAdminBotCurriculumRoutes(app: FastifyInstance): Pr
       const { chapterId, slotId } = request.params as { chapterId: string; slotId: string };
       try {
         return reply.send(await completeSlot(chapterId, slotId));
+      } catch (err) {
+        return handleServiceError(err, reply, request.log);
+      }
+    },
+  );
+
+  // ── 11. PATCH /admin/bots/curriculum/chapters/:chapterId/slots/:slotId/clear
+  //        (이미지 비우기 → 점선 박스로 되돌림)
+  app.patch(
+    "/admin/bots/curriculum/chapters/:chapterId/slots/:slotId/clear",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { chapterId, slotId } = request.params as { chapterId: string; slotId: string };
+      try {
+        return reply.send(await clearSlotImage(chapterId, slotId));
+      } catch (err) {
+        return handleServiceError(err, reply, request.log);
+      }
+    },
+  );
+
+  // ── 12. GET /admin/bots/curriculum/chapters/:chapterId/editor-segments
+  //        (인터랙티브 미리보기: 본문 HTML 조각 + 이미지 자리 세그먼트)
+  app.get(
+    "/admin/bots/curriculum/chapters/:chapterId/editor-segments",
+    { preHandler: [requireSuperAdmin] },
+    async (request, reply) => {
+      const { chapterId } = request.params as { chapterId: string };
+      try {
+        return reply.send(await getChapterEditorSegments(chapterId));
       } catch (err) {
         return handleServiceError(err, reply, request.log);
       }

@@ -1,18 +1,23 @@
 "use client";
 
 /**
- * 챕터 상세 페이지 — Story 13.5 Task 5
+ * 챕터 상세 페이지 — Story 13.5 Task 5 (이미지 인터랙티브 개편)
  *
  * 리스트=상세 규약: 별도 페이지(모달 금지).
  * "use client" — next/headers, cookies() import 금지 (RSC 빌드 크래시).
- * 섹션 A: 초안 편집 / 섹션 B: 이미지 슬롯 / 섹션 C: 미리보기 / 섹션 D: 예약
+ *
+ * 구성:
+ *  A. 초안 본문 편집 (AI 생성 / JSON 편집)
+ *  B. 본문 미리보기 & 이미지 — 글 중간중간 이미지 자리를 점선 박스로 표시.
+ *     각 박스에 프롬프트 + [AI 생성]·[이미지 업로드] 두 버튼. 채워지면 이미지+[삭제].
+ *     비워 두면 실제 발행 시 그 자리는 이미지 없이 렌더된다.
+ *  C. 예약시각 지정
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { confirmDialog } from "@/lib/dialog";
 import { API_BASE_URL } from "@/lib/api";
 
 // ── 로컬 타입 ─────────────────────────────────────────────────────────────────
@@ -53,6 +58,17 @@ interface ChapterDetail {
   slots: ImageSlot[];
 }
 
+/** 인터랙티브 미리보기 세그먼트 (API editor-segments 응답). */
+interface EditorSegment {
+  kind: "html" | "slot";
+  html?: string;
+  slot?: ImageSlot;
+}
+interface SegmentsResponse {
+  hasDraft: boolean;
+  segments: EditorSegment[];
+}
+
 // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
@@ -71,27 +87,12 @@ const STATUS_BADGE: Record<string, string> = {
   skipped: "badge-orange",
 };
 
-const SOURCE_KIND_LABEL: Record<string, string> = {
-  ai_diagram: "자동(AI 도식)",
-  web_download: "자동(웹 다운로드)",
-  capture: "세팅필요(캡처)",
-  user_upload: "업로드 필요",
-};
-
-const SOURCE_KIND_BADGE: Record<string, string> = {
-  ai_diagram: "badge-green",
-  web_download: "badge-green",
-  capture: "badge-orange",
-  user_upload: "badge-blue",
-};
-
 function formatSchedule(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   // 저장 시 new Date(로컬입력).toISOString() 으로 UTC 변환하므로, 표시할 때도
   // UTC 인스턴트를 브라우저 로컬 벽시계로 되돌려야 입력값과 왕복 일치한다.
-  // (단순 slice(0,16) 은 UTC 시각을 그대로 노출해 KST 기준 -9시간 어긋남.)
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -145,6 +146,121 @@ function Toast({
   );
 }
 
+// ── 이미지 자리 박스 (점선 박스 / 채워진 이미지) ──────────────────────────────
+
+function SlotBox({
+  slot,
+  busy,
+  readOnly,
+  onGenerate,
+  onUpload,
+  onClear,
+}: {
+  slot: ImageSlot;
+  busy: boolean;
+  readOnly: boolean;
+  onGenerate: () => void;
+  onUpload: (file: File) => void;
+  onClear: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const promptText =
+    slot.diagramPrompt?.trim() ||
+    slot.guidance?.trim() ||
+    slot.caption?.trim() ||
+    "이 자리에 들어갈 이미지";
+
+  const pickFile = () => fileRef.current?.click();
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUpload(file);
+    e.target.value = "";
+  };
+
+  // ── 채워진 이미지 ──
+  if (slot.imageUrl) {
+    return (
+      <figure style={{ margin: "20px 0" }}>
+        <img
+          src={slot.imageUrl}
+          alt={slot.alt ?? slot.assetKey}
+          style={{ maxWidth: "100%", borderRadius: 8, display: "block", marginInline: "auto" }}
+        />
+        {slot.caption && (
+          <figcaption style={{ textAlign: "center", fontSize: 13, color: "var(--gray-500)", marginTop: 6 }}>
+            {slot.caption}
+          </figcaption>
+        )}
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
+            <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
+            <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
+              <i className="ri-upload-line" /> 교체 업로드
+            </button>
+            <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={onGenerate}>
+              {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 재생성
+            </button>
+            <button
+              className="btn btn-sm btn-outline"
+              type="button"
+              disabled={busy}
+              onClick={onClear}
+              style={{ color: "var(--danger, #dc2626)", borderColor: "var(--danger, #dc2626)" }}
+            >
+              <i className="ri-delete-bin-line" /> 삭제
+            </button>
+          </div>
+        )}
+      </figure>
+    );
+  }
+
+  // ── 빈 자리 (점선 박스) ──
+  return (
+    <div
+      style={{
+        border: "2px dashed var(--gray-300, #d1d5db)",
+        borderRadius: 10,
+        padding: 20,
+        margin: "20px 0",
+        background: "var(--gray-50, #f9fafb)",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--gray-500)",
+          marginBottom: 6,
+          display: "flex",
+          gap: 6,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <i className="ri-image-add-line" /> 이미지 자리
+      </div>
+      <p style={{ fontSize: 13, color: "var(--gray-600)", margin: "0 auto 14px", maxWidth: 560, whiteSpace: "pre-wrap" }}>
+        {promptText}
+      </p>
+      {readOnly ? (
+        <p style={{ fontSize: 12, color: "var(--gray-400)", margin: 0 }}>(비어 있음 — 발행 시 이미지 없이 표시됩니다)</p>
+      ) : (
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button className="btn btn-sm btn-primary" type="button" disabled={busy} onClick={onGenerate}>
+            {busy ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 생성
+          </button>
+          <input type="file" accept="image/*" style={{ display: "none" }} ref={fileRef} onChange={onFileChange} />
+          <button className="btn btn-sm btn-outline" type="button" disabled={busy} onClick={pickFile}>
+            <i className="ri-upload-line" /> 이미지 업로드
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 페이지 ────────────────────────────────────────────────────────────────────
 
 export default function ChapterDetailPage() {
@@ -156,20 +272,18 @@ export default function ChapterDetailPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // 섹션 A — 초안 편집 상태
+  // 섹션 A — 초안 편집
   const [draftText, setDraftText] = useState("");
+  const [showJson, setShowJson] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
 
-  // 섹션 B — 슬롯 액션 로딩 상태
+  // 섹션 B — 미리보기 세그먼트 + 슬롯 액션 로딩
+  const [segData, setSegData] = useState<SegmentsResponse | null>(null);
+  const [loadingSeg, setLoadingSeg] = useState(true);
   const [slotLoading, setSlotLoading] = useState<Record<string, boolean>>({});
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // 섹션 C — 미리보기
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-
-  // 섹션 D — 예약
+  // 섹션 C — 예약
   const [scheduleDatetime, setScheduleDatetime] = useState("");
   const [savingSchedule, setSavingSchedule] = useState(false);
 
@@ -177,32 +291,62 @@ export default function ChapterDetailPage() {
     setToast({ message, type });
   }, []);
 
-  // 챕터 로드
-  const fetchChapter = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}`, {
-        credentials: "include",
-      });
-      if (res.status === 404) {
-        setNotFound(true);
-        return;
+  // 챕터 로드 (silent=true면 전체 스피너 표시 안 함)
+  const loadChapter = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}`, {
+          credentials: "include",
+        });
+        if (res.status === 404) {
+          setNotFound(true);
+          return;
+        }
+        if (!res.ok) throw new Error("챕터 조회 실패");
+        const data: ChapterDetail = await res.json();
+        setChapter(data);
+        setDraftText(data.draftContent ? JSON.stringify(data.draftContent, null, 2) : "");
+        setScheduleDatetime(formatSchedule(data.scheduledAt));
+      } catch {
+        showToast("챕터 정보를 불러오지 못했습니다.", "error");
+      } finally {
+        if (!silent) setLoading(false);
       }
-      if (!res.ok) throw new Error("챕터 조회 실패");
-      const data: ChapterDetail = await res.json();
-      setChapter(data);
-      setDraftText(data.draftContent ? JSON.stringify(data.draftContent, null, 2) : "");
-      setScheduleDatetime(formatSchedule(data.scheduledAt));
+    },
+    [chapterId, showToast],
+  );
+
+  // 미리보기 세그먼트 로드
+  const loadSegments = useCallback(async () => {
+    setLoadingSeg(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/editor-segments`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("미리보기 로드 실패");
+      setSegData((await res.json()) as SegmentsResponse);
     } catch {
-      showToast("챕터 정보를 불러오지 못했습니다.", "error");
+      setSegData(null);
     } finally {
-      setLoading(false);
+      setLoadingSeg(false);
     }
-  }, [chapterId, showToast]);
+  }, [chapterId]);
+
+  // 액션 후 화면 갱신 (챕터 요약 + 미리보기)
+  const refresh = useCallback(async () => {
+    await Promise.all([loadChapter(true), loadSegments()]);
+  }, [loadChapter, loadSegments]);
 
   useEffect(() => {
-    if (chapterId) fetchChapter();
-  }, [fetchChapter, chapterId]);
+    if (chapterId) {
+      loadChapter(false);
+      loadSegments();
+    }
+  }, [chapterId, loadChapter, loadSegments]);
+
+  const isPublished = chapter?.status === "published";
 
   // ── 섹션 A: 초안 저장 ─────────────────────────────────────────────────────
 
@@ -216,7 +360,6 @@ export default function ChapterDetailPage() {
         showToast("유효하지 않은 JSON 형식입니다.", "error");
         return;
       }
-
       const res = await fetch(
         `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/draft`,
         {
@@ -227,9 +370,8 @@ export default function ChapterDetailPage() {
         },
       );
       if (!res.ok) throw new Error("초안 저장 실패");
-      const data: ChapterDetail = await res.json();
-      setChapter(data);
       showToast("초안이 저장되었습니다.", "success");
+      await refresh();
     } catch {
       showToast("초안 저장 중 오류가 발생했습니다.", "error");
     } finally {
@@ -258,7 +400,7 @@ export default function ChapterDetailPage() {
       } else {
         showToast(`생성 실패: ${result.reason ?? "오류"}`, "error");
       }
-      await fetchChapter();
+      await refresh();
     } catch (e) {
       showToast((e as Error).message || "초안 생성 중 오류가 발생했습니다.", "error");
     } finally {
@@ -266,10 +408,13 @@ export default function ChapterDetailPage() {
     }
   }
 
-  // ── 섹션 B: 슬롯 이미지 업로드 ───────────────────────────────────────────
+  // ── 섹션 B: 슬롯 액션 (업로드 / AI 생성 / 비우기) ─────────────────────────
+
+  const setBusy = (slotId: string, v: boolean) =>
+    setSlotLoading((prev) => ({ ...prev, [slotId]: v }));
 
   async function handleUpload(slotId: string, file: File) {
-    setSlotLoading((prev) => ({ ...prev, [slotId]: true }));
+    setBusy(slotId, true);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -282,18 +427,16 @@ export default function ChapterDetailPage() {
         throw new Error((err as { error?: { message?: string } })?.error?.message ?? "업로드 실패");
       }
       showToast("이미지가 업로드되었습니다.", "success");
-      await fetchChapter();
+      await refresh();
     } catch (e) {
       showToast((e as Error).message || "업로드 중 오류가 발생했습니다.", "error");
     } finally {
-      setSlotLoading((prev) => ({ ...prev, [slotId]: false }));
+      setBusy(slotId, false);
     }
   }
 
-  // ── 섹션 B: 슬롯 자동 생성 ───────────────────────────────────────────────
-
   async function handleGenerate(slotId: string) {
-    setSlotLoading((prev) => ({ ...prev, [slotId]: true }));
+    setBusy(slotId, true);
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/slots/${slotId}/generate`,
@@ -314,62 +457,35 @@ export default function ChapterDetailPage() {
       } else {
         showToast(result.reason ?? "이미지 생성에 실패했습니다.", "error");
       }
-      await fetchChapter();
+      await refresh();
     } catch (e) {
       showToast((e as Error).message || "생성 중 오류가 발생했습니다.", "error");
     } finally {
-      setSlotLoading((prev) => ({ ...prev, [slotId]: false }));
+      setBusy(slotId, false);
     }
   }
 
-  // ── 섹션 B: 슬롯 완료 처리 ───────────────────────────────────────────────
-
-  async function handleComplete(slotId: string) {
-    const confirmed = await confirmDialog({
-      title: "슬롯 완료 처리",
-      message: "이 슬롯을 완료로 표시하겠습니까?",
-    });
-    if (!confirmed) return;
-
-    setSlotLoading((prev) => ({ ...prev, [slotId]: true }));
+  async function handleClear(slotId: string) {
+    setBusy(slotId, true);
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/slots/${slotId}/complete`,
+        `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/slots/${slotId}/clear`,
         { method: "PATCH", credentials: "include" },
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: { message?: string } })?.error?.message ?? "완료 처리 실패");
+        throw new Error((err as { error?: { message?: string } })?.error?.message ?? "삭제 실패");
       }
-      showToast("슬롯이 완료 처리되었습니다.", "success");
-      await fetchChapter();
+      showToast("이미지를 삭제했습니다.", "success");
+      await refresh();
     } catch (e) {
-      showToast((e as Error).message || "완료 처리 중 오류가 발생했습니다.", "error");
+      showToast((e as Error).message || "삭제 중 오류가 발생했습니다.", "error");
     } finally {
-      setSlotLoading((prev) => ({ ...prev, [slotId]: false }));
+      setBusy(slotId, false);
     }
   }
 
-  // ── 섹션 C: 미리보기 ──────────────────────────────────────────────────────
-
-  async function handlePreview() {
-    setLoadingPreview(true);
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/admin/bots/curriculum/chapters/${chapterId}/preview`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error("미리보기 로드 실패");
-      const data = await res.json();
-      setPreviewHtml((data as { html: string }).html);
-    } catch {
-      showToast("미리보기를 불러오지 못했습니다.", "error");
-    } finally {
-      setLoadingPreview(false);
-    }
-  }
-
-  // ── 섹션 D: 예약 설정/해제 ───────────────────────────────────────────────
+  // ── 섹션 C: 예약 설정/해제 ───────────────────────────────────────────────
 
   async function handleSchedule(scheduledAt: string | null) {
     setSavingSchedule(true);
@@ -443,7 +559,13 @@ export default function ChapterDetailPage() {
             <p style={{ margin: "0 0 8px", fontSize: 13, color: "var(--gray-500)" }}>{chapter.goal}</p>
           </div>
           <div style={{ textAlign: "right", fontSize: 13, color: "var(--gray-500)" }}>
-            <div>이미지: <strong style={{ color: chapter.readySlots === chapter.totalSlots && chapter.totalSlots > 0 ? "var(--success)" : "inherit" }}>{chapter.readySlots}/{chapter.totalSlots}</strong> 완료</div>
+            <div>
+              이미지:{" "}
+              <strong style={{ color: chapter.readySlots > 0 ? "var(--success)" : "inherit" }}>
+                {chapter.readySlots}/{chapter.totalSlots}
+              </strong>{" "}
+              채움 <span style={{ color: "var(--gray-400)" }}>(빈 자리는 이미지 없이 발행)</span>
+            </div>
             <div style={{ marginTop: 4 }}>
               예약: {chapter.scheduledAt ? formatSchedule(chapter.scheduledAt).replace("T", " ") : "미예약"}
             </div>
@@ -451,186 +573,82 @@ export default function ChapterDetailPage() {
         </div>
       </article>
 
-      {/* 섹션 A — 초안 본문 편집 */}
+      {/* 섹션 A — 초안 본문 */}
       <article className="card" style={{ marginBottom: 24, padding: 18 }}>
-        <div className="section-heading" style={{ marginBottom: 12 }}>
-          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>A. 초안 본문 편집</h2>
+        <div
+          className="section-heading"
+          style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+        >
+          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>A. 초안 본문</h2>
+          {chapter.draftContent !== null && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {!isPublished && (chapter.status === "planned" || chapter.status === "drafted" || chapter.status === "ready") && (
+                <button className="btn btn-sm btn-outline" type="button" disabled={generatingDraft} onClick={handleGenerateDraft}>
+                  {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI로 다시 생성
+                </button>
+              )}
+              <button className="btn btn-sm btn-outline" type="button" onClick={() => setShowJson((v) => !v)}>
+                <i className="ri-code-line" /> {showJson ? "JSON 닫기" : "JSON 편집"}
+              </button>
+            </div>
+          )}
         </div>
+
         {chapter.draftContent === null ? (
           <div>
             <p style={{ color: "var(--gray-400)", fontSize: 13, marginBottom: 12 }}>
-              아직 초안이 없습니다. 아래 버튼을 누르면 AI가 이 편의 학습목표·소주제·이미지 슬롯을 바탕으로 본문 초안을 생성합니다.
+              아직 초안이 없습니다. 아래 버튼을 누르면 AI가 이 편의 학습목표·소주제를 바탕으로 본문 초안과 이미지 자리를 만듭니다.
             </p>
             <button
               className="btn btn-primary"
               type="button"
-              disabled={generatingDraft || chapter.status === "published"}
+              disabled={generatingDraft || isPublished}
               onClick={handleGenerateDraft}
             >
-              {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />}
-              AI 초안 생성
+              {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />} AI 초안 생성
             </button>
           </div>
         ) : (
-          <>
-            <textarea
-              className="control"
-              rows={16}
-              value={draftText}
-              onChange={(e) => setDraftText(e.target.value)}
-              placeholder="Tiptap JSON 초안 (편집 가능)"
-              style={{ fontFamily: "monospace", fontSize: 12, width: "100%", resize: "vertical" }}
-            />
-            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-              <button
-                className="btn btn-primary"
-                type="button"
-                disabled={savingDraft}
-                onClick={handleSaveDraft}
-              >
-                {savingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-save-line" />}
-                초안 저장
-              </button>
-              {(chapter.status === "planned" || chapter.status === "drafted") && (
-                <button
-                  className="btn btn-outline"
-                  type="button"
-                  disabled={generatingDraft}
-                  onClick={handleGenerateDraft}
-                >
-                  {generatingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />}
-                  AI로 다시 생성
+          showJson && (
+            <>
+              <textarea
+                className="control"
+                rows={16}
+                value={draftText}
+                onChange={(e) => setDraftText(e.target.value)}
+                placeholder="Tiptap JSON 초안 (편집 가능)"
+                style={{ fontFamily: "monospace", fontSize: 12, width: "100%", resize: "vertical" }}
+              />
+              <div style={{ marginTop: 8 }}>
+                <button className="btn btn-primary" type="button" disabled={savingDraft} onClick={handleSaveDraft}>
+                  {savingDraft ? <i className="ri-loader-4-line" /> : <i className="ri-save-line" />} 초안 저장
                 </button>
-              )}
-            </div>
-          </>
-        )}
-      </article>
-
-      {/* 섹션 B — 이미지 슬롯 목록 */}
-      <article className="card" style={{ marginBottom: 24, padding: 18 }}>
-        <div className="section-heading" style={{ marginBottom: 12 }}>
-          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>B. 이미지 슬롯</h2>
-        </div>
-        {chapter.slots.length === 0 ? (
-          <p style={{ color: "var(--gray-400)", fontSize: 13 }}>이미지 슬롯이 없습니다.</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {chapter.slots.map((slot) => (
-              <div
-                key={slot.id}
-                style={{
-                  border: "1px solid var(--gray-200, #e5e7eb)",
-                  borderRadius: 8,
-                  padding: 16,
-                  background: slot.status === "ready" ? "var(--success-50, #f0fdf4)" : "var(--gray-50, #f9fafb)",
-                }}
-              >
-                {/* 슬롯 헤더 */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <code style={{ fontSize: 12, background: "var(--gray-100, #f3f4f6)", padding: "2px 6px", borderRadius: 4 }}>
-                    {slot.assetKey}
-                  </code>
-                  <span className={`badge ${SOURCE_KIND_BADGE[slot.sourceKind] ?? "badge-gray"}`}>
-                    {SOURCE_KIND_LABEL[slot.sourceKind] ?? slot.sourceKind}
-                  </span>
-                  <span className={`badge ${slot.status === "ready" ? "badge-green" : "badge-gray"}`}>
-                    {slot.status === "ready" ? "완료" : "미준비"}
-                  </span>
-                </div>
-
-                {/* 안내 */}
-                {slot.guidance && (
-                  <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--gray-500)" }}>{slot.guidance}</p>
-                )}
-
-                {/* 이미지 미리보기 */}
-                {slot.imageUrl && (
-                  <div style={{ marginBottom: 8 }}>
-                    <img
-                      src={slot.imageUrl}
-                      alt={slot.alt ?? slot.assetKey}
-                      style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 4, border: "1px solid var(--gray-200, #e5e7eb)" }}
-                    />
-                  </div>
-                )}
-
-                {/* 액션 버튼들 */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {/* 업로드 버튼 (모든 슬롯) */}
-                  <>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      ref={(el) => { fileInputRefs.current[slot.id] = el; }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUpload(slot.id, file);
-                        e.target.value = "";
-                      }}
-                    />
-                    <button
-                      className="btn btn-sm btn-outline"
-                      type="button"
-                      disabled={slotLoading[slot.id]}
-                      onClick={() => fileInputRefs.current[slot.id]?.click()}
-                    >
-                      {slotLoading[slot.id] ? <i className="ri-loader-4-line" /> : <i className="ri-upload-line" />}
-                      이미지 업로드
-                    </button>
-                  </>
-
-                  {/* 자동 생성 (🟢 슬롯 전용) */}
-                  {(slot.sourceKind === "ai_diagram" || slot.sourceKind === "web_download") && (
-                    <button
-                      className="btn btn-sm btn-primary"
-                      type="button"
-                      disabled={slotLoading[slot.id]}
-                      onClick={() => handleGenerate(slot.id)}
-                    >
-                      {slotLoading[slot.id] ? <i className="ri-loader-4-line" /> : <i className="ri-magic-line" />}
-                      지금 생성
-                    </button>
-                  )}
-
-                  {/* 완료 처리 (이미지 있고 pending인 경우) */}
-                  {slot.imageUrl && slot.status === "pending" && (
-                    <button
-                      className="btn btn-sm btn-outline"
-                      type="button"
-                      disabled={slotLoading[slot.id]}
-                      onClick={() => handleComplete(slot.id)}
-                    >
-                      <i className="ri-check-line" /> 완료 처리
-                    </button>
-                  )}
-                </div>
               </div>
-            ))}
-          </div>
+            </>
+          )
+        )}
+        {chapter.draftContent !== null && !showJson && (
+          <p style={{ color: "var(--gray-400)", fontSize: 13, margin: 0 }}>
+            초안이 아래 미리보기에 표시됩니다. 본문을 직접 수정하려면 &lsquo;JSON 편집&rsquo;을 누르세요.
+          </p>
         )}
       </article>
 
-      {/* 섹션 C — 최종 미리보기 */}
+      {/* 섹션 B — 본문 미리보기 & 이미지 */}
       <article className="card" style={{ marginBottom: 24, padding: 18 }}>
         <div className="section-heading" style={{ marginBottom: 12 }}>
-          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>C. 최종 미리보기</h2>
+          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>B. 본문 미리보기 &amp; 이미지</h2>
         </div>
-        <button
-          className="btn btn-outline"
-          type="button"
-          disabled={loadingPreview}
-          onClick={handlePreview}
-          style={{ marginBottom: 16 }}
-        >
-          {loadingPreview ? <i className="ri-loader-4-line" /> : <i className="ri-eye-line" />}
-          미리보기 새로고침
-        </button>
-        {previewHtml !== null && (
+
+        {loadingSeg ? (
+          <p style={{ color: "var(--gray-400)", fontSize: 13 }}>미리보기 불러오는 중...</p>
+        ) : !segData?.hasDraft ? (
+          <p style={{ color: "var(--gray-400)", fontSize: 13 }}>
+            초안을 생성하면 여기에 글과 이미지 자리(점선 박스)가 표시됩니다.
+          </p>
+        ) : (
           <div
             className="post-content"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
             style={{
               border: "1px solid var(--gray-200, #e5e7eb)",
               borderRadius: 8,
@@ -638,18 +656,39 @@ export default function ChapterDetailPage() {
               background: "#fff",
               minHeight: 80,
             }}
-          />
+          >
+            {segData.segments.map((seg, i) =>
+              seg.kind === "html" ? (
+                <div key={`html-${i}`} dangerouslySetInnerHTML={{ __html: seg.html ?? "" }} />
+              ) : seg.slot ? (
+                <SlotBox
+                  key={seg.slot.id}
+                  slot={seg.slot}
+                  busy={!!slotLoading[seg.slot.id]}
+                  readOnly={isPublished}
+                  onGenerate={() => handleGenerate(seg.slot!.id)}
+                  onUpload={(file) => handleUpload(seg.slot!.id, file)}
+                  onClear={() => handleClear(seg.slot!.id)}
+                />
+              ) : null,
+            )}
+          </div>
         )}
       </article>
 
-      {/* 섹션 D — 예약시각 지정 */}
+      {/* 섹션 C — 예약시각 지정 */}
       <article className="card" style={{ marginBottom: 24, padding: 18 }}>
         <div className="section-heading" style={{ marginBottom: 12 }}>
-          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>D. 예약시각 지정</h2>
+          <h2 className="section-title" style={{ margin: 0, fontSize: 16 }}>C. 예약시각 지정</h2>
         </div>
-        {chapter.status !== "ready" && chapter.status !== "published" && (
+        {chapter.status === "planned" && (
           <p style={{ color: "var(--warning, #d97706)", fontSize: 12, marginBottom: 12 }}>
-            ⚠️ 이미지 미완료 — 예약 설정해도 챕터가 준비 완료 상태가 될 때까지 게시되지 않습니다.
+            ⚠️ 아직 초안이 없습니다 — 예약해도 초안이 생성되기 전까지는 게시되지 않습니다.
+          </p>
+        )}
+        {(chapter.status === "drafted" || chapter.status === "ready") && (
+          <p style={{ color: "var(--gray-500)", fontSize: 12, marginBottom: 12 }}>
+            예약 시각이 지나면 자동 게시됩니다. 비어 있는 이미지 자리는 이미지 없이 발행됩니다.
           </p>
         )}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -658,25 +697,23 @@ export default function ChapterDetailPage() {
             className="control"
             value={scheduleDatetime}
             onChange={(e) => setScheduleDatetime(e.target.value)}
+            disabled={isPublished}
             style={{ width: "auto", minWidth: 220 }}
           />
           <button
             className="btn btn-primary"
             type="button"
-            disabled={savingSchedule || !scheduleDatetime}
+            disabled={savingSchedule || !scheduleDatetime || isPublished}
             onClick={() => {
-              if (scheduleDatetime) {
-                handleSchedule(new Date(scheduleDatetime).toISOString());
-              }
+              if (scheduleDatetime) handleSchedule(new Date(scheduleDatetime).toISOString());
             }}
           >
-            {savingSchedule ? <i className="ri-loader-4-line" /> : <i className="ri-calendar-check-line" />}
-            예약 설정
+            {savingSchedule ? <i className="ri-loader-4-line" /> : <i className="ri-calendar-check-line" />} 예약 설정
           </button>
           <button
             className="btn btn-outline"
             type="button"
-            disabled={savingSchedule || !chapter.scheduledAt}
+            disabled={savingSchedule || !chapter.scheduledAt || isPublished}
             onClick={() => handleSchedule(null)}
           >
             <i className="ri-calendar-close-line" /> 예약 해제
@@ -685,9 +722,7 @@ export default function ChapterDetailPage() {
       </article>
 
       {/* 토스트 */}
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </AdminShell>
   );
 }

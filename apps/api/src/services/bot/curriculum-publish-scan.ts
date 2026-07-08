@@ -12,7 +12,7 @@
  * [Source: _bmad-output/implementation-artifacts/13-6-schedule-publisher-cron.md#오케스트레이터-확정-설계]
  */
 
-import { and, eq, inArray, lte, not } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import { getDb } from "@ai-jakdang/database";
 import { botCurriculumChapters } from "@ai-jakdang/database/schema";
 import { publishChapter } from "./curriculum-staging.js";
@@ -37,14 +37,15 @@ export async function runCurriculumPublishScan(): Promise<CurriculumPublishScanR
   let published = 0;
   let skipped = 0;
 
-  // ── Step 2: status='ready' AND scheduledAt <= now 챕터 스캔 (가장 오래된 것부터) ──
+  // ── Step 2: 게시 대상 스캔 — 초안 완료(drafted)·이미지완료(ready) 챕터 중 예약 시각 도달분 ──
+  // 이미지 자리가 비어 있어도(pending 슬롯) 게시 가능 — 빈 자리는 이미지 없이 렌더된다.
   const readyChapters = await db
     .select()
     .from(botCurriculumChapters)
     .where(
       and(
         lte(botCurriculumChapters.scheduledAt, now),
-        eq(botCurriculumChapters.status, "ready"),
+        inArray(botCurriculumChapters.status, ["drafted", "ready"]),
       ),
     )
     .orderBy(botCurriculumChapters.scheduledAt);
@@ -80,24 +81,21 @@ export async function runCurriculumPublishScan(): Promise<CurriculumPublishScanR
     }
   }
 
-  // ── Step 4: 미완 챕터 감지 + 경고 로그 ─────────────────────────────────────
-  // scheduled_at <= now AND status NOT IN ('ready','published','skipped')
-  // → 이미지 슬롯이 아직 pending인 채로 예약 시각이 지난 챕터
+  // ── Step 4: 초안 미생성 챕터 감지 + 경고 로그 ──────────────────────────────
+  // scheduled_at <= now AND status='planned' → 초안이 아직 없어 게시 불가한 챕터
   const overdueChapters = await db
     .select()
     .from(botCurriculumChapters)
     .where(
       and(
         lte(botCurriculumChapters.scheduledAt, now),
-        not(
-          inArray(botCurriculumChapters.status, ["ready", "published", "skipped"]),
-        ),
+        eq(botCurriculumChapters.status, "planned"),
       ),
     );
 
   for (const chapter of overdueChapters) {
     console.warn(
-      `[curriculum-publish-scan] 이미지 미완 챕터 보류: chapterId=${chapter.id}, status=${chapter.status}, scheduledAt=${chapter.scheduledAt?.toISOString()}, reason=image_slots_pending`,
+      `[curriculum-publish-scan] 초안 미생성 챕터 보류: chapterId=${chapter.id}, status=${chapter.status}, scheduledAt=${chapter.scheduledAt?.toISOString()}, reason=draft_not_generated`,
     );
   }
 
