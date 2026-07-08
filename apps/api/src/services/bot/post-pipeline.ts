@@ -581,7 +581,7 @@ export async function runPostPipeline(
         {
           system: systemPrompt,
           user: userPrompt,
-          maxTokens: isAdminPersona ? 4000 : 1500,
+          maxTokens: isAdminPersona ? 4000 : 5500,
         },
         { personaId, jobId },
       );
