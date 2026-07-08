@@ -53,6 +53,10 @@ export async function curriculumPublishProcessor(job: Job): Promise<void> {
           "content-type": "application/json",
           "x-internal-key": internalKey,
         },
+        // content-type: application/json을 붙이면 Fastify JSON 파서가 빈 본문을
+        // FST_ERR_CTP_EMPTY_JSON_BODY(400)로 거부한다 → 스캔이 핸들러 진입 전 죽음.
+        // 본문이 없어도 빈 JSON 객체를 실어 400을 방지한다.
+        body: "{}",
       },
     );
 
