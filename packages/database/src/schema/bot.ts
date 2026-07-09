@@ -217,6 +217,12 @@ export const botTopics = pgTable("bot_topics", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   /** 관리자 대주제 그룹(장문 시리즈 묶음). */
   seriesGroup: varchar("series_group", { length: 128 }),
+  /**
+   * 이 주제로 실제 게시된 글 ID(발굴·실시간 주제를 게시 시 기록).
+   * 게시글 영구삭제(purgePost) 시 이 행도 함께 삭제해 같은 주제를 다시 쓸 수 있게 한다.
+   * FK 없음(posts는 크로스 도메인) — 삭제는 purgePost가 명시적으로 처리.
+   */
+  postId: uuid("post_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

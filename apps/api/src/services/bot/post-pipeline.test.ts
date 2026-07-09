@@ -21,7 +21,7 @@ const {
   mockUploadWebImage,
   mockPrependImageToTiptapDoc,
   mockPrependImageWithSourceToTiptapDoc,
-  mockRunContentGuard,
+  mockGuardBotContentWithMasking,
   mockCreatePostAsBot,
   mockCreateQuestionAsBot,
   mockCreateResourceAsBot,
@@ -48,7 +48,7 @@ const {
   mockUploadWebImage: vi.fn(),
   mockPrependImageToTiptapDoc: vi.fn(),
   mockPrependImageWithSourceToTiptapDoc: vi.fn(),
-  mockRunContentGuard: vi.fn(),
+  mockGuardBotContentWithMasking: vi.fn(),
   mockCreatePostAsBot: vi.fn(),
   mockCreateQuestionAsBot: vi.fn(),
   mockCreateResourceAsBot: vi.fn(),
@@ -116,7 +116,7 @@ vi.mock("../../services/storage/index.js", () => ({
 }));
 
 vi.mock("../../middleware/contentGuard.js", () => ({
-  runContentGuard: mockRunContentGuard,
+  guardBotContentWithMasking: mockGuardBotContentWithMasking,
 }));
 
 vi.mock("./write.js", () => ({
@@ -132,6 +132,7 @@ vi.mock("./topic.js", () => ({
   getDiscoveryQuery: mockGetDiscoveryQuery,
   isSearchDrivenTopicsEnabled: mockIsSearchDrivenTopicsEnabled,
   getRecentTopicTitles: mockGetRecentTopicTitles,
+  recordPublishedTopic: vi.fn(),
 }));
 
 vi.mock("./censor.js", () => ({
@@ -273,7 +274,7 @@ describe("runPostPipeline", () => {
     mockPrependImageToTiptapDoc.mockImplementation(
       (doc: Record<string, unknown>) => doc,
     );
-    mockRunContentGuard.mockResolvedValue({ ok: true });
+    mockGuardBotContentWithMasking.mockResolvedValue({ ok: true, title: "mock title" });
     mockRunSelfCensor.mockResolvedValue(passAllCensorResult);
     mockCreatePostAsBot.mockResolvedValue({ status: "published", refId: POST_ID });
     // 밈 미디어 우선(Step 2.6): 기본 빈손(null) → 기존 폴백 사다리 경로를 그대로 검증
@@ -295,13 +296,15 @@ describe("runPostPipeline", () => {
     expect(mockCreatePostAsBot).toHaveBeenCalledOnce();
   });
 
-  // ── 시나리오 2: contentGuard 차단 (blocked) ────────────────────────────────
+  // ── 시나리오 2: contentGuard 스팸 차단 (blocked) ───────────────────────────
+  // 금칙어는 이제 마스킹(비차단). 스팸 링크만 하드 차단한다.
 
-  it("검열 통과 → contentGuard 차단 → status: blocked", async () => {
-    mockRunContentGuard.mockResolvedValueOnce({
+  it("검열 통과 → contentGuard 스팸 차단 → status: blocked", async () => {
+    mockGuardBotContentWithMasking.mockResolvedValueOnce({
       ok: false,
-      code: "FORBIDDEN_WORD",
-      message: "금칙어 포함",
+      code: "SPAM",
+      message: "스팸으로 의심되는 내용입니다.",
+      reason: "spam_pattern",
     });
 
     const result = await runPostPipeline({ personaId: PERSONA_ID, board: BOARD });

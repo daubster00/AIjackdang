@@ -8,7 +8,7 @@
  * [Source: docs/seeding-bot/ARCHITECTURE.md §2.5 bot_topics, §7 글 생성 파이프라인]
  */
 
-import { eq, and, asc, count } from "drizzle-orm";
+import { eq, and, asc, desc, count } from "drizzle-orm";
 import { schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
@@ -163,6 +163,7 @@ export async function selectTopic(
       status: "unused",
       usedAt: null,
       seriesGroup: null,
+      postId: null,
       createdAt: new Date(),
     };
     return { topic: fakeTopic, wasRealtime: true };
@@ -174,22 +175,55 @@ export async function selectTopic(
 
 /**
  * 이 페르소나가 이미 다룬 주제 제목 목록(중복 발굴 회피용).
- * bot_topics의 title_seed를 최신순으로 최대 limit개 반환.
+ * bot_topics의 title_seed를 "최신순(created_at desc)"으로 최대 limit개 반환.
+ * (예전엔 ORDER BY가 없어 임의 순서 20개만 잡혀, 최근 게시 주제가 누락될 수 있었다.)
  */
 export async function getRecentTopicTitles(
   db: Database,
   personaId: string,
-  limit = 20,
+  limit = 40,
 ): Promise<string[]> {
   try {
     const rows = await db
       .select({ titleSeed: schema.botTopics.titleSeed })
       .from(schema.botTopics)
       .where(eq(schema.botTopics.personaId, personaId))
+      .orderBy(desc(schema.botTopics.createdAt))
       .limit(limit);
     return rows.map((r) => r.titleSeed);
   } catch {
     return [];
+  }
+}
+
+/**
+ * 발굴·실시간 주제로 실제 게시된 글의 주제를 bot_topics에 기록한다(중복 방지 기록).
+ *
+ * 발굴/큐레이션 주제는 DB에 없는 임시(synthetic) 주제라, 게시해도 아무 기록이 안 남아
+ * getRecentTopicTitles가 항상 빈 목록 → 발굴이 같은 주제를 또 고르는 문제가 있었다.
+ * 게시 성공 시 이 함수로 제목을 남기고 postId로 게시글과 연결한다.
+ * 게시글 영구삭제(purgePost) 시 이 행이 함께 삭제돼 같은 주제를 다시 쓸 수 있다.
+ *
+ * 실패해도 게시 흐름을 막지 않는다(조용히 무시).
+ */
+export async function recordPublishedTopic(
+  db: Database,
+  params: { personaId: string; board: string; titleSeed: string; postId: string },
+): Promise<void> {
+  try {
+    const seed = params.titleSeed.trim();
+    if (!seed) return;
+    await db.insert(schema.botTopics).values({
+      personaId: params.personaId,
+      board: params.board,
+      titleSeed: seed,
+      topicKind: "realtime",
+      status: "used",
+      usedAt: new Date(),
+      postId: params.postId,
+    });
+  } catch (err) {
+    console.error("[topic] 게시 주제 기록 실패 (무시):", (err as Error).message);
   }
 }
 

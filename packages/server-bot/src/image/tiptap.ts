@@ -210,6 +210,113 @@ export function insertInlineImagesByMarker(
   return { doc: { ...doc, content: out }, usedKeys };
 }
 
+// ── 계획 마커 결정적 삽입 (B안 — 이미지 유실 근본 차단) ──────────────────────────
+// 기존엔 플래너 LLM이 "마커를 삽입한 본문(bodyMarkdown)"을 통째로 다시 써서 반환했는데,
+// LLM이 items(이미지 목록)만 내고 본문에 마커를 빠뜨리면 → 생성·결제된 이미지가 놓일
+// 자리가 없어 통째로 버려졌다(실 사고: latte2x 쇼피파이 글, image 비용 0.106 나갔으나 0장).
+// 이 함수는 LLM이 반환한 각 item의 positionHint(앞 문단 핵심 텍스트)를 기준으로,
+// 코드가 직접 [[IMG:key]] 마커를 본문에 꽂는다. 매칭 실패해도 균등 분배로 반드시 배치하므로
+// "모든 item에 마커가 1개씩" 보장된다 → 만든 이미지는 절대 유실되지 않는다.
+
+/** insertPlanMarkers 입력 항목(최소 형태). */
+export interface PlanMarkerItem {
+  /** 마커 키(예: "planned-0"). 본문에 [[IMG:planned-0]]로 삽입됨. */
+  key: string;
+  /** 이 이미지가 들어갈 문단의 핵심 텍스트(원문 일부). 매칭용, 없으면 균등 분배. */
+  positionHint?: string;
+}
+
+/** 공백 제거 + 소문자화(positionHint ↔ 문단 텍스트 관대한 매칭용). */
+function normalizeForMatch(s: string): string {
+  return s.replace(/\s+/g, "").toLowerCase();
+}
+
+/**
+ * items의 positionHint를 기준으로 본문 Tiptap doc에 [[IMG:key]] 마커 문단을 삽입한다.
+ *
+ * - positionHint가 어느 문단과 매칭되면 그 문단 "바로 뒤"에 마커를 넣는다.
+ * - 매칭 안 되거나 힌트가 없으면, 남은 문단들에 균등 분배해서 넣는다(끝 폴백 포함).
+ * - 한 문단에는 최대 1개만(같은 문단에 이미지가 몰리지 않게).
+ * - items가 비면 원본 doc을 그대로 반환한다.
+ *
+ * 보장: 반환 doc에는 items의 모든 key에 대한 마커가 정확히 1개씩 존재한다.
+ */
+export function insertPlanMarkers(
+  doc: Record<string, unknown>,
+  items: PlanMarkerItem[],
+): Record<string, unknown> {
+  if (items.length === 0) return doc;
+  const content = Array.isArray(doc.content)
+    ? ([...doc.content] as Array<Record<string, unknown>>)
+    : [];
+
+  // 마커를 붙일 수 있는 "내용 있는 문단"의 인덱스 목록.
+  const paragraphIdx: number[] = [];
+  content.forEach((node, i) => {
+    if (node.type === "paragraph" && paragraphText(node).trim().length > 0) {
+      paragraphIdx.push(i);
+    }
+  });
+
+  const usedParagraph = new Set<number>();
+  const placements: Array<{ afterIndex: number; key: string }> = [];
+  const unmatched: string[] = [];
+
+  // 1) positionHint로 문단 매칭 시도.
+  for (const item of items) {
+    const hint = normalizeForMatch(item.positionHint ?? "");
+    let target = -1;
+    if (hint.length >= 4) {
+      for (const pi of paragraphIdx) {
+        if (usedParagraph.has(pi)) continue;
+        const ptext = normalizeForMatch(paragraphText(content[pi]!));
+        if (!ptext) continue;
+        // 문단이 힌트를 포함하거나(대개), 힌트가 짧은 문단을 포함하면 매칭.
+        if (ptext.includes(hint) || (ptext.length >= 4 && hint.includes(ptext))) {
+          target = pi;
+          break;
+        }
+      }
+    }
+    if (target >= 0) {
+      usedParagraph.add(target);
+      placements.push({ afterIndex: target, key: item.key });
+    } else {
+      unmatched.push(item.key);
+    }
+  }
+
+  // 2) 매칭 실패 항목 → 남은 문단에 균등 분배(문단이 없으면 문서 끝).
+  const freeParagraphs = paragraphIdx.filter((pi) => !usedParagraph.has(pi));
+  unmatched.forEach((key, idx) => {
+    let afterIndex: number;
+    if (freeParagraphs.length > 0) {
+      const pick = Math.min(
+        freeParagraphs.length - 1,
+        Math.floor(((idx + 1) * freeParagraphs.length) / (unmatched.length + 1)),
+      );
+      afterIndex = freeParagraphs[pick]!;
+      freeParagraphs.splice(pick, 1);
+    } else {
+      afterIndex = content.length - 1; // 넣을 문단이 없으면 문서 끝에 몰아 붙임(폴백).
+    }
+    placements.push({ afterIndex, key });
+  });
+
+  // 3) 뒤에서부터 삽입해야 앞 인덱스가 밀리지 않는다.
+  placements.sort((a, b) => b.afterIndex - a.afterIndex);
+  const out = [...content];
+  for (const p of placements) {
+    const markerNode = {
+      type: "paragraph",
+      content: [{ type: "text", text: `[[IMG:${p.key}]]` }],
+    };
+    out.splice(p.afterIndex + 1, 0, markerNode);
+  }
+
+  return { ...doc, content: out };
+}
+
 /** 유튜브 영상 임베드 출처 옵션. */
 export interface YoutubeSourceCaption {
   /** 채널·게시자명(예: "OpenAI"). */

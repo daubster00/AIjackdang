@@ -20,6 +20,7 @@
 
 import type { CallModelAssignment, AiTextResponse } from '../ai/index.js';
 import { tiptapDocToMarkdown } from '@ai-jakdang/bot-core';
+import { insertPlanMarkers } from './tiptap.js';
 
 // ── 공개 타입 ─────────────────────────────────────────────────────────────────
 
@@ -100,23 +101,28 @@ const VALID_KINDS: ReadonlySet<string> = new Set(['ai_diagram', 'stock', 'web'])
 export const PLANNER_SYSTEM_PROMPT = `당신은 봇 글의 이미지 배치 전문가입니다.
 
 역할:
-완성된 글 본문을 분석해 이미지가 독자 이해에 도움될 자리를 찾고,
-그 자리에 [[IMG:planned-N]] 마커를 삽입한 수정 본문과 각 마커의 이미지 스펙을 반환한다.
+완성된 글 본문을 분석해, 이미지가 독자 이해에 도움될 "자리"와 "이미지 스펙"만 반환한다.
+⚠️ 본문을 다시 쓰지 않는다. 마커 삽입은 시스템(코드)이 positionHint를 보고 처리한다.
+당신은 각 이미지가 "어느 문단 뒤에 와야 하는지"를 positionHint로만 알려주면 된다.
 
 출력 형식 — 반드시 아래 JSON 코드 블록만 반환한다:
 \`\`\`json
 {
-  "bodyMarkdown": "마커가 삽입된 수정 본문(마크다운 문자열 그대로)",
   "items": [
     {
       "key": "planned-0",
       "kind": "ai_diagram",
       "diagramPrompt": "도식 생성 지시문",
-      "positionHint": "이 이미지 앞 문단 핵심 텍스트(선택)"
+      "positionHint": "이 이미지가 들어갈 문단의 마지막 문장을 본문에서 그대로 20~40자 복사"
     }
   ]
 }
 \`\`\`
+
+positionHint 규칙 — 반드시 준수(마커 위치 정확도의 핵심):
+- 이미지가 들어갈 문단의 실제 텍스트 일부(마지막 문장 등)를 본문에서 "그대로" 복사한다.
+- 요약·의역·창작 금지. 본문에 없는 문구를 쓰면 코드가 위치를 못 찾아 자리가 어긋난다.
+- 서로 다른 이미지는 서로 다른 문단을 가리키게 한다(한 문단에 몰지 않는다).
 
 kind 선택 규칙:
 - "ai_diagram" : AI로 이미지를 직접 생성 → 기본 선택. (이름은 diagram이지만 실사 장면·상징 일러스트·도식 모두 이 kind로 생성한다)
@@ -137,15 +143,12 @@ AI 이미지(ai_diagram) 스타일 규칙 — 반드시 준수:
 - 글이 짧거나 설명이 단순하면 items를 빈 배열([])로 반환한다(0개 정상).
 - 억지로 이미지를 끼워 넣지 않는다.
 
-마커 삽입 위치:
-- 해당 내용을 설명하는 문단 끝에 [[IMG:planned-N]]을 한 줄로 삽입한다.
-- N은 0부터 시작한다.
+key 규칙:
+- key는 "planned-0", "planned-1", ... 로 0부터 순서대로 매긴다.
 
-본문 보존 규칙 — 반드시 준수:
-- bodyMarkdown은 입력 본문을 "글자 그대로" 유지하고, 마커만 추가한다.
-  문장을 다시 쓰거나 요약·삭제·합치지 않는다.
-- 문단과 문단 사이의 빈 줄(빈 줄 하나)을 그대로 보존한다. 문단을 붙여 쓰지 않는다.
-- ## 소제목, 목록, 코드블록 등 원문의 구조를 그대로 둔다.`;
+⚠️ 절대 금지:
+- 본문 전체를 다시 출력하지 않는다(bodyMarkdown 필드 없음). items만 반환한다.
+- 마커([[IMG:...]])를 직접 본문에 넣지 않는다. 코드가 positionHint로 넣는다.`;
 
 /**
  * 창의 모드(styleMode='creative') 전용 스타일 지시.
@@ -188,14 +191,15 @@ ${bodyText}
 
 지시:
 1. 본문을 읽고 이미지가 독자 이해에 도움될 자리를 최대 ${maxImages}개 찾는다.
-   이미지가 필요 없으면 items는 빈 배열, bodyMarkdown은 원본 그대로 반환한다.
-2. 찾은 자리에 [[IMG:planned-0]], [[IMG:planned-1]], ... 마커를 삽입한 수정 본문을 만든다.
-3. 각 마커의 kind와 이미지 스펙을 JSON으로 반환한다.
+   이미지가 필요 없으면 items를 빈 배열([])로 반환한다.
+2. 각 이미지의 positionHint에는 "그 이미지가 들어갈 문단의 마지막 문장"을 본문에서
+   그대로 20~40자 복사한다(요약·창작 금지 — 코드가 이 텍스트로 위치를 찾는다).
+3. 각 이미지의 kind와 스펙을 JSON items로 반환한다(본문은 다시 쓰지 않는다).
    ai_diagram: diagramPrompt를 시스템 규칙(실사·상징 우선, 도식은 예외·미니멀)에 맞춰 작성.
                글자 없는 이미지가 기본. 도식에 라벨이 꼭 필요할 때만 짧은 한국어 단어를 쌍따옴표로.
    stock/web : searchQuery에 검색어 입력.
 
-반드시 JSON 코드 블록으로만 응답한다.`;
+반드시 items만 담은 JSON 코드 블록으로 응답한다.`;
 }
 
 // ── LLM 응답 파싱 ─────────────────────────────────────────────────────────────
@@ -208,15 +212,17 @@ ${bodyText}
  * - maxImages 초과 항목은 잘라낸다
  * - 파싱 실패 시 { bodyWithMarkers: originalBody, items: [] } 반환(게시 차단 금지)
  *
+ * bodyWithMarkers는 LLM이 준 본문이 아니라, 코드가 originalBody에 items의
+ * positionHint를 기준으로 [[IMG:key]] 마커를 결정적으로 삽입해 만든다(B안).
+ * → LLM이 마커를 빠뜨려 이미지가 유실되던 근본 원인을 제거한다.
+ *
  * @param responseText       LLM 응답 텍스트
- * @param originalBody       파싱 실패 시 폴백할 원본 Tiptap JSON
- * @param markdownToTiptapFn 마크다운→Tiptap 변환 함수 (post-pipeline 주입)
+ * @param originalBody       마커를 삽입할 원본 Tiptap JSON(파싱 실패 시 그대로 폴백)
  * @param maxImages          최대 이미지 수 (초과 항목 잘라내기)
  */
 export function parsePlannerResponse(
   responseText: string,
   originalBody: Record<string, unknown>,
-  markdownToTiptapFn?: (markdown: string) => Record<string, unknown>,
   maxImages?: number,
 ): { bodyWithMarkers: Record<string, unknown>; items: ImagePlanItem[] } {
   const emptyResult = { bodyWithMarkers: originalBody, items: [] as ImagePlanItem[] };
@@ -267,21 +273,10 @@ export function parsePlannerResponse(
         return item;
       });
 
-    // bodyMarkdown → Tiptap JSON 변환
-    let bodyWithMarkers: Record<string, unknown> = originalBody;
-    if (typeof parsed.bodyMarkdown === 'string' && parsed.bodyMarkdown.trim()) {
-      if (markdownToTiptapFn) {
-        bodyWithMarkers = markdownToTiptapFn(parsed.bodyMarkdown);
-      } else {
-        // 주입 함수 없음 → 단순 paragraph 1개 doc
-        bodyWithMarkers = {
-          type: 'doc',
-          content: [
-            { type: 'paragraph', content: [{ type: 'text', text: parsed.bodyMarkdown }] },
-          ],
-        };
-      }
-    }
+    // 마커는 코드가 결정적으로 삽입한다(LLM의 bodyMarkdown에 의존하지 않음).
+    // items가 있으면 positionHint를 기준으로 originalBody에 [[IMG:key]]를 꽂는다.
+    const bodyWithMarkers =
+      items.length > 0 ? insertPlanMarkers(originalBody, items) : originalBody;
 
     return { bodyWithMarkers, items };
   } catch {
@@ -313,7 +308,6 @@ export async function planImagesForPost(
   opts?: PlanImagesOptions,
 ): Promise<PostImagePlan> {
   const maxImages = opts?.maxImages ?? 3;
-  const markdownToTiptapFn = opts?.markdownToTiptapFn;
   // 창의 모드면 시스템 프롬프트에 예술 이미지 지시를 덧붙여 실사·도식 규칙을 대체한다.
   const systemPrompt =
     opts?.styleMode === 'creative'
@@ -334,17 +328,17 @@ export async function planImagesForPost(
     const response = await callModelFn(modelAssignment, {
       system: systemPrompt,
       user: userPrompt,
-      // 플래너는 마커를 삽입한 "본문 전체(bodyMarkdown)"를 통째로 다시 출력해야 하므로
-      // 상한이 본문보다 작으면 응답이 잘려 JSON 파싱이 실패하고 items=[]로 떨어진다
-      // (이미지 누락 원인). 본문 생성 상한(최대 5500)보다 크게 잡는다.
-      maxTokens: 7000,
+      // B안: 이제 본문을 다시 출력시키지 않고 items(위치 힌트 포함)만 받으므로 실제 출력은 짧다.
+      // 다만 추론형 모델(GPT-5 계열)은 추론 토큰이 출력 예산을 먹어 상한이 너무 낮으면
+      // 빈 응답이 나올 수 있으므로(=items 유실) 넉넉히 잡는다. 마커 삽입은 코드가 하므로
+      // 본문 길이와는 무관하다.
+      maxTokens: 5000,
     });
 
-    // 4. 응답 파싱
+    // 4. 응답 파싱 — bodyWithMarkers는 parse 내부에서 코드가 결정적으로 생성한다.
     const { bodyWithMarkers, items } = parsePlannerResponse(
       response.text,
       body,
-      markdownToTiptapFn,
       maxImages,
     );
 

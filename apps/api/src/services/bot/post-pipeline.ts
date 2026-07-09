@@ -73,7 +73,7 @@ import {
   type BoardCurationConfig,
 } from "./curation.js";
 import { uploadImage } from "../../services/storage/index.js";
-import { runContentGuard } from "../../middleware/contentGuard.js";
+import { guardBotContentWithMasking } from "../../middleware/contentGuard.js";
 import {
   createPostAsBot,
   createQuestionAsBot,
@@ -86,6 +86,7 @@ import {
   getDiscoveryQuery,
   isSearchDrivenTopicsEnabled,
   getRecentTopicTitles,
+  recordPublishedTopic,
 } from "./topic.js";
 import type { BotTopicRow } from "./topic.js";
 import { runSelfCensor } from "./censor.js";
@@ -383,6 +384,7 @@ export async function runPostPipeline(
       status: "unused",
       usedAt: null,
       seriesGroup: null,
+      postId: null,
       createdAt: new Date(),
     };
     topicResult = { topic: videoTopic, wasRealtime: true };
@@ -397,6 +399,7 @@ export async function runPostPipeline(
       status: "unused",
       usedAt: null,
       seriesGroup: null,
+      postId: null,
       createdAt: new Date(),
     };
     topicResult = { topic: memeTopic, wasRealtime: true };
@@ -410,6 +413,7 @@ export async function runPostPipeline(
       status: "unused",
       usedAt: null,
       seriesGroup: null,
+      postId: null,
       createdAt: new Date(),
     };
     topicResult = { topic: syntheticTopic, wasRealtime: true };
@@ -657,7 +661,12 @@ export async function runPostPipeline(
 
     // ── 분기 처리 ────────────────────────────────────────────────────────────
 
-    if (censorResult.overall === "pass") {
+    // 검열 결과가 fail이 아니면(pass·ambiguous) 미디어(이미지·유튜브 영상)를 삽입한다.
+    // 예전에는 미디어 삽입이 pass 분기 안에만 있어, ambiguous(보류)로 빠진 글은
+    // 미디어 삽입 전 원본만 저장 → 관리자가 통과시켜도 이미지·영상이 통째로 유실됐다.
+    // 이제 보류 글도 통과 글과 동일한 본문(finalContentJson)을 보관하므로 검수 후에도
+    // 미디어가 살아있다. (fail은 재생성 루프라 비용 절약 위해 미디어 삽입을 건너뛴다.)
+    if (censorResult.overall !== "fail") {
       // ── 이미지 처리 ────────────────────────────────────────────────────────────
       let imageCost = 0;
       let finalContentJson: Record<string, unknown>;
@@ -885,8 +894,13 @@ export async function runPostPipeline(
         })
         .where(eq(schema.botGenerationJobs.id, jobId));
 
-      // contentGuard 검사
-      const guardResult = await runContentGuard(draftText);
+      // contentGuard: 스팸 링크는 차단, 금칙어는 마스킹(사용자 경로와 동일 정책).
+      // finalContentJson·postTitle을 in-place로 가리고 마스킹된 제목을 받는다.
+      const guardResult = await guardBotContentWithMasking({
+        text: `${postTitle} ${draftText}`,
+        doc: finalContentJson,
+        title: postTitle,
+      });
       if (!guardResult.ok) {
         await db
           .update(schema.botGenerationJobs)
@@ -899,8 +913,34 @@ export async function runPostPipeline(
         break;
       }
 
-      // 게시 함수 분기 (#6 정합) — 제목은 위에서 확정한 postTitle 재사용(항상 비어있지 않음)
-      const title = postTitle;
+      // 금칙어 마스킹이 반영된 제목 사용(항상 비어있지 않음)
+      const title = guardResult.title;
+
+      // ── 검열 애매(ambiguous) → 보류 큐 적재 ──────────────────────────────────
+      // 미디어(이미지·유튜브 영상)가 삽입된 finalContentJson을 draft_content 봉투에
+      // 저장한다. 관리자가 보류 큐에서 통과시키면 이 본문이 그대로 게시되므로
+      // 검수 후에도 이미지·영상이 살아있다(예전엔 미디어 삽입 전 원본만 저장돼 유실).
+      if (censorResult.overall === "ambiguous") {
+        await db
+          .update(schema.botGenerationJobs)
+          .set({
+            draftContent: { board, title, contentJson: finalContentJson },
+            status: "held",
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.botGenerationJobs.id, jobId));
+        await db.insert(schema.botHoldQueue).values({
+          jobId,
+          reason: "ambiguous",
+          decided: false,
+        });
+        await logActivity(db, personaId, "held", jobId, { censorResult });
+        pipelineResult = { status: "held", jobId };
+        break;
+      }
+
+      // ── 검열 통과(pass) → 게시 ───────────────────────────────────────────────
+      // 게시 함수 분기 (#6 정합)
       const tags = topicResult.topic.titleSeed
         .split(/\s+/)
         .filter((w) => w.length > 1)
@@ -960,19 +1000,22 @@ export async function runPostPipeline(
         jobId,
         postId: writeResult.refId,
       };
-    } else if (censorResult.overall === "ambiguous") {
-      // HELD → bot_hold_queue INSERT
-      await db.insert(schema.botHoldQueue).values({
-        jobId,
-        reason: "ambiguous",
-        decided: false,
-      });
-      await db
-        .update(schema.botGenerationJobs)
-        .set({ status: "held", updatedAt: new Date() })
-        .where(eq(schema.botGenerationJobs.id, jobId));
-      await logActivity(db, personaId, "held", jobId, { censorResult });
-      pipelineResult = { status: "held", jobId };
+
+      // 발굴·실시간·큐레이션 주제(DB에 없는 임시 주제)로 게시에 성공했으면
+      // 그 주제를 bot_topics에 기록한다 → 다음 발굴이 같은 주제를 피한다(중복 방지).
+      // 게시글 영구삭제 시 이 기록도 함께 지워져(purgePost) 같은 주제를 다시 쓸 수 있다.
+      if (
+        writeResult.status === "published" &&
+        writeResult.refId &&
+        topicResult.wasRealtime
+      ) {
+        await recordPublishedTopic(db, {
+          personaId,
+          board,
+          titleSeed: title,
+          postId: writeResult.refId,
+        });
+      }
     } else {
       // FAIL → 부분 수정 재생성 시도.
       // 직전 초안 + 이번에 걸린 항목만 골라 다음 회차 프롬프트에 실어,

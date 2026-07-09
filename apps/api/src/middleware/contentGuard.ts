@@ -188,6 +188,55 @@ export async function runContentGuard(text: string): Promise<ContentGuardResult>
   return { ok: true };
 }
 
+// ── 봇 경로용: 스팸 차단 + 금칙어 마스킹 ──────────────────────────────────────
+
+/**
+ * 봇 생성물 전용 콘텐츠 가드 — 스팸 링크만 하드 차단하고 금칙어는 마스킹한다.
+ *
+ * 사용자 작성 경로(contentGuard preHandler)와 동일한 정책(2026-07: 마스킹 전환)을
+ * 봇 경로에도 적용한다. 종전에는 봇이 금칙어를 포함하면 초안 전체를 blocked 처리해
+ * (실제로는 정상적인 글도) 게시가 막혔다. 이제 스팸이 아니면 금칙어만 '*'로 가리고
+ * 게시를 허용한다.
+ *
+ * doc(Tiptap 문서)는 in-place로 마스킹되고, 마스킹된 title 문자열이 반환된다.
+ *
+ * @returns 스팸이면 { ok:false, code:"SPAM" }, 아니면 { ok:true, title: 마스킹된 제목 }
+ */
+export async function guardBotContentWithMasking(params: {
+  /** 스팸 검사에 쓸 평문(제목+본문 이어붙인 텍스트) */
+  text: string;
+  /** in-place로 금칙어 마스킹할 Tiptap 문서 (선택) */
+  doc?: Record<string, unknown> | null;
+  /** 마스킹 대상 제목 (선택) */
+  title?: string;
+}): Promise<
+  | { ok: true; title: string }
+  | { ok: false; code: "SPAM"; message: string; reason: string }
+> {
+  const { text, doc, title = "" } = params;
+
+  // 스팸 링크는 봇 경로에서도 하드 차단 유지.
+  if (detectSpam(text)) {
+    return {
+      ok: false,
+      code: "SPAM",
+      message: "스팸으로 의심되는 내용입니다.",
+      reason: "spam_pattern",
+    };
+  }
+
+  // 금칙어는 차단하지 않고 마스킹.
+  const forbiddenWords = await getSiteSetting<string[]>("forbidden_words");
+  const wordList = Array.isArray(forbiddenWords) ? forbiddenWords : [];
+  let maskedTitle = title;
+  if (wordList.length > 0) {
+    if (doc) maskTiptapInPlace(doc as TiptapNode, wordList);
+    maskedTitle = maskForbiddenWord(title, wordList);
+  }
+
+  return { ok: true, title: maskedTitle };
+}
+
 // ── preHandler 훅 ────────────────────────────────────────────────────────────
 
 /**

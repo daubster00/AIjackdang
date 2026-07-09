@@ -60,6 +60,7 @@ const mockTopic: BotTopicRow = {
   status: "unused",
   usedAt: null,
   seriesGroup: null,
+  postId: null,
   createdAt: new Date("2026-01-01"),
 };
 
