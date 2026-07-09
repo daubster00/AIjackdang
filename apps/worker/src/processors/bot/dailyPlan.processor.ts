@@ -32,16 +32,29 @@ import { getBotQueue } from "../../queues/bot.js";
 // ── 순수 함수 (exported for unit testing) ────────────────────────────────────
 
 /**
- * 문자열 seed 기반 결정론적 0~1 float (DJB2 해시 변형).
+ * 문자열 seed 기반 결정론적 0~1 float.
  * 동일 seed → 재실행 간 동일 결과 보장.
+ *
+ * ⚠️ 과거 버그: DJB2 해시만 쓰면 애벌런치(avalanche, 입력 한 글자 변화가 출력 전체로
+ * 퍼지는 성질)가 없어, seed 끝 글자만 바뀌면(예: `...-day-2026-07-06` vs `...-07`)
+ * 결과가 소수점 8자리 아래에서만 달라졌다. 그 결과 "날짜별 확률"이 페르소나마다
+ * 고정된 단일 값으로 굳어, 특정 봇이 매일 영구 스킵되는 문제가 있었다.
+ * → DJB2 누산 후 Murmur3 fmix32 마무리 믹싱을 적용해 하위 비트 변화까지
+ *   전 비트로 확산시킨다. (끝 글자만 달라도 출력이 완전히 달라짐)
  */
 export function seededRandom(seed: string): number {
   let hash = 5381;
   for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) + hash) ^ seed.charCodeAt(i);
-    hash = hash & 0xffffffff; // 32-bit 유지
+    hash = (Math.imul(hash, 33) ^ seed.charCodeAt(i)) | 0;
   }
-  return (hash >>> 0) / 0xffffffff;
+  // fmix32 (Murmur3 finalizer) — 완전 확산
+  let h = hash | 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 0xffffffff;
 }
 
 /** 주어진 날짜의 해당 주 월요일 자정 반환 (로컬 자정). */
@@ -66,12 +79,23 @@ export function isDormantThisWeek(personaId: string, date: Date): boolean {
 
 /**
  * 주당 횟수 → 오늘 횟수 변환. ±20% 랜덤 변동 (seed 기반, 재실행 동일 결과). 최솟값 0.
- * `perWeek / 7 × [0.8 ~ 1.2]`
+ * 기대치 `perWeek / 7 × [0.8 ~ 1.2]`.
+ *
+ * ⚠️ 과거 버그: `Math.round(base * mult)` 방식은 소수 기대치를 매일 같은 방향으로
+ * 반올림해, 주 3회(base≈0.43) 봇은 매일 0으로 깎여 사실상 글을 전혀 못 썼다.
+ * → 정수부(floor)는 확정 발행하고, 소수부(frac)는 **확률적 반올림**(독립 seed 롤이
+ *   frac보다 작으면 +1)으로 처리한다. 이렇게 하면 주 3회 봇도 장기적으로 주당 ~3회를
+ *   채운다(일부 날은 0, 일부 날은 1). 애벌런치가 고쳐진 seededRandom과 함께여야
+ *   날짜별로 값이 실제로 달라진다.
  */
 export function calcTodayCount(perWeek: number, seed: string): number {
   const base = perWeek / 7;
   const multiplier = 0.8 + seededRandom(seed) * 0.4; // 0.8 ~ 1.2
-  return Math.max(0, Math.round(base * multiplier));
+  const expected = base * multiplier;
+  const floorCount = Math.floor(expected);
+  const frac = expected - floorCount;
+  const bonus = seededRandom(`${seed}-frac`) < frac ? 1 : 0;
+  return Math.max(0, floorCount + bonus);
 }
 
 /** UTC 기준 Date를 KST "YYYY-MM-DD" 문자열로 변환한다. */
