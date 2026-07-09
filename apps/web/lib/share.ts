@@ -96,7 +96,14 @@ function readPageShareMeta(url: string): {
 /** 카카오톡으로 공유. 성공 true, (키 없음·도메인 미등록·취소 등) 실패 false. */
 async function shareToKakao(meta: ReturnType<typeof readPageShareMeta>): Promise<boolean> {
   const ready = await loadKakao();
-  if (!ready || !window.Kakao?.Share) return false;
+  if (!ready || !window.Kakao?.Share) {
+    // 키 미설정·SDK 로드 실패. 원인 구분을 위해 콘솔에 남긴다.
+    console.warn(
+      "[share] 카카오 공유 사용 불가 → 링크 복사로 폴백.",
+      !KAKAO_JS_KEY ? "NEXT_PUBLIC_KAKAO_JS_KEY 미설정" : "Kakao SDK 로드/초기화 실패",
+    );
+    return false;
+  }
   try {
     window.Kakao.Share.sendDefault({
       objectType: "feed",
@@ -114,7 +121,13 @@ async function shareToKakao(meta: ReturnType<typeof readPageShareMeta>): Promise
       ],
     });
     return true;
-  } catch {
+  } catch (err) {
+    // sendDefault 는 현재 도메인이 카카오 콘솔 플랫폼(Web 사이트 도메인)에 미등록이면 예외를 던진다.
+    console.warn(
+      "[share] 카카오 sendDefault 실패 → 링크 복사로 폴백. " +
+        "카카오 개발자 콘솔 > 플랫폼 > Web 사이트 도메인에 현재 도메인 등록이 필요합니다.",
+      err,
+    );
     return false;
   }
 }
