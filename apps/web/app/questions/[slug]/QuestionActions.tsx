@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
 import { ReportModal } from "../../vibe-coding/[slug]/ReportModal";
+import { openSocialShare } from "@/lib/share";
 import styles from "../questions.module.css";
 
 /** 질문 본문 하단 반응 바: 공유 / 신고 */
@@ -30,7 +31,7 @@ export function QuestionActions({ questionId }: { questionId: string }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [shareOpen]);
 
-  function handleShare(id: string) {
+  async function handleShare(id: string) {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (id === "copy") {
       navigator.clipboard.writeText(url).then(() => {
@@ -39,15 +40,11 @@ export function QuestionActions({ questionId }: { questionId: string }) {
       });
       return;
     }
-    const encodedUrl = encodeURIComponent(url);
-    const shareUrls: Record<string, string> = {
-      kakao:    `https://sharer.kakao.com/talk/friends/picker/link?url=${encodedUrl}`,
-      band:     `https://band.us/plugin/share?body=${encodedUrl}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      twitter:  `https://twitter.com/intent/tweet?url=${encodedUrl}`,
-    };
-    if (shareUrls[id]) {
-      window.open(shareUrls[id], "_blank", "noopener,noreferrer,width=600,height=500");
+    // 카카오가 실패해 링크복사로 폴백되면 복사 피드백을 잠깐 표시.
+    const fellBackToCopy = await openSocialShare(id, url);
+    if (fellBackToCopy) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     }
     setShareOpen(false);
   }
@@ -72,7 +69,7 @@ export function QuestionActions({ questionId }: { questionId: string }) {
                   type="button"
                   className={styles.shareDropdownItem}
                   role="menuitem"
-                  onClick={() => handleShare(opt.id)}
+                  onClick={() => void handleShare(opt.id)}
                 >
                   <span
                     className={styles.shareDropdownIcon}

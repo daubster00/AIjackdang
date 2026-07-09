@@ -6,6 +6,7 @@ import { useGating } from "@/hooks/useGating";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast/Toast";
 import { ReportModal } from "./ReportModal";
+import { openSocialShare } from "@/lib/share";
 import styles from "../lounge.module.css";
 
 const SHARE_OPTIONS = [
@@ -156,14 +157,8 @@ export function ReactionBar({
       }
       return;
     }
-    const encodedUrl = encodeURIComponent(url);
-    const shareUrls: Record<string, string> = {
-      kakao: `https://sharer.kakao.com/talk/friends/picker/link?url=${encodedUrl}`,
-      band: `https://band.us/plugin/share?body=${encodedUrl}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}`,
-    };
-    if (shareUrls[id]) window.open(shareUrls[id], "_blank", "noopener,noreferrer,width=600,height=500");
+    const fellBackToCopy = await openSocialShare(id, url);
+    if (fellBackToCopy) toast({ tone: "success", title: "링크를 복사했어요." });
     setShareOpen(false);
   }
 
