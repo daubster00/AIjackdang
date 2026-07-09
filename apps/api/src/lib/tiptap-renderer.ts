@@ -94,15 +94,18 @@ const EXTENSIONS = [
 
 // ── 봇 콘텐츠 구조 정규화 ───────────────────────────────────────────────────────
 //
-// 봇 이미지 마커 삽입 파이프라인이 남기는 두 가지 구조 결함을 렌더 직전에 정리한다.
-// (실제 사고글: "GPT-5.6 3단계 모델별 프롬프트 설계법" — 소제목 아래 큰 공백 + 이미지마다
-//  직전 문단 꼬리가 통째로 복제된 문단이 붙어 레이아웃이 깨져 보였다.)
+// 봇 이미지 마커 삽입 파이프라인이 남기는 "이미지 뒤 본문 복제 문단" 결함만 렌더 직전에
+// 정리한다. (사고글: "GPT-5.6 3단계 모델별 프롬프트 설계법" — 이미지마다 직전 문단 꼬리가
+//  통째로 복제된 문단이 붙어 같은 문장이 두 번 노출됐다. positionHint 를 caption 으로
+//  저장하던 파이프라인 버그의 흔적.)
 //
-//  ① 헤딩(h1~h4)에 바로 붙은 빈 문단 → 헤딩 자체 여백과 겹쳐 과도한 공백. 제거.
-//  ② 이미지 바로 뒤의 문단이 이미지 alt 텍스트이거나 직전 문단 꼬리의 복제 → 제거.
+//  이미지 바로 뒤의 문단이 이미지 alt 텍스트이거나 직전 문단 꼬리의 복제 → 제거.
 //
+// ⚠️ 빈 문단(빈 줄)은 절대 건드리지 않는다. 사용자의 의도된 간격 장치이기 때문
+//    ([[post-body-blank-line-spacing-and-image-center]] — 엔터2=간격). 문단↔문단은
+//    물론 헤딩 옆·연속 빈 줄도 그대로 보존한다.
 // 읽기 경로에서만 정리하므로 DB 마이그레이션 없이 기존 글까지 즉시 반영된다.
-// 사람 작성 글은 ②의 "복제" 조건에 걸리지 않으므로 안전하다(일반 빈 줄 간격은 보존).
+// 사람 작성 글은 "복제" 조건에 걸리지 않으므로 안전하다.
 
 /** 노드에서 순수 텍스트만 추출(inline text 연결). */
 function extractNodeText(node: JSONContent | undefined): string {
@@ -119,14 +122,10 @@ function normalizeText(s: string): string {
   return s.replace(/\s+/g, "").toLowerCase();
 }
 
-/** 텍스트가 비어 있는 문단인가. */
-function isEmptyParagraph(node: JSONContent | undefined): boolean {
-  return !!node && node.type === "paragraph" && normalizeText(extractNodeText(node)) === "";
-}
-
 /**
- * 봇 콘텐츠 구조 결함(헤딩 인접 빈 문단·이미지 뒤 중복 문단)을 정리한 새 doc 을 반환한다.
+ * 이미지 뒤 본문 복제 문단만 제거한 새 doc 을 반환한다.
  * 최상위 content 배열만 순회하며, 유지할 노드를 새 배열로 재구성한다(원본 불변).
+ * 빈 문단(빈 줄)은 어떤 경우에도 제거하지 않는다.
  */
 function normalizeBotContentDoc(doc: JSONContent): JSONContent {
   if (!Array.isArray(doc.content)) return doc;
@@ -136,18 +135,8 @@ function normalizeBotContentDoc(doc: JSONContent): JSONContent {
   for (let i = 0; i < src.length; i++) {
     const node = src[i];
     const prev = out[out.length - 1];
-    const next = src[i + 1];
 
-    // ① 헤딩에 바로 인접한(앞·뒤) 빈 문단 제거 + 연속 빈 문단 축약.
-    if (isEmptyParagraph(node)) {
-      if (prev?.type === "heading") continue;
-      if (next?.type === "heading") continue;
-      if (isEmptyParagraph(prev)) continue;
-      out.push(node);
-      continue;
-    }
-
-    // ② 이미지 바로 뒤의 중복 문단 제거.
+    // 이미지 바로 뒤의 중복 문단 제거.
     if (node.type === "paragraph" && prev?.type === "image") {
       const pText = normalizeText(extractNodeText(node));
       const altText = normalizeText(

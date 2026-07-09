@@ -1,10 +1,10 @@
 /**
  * tiptapJsonToHtml 봇 콘텐츠 구조 정규화 단위 테스트.
  *
- * 실제 사고글("GPT-5.6 3단계 모델별 프롬프트 설계법")의 저장 구조를 재현한다:
- *  - 소제목(heading) 바로 뒤/앞의 빈 문단 → 제거
+ * 정규화는 "이미지 뒤 본문 복제 문단" 하나만 제거한다.
  *  - 이미지 바로 뒤의 중복 문단(직전 문단 꼬리·alt 복제) → 제거
- *  - 사람 작성 글의 정상 캡션/빈 줄은 보존
+ *  - 빈 문단(빈 줄)은 어떤 위치에서도 보존(사용자의 의도된 간격 장치)
+ *  - 사람 작성 글의 정상 캡션은 보존
  */
 
 import { describe, expect, it } from "vitest";
@@ -26,21 +26,6 @@ function doc(content: Record<string, unknown>[]): Record<string, unknown> {
 }
 
 describe("tiptapJsonToHtml — 봇 콘텐츠 구조 정규화", () => {
-  it("소제목 바로 뒤의 빈 문단을 제거한다", () => {
-    const html = tiptapJsonToHtml(doc([h(2, "도입"), p(""), p("본문입니다.")]));
-    expect(html).not.toContain("<p></p>");
-    expect(html).toContain("<h2>도입</h2>");
-    expect(html).toContain("본문입니다.");
-    // 헤딩 바로 뒤에 본문이 오도록 빈 문단이 사라짐
-    expect(html.indexOf("도입")).toBeLessThan(html.indexOf("본문입니다."));
-  });
-
-  it("소제목 바로 앞의 빈 문단도 제거한다", () => {
-    const html = tiptapJsonToHtml(doc([p("앞 문단"), p(""), h(2, "다음 절")]));
-    expect(html).not.toContain("<p></p>");
-    expect(html).toContain("<h2>다음 절</h2>");
-  });
-
   it("이미지 뒤에 붙은 alt 복제 문단을 제거한다", () => {
     const dupText = "검증 강도를 다르게 지정해야 할 때 바로 복사해 사용할 수 있습니다.";
     const html = tiptapJsonToHtml(
@@ -69,9 +54,19 @@ describe("tiptapJsonToHtml — 봇 콘텐츠 구조 정규화", () => {
     expect(html).toContain("출처: 내부 자료");
   });
 
-  it("헤딩과 무관한 일반 빈 줄(문단 사이)은 보존한다", () => {
-    const html = tiptapJsonToHtml(doc([p("첫 문단"), p(""), p("둘째 문단")]));
-    expect(html).toContain("<p></p>");
+  it("소제목 뒤/앞의 빈 줄을 절대 제거하지 않는다(의도된 간격 보존)", () => {
+    const html = tiptapJsonToHtml(
+      doc([p("앞 문단"), p(""), h(2, "다음 절"), p(""), p("본문")]),
+    );
+    // 헤딩 앞·뒤 빈 문단이 그대로 남는다
+    expect(html).toContain("<p></p><h2>다음 절</h2>");
+    expect(html).toContain("<h2>다음 절</h2><p></p>");
+  });
+
+  it("문단 사이 일반 빈 줄과 연속 빈 줄을 모두 보존한다", () => {
+    const html = tiptapJsonToHtml(doc([p("첫 문단"), p(""), p(""), p("둘째 문단")]));
+    // 연속 빈 줄도 축약하지 않고 2개 그대로
+    expect((html.match(/<p><\/p>/g) ?? []).length).toBe(2);
   });
 
   it("잘못된 입력은 빈 문자열을 반환한다", () => {
