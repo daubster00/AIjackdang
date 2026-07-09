@@ -91,6 +91,10 @@ export const adminResourceDetailSchema = adminResourceItemSchema.extend({
   descriptionJson: z.unknown(),
   usageJson: z.unknown(),
   cautionJson: z.unknown().nullable(),
+  /** 서버 렌더 본문 HTML(이미지·영상·코드블록 포함) — 관리자 상세에서 그대로 표시 */
+  descriptionHtml: z.string(),
+  usageHtml: z.string(),
+  cautionHtml: z.string().nullable(),
   environment: z.array(z.string()),
   version: z.string().nullable(),
   referenceLinks: z.unknown().nullable(),

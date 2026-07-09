@@ -437,6 +437,69 @@ export default function ResourceDetailPage({
             </div>
           </article>
 
+          {/* 본문 (설명 · 사용법 · 주의사항) — 이미지·영상·코드블록 포함 */}
+          <article className="card" style={{ marginBottom: 24 }}>
+            <div className="card-body">
+              <div className="section-heading" style={{ margin: "0 0 12px" }}>
+                <h2 className="section-title">자료 설명</h2>
+              </div>
+              {resource.descriptionHtml ? (
+                <div
+                  className="admin-post-body"
+                  dangerouslySetInnerHTML={{ __html: resource.descriptionHtml }}
+                />
+              ) : (
+                <p style={{ color: "var(--gray-400)" }}>(설명 없음)</p>
+              )}
+
+              <div className="section-heading" style={{ margin: "24px 0 12px" }}>
+                <h2 className="section-title">사용법</h2>
+              </div>
+              {resource.usageHtml ? (
+                <div
+                  className="admin-post-body"
+                  dangerouslySetInnerHTML={{ __html: resource.usageHtml }}
+                />
+              ) : (
+                <p style={{ color: "var(--gray-400)" }}>(사용법 없음)</p>
+              )}
+
+              {resource.cautionHtml && (
+                <>
+                  <div className="section-heading" style={{ margin: "24px 0 12px" }}>
+                    <h2 className="section-title">주의사항</h2>
+                  </div>
+                  <div
+                    className="admin-post-body"
+                    dangerouslySetInnerHTML={{ __html: resource.cautionHtml }}
+                  />
+                </>
+              )}
+
+              {Array.isArray(resource.referenceLinks) && resource.referenceLinks.length > 0 && (
+                <>
+                  <div className="section-heading" style={{ margin: "24px 0 12px" }}>
+                    <h2 className="section-title">참고 링크</h2>
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {(resource.referenceLinks as { label?: string; url: string }[]).map((link, i) => (
+                      <li key={i} style={{ marginBottom: 4 }}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "var(--primary-600)" }}
+                        >
+                          {link.label || link.url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </article>
+
           {/* 첨부파일 목록 */}
           <div className="section-heading" style={{ margin: "0 0 12px" }}>
             <div>

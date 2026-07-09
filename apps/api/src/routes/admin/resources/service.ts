@@ -16,6 +16,22 @@ import { resources, resourceFiles, users } from "@ai-jakdang/database/schema";
 import { comments } from "@ai-jakdang/database/schema";
 import { eq, and, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminResourcesQuery } from "@ai-jakdang/contracts/admin/resources";
+import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
+import { sanitizeHtml } from "../../../lib/sanitize.js";
+
+/**
+ * 자료 본문(설명/사용법/주의사항 Tiptap JSON)을 렌더 가능한 HTML 로 변환한다.
+ * - LightEditor 래퍼 `{ html: "..." }` 이면 새니타이즈만 적용.
+ * - 표준 Tiptap JSON 이면 tiptapJsonToHtml(이미지·유튜브·코드블록 포함) 사용.
+ * (웹 상세와 동일하게 서버에서 변환해 이미지/영상이 관리자에서도 보이도록 함)
+ */
+function renderContentHtml(contentJson: unknown): string {
+  if (contentJson && typeof contentJson === "object") {
+    const obj = contentJson as Record<string, unknown>;
+    if (typeof obj.html === "string") return sanitizeHtml(obj.html);
+  }
+  return tiptapJsonToHtml(contentJson);
+}
 
 type AdminResourceWriteInput = {
   title: string;
@@ -270,6 +286,10 @@ export async function getResourceDetail(id: string) {
   return {
     ...row,
     avgRating: String(row.avgRating),
+    // 웹 상세와 동일하게 본문을 서버 렌더 HTML 로 내려 이미지·영상이 관리자에서도 보이게 함.
+    descriptionHtml: renderContentHtml(row.descriptionJson),
+    usageHtml: renderContentHtml(row.usageJson),
+    cautionHtml: row.cautionJson ? renderContentHtml(row.cautionJson) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
