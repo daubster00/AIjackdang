@@ -16,6 +16,7 @@ import type { RankTier } from "@/lib/ranks";
 import { ProfileInteraction } from "./ProfileInteraction";
 import { FeaturedPostsPanel } from "./FeaturedPostsPanel";
 import { resolveAvatarUrl } from "@/lib/avatar";
+import { romanizeNickname } from "@/lib/romanize";
 import styles from "./profile.module.css";
 
 /** API 내부 URL. SSR 서버 컴포넌트에서 절대 경로로 fetch. */
@@ -210,6 +211,12 @@ export default async function UserProfilePage({
         ) : (
           <div className={styles.bannerPlaceholder} aria-hidden="true" />
         )}
+        {/* 배경 이미지와 글자 사이 30% 검정 막 */}
+        <div className={styles.bannerOverlay} aria-hidden="true" />
+        {/* 배너 정중앙 — 닉네임을 영문(로마자)으로 Ballet 폰트 표기 */}
+        <div className={styles.bannerNameWrap}>
+          <span className={styles.bannerName}>{romanizeNickname(profile.nickname)}</span>
+        </div>
       </div>
 
       <div className={styles.headerWrap}>

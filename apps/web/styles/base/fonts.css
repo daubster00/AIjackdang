@@ -4,3 +4,6 @@
  * Remix Icon 은 remixicon 패키지에서 layout.tsx 가 import 한다.
  * =========================================================================== */
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+
+/* Ballet — 공개 프로필 배너(/u/[nickname]) 중앙에 닉네임을 필기체로 표기할 때 사용 */
+@import url("https://fonts.googleapis.com/css2?family=Ballet&display=swap");
