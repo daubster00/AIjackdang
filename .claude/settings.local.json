@@ -18,7 +18,9 @@
       "WebFetch(domain:www.make.com)",
       "WebFetch(domain:cursor.com)",
       "WebFetch(domain:help.make.com)",
-      "Skill(claude-api)"
+      "Skill(claude-api)",
+      "Bash(git commit *)",
+      "Bash(rm -f .git/COMMIT_MSG_TMP.txt)"
     ]
   },
   "hooks": {
