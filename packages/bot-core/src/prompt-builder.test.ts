@@ -294,3 +294,41 @@ describe("buildTopicRefillPrompt", () => {
     expect(prompt).toContain('["주제1", "주제2"');
   });
 });
+
+// ── 실전자료(resource:<유형>) 전용 프롬프트 ─────────────────────────────────────
+
+describe("buildPostUserPrompt — 실전자료(resource) 유형", () => {
+  it("board가 resource:prompt면 방법론 에세이가 아니라 복붙 산출물 중심 지침을 낸다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "블로그 글 초안 프롬프트",
+      facts: mockFacts,
+      board: "resource:prompt",
+      postKind: "guide",
+    });
+    expect(prompt).toContain("실전자료 작성 지침");
+    expect(prompt).toContain("프롬프트");
+    // 복붙 산출물을 코드블록에 넣으라는 핵심 지시
+    expect(prompt).toContain("코드블록");
+    expect(prompt).toContain("복사");
+    // 일반 가이드의 "## 목차" 강제가 아니어야 한다(자료는 목차 에세이가 아님)
+    expect(prompt).not.toContain("## 목차를 생성");
+  });
+
+  it("유형별로 산출물 설명이 달라진다 (mcp vs template-checklist)", () => {
+    const mcp = buildPostUserPrompt({
+      titleSeed: "t",
+      facts: emptyFacts,
+      board: "resource:mcp",
+      postKind: "guide",
+    });
+    const tpl = buildPostUserPrompt({
+      titleSeed: "t",
+      facts: emptyFacts,
+      board: "resource:template-checklist",
+      postKind: "guide",
+    });
+    expect(mcp).toContain("MCP 서버");
+    expect(tpl).toContain("템플릿");
+    expect(mcp).not.toBe(tpl);
+  });
+});

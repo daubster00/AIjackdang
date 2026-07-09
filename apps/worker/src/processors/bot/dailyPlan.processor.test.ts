@@ -51,6 +51,7 @@ import {
   calcTodayCount,
   toKSTDateKey,
   weightedBoardPick,
+  resolveWriteBoard,
   pickDelayMs,
   getMonday,
 } from "./dailyPlan.processor.js";
@@ -305,6 +306,31 @@ describe("weightedBoardPick", () => {
     }
     // heavy가 light보다 훨씬 많아야 함
     expect(counts.heavy).toBeGreaterThan(counts.light);
+  });
+});
+
+describe("resolveWriteBoard (실전자료 유형 접두사 확장)", () => {
+  it("resource 이외의 board는 그대로 반환한다", () => {
+    expect(resolveWriteBoard("talk", "seed")).toBe("talk");
+    expect(resolveWriteBoard("automation-guide", "seed")).toBe("automation-guide");
+    // 이미 유형이 붙은 값은 resource !== "resource" 이므로 그대로 둔다
+    expect(resolveWriteBoard("resource:prompt", "seed")).toBe("resource:prompt");
+  });
+
+  it("board가 정확히 'resource'면 resource:<유형>으로 확장한다", () => {
+    const out = resolveWriteBoard("resource", "seed-x");
+    expect(out.startsWith("resource:")).toBe(true);
+    expect([
+      "resource:prompt",
+      "resource:claude-code-skill",
+      "resource:mcp",
+      "resource:rules-config",
+      "resource:template-checklist",
+    ]).toContain(out);
+  });
+
+  it("같은 seed면 결정론적으로 같은 유형을 고른다", () => {
+    expect(resolveWriteBoard("resource", "same")).toBe(resolveWriteBoard("resource", "same"));
   });
 });
 

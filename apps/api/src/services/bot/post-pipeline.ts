@@ -63,6 +63,7 @@ import type {
   FactSummary,
   RevisionContext,
   SeriesContext,
+  TiptapNode,
 } from "@ai-jakdang/bot-core";
 import {
   decideCurationMode,
@@ -969,11 +970,18 @@ export async function runPostPipeline(
           | "mcp"
           | "rules-config"
           | "template-checklist";
+        // 요약: 검색 사실 조각(facts[0])이 아니라 실제 본문 도입부에서 뽑는다.
+        // (자료설명 본문 = descriptionJson. 첫 문단이 "이 자료가 무엇인지" 도입이다.)
+        const bodyText = extractTextFromTiptap(
+          finalContentJson as unknown as TiptapNode,
+        ).trim();
+        const resourceSummary =
+          (bodyText ? bodyText.slice(0, 150) : "") || facts.facts[0] || title;
         writeResult = await createResourceAsBot({
           ...common,
           resourceInput: {
             title,
-            summary: facts.facts[0] ?? title,
+            summary: resourceSummary,
             resourceType,
             environment: [],
             difficulty: "beginner",

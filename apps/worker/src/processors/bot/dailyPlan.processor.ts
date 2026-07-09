@@ -124,6 +124,41 @@ export function weightedBoardPick(
 }
 
 /**
+ * 실전자료(resource) 담당 게시판 슬러그를 실제 파이프라인 board 파라미터로 확장한다.
+ *
+ * bot_persona_boards에는 담당 게시판이 접두사 없는 "resource"(실전자료)로 저장되지만,
+ * runPostPipeline(글 생성 파이프라인)은 board가 "resource:<유형>" 형태여야
+ * 실전자료 작성 경로(createResourceAsBot → resources 도메인)로 라우팅한다.
+ * 접두사가 없으면 board.startsWith("resource:") 판정이 false라 jobKind='post'(일반 게시글)로
+ * 처리돼, 실전자료가 아니라 존재하지 않는 board="resource"에 잡담글을 쓰려다 어긋난다.
+ *
+ * (자동 스케줄러가 이 확장을 하지 않던 잠재 갭 — 수동 트리거로 "resource:prompt"를 직접
+ *  넣었을 때만 정상 동작했다. 이 헬퍼로 자동 경로도 유형을 골라 접두사를 붙인다.)
+ *
+ * 유형은 seed 기반 가중치 랜덤으로 결정론적으로 고른다(같은 날·같은 인덱스면 동일 결과).
+ * resource 이외의 board는 그대로 반환한다.
+ */
+const RESOURCE_TYPE_WEIGHTS: ReadonlyArray<{ type: string; weight: number }> = [
+  { type: "prompt", weight: 40 }, // 프롬프트 자료 (가장 흔하고 수요 큼)
+  { type: "claude-code-skill", weight: 15 }, // Claude Code 스킬
+  { type: "mcp", weight: 15 }, // MCP 서버
+  { type: "rules-config", weight: 15 }, // 규칙·설정 파일
+  { type: "template-checklist", weight: 15 }, // 템플릿·체크리스트
+];
+
+export function resolveWriteBoard(board: string, seed: string): string {
+  if (board !== "resource") return board;
+  const total = RESOURCE_TYPE_WEIGHTS.reduce((sum, t) => sum + t.weight, 0);
+  const target = seededRandom(seed) * total;
+  let cumulative = 0;
+  for (const t of RESOURCE_TYPE_WEIGHTS) {
+    cumulative += t.weight;
+    if (target < cumulative) return `resource:${t.type}`;
+  }
+  return `resource:${RESOURCE_TYPE_WEIGHTS[RESOURCE_TYPE_WEIGHTS.length - 1]!.type}`;
+}
+
+/**
  * `active_hours` 윈도우 내 KST 랜덤 시각 → 현재 시각 기준 ms delay.
  *
  * - `Math.random()` 사용 (delay는 재실행 간 달라져도 됨. 멱등은 jobId가 보장).
@@ -317,9 +352,10 @@ export async function dailyPlanProcessor(
     // ── 5. bot.write 잡 enqueue ──────────────────────────────────────────────
     for (let i = 0; i < postsToday; i++) {
       const delay = pickDelayMs(activeHours, i, today);
-      const targetBoard = weightedBoardPick(
-        personaBoards,
-        `${persona.id}-board-write-${dateKey}-${i}`,
+      // 담당 게시판 가중치 선택 → 실전자료(resource)면 유형 접두사 확장(resource:<유형>).
+      const targetBoard = resolveWriteBoard(
+        weightedBoardPick(personaBoards, `${persona.id}-board-write-${dateKey}-${i}`),
+        `${persona.id}-restype-write-${dateKey}-${i}`,
       );
       await botQueue.add(
         "bot.write",

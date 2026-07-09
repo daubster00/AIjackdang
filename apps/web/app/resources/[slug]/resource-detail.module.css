@@ -346,6 +346,99 @@
   line-height: 1.9;
 }
 
+/*
+ * 봇/에디터 본문 간격 보정 — 게시판 본문 렌더러(CodeBlockCopyButton.module.css)와 동일 기준.
+ * 이 규칙들이 없어 실전자료 상세에서 소제목·문단·빈 줄이 전부 붙어 보였다.
+ */
+
+/* 빈 문단(빈 줄) 보정: 서버 렌더는 <p></p>라 높이 0으로 붕괴 → 최소 높이로 빈 줄을 살린다. */
+.richContent > p:empty {
+  min-height: 1.35em;
+}
+
+/* 소제목은 앞 문단과 구분되도록 위쪽으로 넉넉히 띄운다. */
+.richContent > h1,
+.richContent > h2,
+.richContent > h3,
+.richContent > h4 {
+  margin-block: var(--space-6) var(--space-3);
+}
+.richContent > h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+}
+.richContent > h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+
+/* 본문 이미지: 블록 이미지 가운데 정렬 + 위아래 여백. 에디터 정렬은 text-align → margin 변환. */
+.richContent > img,
+.richContent > figure {
+  display: block;
+  margin-block: var(--space-5);
+  margin-inline: auto;
+}
+.richContent > img[style*="text-align:left"],
+.richContent > img[style*="text-align: left"] {
+  margin-left: 0;
+  margin-right: auto;
+}
+.richContent > img[style*="text-align:right"],
+.richContent > img[style*="text-align: right"] {
+  margin-left: auto;
+  margin-right: 0;
+}
+.richContent > img[style*="text-align:center"],
+.richContent > img[style*="text-align: center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 캡션 문단(<p class="caption">) — 이미지 설명·출처. 작고 흐린 글씨. */
+.richContent > p.caption {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-sub);
+  line-height: var(--line-height-snug);
+  margin-block: var(--space-1) var(--space-3);
+}
+
+/* 첫/마지막 블록 바깥 여백 제거(카드 패딩과 겹침 방지). */
+.richContent > :first-child {
+  margin-block-start: 0;
+}
+.richContent > :last-child {
+  margin-block-end: 0;
+}
+
+/* 코드블록(프롬프트 자료의 핵심) — 다크 박스. 게시판 렌더러와 동일한 시각. */
+.richContent pre {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: #1e1e1e;
+  border: 1px solid #2d2d2d;
+  padding: var(--space-5);
+  margin-block: var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+.richContent pre code {
+  display: block;
+  color: #e6e6e6;
+  background: transparent;
+  white-space: pre;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+/* 인라인 코드 */
+.richContent :not(pre) > code {
+  background: var(--color-neutral-soft);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  font-size: 0.92em;
+}
+
 /* ── 태그 ── */
 
 .detailTagRow {

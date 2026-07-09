@@ -80,6 +80,12 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
     return appendRevisionBlock(buildCurationUserPrompt(curation, board), revision);
   }
 
+  // 실전자료(resource:<유형>): "~하는 방법" 칼럼이 아니라, 남이 바로 복붙해 쓰는 실물 자료를
+  // 만들도록 유형별 전용 지침으로 전환한다. (board 예: "resource:prompt")
+  if (board.startsWith("resource:")) {
+    return appendRevisionBlock(buildResourceUserPrompt(board, titleSeed, facts), revision);
+  }
+
   const factsBlock =
     facts.facts.length > 0
       ? `<search_summary>\n${facts.facts
@@ -302,6 +308,104 @@ export function buildGuideChapterUserPrompt(
     imageBlock || null,
     format,
     `글 제목은 쓰지 말고 본문만 출력하세요(제목은 시스템이 "${gc.seriesTitle} ${gc.order}강. ${gc.chapterTitle}"로 붙입니다).`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// ── 실전자료(resource) 유형별 생성 지침 ───────────────────────────────────────
+
+/**
+ * 실전자료 5개 유형별 "이 글의 주인공이 되는 산출물"이 무엇인지 정의한다.
+ * - label: 사람이 읽는 유형 이름
+ * - artifact: 코드블록에 통째로 넣어야 하는 실물 산출물
+ * - extra: 그 유형에서 추가로 꼭 적어야 하는 실무 정보(경로·명령·환경변수 등)
+ */
+const RESOURCE_TYPE_GUIDE: Record<
+  string,
+  { label: string; artifact: string; extra: string }
+> = {
+  prompt: {
+    label: "프롬프트",
+    artifact: "실제로 복사해서 바로 쓸 수 있는 프롬프트 전문",
+    extra: "프롬프트 안에서 사용자가 바꿔 넣어야 하는 부분은 [대괄호 자리표시자]로 표시하세요.",
+  },
+  "claude-code-skill": {
+    label: "Claude Code 스킬",
+    artifact:
+      "Claude Code에 바로 넣어 쓸 수 있는 스킬 정의 전문(예: SKILL.md 본문 또는 명령/설정 블록)",
+    extra: "어느 폴더·파일에 넣고 어떻게 호출하는지 실제 경로·명령을 함께 적으세요.",
+  },
+  mcp: {
+    label: "MCP 서버",
+    artifact:
+      "그대로 붙여 쓸 수 있는 MCP 서버 설정 전문(예: mcp.json 또는 설정 블록)과 연결 명령",
+    extra: "필요한 설치 명령·환경변수·키는 실제 값 자리표시자와 함께 적으세요.",
+  },
+  "rules-config": {
+    label: "규칙·설정 파일",
+    artifact:
+      "그대로 저장해 쓸 수 있는 규칙/설정 파일 전문(예: .cursorrules, CLAUDE.md, 설정 블록)",
+    extra: "어느 파일명으로 어디에 저장하는지 명시하세요.",
+  },
+  "template-checklist": {
+    label: "템플릿·체크리스트",
+    artifact: "복사해서 채워 쓰는 템플릿 또는 체크리스트 전문",
+    extra: "각 항목을 언제·어떻게 채우는지 짧게 덧붙이세요.",
+  },
+};
+
+/**
+ * 실전자료(resource:<유형>) 전용 유저 프롬프트.
+ *
+ * 실전자료는 "프롬프트를 이렇게 써라" 같은 방법론/팁 칼럼이 아니라,
+ * 남이 그대로 가져다 쓰는 실물 자료여야 한다. 유형별로 코드블록에 들어갈
+ * 산출물(프롬프트/스킬/MCP설정/규칙파일/템플릿 전문)을 글의 중심에 두도록 강제한다.
+ */
+function buildResourceUserPrompt(
+  board: string,
+  titleSeed: string,
+  facts: FactSummary,
+): string {
+  const type = board.slice("resource:".length);
+  const g = RESOURCE_TYPE_GUIDE[type] ?? RESOURCE_TYPE_GUIDE.prompt!;
+
+  const factsBlock =
+    facts.facts.length > 0
+      ? `<search_summary>\n${facts.facts
+          .map((f, i) => `${i + 1}. ${f}`)
+          .join("\n")}\n</search_summary>`
+      : "";
+
+  const rules = [
+    `[실전자료 작성 지침 — ${g.label} 유형]`,
+    `이 글은 커뮤니티 "실전자료" 게시판에 올라가는 재사용 자료입니다. "~하는 방법"을 설명하는 팁·칼럼이 아니라, 남이 바로 가져다 쓸 수 있는 실물 자료여야 합니다.`,
+    "",
+    "반드시 아래 구성을 지키세요:",
+    "1. 도입(2~3문장): 이 자료가 무엇이고 어떤 상황·문제에서 쓰는지. 방법론 설명은 금지.",
+    `2. 핵심 — ${g.artifact}을(를) 코드블록(\`\`\`)에 통째로 넣으세요. 이 산출물이 글의 주인공입니다. 설명보다 산출물이 먼저·크게 와야 합니다.`,
+    `   ${g.extra}`,
+    "3. 사용법: 위 산출물을 실제로 어떻게 적용·실행하는지 단계로. 자리표시자를 무엇으로 바꾸는지 예시.",
+    "4. 효과·예시: 이 자료를 쓰면 어떤 결과가 나오는지 입력→출력 예시를 하나. 가능하면 짧은 실제 예시 출력까지.",
+    "5. 팁·주의(선택): 1~2줄.",
+    "",
+    "금지: '프롬프트란 이렇게 써야 한다'식의 일반 작성 노하우 나열, 소제목·목차만 크고 정작 복붙할 산출물이 없는 글, '상황에 따라 다르다'로 끝나는 맹탕.",
+    "코드블록 안의 산출물은 그대로 복사해도 동작·사용 가능할 만큼 완결적으로 작성하세요.",
+  ].join("\n");
+
+  const format = [
+    "마크다운으로 작성하세요 (## 소제목, 코드블록 ```). Tiptap 에디터 호환.",
+    "산출물(프롬프트/설정/템플릿 전문)은 반드시 코드블록으로 감싸세요.",
+    "문단과 문단 사이는 빈 줄 하나로 띄웁니다.",
+    "글 제목은 쓰지 마세요(제목은 시스템이 붙입니다).",
+  ].join("\n");
+
+  return [
+    `실전자료 유형: ${g.label}`,
+    `주제: ${titleSeed}`,
+    factsBlock || null,
+    rules,
+    format,
   ]
     .filter(Boolean)
     .join("\n\n");
