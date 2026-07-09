@@ -181,4 +181,31 @@ describe("insertInlineImagesByMarker", () => {
     const caption = content[1] as { content: Array<{ text: string }> };
     expect(caption.content[0]!.text).toBe("개념 도식");
   });
+
+  it("alt만 있고 caption·출처가 없으면 캡션 문단을 만들지 않는다(본문 문장 복제 방지)", () => {
+    // post-pipeline 이 positionHint 를 caption 이 아닌 alt 로만 넣도록 바뀐 뒤의 계약.
+    const altOnly: GuideAssetManifest = {
+      "diagram-1": { url: "https://cdn/x/d.png", alt: "검증 강도를 다르게 지정" },
+    };
+    const doc = {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "본문 문장. [[IMG:diagram-1]]" }] },
+        { type: "paragraph", content: [{ type: "text", text: "다음 문단" }] },
+      ],
+    };
+    const { doc: out } = insertInlineImagesByMarker(doc, altOnly);
+    const content = out.content as Array<Record<string, unknown>>;
+    // 앞 텍스트 문단 → 이미지(캡션 문단 없음) → 다음 문단
+    expect(content[0]).toMatchObject({ type: "paragraph" });
+    expect(content[1]).toMatchObject({ type: "image", attrs: { alt: "검증 강도를 다르게 지정" } });
+    expect(content[2]).toMatchObject({ type: "paragraph" });
+    // 이미지 바로 뒤가 캡션 문단이 아니라 "다음 문단"이어야 한다(복제 없음).
+    expect((content[2] as any).content[0].text).toBe("다음 문단");
+    // 어떤 문단도 alt 텍스트를 복제하지 않는다.
+    const dup = content.filter(
+      (n) => (n as any).type === "paragraph" && (n as any).content?.[0]?.text === "검증 강도를 다르게 지정",
+    );
+    expect(dup).toHaveLength(0);
+  });
 });

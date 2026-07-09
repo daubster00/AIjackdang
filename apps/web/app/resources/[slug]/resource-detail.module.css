@@ -33,6 +33,18 @@
 .detail {
   display: grid;
   gap: var(--space-6);
+  /* 그리드 아이템 기본 min-width:auto 로 인한 가로 폭 팽창 방지(넓은 이미지·긴 코드블록). */
+  min-width: 0;
+}
+
+/*
+ * 카드/본문이 부모(860px)를 뚫고 늘어나던 근본 원인 차단:
+ * 중첩 grid 아이템의 기본 min-width:auto 를 0 으로 바꿔 줄바꿈 불가 콘텐츠
+ * (naturalWidth 큰 이미지·white-space:pre 코드블록)가 트랙을 팽창시키지 못하게 한다.
+ * 이로써 pre 의 overflow-x:auto 와 img 의 max-width:100% 가 실제로 작동한다.
+ */
+.detail > * {
+  min-width: 0;
 }
 
 /* ── 흰색 배경 박스(카드) 래퍼 ── */
@@ -45,6 +57,12 @@
   background: var(--color-surface);
   padding: var(--space-7);
   box-shadow: var(--shadow-panel);
+  min-width: 0;
+}
+
+/* 카드 내부 grid 아이템도 동일하게 축소 허용(헤더·본문·코드블록 트랙 팽창 차단). */
+.sectionCard > * {
+  min-width: 0;
 }
 
 /* ── 헤더 ── */
@@ -326,6 +344,7 @@
 .reviewSection {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .detailBody p {
@@ -339,6 +358,7 @@
   color: var(--color-text);
   font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
+  min-width: 0;
 }
 
 .richContent p {
@@ -378,8 +398,15 @@
 .richContent > img,
 .richContent > figure {
   display: block;
+  max-width: 100%;
+  height: auto;
   margin-block: var(--space-5);
   margin-inline: auto;
+}
+/* figure 내부 이미지도 폭 제한. */
+.richContent figure img {
+  max-width: 100%;
+  height: auto;
 }
 .richContent > img[style*="text-align:left"],
 .richContent > img[style*="text-align: left"] {
@@ -415,6 +442,7 @@
 
 /* 코드블록(프롬프트 자료의 핵심) — 다크 박스. 게시판 렌더러와 동일한 시각. */
 .richContent pre {
+  max-width: 100%;
   overflow-x: auto;
   border-radius: var(--radius-md);
   background: #1e1e1e;

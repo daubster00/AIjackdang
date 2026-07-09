@@ -823,7 +823,10 @@ export async function runPostPipeline(
                     );
                     manifest[item.key] = {
                       url: uploaded.url,
-                      caption: item.positionHint ?? undefined,
+                      // positionHint 는 "삽입 위치 매칭용 본문 문장"이지 캡션이 아니다.
+                      // 보이는 caption 으로 쓰면 본문 문장이 이미지 뒤에 그대로 복제돼 레이아웃이 깨진다.
+                      // 접근성·SEO용 alt(비가시)로만 쓰고, 캡션 문단은 실제 출처가 있을 때만 생성한다.
+                      alt: item.positionHint ?? undefined,
                     };
                     imageCost += result.costUsd;
                   }
@@ -841,7 +844,8 @@ export async function runPostPipeline(
                   if (imgResult.imageUrl) {
                     manifest[item.key] = {
                       url: imgResult.imageUrl,
-                      caption: item.positionHint ?? undefined,
+                      // positionHint 는 매칭용 본문 문장 → 비가시 alt 로만. 캡션은 출처만 노출.
+                      alt: item.positionHint ?? undefined,
                       sourceLabel: imgResult.source?.label ?? undefined,
                       sourceUrl: imgResult.source?.url ?? undefined,
                     };
