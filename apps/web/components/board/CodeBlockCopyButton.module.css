@@ -68,6 +68,26 @@
 .articleContent.articleContent > figure {
   margin-inline: auto;
 }
+/*
+ * 이미지 정렬 — 에디터 정렬 버튼이 img 에 text-align 을 부여한다.
+ * 블록 이미지라 text-align 자체로는 움직이지 않으므로 margin 으로 변환한다.
+ * (서버 sanitize 는 "text-align:left" 무공백형으로 출력하지만, 공백형도 함께 매칭한다.)
+ */
+.articleContent.articleContent > img[style*="text-align:left"],
+.articleContent.articleContent > img[style*="text-align: left"] {
+  margin-left: 0;
+  margin-right: auto;
+}
+.articleContent.articleContent > img[style*="text-align:right"],
+.articleContent.articleContent > img[style*="text-align: right"] {
+  margin-left: auto;
+  margin-right: 0;
+}
+.articleContent.articleContent > img[style*="text-align:center"],
+.articleContent.articleContent > img[style*="text-align: center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
 .articleContent.articleContent > figure {
   display: block;
   text-align: center;

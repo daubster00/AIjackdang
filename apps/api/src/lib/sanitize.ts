@@ -109,12 +109,14 @@ export function buildSanitizeOptions(
     attrMap["span"] = ["style"];
   }
 
-  // textAlign: tiptap 이 문단·제목 정렬을 style="text-align:..." 로 출력하므로
+  // textAlign: tiptap 이 문단·제목·이미지 정렬을 style="text-align:..." 로 출력하므로
   // 해당 태그에 style 속성 + text-align 값(left/center/right/justify)만 허용한다.
+  // img 는 블록 이미지라 text-align 자체로는 정렬되지 않지만, 값을 보존해 두면
+  // 렌더 CSS(img[style*="text-align:..."])가 이를 margin 정렬로 변환한다.
   const hasTextAlign = nodes.some((n) => n.attrs?.includes("textAlign"));
   const allowedStyles: _sanitizeHtml.IOptions["allowedStyles"] = {};
   if (hasTextAlign) {
-    for (const tag of ["p", "h2", "h3"]) {
+    for (const tag of ["p", "h2", "h3", "img"]) {
       attrMap[tag] = Array.from(new Set([...(attrMap[tag] ?? []), "style"]));
       allowedStyles[tag] = { "text-align": [/^(left|center|right|justify)$/] };
     }

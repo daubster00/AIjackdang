@@ -42,8 +42,9 @@ export const FULL_ALLOWED_NODES: AllowedNode[] = [
   { type: "listItem" },
   // 링크
   { type: "link", attrs: ["href", "target", "rel"] },
-  // 이미지 — alt 필수 강제는 에디터 레벨(EditorToolbar)에서 처리
-  { type: "image", attrs: ["src", "alt", "title"] },
+  // 이미지 — alt 필수 강제는 에디터 레벨(EditorToolbar)에서 처리.
+  // textAlign: 좌·가운데·우 정렬(정렬 버튼) 허용 — 블록 이미지라 렌더 시 margin 으로 변환됨(sanitize.ts).
+  { type: "image", attrs: ["src", "alt", "title", "textAlign"] },
   // 코드 (lowlight 하이라이팅은 Story 2.6에서 추가)
   { type: "codeBlock", attrs: ["language"] },
   { type: "code" },

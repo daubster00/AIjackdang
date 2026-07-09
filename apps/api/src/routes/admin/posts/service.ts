@@ -5,11 +5,12 @@
  */
 
 import { getDb } from "@ai-jakdang/database";
-import { posts, users, tags as tagsTable, taggable, postAttachments, comments } from "@ai-jakdang/database/schema";
+import { posts, users, tags as tagsTable, taggable, postAttachments, comments, botTopics } from "@ai-jakdang/database/schema";
 import { eq, ne, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { sanitizeHtml } from "../../../lib/sanitize.js";
+import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 
 /**
  * 게시글 본문(content_json)을 렌더 가능한 HTML 로 변환한다.
@@ -252,6 +253,8 @@ export async function createAdminPost(data: {
   const board = data.board?.trim() || "notice";
   const isNotice = data.isNotice ?? board === "notice";
   const slug = makeSlug(data.title);
+  // 썸네일 URL: 본문 첫 번째 이미지 src 추출 (이미지가 있으면 목록·OG 썸네일로 사용)
+  const thumbnailUrl = extractFirstImageUrl(data.contentJson);
 
   const postId = await db.transaction(async (tx) => {
     // posts INSERT (userId=null → 운영자 작성)
@@ -269,6 +272,7 @@ export async function createAdminPost(data: {
         isPinned: data.isPinned ?? false,
         isFeatured: data.isFeatured ?? false,
         isMainFeatured: data.isMainFeatured ?? false,
+        thumbnailUrl: thumbnailUrl ?? null,
       })
       .returning({ id: posts.id });
 
@@ -360,7 +364,11 @@ export async function updatePostContent(
     // 1) posts 본문/제목 업데이트
     const updateSet: Record<string, unknown> = { updatedAt: now };
     if (data.title !== undefined) updateSet.title = data.title;
-    if (data.contentJson !== undefined) updateSet.contentJson = data.contentJson;
+    if (data.contentJson !== undefined) {
+      updateSet.contentJson = data.contentJson;
+      // 본문 변경 시 썸네일 URL 재추출 (첫 이미지 → 썸네일, 이미지 없으면 null)
+      updateSet.thumbnailUrl = extractFirstImageUrl(data.contentJson);
+    }
     if (data.status !== undefined) {
       updateSet.status = data.status;
       updateSet.deletedAt = null;
@@ -585,6 +593,10 @@ export async function purgePost(id: string) {
   if (target.status !== "deleted") {
     throw Object.assign(new Error("휴지통에 있는 게시글(status=deleted)만 영구삭제할 수 있습니다."), { code: "FORBIDDEN_STATE" });
   }
+
+  // 이 글로 기록해 둔 봇 발굴 주제도 함께 삭제 → 같은 주제를 다시 발굴·작성할 수 있게 한다.
+  // (봇이 게시한 글이 아니면 매칭되는 행이 없어 no-op.)
+  await db.delete(botTopics).where(eq(botTopics.postId, id));
 
   await db.delete(posts).where(eq(posts.id, id));
   return { id, purged: true };

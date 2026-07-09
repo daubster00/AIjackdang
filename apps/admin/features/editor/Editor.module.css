@@ -287,10 +287,34 @@
 }
 
 .editorContent :global(.ProseMirror img) {
+  display: block;
   max-width: 100%;
   height: auto;
+  /* 기본 가운데 정렬 (게시물 렌더와 일치) */
+  margin-inline: auto;
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+/*
+ * 이미지 정렬 — 정렬 버튼이 이미지에 text-align 을 부여한다.
+ * 블록 이미지는 text-align 만으로는 움직이지 않으므로 margin 으로 변환한다.
+ * (에디터 DOM 은 "text-align: left" 공백형, 서버 렌더는 "text-align:left" 무공백형 → 둘 다 매칭)
+ */
+.editorContent :global(.ProseMirror img[style*="text-align:left"]),
+.editorContent :global(.ProseMirror img[style*="text-align: left"]) {
+  margin-left: 0;
+  margin-right: auto;
+}
+.editorContent :global(.ProseMirror img[style*="text-align:right"]),
+.editorContent :global(.ProseMirror img[style*="text-align: right"]) {
+  margin-left: auto;
+  margin-right: 0;
+}
+.editorContent :global(.ProseMirror img[style*="text-align:center"]),
+.editorContent :global(.ProseMirror img[style*="text-align: center"]) {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /*

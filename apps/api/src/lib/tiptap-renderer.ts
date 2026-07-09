@@ -86,8 +86,8 @@ const EXTENSIONS = [
   FontSizeRenderer,
   // 캡션 — <p class="caption"> 시맨틱 문단 렌더
   CaptionRenderer,
-  // 좌/가운데/우 정렬 — text-align style 로 렌더
-  TextAlign.configure({ types: ["heading", "paragraph"] }),
+  // 좌/가운데/우 정렬 — text-align style 로 렌더 (이미지 포함 — CSS 에서 margin 으로 변환)
+  TextAlign.configure({ types: ["heading", "paragraph", "image"] }),
   // 동영상 — YouTube iframe 으로 렌더 (sanitize 에서 youtube 도메인만 허용)
   Youtube.configure({ nocookie: true }),
 ];

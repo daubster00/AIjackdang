@@ -431,6 +431,27 @@
 }
 
 /*
+ * 이미지 정렬 — 정렬 버튼이 이미지에 text-align 을 부여한다.
+ * 블록 이미지는 text-align 만으로는 움직이지 않으므로 margin 으로 변환한다.
+ * (에디터 DOM 은 "text-align: left" 공백형, 서버 렌더는 "text-align:left" 무공백형 → 둘 다 매칭)
+ */
+.editorContent :global(.ProseMirror img[style*="text-align:left"]),
+.editorContent :global(.ProseMirror img[style*="text-align: left"]) {
+  margin-left: 0;
+  margin-right: auto;
+}
+.editorContent :global(.ProseMirror img[style*="text-align:right"]),
+.editorContent :global(.ProseMirror img[style*="text-align: right"]) {
+  margin-left: auto;
+  margin-right: 0;
+}
+.editorContent :global(.ProseMirror img[style*="text-align:center"]),
+.editorContent :global(.ProseMirror img[style*="text-align: center"]) {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/*
  * 이미지 클릭 시 노드 선택 상태(.ProseMirror-selectednode)를 시각적으로 표시한다.
  * 이 상태에서 Delete/Backspace 를 누르면 이미지가 삭제된다(ProseMirror 기본 동작).
  */

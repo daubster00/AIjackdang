@@ -61,7 +61,8 @@ function buildExtensions(preset: EditorPreset) {
       FontSize,
       // 캡션 — <p class="caption"> 시맨틱 문단
       Caption,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // image 포함 — 이미지에도 좌/가운데/우 정렬을 적용한다(블록 이미지는 렌더 시 margin 으로 변환).
+      TextAlign.configure({ types: ["heading", "paragraph", "image"] }),
       Youtube.configure({
         controls: true,
         nocookie: true,

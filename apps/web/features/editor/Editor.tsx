@@ -77,8 +77,9 @@ function buildExtensions(preset: EditorPreset) {
       FontSize,
       // 캡션 — <p class="caption"> 시맨틱 문단 (제목/소제목/본문/캡션 '글 형식' 서식)
       Caption,
-      // 좌/가운데/우 정렬 — 문단·제목에 text-align 속성 부여
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // 좌/가운데/우 정렬 — 문단·제목·이미지에 text-align 속성 부여
+      // (이미지는 블록이라 렌더 시 text-align 을 margin 으로 변환해 정렬한다.)
+      TextAlign.configure({ types: ["heading", "paragraph", "image"] }),
       // 동영상 삽입 (YouTube)
       Youtube.configure({
         controls: true,
