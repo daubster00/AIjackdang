@@ -42,6 +42,12 @@ ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 ARG NEXT_PUBLIC_KAKAO_ENABLED=true
 ENV NEXT_PUBLIC_KAKAO_ENABLED=${NEXT_PUBLIC_KAKAO_ENABLED}
 
+# ── 카카오톡 "공유하기" 자바스크립트 키 (클라이언트 번들에 인라인) ──
+# lib/share.ts 가 Kakao.Share.sendDefault 로 공유. 여기서 안 주면 키가 빈 값으로 구워져
+# 카카오 공유는 링크복사로 폴백된다. (로그인용 KAKAO_REST_API_KEY 와는 별개 키)
+ARG NEXT_PUBLIC_KAKAO_JS_KEY
+ENV NEXT_PUBLIC_KAKAO_JS_KEY=${NEXT_PUBLIC_KAKAO_JS_KEY}
+
 # 전체 워크스페이스 복사 후 의존성 설치
 COPY . .
 RUN pnpm install --frozen-lockfile
