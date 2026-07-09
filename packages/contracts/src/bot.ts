@@ -101,7 +101,9 @@ export type BotHoldDecision = z.infer<typeof botHoldDecisionSchema>;
  */
 export const botActiveHourSchema = z.object({
   from: z.number().int().min(0).max(23),
-  to: z.number().int().min(0).max(23),
+  // 종료 시각은 배타적 상한(24 = 자정/하루 끝). 스케줄러도 to<=24를 정상값으로 해석.
+  // (자정을 넘겨 이어지는 구간은 crossesMidnight 플래그로 표현하고 to>24는 금지.)
+  to: z.number().int().min(0).max(24),
   crossesMidnight: z.boolean().optional().default(false),
 });
 export type BotActiveHour = z.infer<typeof botActiveHourSchema>;

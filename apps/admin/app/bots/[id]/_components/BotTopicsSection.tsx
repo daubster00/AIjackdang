@@ -287,7 +287,7 @@ export function BotTopicsSection({ botId, showToast }: BotTopicsSectionProps) {
           <div className="card-body" style={{ padding: 0 }}>
             {topics.length === 0 ? (
               <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--gray-400)" }}>
-                등록된 주제가 없습니다.
+                등록된 고정 주제가 없습니다. (이 봇은 실시간으로 주제를 발굴하거나 자동 보충으로 채웁니다)
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>

@@ -313,7 +313,7 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
       <section className="section">
         <div className="section-heading">
           <h2 className="section-title">활동 시간대</h2>
-          <p className="section-description">시작 시·종료 시 쌍으로 추가. to &gt; 23 입력 불가.</p>
+          <p className="section-description">시작 시·종료 시 쌍으로 추가. 종료(to)는 24(자정)까지 입력 가능.</p>
         </div>
         <article className="card">
           <div className="card-body">
@@ -364,14 +364,14 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
                 />
               </div>
               <div className="field" style={{ marginBottom: 0, flex: "0 0 120px" }}>
-                <label className="field-label">종료 (0~23)</label>
+                <label className="field-label">종료 (0~24)</label>
                 <input
                   type="number"
                   min={0}
-                  max={23}
+                  max={24}
                   className="control"
                   value={addTo}
-                  onChange={(e) => setAddTo(Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                  onChange={(e) => setAddTo(Math.min(24, Math.max(0, parseInt(e.target.value, 10) || 0)))}
                 />
               </div>
               <div
