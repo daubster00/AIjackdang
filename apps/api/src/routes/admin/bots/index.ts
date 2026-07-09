@@ -26,6 +26,7 @@ import { registerAdminBotSettingsRoutes } from "./settings.js";
 import { registerAiUsageRoutes } from "./ai-usage.js";
 import { registerAdminBotCurriculumRoutes } from "./curriculum.js";
 import { registerAdminBotPostLogsRoutes } from "./post-logs.js";
+import { registerAdminBotProfileRoutes } from "./profile.js";
 
 // TODO(11.14): contracts/src/bot.ts에 adminBotListQuerySchema가 추가되면 이쪽 import로 교체.
 //              현재 contracts의 adminBotPersonasQuerySchema는 status(active|inactive|all) 필드가
@@ -140,6 +141,9 @@ export async function registerAdminBotsRoutes(app: FastifyInstance): Promise<voi
 
   // Story 11.15: 활동 설정(담당게시판·리듬·주제풀·모델할당)
   await registerBotActivityConfigRoutes(app);
+
+  // 봇 공개 프로필 "연출"(배너·아바타·소개·링크·노출글) — 관리자가 봇 대신 편집
+  await registerAdminBotProfileRoutes(app);
 
   // Story 11.16: 봇 전역 설정 GET/PATCH (킬스위치·관찰모드·속도·비용상한)
   await registerAdminBotSettingsRoutes(app);

@@ -8,6 +8,7 @@ import { API_BASE_URL } from "../../../lib/api";
 import { BotActivitySection } from "./_components/BotActivitySection";
 import { BotTopicsSection } from "./_components/BotTopicsSection";
 import { BotModelSection } from "./_components/BotModelSection";
+import { BotProfileSection } from "./_components/BotProfileSection";
 
 /**
  * 봇 상세·캐릭터 시트 편집 페이지 (Story 11.14 기반 + 11.15 탭 확장).
@@ -50,7 +51,7 @@ interface CharacterForm {
   intentionalFlaws: string;
 }
 
-type ActiveTab = "character" | "activity" | "topics" | "models";
+type ActiveTab = "character" | "profile" | "activity" | "topics" | "models";
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
@@ -288,6 +289,14 @@ export default function BotDetailPage() {
         </button>
         <button
           role="tab"
+          aria-selected={activeTab === "profile"}
+          className={`line-tab ${activeTab === "profile" ? "active" : ""}`}
+          onClick={() => setActiveTab("profile")}
+        >
+          프로필 연출
+        </button>
+        <button
+          role="tab"
           aria-selected={activeTab === "activity"}
           className={`line-tab ${activeTab === "activity" ? "active" : ""}`}
           onClick={() => setActiveTab("activity")}
@@ -489,6 +498,11 @@ export default function BotDetailPage() {
             </div>
           </article>
         </section>
+      </div>
+
+      {/* ── 탭 패널: 프로필 연출 ─────────────────────────────────────────── */}
+      <div style={{ display: activeTab === "profile" ? undefined : "none" }}>
+        <BotProfileSection botId={id} showToast={showToast} />
       </div>
 
       {/* ── 탭 패널: 활동 설정 ───────────────────────────────────────────── */}
