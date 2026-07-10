@@ -645,10 +645,11 @@ export async function runPostPipeline(
     imageStrategy = "ai";
   }
 
-  // 실전자료 큐레이션은 실제 자료 "소개"라 봇이 AI 이미지를 지어내면 안 된다 → 이미지 없음.
-  if (resourceCuration) {
-    imageStrategy = "none";
-  }
+  // 실전자료 큐레이션: 봇이 자료 내용을 이미지로 "지어내면" 안 되지만, 썸네일용으로
+  // 헤더 이미지 1장은 필요하다(사용자 요구). 아래 이미지 처리에서 resourceCuration 전용
+  // 분기(웹 이미지 우선 → 실패 시 AI 상징 이미지 폴백)로 딱 1장만 상단에 넣는다.
+  // → 일반 플래너(다중 도식)로는 가지 않도록 imageStrategy 는 여기서 건드리지 않고
+  //    이미지 처리 단계에서 resourceCuration 을 먼저 가로챈다.
 
   // 큐레이션 소개글 컨텍스트(프롬프트에 전달). ai 모드·비큐레이션은 undefined.
   const curationContext: CurationContext | undefined =
@@ -880,6 +881,60 @@ export async function runPostPipeline(
           console.warn(
             "[post-pipeline] 밈 이미지 조달 실패 (이미지 없이 계속):",
             (memeErr as Error).message,
+          );
+          finalContentJson = draftJson;
+        }
+
+      } else if (resourceCuration) {
+        // 모드 C-4: 실전자료 큐레이션 — 썸네일용 헤더 이미지 1장.
+        // 자료 내용을 이미지로 지어내지 않도록, 실제 웹 이미지(출처 표기)를 우선하고
+        // 못 구하면 주제를 상징하는 AI 이미지로 폴백한다. 둘 다 실패해도 게시는 유지.
+        // 상단에 삽입하므로 extractFirstImageUrl 이 이 이미지를 썸네일로 잡는다.
+        try {
+          // (1) 웹 이미지 우선 — 자료 이름으로 관련 실제 이미지 검색.
+          const webImg = await fetchBotImage({
+            persona: personaContext,
+            board,
+            postKind: imagePostKind,
+            keyword: resourceCuration.name,
+            webQuery: resourceCuration.name,
+            strategyOptions: { preferWeb: true },
+            uploadFn: uploadImage,
+            imageModel,
+          });
+          const webSourceUrl = webImg.source?.url;
+          if (
+            webImg.imageUrl &&
+            !(webSourceUrl && checkCurationCopyrightRisk(webSourceUrl))
+          ) {
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, webImg.imageUrl, {
+              sourceLabel: webImg.source?.label ?? undefined,
+              sourceUrl: webImg.source?.url ?? undefined,
+            });
+          } else {
+            // (2) AI 상징 이미지 폴백 — 실사·상징 스타일, 텍스트·로고 없음(자료를 지어내지 않음).
+            const aiPrompt = `A clean, modern symbolic header illustration representing "${resourceCuration.name}", a widely-used ${resourceCuration.resourceType} resource for AI developers. Realistic yet conceptual, minimal, professional, soft studio lighting, no text, no logos, no UI screenshots.`;
+            const gen = await genImage({ prompt: aiPrompt, imageModel });
+            if (gen) {
+              const ext = gen.mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+              const uploaded = await uploadImage(
+                {
+                  filename: `bot-resource-${topicResult.topic.id}.${ext}`,
+                  mimetype: gen.mimetype,
+                  data: gen.data,
+                },
+                "editor-images",
+              );
+              imageCost += gen.costUsd;
+              finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.url, {});
+            } else {
+              finalContentJson = draftJson;
+            }
+          }
+        } catch (rcImgErr) {
+          console.warn(
+            "[post-pipeline] 실전자료 헤더 이미지 실패 (이미지 없이 계속):",
+            (rcImgErr as Error).message,
           );
           finalContentJson = draftJson;
         }
