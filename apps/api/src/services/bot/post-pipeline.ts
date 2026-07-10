@@ -190,7 +190,13 @@ function generateTitle(
     return `${seriesContext.groupTitle} — 제${seriesContext.episodeIndex}편`;
   }
   const seed = titleSeed?.trim();
-  if (seed) return seed;
+  // 운영자가 긴 설명형 주제를 강제 주입(realtimeTopic)하면 그게 그대로 제목·슬러그가 돼
+  // 제목이 과도하게 길고 슬러그가 깨진다(특수문자·초장문). 60자 초과 시드는 제목으로 쓰지 않고
+  // 본문 첫 문장에서 간결한 제목을 유도한다(유도 실패 시에만 시드를 잘라 폴백).
+  if (seed && seed.length <= 60) return seed;
+  if (seed) {
+    return fallbackText ? deriveTitleFromText(fallbackText) : `${seed.slice(0, 45)}…`;
+  }
   return fallbackText ? deriveTitleFromText(fallbackText) : "제목 없는 글";
 }
 
