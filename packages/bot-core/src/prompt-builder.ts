@@ -12,6 +12,7 @@ import type {
   FactSummary,
   GuideChapterContext,
   PostUserPromptOptions,
+  ResourceCurationContext,
   RevisionContext,
   SeriesContext,
 } from "./context-types.js";
@@ -65,6 +66,7 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
     postKind,
     seriesContext,
     curation,
+    resourceCuration,
     guideChapter,
     revision,
   } = options;
@@ -72,6 +74,16 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
   // 고정 커리큘럼 강의 편: 커리큘럼이 주제·범위·이미지 자리를 정하므로 전용 지침으로 전환.
   if (guideChapter) {
     return appendRevisionBlock(buildGuideChapterUserPrompt(guideChapter, facts), revision);
+  }
+
+  // 실전자료 큐레이션(실물 자료 소개): 봇이 자료를 창작하지 않고, 검색으로 찾은
+  // 실제로 널리 쓰이는 자료를 출처와 함께 소개하는 글을 쓰도록 전용 지침으로 전환한다.
+  // (resource: 작성 분기보다 먼저 판정해야 큐레이션이 우선한다.)
+  if (resourceCuration) {
+    return appendRevisionBlock(
+      buildResourceCurationUserPrompt(resourceCuration, facts),
+      revision,
+    );
   }
 
   // 큐레이션(퍼오기) 소개글: 미디어는 파이프라인이 본문 위에 자동 첨부하므로,
@@ -354,6 +366,71 @@ const RESOURCE_TYPE_GUIDE: Record<
     extra: "각 항목을 언제·어떻게 채우는지 짧게 덧붙이세요.",
   },
 };
+
+/** 실전자료 유형 코드 → 한국어 라벨. */
+const RESOURCE_TYPE_LABEL_KO: Record<string, string> = {
+  prompt: "프롬프트",
+  "claude-code-skill": "Claude Code 스킬",
+  mcp: "MCP 서버",
+  "rules-config": "규칙·설정",
+  "template-checklist": "템플릿·체크리스트",
+};
+
+/**
+ * 실전자료 큐레이션(실물 자료 소개) 유저 프롬프트.
+ *
+ * 봇이 자료를 지어내지 않고, 검색으로 찾은 실제로 널리 쓰이는 자료 하나를
+ * "출처와 함께 소개"하는 글을 쓰게 한다. 미디어 큐레이션(유튜브/밈)과 달리
+ * 출처 링크가 글의 핵심이므로 본문에 링크를 명시하게 한다.
+ */
+function buildResourceCurationUserPrompt(
+  rc: ResourceCurationContext,
+  facts: FactSummary,
+): string {
+  const typeLabel = RESOURCE_TYPE_LABEL_KO[rc.resourceType] ?? "자료";
+
+  const subjectLines = [
+    `이름: ${rc.name}`,
+    `유형: ${typeLabel}`,
+    `출처: ${rc.sourceLabel} — ${rc.sourceUrl}`,
+  ];
+  if (rc.whyPopular) subjectLines.push(`왜 유명한지: ${rc.whyPopular}`);
+  const subjectBlock = `<소개 대상>\n${subjectLines.join("\n")}\n</소개 대상>`;
+
+  const factsBlock =
+    facts.facts.length > 0
+      ? `<search_summary>\n${facts.facts
+          .map((f, i) => `${i + 1}. ${f}`)
+          .join("\n")}\n</search_summary>`
+      : "";
+
+  const rules = [
+    `[실전자료 큐레이션 지침 — ${typeLabel}]`,
+    "이 글은 커뮤니티 '실전자료' 게시판에, 실제로 존재하고 많은 사람이 쓰는 자료를 발굴해 소개하는 글입니다.",
+    "당신이 자료를 새로 지어내거나 창작하는 글이 아닙니다. 위 <소개 대상>의 실제 자료를 소개만 하세요.",
+    "",
+    "반드시 아래 구성을 지키세요:",
+    "1. 도입(2~3문장): 이 자료가 무엇이고 어떤 상황에서 쓰는지, 왜 소개할 만한지.",
+    "2. 왜 널리 쓰이는지: 신뢰·인기의 근거(공식·스타 수·자주 언급됨 등)를 <search_summary>에 근거해 구체적으로.",
+    "3. 무엇이 들어있는지: 이 자료가 담고 있는 것/핵심 기능을 검색으로 확인된 선에서 소개. 모르는 내용은 지어내지 마세요.",
+    "4. 쓰는 법 요약: 어디서 받고 어떻게 시작하는지 간단히.",
+    `5. 출처: 본문 안에 실제 링크(${rc.sourceUrl})를 반드시 명시하세요. 독자가 바로 찾아갈 수 있게.`,
+    "",
+    "금지: 검색 근거에 없는 기능·수치·별점을 지어내기, 자료 내용을 통째로 베껴 옮기기(소개·요약만), 자료를 직접 만든 것처럼 쓰기.",
+    "실제로 확인된 사실만 쓰고, 불확실하면 \"~로 알려짐\" 형식으로 완화하세요.",
+  ].join("\n");
+
+  const format = [
+    "마크다운 문단으로 작성하세요. 소제목(##)은 꼭 필요할 때만 최소한으로.",
+    "출처 링크는 마크다운 링크나 URL 그대로 본문에 노출하세요.",
+    "문단과 문단 사이는 빈 줄 하나로 띄웁니다.",
+    "이모지·상투적 인사말 금지. 글 제목은 쓰지 마세요(제목은 시스템이 붙입니다).",
+  ].join("\n");
+
+  return [`실전자료 소개 (${typeLabel})`, subjectBlock, factsBlock || null, rules, format]
+    .filter(Boolean)
+    .join("\n\n");
+}
 
 /**
  * 실전자료(resource:<유형>) 전용 유저 프롬프트.

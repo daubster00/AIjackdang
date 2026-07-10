@@ -31,8 +31,8 @@ import { eq, and, inArray, count } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
-import { groundTopic, discoverTopic, searchYoutubeVideo } from "@ai-jakdang/server-bot/search";
-import type { FactGrounding, DiscoveredTopic, CuratedVideo } from "@ai-jakdang/server-bot/search";
+import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource } from "@ai-jakdang/server-bot/search";
+import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType } from "@ai-jakdang/server-bot/search";
 import {
   decideImageStrategy,
   fetchBotImage,
@@ -61,6 +61,7 @@ import type {
   BotPersonaForPrompt,
   CurationContext,
   FactSummary,
+  ResourceCurationContext,
   RevisionContext,
   SeriesContext,
   TiptapNode,
@@ -276,6 +277,7 @@ export async function runPostPipeline(
   // ── Step 2.5: 큐레이션(퍼오기) 설정 조회 + 모드 결정 ─────────────────────────
   // bot_persona_boards에서 (personaId, board) 행의 curation_enabled·curation_weights 조회.
   // 설정 기반 판단으로 ai-creation 하드코딩을 제거하고 모든 게시판에 퍼오기 설정 가능.
+  const isResourceBoard = board.startsWith("resource:");
   const boardCurationRows = await db
     .select({
       curationEnabled: schema.botPersonaBoards.curationEnabled,
@@ -290,14 +292,42 @@ export async function runPostPipeline(
     )
     .limit(1);
 
-  const boardCurationConfig: BoardCurationConfig | null = boardCurationRows[0]
+  let curationRow = boardCurationRows[0] ?? null;
+
+  // 자료 보드는 dailyPlan에서 "resource"(제네릭) → "resource:<유형>"으로 확장돼 도착할 수 있다.
+  // 확장된 board 행이 없으면 제네릭 "resource" 행 설정도 폴백 조회한다
+  // (관리자가 제네릭 자료·특정 유형 중 무엇으로 배정했든 퍼오기 설정이 존중되도록).
+  if (!curationRow && isResourceBoard) {
+    const genericRows = await db
+      .select({
+        curationEnabled: schema.botPersonaBoards.curationEnabled,
+        curationWeights: schema.botPersonaBoards.curationWeights,
+      })
+      .from(schema.botPersonaBoards)
+      .where(
+        and(
+          eq(schema.botPersonaBoards.personaId, personaId),
+          eq(schema.botPersonaBoards.board, "resource"),
+        ),
+      )
+      .limit(1);
+    curationRow = genericRows[0] ?? null;
+  }
+
+  const boardCurationConfig: BoardCurationConfig | null = curationRow
     ? {
-        enabled: boardCurationRows[0].curationEnabled,
-        weights: (boardCurationRows[0].curationWeights as Partial<Record<CurationMode, number>> | null) ?? undefined,
+        enabled: curationRow.curationEnabled,
+        weights: (curationRow.curationWeights as Partial<Record<CurationMode, number>> | null) ?? undefined,
       }
     : null;
 
-  const curationMode = decideCurationMode(board, isAdminPersona, boardCurationConfig);
+  // 자료 보드에서 퍼오기를 켜면 유튜브/밈/AI가 아니라 "실물 자료 큐레이션"으로 간다.
+  // 따라서 자료 보드는 decideCurationMode(유튜브/밈/AI)를 적용하지 않는다.
+  const resourceCurationEnabled =
+    isResourceBoard && !isAdminPersona && (boardCurationConfig?.enabled ?? false);
+  const curationMode = isResourceBoard
+    ? null
+    : decideCurationMode(board, isAdminPersona, boardCurationConfig);
   let curatedVideo: CuratedVideo | null = null;
   if (curationMode === "youtube") {
     curatedVideo = await searchYoutubeVideo(curationVideoQuery());
@@ -332,6 +362,52 @@ export async function runPostPipeline(
     }
   }
 
+  // ── Step 2.7: 실전자료 큐레이션 — 실물 자료 검색·소개 ────────────────────────
+  // 자료 보드에서 퍼오기(실물 자료 큐레이션)를 켜면, 봇이 자료를 창작하는 대신
+  // 실제로 널리 쓰이는 자료 하나를 검색해 "출처와 함께 소개"하는 글을 쓴다.
+  // 발굴 실패(검색 무결과·유효 출처 없음) 시 resourceCuration=null → 기존 봇 직접 작성 경로로 폴백.
+  let resourceCuration: ResourceCurationContext | null = null;
+  let resourceCurationGrounding: FactGrounding | null = null;
+  let resourceCurationTitleSeed = "";
+  if (resourceCurationEnabled && (await isSearchDrivenTopicsEnabled(db))) {
+    const resourceType = board.slice("resource:".length) as ResourceType;
+    try {
+      const existingTitles = await getRecentTopicTitles(db, personaId, 20);
+      const found = await discoverResource(resourceType, {
+        modelAssignment: genAssignmentForGrounding,
+        callModel: (assignment, prompt) => callModel(assignment, prompt),
+        onCostAccumulated: async (costUsd) => {
+          groundingCost += costUsd;
+        },
+        existingTitles,
+      });
+      if (found) {
+        resourceCuration = {
+          resourceType,
+          name: found.name,
+          sourceUrl: found.sourceUrl,
+          sourceLabel: found.sourceLabel,
+          whyPopular: found.whyPopular || undefined,
+        };
+        // grounding을 별도 보관해 Step 6에서 재검색 없이 재사용.
+        resourceCurationGrounding = found.grounding;
+        resourceCurationTitleSeed = found.titleSeed;
+        await logActivity(db, personaId, "planned", null, {
+          reason: "resource-curation",
+          resourceType,
+          name: found.name,
+          sourceUrl: found.sourceUrl,
+        });
+      }
+    } catch (err) {
+      console.error(
+        "[post-pipeline] 실전자료 큐레이션 발굴 실패 (봇 직접 작성으로 폴백):",
+        (err as Error).message,
+      );
+      resourceCuration = null;
+    }
+  }
+
   // ── Step 3: 검색 주도 주제 발굴 ───────────────────────────────────────────────
   // "주제를 미리 정하지 않고" 최근 소식을 먼저 검색해 신선한 글감을 만든다.
   // 발굴 대상 게시판(getDiscoveryQuery)이면 정보형·잡담·질문 톤 모두 발굴한다.
@@ -354,7 +430,7 @@ export async function runPostPipeline(
 
   // 큐레이션 소재(영상/밈)가 이미 확보됐으면 발굴 생략 — Step 4에서 어차피 큐레이션이 우선이라
   // 발굴 결과는 버려지므로 검색·모델 비용만 아낀다.
-  if (!curatedVideo && !curatedMeme && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
+  if (!curatedVideo && !curatedMeme && !resourceCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -404,6 +480,21 @@ export async function runPostPipeline(
       createdAt: new Date(),
     };
     topicResult = { topic: memeTopic, wasRealtime: true };
+  } else if (resourceCuration) {
+    // 실전자료 큐레이션: 발굴한 실제 자료가 소재이므로 시드 주제가 필요 없다(제목=발굴 제목).
+    const resourceTopic: BotTopicRow = {
+      id: `curated-resource-${Date.now()}`,
+      personaId,
+      board,
+      titleSeed: resourceCurationTitleSeed || resourceCuration.name,
+      topicKind: "realtime",
+      status: "unused",
+      usedAt: null,
+      seriesGroup: null,
+      postId: null,
+      createdAt: new Date(),
+    };
+    topicResult = { topic: resourceTopic, wasRealtime: true };
   } else if (discovered) {
     const syntheticTopic: BotTopicRow = {
       id: `discovered-${Date.now()}`,
@@ -464,7 +555,10 @@ export async function runPostPipeline(
 
   // ── Step 6: 검색·그라운딩 (발굴했으면 그 근거 재사용, 아니면 새로 검색) ──────────
   let facts: FactSummary;
-  if (discovered) {
+  if (resourceCuration && resourceCurationGrounding) {
+    // 실전자료 큐레이션 발굴 단계에서 이미 검색·근거를 확보했으므로 재검색하지 않는다.
+    facts = adaptGrounding(resourceCurationGrounding);
+  } else if (discovered) {
     // 발굴 단계에서 이미 검색·근거를 확보했으므로 재검색하지 않는다.
     facts = adaptGrounding(discovered.grounding);
   } else {
@@ -514,6 +608,11 @@ export async function runPostPipeline(
     imageStrategy = "web";
   } else if (effectiveCuration === "ai") {
     imageStrategy = "ai";
+  }
+
+  // 실전자료 큐레이션은 실제 자료 "소개"라 봇이 AI 이미지를 지어내면 안 된다 → 이미지 없음.
+  if (resourceCuration) {
+    imageStrategy = "none";
   }
 
   // 큐레이션 소개글 컨텍스트(프롬프트에 전달). ai 모드·비큐레이션은 undefined.
@@ -574,6 +673,7 @@ export async function runPostPipeline(
       postKind: internalPostKind,
       seriesContext,
       curation: curationContext,
+      resourceCuration: resourceCuration ?? undefined,
       revision,
     });
 
@@ -631,7 +731,9 @@ export async function runPostPipeline(
       // (큐레이션은 "소재 소개"라 심층 인사이트를 요구하면 과도한 재생성이 발생).
       allowObvious:
         internalPostKind === "guide" ||
-        (effectiveCuration !== null && effectiveCuration !== "ai"),
+        (effectiveCuration !== null && effectiveCuration !== "ai") ||
+        // 실전자료 큐레이션은 "실제 자료 소개"라 심층 인사이트(비범함)를 요구하면 과도한 재생성이 발생.
+        resourceCuration !== null,
       // 일반 파이프라인에서는 didacticTone 비차단하지 않는다.
       // 커리큘럼 강의는 curriculum-staging.ts에서 allowDidacticTone: true로 전달.
       allowDidacticTone: false,

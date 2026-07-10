@@ -50,7 +50,9 @@ export interface BotActivitySectionProps {
 
 const SPECIAL_BOARD_OPTIONS = [
   { value: "qna", label: "묻고답하기 (Q&A)" },
+  { value: "resource", label: "실전자료 · 전체(유형 자동 배분)" },
   { value: "resource:prompt", label: "실전자료 · 프롬프트" },
+  { value: "resource:claude-code-skill", label: "실전자료 · Claude Code 스킬" },
   { value: "resource:mcp", label: "실전자료 · MCP" },
   { value: "resource:rules-config", label: "실전자료 · 룰/설정" },
   { value: "resource:template-checklist", label: "실전자료 · 템플릿/체크리스트" },
@@ -60,6 +62,11 @@ const ALL_BOARD_OPTIONS = [
   ...BOARDS.map((b) => ({ value: b.apiBoard ?? b.slug, label: b.label })),
   ...SPECIAL_BOARD_OPTIONS,
 ];
+
+/** 실전자료(resource) 게시판인지. 자료 보드는 퍼오기=실물 자료 큐레이션(유튜브/밈 아님). */
+function isResourceBoard(board: string): boolean {
+  return board === "resource" || board.startsWith("resource:");
+}
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
@@ -463,7 +470,10 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
           <h2 className="section-title">담당 게시판</h2>
           <p className="section-description">
             이 봇이 글을 올릴 게시판과 배분 가중치(1~10)를 설정합니다.
-            퍼오기(미디어 우선) 모드를 켜면 유튜브·밈 퍼오기 글을 생성합니다.
+            일반 게시판에서 퍼오기를 켜면 유튜브·밈 퍼오기 글을 생성합니다.
+            <br />
+            실전자료 게시판에서 퍼오기를 켜면 <strong>실물 자료 큐레이션</strong> — 실제로 널리 쓰이는
+            자료를 검색해 출처와 함께 소개합니다(봇이 창작하지 않음). 끄면 봇이 직접 자료를 작성합니다.
           </p>
         </div>
         <article className="card">
@@ -485,6 +495,7 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
                   </thead>
                   <tbody>
                     {boards.map((b) => {
+                      const resourceBoard = isResourceBoard(b.board);
                       const wTotal = curationWeightTotal(b.curationWeights);
                       const wOk = !b.curationEnabled || b.curationWeights === null || wTotal === 0 || wTotal === 100;
                       return (
@@ -495,63 +506,79 @@ export function BotActivitySection({ botId, showToast }: BotActivitySectionProps
                             <input
                               type="checkbox"
                               checked={b.curationEnabled}
+                              title={
+                                resourceBoard
+                                  ? "실물 자료 큐레이션(실제 자료 검색·소개)"
+                                  : "미디어 퍼오기(유튜브·밈)"
+                              }
                               onChange={(e) =>
                                 updateBoardField(b.board, "curationEnabled", e.target.checked)
                               }
                             />
                           </td>
+                          {resourceBoard ? (
+                            // 자료 보드: 유튜브/밈/AI 비율은 의미가 없다. 실물 자료 큐레이션 안내로 대체.
+                            <td colSpan={3} style={{ fontSize: 12, color: "var(--gray-400)" }}>
+                              {b.curationEnabled
+                                ? "실물 자료 큐레이션 — 실제로 널리 쓰이는 자료를 검색해 출처와 함께 소개"
+                                : "봇이 직접 자료 작성 (퍼오기를 켜면 실물 자료 큐레이션)"}
+                            </td>
+                          ) : (
+                            <>
+                              <td>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  disabled={!b.curationEnabled}
+                                  value={b.curationWeights?.youtube ?? ""}
+                                  placeholder="45"
+                                  className="control"
+                                  style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                                  onChange={(e) =>
+                                    updateCurationWeight(b.board, "youtube", e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  disabled={!b.curationEnabled}
+                                  value={b.curationWeights?.meme ?? ""}
+                                  placeholder="40"
+                                  className="control"
+                                  style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                                  onChange={(e) =>
+                                    updateCurationWeight(b.board, "meme", e.target.value)
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  disabled={!b.curationEnabled}
+                                  value={b.curationWeights?.ai ?? ""}
+                                  placeholder="15"
+                                  className="control"
+                                  style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
+                                  onChange={(e) =>
+                                    updateCurationWeight(b.board, "ai", e.target.value)
+                                  }
+                                />
+                              </td>
+                            </>
+                          )}
                           <td>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              disabled={!b.curationEnabled}
-                              value={b.curationWeights?.youtube ?? ""}
-                              placeholder="45"
-                              className="control"
-                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
-                              onChange={(e) =>
-                                updateCurationWeight(b.board, "youtube", e.target.value)
-                              }
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              disabled={!b.curationEnabled}
-                              value={b.curationWeights?.meme ?? ""}
-                              placeholder="40"
-                              className="control"
-                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
-                              onChange={(e) =>
-                                updateCurationWeight(b.board, "meme", e.target.value)
-                              }
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              disabled={!b.curationEnabled}
-                              value={b.curationWeights?.ai ?? ""}
-                              placeholder="15"
-                              className="control"
-                              style={{ width: 64, opacity: b.curationEnabled ? 1 : 0.4 }}
-                              onChange={(e) =>
-                                updateCurationWeight(b.board, "ai", e.target.value)
-                              }
-                            />
-                          </td>
-                          <td>
-                            {b.curationEnabled && b.curationWeights !== null && !wOk && (
+                            {!resourceBoard && b.curationEnabled && b.curationWeights !== null && !wOk && (
                               <span style={{ color: "var(--warning, #d97706)", fontSize: 12, marginRight: 8 }}>
                                 합계 {wTotal}
                               </span>
                             )}
-                            {b.curationEnabled && b.curationWeights === null && (
+                            {!resourceBoard && b.curationEnabled && b.curationWeights === null && (
                               <span style={{ color: "var(--gray-400)", fontSize: 11, marginRight: 8 }}>
                                 기본값
                               </span>

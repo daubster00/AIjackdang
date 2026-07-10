@@ -46,6 +46,13 @@ export type {
 /** 유튜브 영상 큐레이션(퍼오기) re-export. */
 export { searchYoutubeVideo } from './brave-video';
 export type { CuratedVideo } from './brave-video';
+/** 실전자료 큐레이션(실물 자료 검색·소개) re-export. */
+export { discoverResource } from './resource-discovery';
+export type {
+  DiscoveredResource,
+  DiscoverResourceOptions,
+  ResourceType,
+} from './resource-discovery';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 

@@ -57,6 +57,25 @@ export interface CurationContext {
 }
 
 /**
+ * 실전자료 큐레이션 컨텍스트.
+ * 자료(resource) 게시판에서 "퍼오기(실물 자료 큐레이션)"를 켰을 때 전달.
+ * 봇이 자료를 창작하는 대신, 검색으로 찾은 실제로 널리 쓰이는 자료 하나를
+ * 출처 링크와 함께 "소개"하는 글을 쓰게 한다.
+ */
+export interface ResourceCurationContext {
+  /** 실전자료 유형(prompt·claude-code-skill·mcp·rules-config·template-checklist). */
+  resourceType: string;
+  /** 실제 자료 이름(예: "Awesome ChatGPT Prompts"). */
+  name: string;
+  /** 실제 출처 URL(본문에 링크로 노출). */
+  sourceUrl: string;
+  /** 출처 라벨(저장소·사이트명, 예: GitHub). */
+  sourceLabel: string;
+  /** 이 자료가 왜 널리 쓰이는지 한 줄(있으면). */
+  whyPopular?: string;
+}
+
+/**
  * 고정 커리큘럼 "강의 편" 컨텍스트.
  * 관리자 페르소나가 가이드 시리즈(예: "제로부터 바이브코딩")의 정해진 챕터를 쓸 때 전달.
  * 검색 발굴 대신 커리큘럼이 주제를 정하고, 본문 정해진 자리에 이미지 마커를 넣는다.
@@ -110,6 +129,8 @@ export interface PostUserPromptOptions {
   seriesContext?: SeriesContext;
   /** 큐레이션(퍼오기) 소개글일 때 전달. 있으면 "소재를 소개하는 짧은 글" 지침으로 전환. */
   curation?: CurationContext;
+  /** 실전자료 큐레이션(실물 자료 소개)일 때 전달. 있으면 "실제 자료를 출처와 함께 소개" 지침으로 전환. */
+  resourceCuration?: ResourceCurationContext;
   /** 고정 커리큘럼 강의 편일 때 전달. 있으면 커리큘럼 전용 지침으로 전환. */
   guideChapter?: GuideChapterContext;
   /**

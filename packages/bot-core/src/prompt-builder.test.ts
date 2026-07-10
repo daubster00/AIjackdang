@@ -332,3 +332,52 @@ describe("buildPostUserPrompt — 실전자료(resource) 유형", () => {
     expect(mcp).not.toBe(tpl);
   });
 });
+
+// ── 실전자료 큐레이션(실물 자료 소개) 프롬프트 ───────────────────────────────────
+
+describe("buildPostUserPrompt — 실전자료 큐레이션(실물 자료 소개)", () => {
+  it("resourceCuration이 있으면 '창작'이 아니라 실제 자료를 출처와 함께 소개하는 지침으로 전환된다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "요즘 많이 쓰는 프롬프트 모음",
+      facts: mockFacts,
+      board: "resource:prompt",
+      postKind: "guide",
+      resourceCuration: {
+        resourceType: "prompt",
+        name: "Awesome ChatGPT Prompts",
+        sourceUrl: "https://github.com/f/awesome-chatgpt-prompts",
+        sourceLabel: "GitHub",
+        whyPopular: "스타 10만 이상, 가장 널리 인용되는 프롬프트 모음",
+      },
+    });
+    // 실제 자료명·출처 링크가 본문 지침에 포함
+    expect(prompt).toContain("Awesome ChatGPT Prompts");
+    expect(prompt).toContain("https://github.com/f/awesome-chatgpt-prompts");
+    expect(prompt).toContain("GitHub");
+    // "소개"이며 "창작·지어내기 금지" 원칙이 명시
+    expect(prompt).toContain("소개");
+    expect(prompt).toContain("지어내");
+    // 봇 직접 작성용 "실전자료 작성 지침"(창작 경로)로 가면 안 된다
+    expect(prompt).not.toContain("실전자료 작성 지침");
+  });
+
+  it("resourceCuration이 curation/board 작성 분기보다 우선한다", () => {
+    // resource: 보드이면서 resourceCuration이 있으면 큐레이션 소개 경로로 간다.
+    const prompt = buildPostUserPrompt({
+      titleSeed: "t",
+      facts: emptyFacts,
+      board: "resource:mcp",
+      postKind: "guide",
+      resourceCuration: {
+        resourceType: "mcp",
+        name: "Playwright MCP",
+        sourceUrl: "https://github.com/microsoft/playwright-mcp",
+        sourceLabel: "GitHub",
+      },
+    });
+    expect(prompt).toContain("Playwright MCP");
+    expect(prompt).toContain("실전자료 큐레이션 지침");
+    // 봇 직접 작성 지침이 아니어야 한다
+    expect(prompt).not.toContain("실전자료 작성 지침");
+  });
+});
