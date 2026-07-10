@@ -28,10 +28,21 @@ api.aijackdang.com {
 	}
 }
 
-# ── 공개 파일(MinIO 공개 버킷) ─────────────────────────────────────────────
-# cdn.aijackdang.com/<key> → minio:9000/ai-jakdang-public/<key>
+# ── 파일(MinIO) ────────────────────────────────────────────────────────────
+# 공개 버킷: cdn.aijackdang.com/<key> → minio:9000/ai-jakdang-public/<key> (rewrite)
+# 비공개 버킷: presigned URL 은 경로에 버킷명(ai-jakdang-private/)이 이미 포함되므로
+#   rewrite 없이 그대로 전달한다. 서명 host=cdn.aijackdang.com 기준이고 Caddy 는 기본적으로
+#   원본 Host 를 유지하므로 MinIO 서명 검증이 통과한다(S3_PRESIGN_ENDPOINT=https://cdn.aijackdang.com).
 cdn.aijackdang.com {
 	encode gzip
-	rewrite * /ai-jakdang-public{uri}
-	reverse_proxy minio:9000
+	# 비공개 버킷 presigned 요청(경로에 버킷명 포함) → rewrite 없이 그대로 전달
+	@private path /ai-jakdang-private/*
+	handle @private {
+		reverse_proxy minio:9000
+	}
+	# 그 외(공개 버킷 키만 옴) → 공개 버킷 경로로 rewrite
+	handle {
+		rewrite * /ai-jakdang-public{uri}
+		reverse_proxy minio:9000
+	}
 }

@@ -85,6 +85,11 @@ const envSchema = z
     /** 공개 버킷 객체의 외부 접근 베이스 URL. 미설정 시 `${S3_ENDPOINT}/${S3_BUCKET_PUBLIC}` 로 구성.
      *  운영(R2/CDN)에서는 커스텀 도메인을 넣는다. */
     S3_PUBLIC_BASE_URL: z.string().optional(),
+    /** 비공개 버킷 presigned 다운로드 URL 서명에 쓸 **외부에서 접근 가능한** S3 엔드포인트(호스트 루트).
+     *  미설정 시 S3_ENDPOINT 로 서명하는데, 운영에서 S3_ENDPOINT 는 내부 호스트(http://minio:9000)라
+     *  브라우저가 접근 못 한다 → 다운로드 실패. 운영에서는 Caddy 가 비공개 버킷을 프록시하는 공개 호스트
+     *  (예: https://cdn.aijackdang.com)를 넣는다. presigned host 는 서명에 포함되므로 이 값이 곧 URL 호스트가 된다. */
+    S3_PRESIGN_ENDPOINT: z.string().optional(),
 
     // SMTP (이메일 발송 — worker)
     SMTP_HOST: z.string().optional(),
