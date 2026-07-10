@@ -207,6 +207,7 @@ export default async function HomePage({
                 <Link
                   key={post.id}
                   href={getPostDetailHref(post.board, post.slug, post.category)}
+                  className={styles.categoryLinkCard}
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
                   <Card

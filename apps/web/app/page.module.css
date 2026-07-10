@@ -234,6 +234,21 @@
   min-height: 248px;
 }
 
+/* 실전 인기글 카드: 그리드가 늘려준 링크 높이를 카드가 꽉 채워 3장 세로 길이 일치 */
+.categoryLinkCard {
+  color: inherit;
+  text-decoration: none;
+}
+
+.categoryLinkCard .categoryCard {
+  height: 100%;
+}
+
+/* 태그(CardMeta) 줄을 카드 하단으로 밀어 내용 길이와 무관하게 정렬 */
+.categoryCard > *:last-child {
+  margin-top: auto;
+}
+
 .cardKicker {
   margin: 0 0 var(--space-2);
   color: var(--color-primary);
