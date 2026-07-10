@@ -430,7 +430,9 @@ export async function runPostPipeline(
 
   // 큐레이션 소재(영상/밈)가 이미 확보됐으면 발굴 생략 — Step 4에서 어차피 큐레이션이 우선이라
   // 발굴 결과는 버려지므로 검색·모델 비용만 아낀다.
-  if (!curatedVideo && !curatedMeme && !resourceCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
+  // 운영자가 realtimeTopic을 명시 주입한 수동 트리거는 그 주제를 강제하므로 발굴을 건너뛴다
+  // (발굴이 돌면 봇이 자기 주제를 뽑아 주입 주제를 덮어써 버린다).
+  if (!input.realtimeTopic && !curatedVideo && !curatedMeme && !resourceCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -495,6 +497,25 @@ export async function runPostPipeline(
       createdAt: new Date(),
     };
     topicResult = { topic: resourceTopic, wasRealtime: true };
+  } else if (input.realtimeTopic) {
+    // 운영자 강제 주제(수동 트리거): 발굴·주제풀보다 우선. 이 주제로 곧장 그라운딩·생성한다.
+    const forcedTopic: BotTopicRow = {
+      id: `forced-${Date.now()}`,
+      personaId,
+      board,
+      titleSeed: input.realtimeTopic,
+      topicKind: "realtime",
+      status: "unused",
+      usedAt: null,
+      seriesGroup: null,
+      postId: null,
+      createdAt: new Date(),
+    };
+    topicResult = { topic: forcedTopic, wasRealtime: true };
+    await logActivity(db, personaId, "planned", null, {
+      reason: "forced-topic",
+      titleSeed: input.realtimeTopic,
+    });
   } else if (discovered) {
     const syntheticTopic: BotTopicRow = {
       id: `discovered-${Date.now()}`,
