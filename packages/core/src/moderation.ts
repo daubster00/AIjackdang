@@ -92,10 +92,17 @@ const URL_REGEX = /https?:\/\/[^\s]+/g;
  * 2. SPAM_DOMAINS 중 하나가 URL에 포함된 경우
  *
  * @param content 검사할 텍스트
+ * @param options.allowManyUrls true면 "URL 4개 이상" 조건을 무시한다.
+ *   실전자료 큐레이션처럼 출처·참고 링크가 정당하게 여러 개 들어가는 글에서,
+ *   링크 수만으로 부당하게 스팸 판정되는 것을 막기 위한 예외. 단축·광고 도메인
+ *   차단은 이 옵션과 무관하게 항상 유지된다.
  * @returns 스팸 여부
  */
-export function detectSpam(content: string): boolean {
+export function detectSpam(
+  content: string,
+  options?: { allowManyUrls?: boolean },
+): boolean {
   const urls = content.match(URL_REGEX) ?? [];
-  if (urls.length > 3) return true;
+  if (!options?.allowManyUrls && urls.length > 3) return true;
   return urls.some((url) => SPAM_DOMAINS.some((d) => url.includes(d)));
 }

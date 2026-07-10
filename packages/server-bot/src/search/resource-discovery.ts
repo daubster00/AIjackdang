@@ -35,6 +35,21 @@ export type ResourceType =
   | 'rules-config'
   | 'template-checklist';
 
+/**
+ * 큐레이션 자료의 다운로드 원본.
+ * 현재는 GitHub 공개 저장소 전체를 codeload zip으로 받는 형태만 지원한다.
+ * (출처가 GitHub 저장소가 아니면 fileSource=null → 파일 첨부 없이 링크만.)
+ */
+export interface CuratedFileSource {
+  kind: 'github-repo';
+  /** 저장소 소유자(user/org). */
+  owner: string;
+  /** 저장소 이름. */
+  repo: string;
+  /** 사람이 읽는 식별(owner/repo). */
+  label: string;
+}
+
 /** 검색으로 발굴한 실제 자료 1개. */
 export interface DiscoveredResource {
   /** 실제 자료 이름(예: "Awesome ChatGPT Prompts"). */
@@ -49,6 +64,8 @@ export interface DiscoveredResource {
   whyPopular: string;
   /** 글 작성에 그대로 넘길 사실 근거(재검색 불필요). */
   grounding: FactGrounding;
+  /** 다운로드 첨부 원본(있으면). GitHub 저장소가 아니면 null. */
+  fileSource: CuratedFileSource | null;
 }
 
 export interface DiscoverResourceOptions {
@@ -152,6 +169,31 @@ function parseResourceOutput(text: string): ResourceModelOutput | null {
       : [];
 
     return { name, titleSeed, sourceUrl, sourceLabel, whyPopular, facts };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GitHub 저장소 URL에서 owner/repo를 뽑아 다운로드 소스로 만든다.
+ * 저장소 형태(github.com/{owner}/{repo}[/...])가 아니면 null.
+ * sourceUrl이 저장소 하위 경로(/tree/.../skills/foo 등)여도 owner/repo만 취해 저장소 전체를 받는다.
+ */
+function deriveGithubFileSource(sourceUrl: string): CuratedFileSource | null {
+  try {
+    const u = new URL(sourceUrl);
+    if (u.hostname.replace(/^www\./, '') !== 'github.com') return null;
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) return null;
+    const owner = parts[0]!;
+    const repo = parts[1]!.replace(/\.git$/, '');
+    // 저장소가 아닌 예약 경로(마켓플레이스·조직 페이지 등) 방어.
+    const reserved = new Set([
+      'orgs', 'sponsors', 'topics', 'marketplace', 'features',
+      'about', 'settings', 'notifications', 'explore', 'apps', 'collections',
+    ]);
+    if (reserved.has(owner.toLowerCase()) || !repo) return null;
+    return { kind: 'github-repo', owner, repo, label: `${owner}/${repo}` };
   } catch {
     return null;
   }
@@ -330,5 +372,6 @@ ${listing}
     sourceLabel: parsed.sourceLabel || hostLabel(parsed.sourceUrl),
     whyPopular: parsed.whyPopular,
     grounding,
+    fileSource: deriveGithubFileSource(parsed.sourceUrl),
   };
 }

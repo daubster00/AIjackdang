@@ -52,6 +52,7 @@ export type {
   DiscoveredResource,
   DiscoverResourceOptions,
   ResourceType,
+  CuratedFileSource,
 } from './resource-discovery';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────

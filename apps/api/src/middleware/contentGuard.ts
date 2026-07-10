@@ -158,12 +158,17 @@ export type ContentGuardResult =
  *
  * 봇이 preHandler를 거치지 않고 직접 호출하는 공용 API.
  */
-export async function runContentGuard(text: string): Promise<ContentGuardResult> {
+export async function runContentGuard(
+  text: string,
+  options?: { allowManyUrls?: boolean },
+): Promise<ContentGuardResult> {
   // 빈 텍스트는 통과 (방어적 처리)
   if (!text.trim()) return { ok: true };
 
   // ── 스팸 링크 검사 ──────────────────────────────────────────────────────────
-  if (detectSpam(text)) {
+  // allowManyUrls: 실전자료 큐레이션 등 출처 링크가 여러 개인 정당한 글에서
+  // "URL 4개 이상" 조건만 예외 처리한다(단축·광고 도메인 차단은 유지).
+  if (detectSpam(text, { allowManyUrls: options?.allowManyUrls })) {
     return {
       ok: false,
       code: "SPAM",

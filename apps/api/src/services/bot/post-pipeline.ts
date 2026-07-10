@@ -32,7 +32,7 @@ import { getDb, schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
 import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource } from "@ai-jakdang/server-bot/search";
-import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType } from "@ai-jakdang/server-bot/search";
+import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType, CuratedFileSource } from "@ai-jakdang/server-bot/search";
 import {
   decideImageStrategy,
   fetchBotImage,
@@ -329,8 +329,12 @@ export async function runPostPipeline(
 
   // 자료 보드에서 퍼오기를 켜면 유튜브/밈/AI가 아니라 "실물 자료 큐레이션"으로 간다.
   // 따라서 자료 보드는 decideCurationMode(유튜브/밈/AI)를 적용하지 않는다.
+  // ⚠️ 실물 자료 큐레이션은 유튜브/밈 퍼오기와 성격이 다르다(신뢰받는 실제 자료를 출처와
+  //    함께 소개). 운영자 봇(isAdminPersona)에게도 자연스러운 동작이므로 admin 차단을 두지
+  //    않고, 관리자가 켠 curation_enabled 토글을 그대로 존중한다.
+  //    (유튜브/밈 퍼오기의 admin 차단은 decideCurationMode에 그대로 유지된다.)
   const resourceCurationEnabled =
-    isResourceBoard && !isAdminPersona && (boardCurationConfig?.enabled ?? false);
+    isResourceBoard && (boardCurationConfig?.enabled ?? false);
   const curationMode = isResourceBoard
     ? null
     : decideCurationMode(board, isAdminPersona, boardCurationConfig);
@@ -375,6 +379,7 @@ export async function runPostPipeline(
   let resourceCuration: ResourceCurationContext | null = null;
   let resourceCurationGrounding: FactGrounding | null = null;
   let resourceCurationTitleSeed = "";
+  let resourceCurationFileSource: CuratedFileSource | null = null;
   if (resourceCurationEnabled && (await isSearchDrivenTopicsEnabled(db))) {
     const resourceType = board.slice("resource:".length) as ResourceType;
     try {
@@ -398,11 +403,14 @@ export async function runPostPipeline(
         // grounding을 별도 보관해 Step 6에서 재검색 없이 재사용.
         resourceCurationGrounding = found.grounding;
         resourceCurationTitleSeed = found.titleSeed;
+        // 발굴한 자료의 원본 파일 소스(GitHub 저장소 등) — 자료 작성 시 첨부에 사용.
+        resourceCurationFileSource = found.fileSource;
         await logActivity(db, personaId, "planned", null, {
           reason: "resource-curation",
           resourceType,
           name: found.name,
           sourceUrl: found.sourceUrl,
+          fileSource: found.fileSource?.label ?? null,
         });
       }
     } catch (err) {
@@ -1110,6 +1118,11 @@ export async function runPostPipeline(
         ).trim();
         const resourceSummary =
           (bodyText ? bodyText.slice(0, 150) : "") || facts.facts[0] || title;
+        // 큐레이션이면 원본 출처를 참고링크로 명시(재호스팅 시 출처 표기 필수)하고,
+        // 발굴한 원본 파일(GitHub 저장소 등)을 다운로드 가능하게 첨부한다.
+        const curationReferenceLinks = resourceCuration
+          ? [{ label: resourceCuration.sourceLabel, url: resourceCuration.sourceUrl }]
+          : undefined;
         writeResult = await createResourceAsBot({
           ...common,
           resourceInput: {
@@ -1121,7 +1134,9 @@ export async function runPostPipeline(
             descriptionJson: finalContentJson,
             usageJson: { type: "doc", content: [] },
             tags,
+            referenceLinks: curationReferenceLinks,
           },
+          fileSource: resourceCurationFileSource,
         });
       } else {
         writeResult = await createPostAsBot({

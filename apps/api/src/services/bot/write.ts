@@ -24,8 +24,11 @@ import { createPost } from "../../routes/v1/posts/service.js";
 import { createComment } from "../../routes/v1/comments/service.js";
 import { createQuestion } from "../../routes/v1/qna/write.service.js";
 import { createResource } from "../../routes/v1/resources/write.service.js";
+import { uploadResourceFiles } from "../../routes/v1/resources/upload.service.js";
 import { runContentGuard } from "../../middleware/contentGuard.js";
 import { notifyBotPublish } from "./telegram-notify.js";
+import { fetchCuratedResourceFile } from "./resource-file-fetch.js";
+import type { CuratedFileSource } from "@ai-jakdang/server-bot/search";
 
 // ── Tiptap 텍스트 추출 ────────────────────────────────────────────────────────
 // contentGuard.ts의 동일 로직 로컬 복제 (export 없어 직접 import 불가).
@@ -108,7 +111,10 @@ export interface CreateQuestionAsBotInput {
  * createResourceAsBot 입력.
  * resourceInput 필드는 CreateResourceInput (packages/contracts/src/resource.ts) 과 동일 형태.
  * copyrightAgreed 는 항상 true (봇 운영자 동의 전제) — 호출자가 전달하지 않아도 됨.
- * 봇은 파일 첨부 없는 본문 위주 자료만 작성 (ARCHITECTURE §3, Story 4c.3).
+ *
+ * fileSource(선택): 실전자료 큐레이션에서 발굴한 원본 파일(GitHub 저장소 등)을 받아
+ *   다운로드 가능하게 첨부한다. 지정 시 자료 생성 후 파일을 내려받아 uploadResourceFiles로
+ *   S3 저장 + ClamAV 스캔 큐에 태운다(best-effort — 실패해도 글은 게시 유지).
  */
 export interface CreateResourceAsBotInput {
   botUserId: string;
@@ -131,6 +137,8 @@ export interface CreateResourceAsBotInput {
     /** 봇은 항상 published */
     status?: "published" | "draft";
   };
+  /** 큐레이션 원본 파일 다운로드 소스(있으면 자료에 파일 첨부). */
+  fileSource?: CuratedFileSource | null;
 }
 
 /** 모든 botWriteXxx 함수의 반환 타입 */
@@ -460,7 +468,7 @@ export async function createQuestionAsBot(
 export async function createResourceAsBot(
   input: CreateResourceAsBotInput,
 ): Promise<BotWriteResult> {
-  const { botUserId, personaId, jobId, resourceInput } = input;
+  const { botUserId, personaId, jobId, resourceInput, fileSource } = input;
   const db = getDb();
 
   try {
@@ -473,7 +481,9 @@ export async function createResourceAsBot(
       : "";
     const text = [titleText, bodyText].filter(Boolean).join(" ");
 
-    const guardResult = await runContentGuard(text);
+    // 실전자료 큐레이션은 출처·참고 링크가 정당하게 여러 개 들어간다.
+    // "URL 4개 이상 = 스팸" 하드 차단만 예외 처리한다(단축·광고 도메인 차단은 유지).
+    const guardResult = await runContentGuard(text, { allowManyUrls: true });
     if (!guardResult.ok) {
       return await handleBlocked(
         db,
@@ -502,6 +512,31 @@ export async function createResourceAsBot(
       },
       userId: botUserId,
     });
+
+    // ── 원본 파일 첨부(큐레이션) — best-effort ────────────────────────────────
+    // fileSource가 있으면 원본(GitHub 저장소 zip 등)을 받아 사람 업로드와 동일한
+    // 경로(uploadResourceFiles)로 S3 저장 + ClamAV 스캔 큐에 태운다. 스캔이 clean이
+    // 되면 다운로드가 열린다. 첨부 실패는 무시하고 글은 그대로 게시 유지한다.
+    if (fileSource) {
+      try {
+        const file = await fetchCuratedResourceFile(fileSource);
+        if (file) {
+          await uploadResourceFiles(resource.id, [file]);
+          console.info(
+            `[bot/write] 자료 파일 첨부: ${resource.slug} ← ${file.originalName} (${file.size} bytes)`,
+          );
+        } else {
+          console.info(
+            `[bot/write] 자료 파일 첨부 생략(비지원 소스·다운로드 실패): ${resource.slug}`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[bot/write] 자료 파일 첨부 실패(무시, 글은 게시 유지):",
+          (err as Error).message,
+        );
+      }
+    }
 
     // ── 성공: 잡 상태 published 업데이트 + 활동 로그 (kind='resource') ──────────
     await db
