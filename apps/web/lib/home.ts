@@ -5,7 +5,9 @@
  * 모든 함수는 실패 시 빈 배열 또는 null 반환 (graceful degradation, AC #9).
  * Next.js fetch revalidate: 60 (목록 TTL 규약, AR-17).
  *
- * API 내부 통신: INTERNAL_API_URL (SSR 전용). 기본값 'http://localhost:4003'.
+ * API 내부 통신: API_INTERNAL_URL (SSR 전용). 기본값 'http://localhost:4003'.
+ * ⚠️ 반드시 API_INTERNAL_URL 로 통일한다. 예전 오타(INTERNAL_API_URL)는 운영에서
+ *    미설정 → localhost:4003 폴백 → 웹 컨테이너에서 API 미연결 → 홈 전 섹션 공백 버그.
  */
 
 import type {
@@ -15,7 +17,7 @@ import type {
   NoticeBanner,
 } from "@ai-jakdang/contracts/home";
 
-const API_BASE = process.env.INTERNAL_API_URL ?? "http://localhost:4003";
+const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 const REVALIDATE = 60; // 초 (AR-17 목록 TTL)
 
 /** fetch 공통 옵션 */

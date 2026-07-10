@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 
 // ── API 데이터 fetcher ──────────────────────────────────────
 async function fetchGigsList(searchParams: Record<string, string>) {
-  const API_BASE = process.env.INTERNAL_API_URL ?? "http://localhost:4003";
+  const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
   const params = new URLSearchParams({ board: "gigs", pageSize: "20" });
   if (searchParams.postKind) params.set("postKind", searchParams.postKind);
