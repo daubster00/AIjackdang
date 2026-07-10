@@ -5,7 +5,13 @@
  */
 
 import { getDb } from "@ai-jakdang/database";
-import { botPersonas, botActivityLog, botModelAssignments } from "@ai-jakdang/database/schema";
+import {
+  botPersonas,
+  botActivityLog,
+  botModelAssignments,
+  posts,
+  comments,
+} from "@ai-jakdang/database/schema";
 import { eq, ilike, desc, asc, and, sql, max, inArray } from "drizzle-orm";
 import type { BotPersonaUpdate } from "@ai-jakdang/contracts";
 import type { SQL } from "drizzle-orm";
@@ -90,11 +96,15 @@ export async function listBots(query: AdminBotListQuery): Promise<{
       isActive: botPersonas.isActive,
       isAdminPersona: botPersonas.isAdminPersona,
       lastActiveAt: max(botActivityLog.createdAt),
-      postCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'post.published' THEN 1 END)::int`,
-      commentCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'comment.published' THEN 1 END)::int`,
+      // 활동 로그(post.published)만 세면 이후 삭제·비공개된 글까지 포함돼 게시판 실제 글 수와
+      // 어긋난다. refId로 실제 posts/comments 행을 조인해 "게시판에 실제로 노출 중인 글"만 센다.
+      postCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'post.published' AND ${posts.status} = 'published' AND ${posts.deletedAt} IS NULL THEN 1 END)::int`,
+      commentCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'comment.published' AND ${comments.status} = 'visible' AND ${comments.deletedAt} IS NULL THEN 1 END)::int`,
     })
     .from(botPersonas)
     .leftJoin(botActivityLog, eq(botPersonas.id, botActivityLog.personaId))
+    .leftJoin(posts, eq(botActivityLog.refId, posts.id))
+    .leftJoin(comments, eq(botActivityLog.refId, comments.id))
     .where(where)
     .groupBy(botPersonas.id)
     .orderBy(desc(botPersonas.isActive), asc(botPersonas.nickname))
@@ -170,11 +180,14 @@ export async function getBot(id: string): Promise<AdminBotDetail> {
       createdAt: botPersonas.createdAt,
       updatedAt: botPersonas.updatedAt,
       lastActiveAt: max(botActivityLog.createdAt),
-      postCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'post.published' THEN 1 END)::int`,
-      commentCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'comment.published' THEN 1 END)::int`,
+      // 목록과 동일하게 실제 posts/comments 행을 조인해 삭제·비공개 글은 제외한다.
+      postCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'post.published' AND ${posts.status} = 'published' AND ${posts.deletedAt} IS NULL THEN 1 END)::int`,
+      commentCount: sql<number>`COUNT(CASE WHEN ${botActivityLog.eventType} = 'comment.published' AND ${comments.status} = 'visible' AND ${comments.deletedAt} IS NULL THEN 1 END)::int`,
     })
     .from(botPersonas)
     .leftJoin(botActivityLog, eq(botPersonas.id, botActivityLog.personaId))
+    .leftJoin(posts, eq(botActivityLog.refId, posts.id))
+    .leftJoin(comments, eq(botActivityLog.refId, comments.id))
     .where(eq(botPersonas.id, id))
     .groupBy(botPersonas.id)
     .limit(1);
