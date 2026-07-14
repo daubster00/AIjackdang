@@ -621,9 +621,12 @@ export async function publishChapter(
 
   const persona = personaRow.persona;
 
-  // Step F — contentGuard 검사
+  // Step F — contentGuard 검사 (스팸 링크만 하드 차단)
+  // 커리큘럼은 관리자 저작·검토를 거친 신뢰 콘텐츠라 금칙어 하드 차단을 하지 않는다.
+  // detectForbiddenWord가 부분문자열 매칭이라 "비밀번호로"(비밀번호+조사 '로')가
+  // 금칙어 "호로"에 오탐되어 강의 발행이 통째로 막히던 문제를 방지한다. (2026-07-14)
   const finalText = extractTextFromTiptap(finalContentJson);
-  const guardResult = await runContentGuard(finalText);
+  const guardResult = await runContentGuard(finalText, { spamOnly: true });
   if (!guardResult.ok) {
     return { status: "blocked", chapterId, reason: "content-guard-blocked" };
   }
@@ -637,6 +640,8 @@ export async function publishChapter(
     botUserId: persona.userId ?? persona.id,
     personaId: persona.id,
     jobId: tempJobId,
+    // 커리큘럼은 신뢰 콘텐츠 — 금칙어 하드 차단 건너뛰기(스팸 링크만 검사).
+    skipForbiddenGuard: true,
     postInput: {
       board: series.board,
       title,

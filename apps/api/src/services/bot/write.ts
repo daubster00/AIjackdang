@@ -71,6 +71,12 @@ export interface CreatePostAsBotInput {
     creativeSpec?: CreativeSpec;
     recruitPost?: RecruitPost;
   };
+  /**
+   * 금칙어 하드 차단 건너뛰기 (스팸 링크만 검사).
+   * 관리자 저작·검토를 거친 신뢰 콘텐츠(커리큘럼 강의 발행)에서, 부분문자열
+   * 매칭으로 "비밀번호로"가 금칙어 "호로"에 오탐되어 막히는 것을 방지한다.
+   */
+  skipForbiddenGuard?: boolean;
 }
 
 /** createCommentAsBot 입력 */
@@ -233,7 +239,9 @@ export async function createPostAsBot(
       : "";
     const text = [titleText, bodyText].filter(Boolean).join(" ");
 
-    const guardResult = await runContentGuard(text);
+    const guardResult = await runContentGuard(text, {
+      spamOnly: input.skipForbiddenGuard,
+    });
     if (!guardResult.ok) {
       return await handleBlocked(
         db,

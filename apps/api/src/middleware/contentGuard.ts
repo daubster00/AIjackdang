@@ -160,7 +160,7 @@ export type ContentGuardResult =
  */
 export async function runContentGuard(
   text: string,
-  options?: { allowManyUrls?: boolean },
+  options?: { allowManyUrls?: boolean; spamOnly?: boolean },
 ): Promise<ContentGuardResult> {
   // 빈 텍스트는 통과 (방어적 처리)
   if (!text.trim()) return { ok: true };
@@ -178,6 +178,12 @@ export async function runContentGuard(
   }
 
   // ── 금칙어 검사 ────────────────────────────────────────────────────────────
+  // spamOnly: 관리자 저작·검토를 거친 신뢰 콘텐츠(예: 커리큘럼 강의 발행)에서
+  // 금칙어 하드 차단을 건너뛴다. detectForbiddenWord는 부분문자열 매칭이라
+  // "비밀번호로"(비밀번호+조사 '로')가 금칙어 "호로"에 오탐되어 발행이 막히는
+  // 문제가 있어, 신뢰 경로에서는 스팸 링크만 검사한다. (2026-07-14)
+  if (options?.spamOnly) return { ok: true };
+
   const forbiddenWords = await getSiteSetting<string[]>("forbidden_words");
   const wordList = Array.isArray(forbiddenWords) ? forbiddenWords : [];
 
