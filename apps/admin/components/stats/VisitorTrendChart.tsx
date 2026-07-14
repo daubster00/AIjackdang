@@ -56,16 +56,16 @@ export function VisitorTrendChart() {
     const toChartData = (data: VisitorTrendResponse) => ({
       labels: data.items.map((it) => it.date.slice(5)),  // MM-DD
       series: [
-        { values: data.items.map((it) => it.visitors),  color: primary, fill: "rgba(37,99,235,0.18)" },
-        { values: data.items.map((it) => it.pageViews), color: accent,  fill: "rgba(6,182,212,0.13)" },
+        { name: "방문자수", values: data.items.map((it) => it.visitors),  color: primary, fill: "rgba(37,99,235,0.18)" },
+        { name: "페이지뷰", values: data.items.map((it) => it.pageViews), color: accent,  fill: "rgba(6,182,212,0.13)" },
       ],
     });
 
     const placeholder = {
       labels: ["..."],
       series: [
-        { values: [0], color: primary, fill: "rgba(37,99,235,0.18)" },
-        { values: [0], color: accent,  fill: "rgba(6,182,212,0.13)" },
+        { name: "방문자수", values: [0], color: primary, fill: "rgba(37,99,235,0.18)" },
+        { name: "페이지뷰", values: [0], color: accent,  fill: "rgba(6,182,212,0.13)" },
       ],
     };
 

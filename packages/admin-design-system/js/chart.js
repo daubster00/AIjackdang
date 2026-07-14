@@ -21,6 +21,76 @@ export function createLineChart(canvas, initial = { labels: [], series: [] }) {
   let data = initial;
   const ctx = canvas.getContext("2d");
 
+  // 마우스 hover 시 해당 지점 수치를 보여주기 위한 지오메트리 캐시.
+  // redraw 마다 컬럼(날짜)별 좌표와 각 시리즈 값을 저장한다.
+  let geom = null;
+
+  // HTML 툴팁 요소(캔버스는 픽셀이라 hover 텍스트를 못 그리므로 DOM으로 띄운다).
+  const tipHost = canvas.parentElement || canvas;
+  if (tipHost && getComputedStyle(tipHost).position === "static") {
+    tipHost.style.position = "relative";
+  }
+  const tip = document.createElement("div");
+  tip.className = "chart-tooltip";
+  tip.style.cssText =
+    "position:absolute;pointer-events:none;z-index:20;background:#0f172a;color:#fff;" +
+    "font-size:11px;line-height:1.55;padding:7px 9px;border-radius:7px;white-space:nowrap;" +
+    "box-shadow:0 6px 18px rgba(15,23,42,.22);opacity:0;transition:opacity .1s ease;" +
+    "transform:translate(-50%,-100%);";
+  tipHost.appendChild(tip);
+
+  function hideTip() {
+    tip.style.opacity = "0";
+  }
+
+  function showTipAt(col) {
+    const rows = col.entries
+      .map((e) => {
+        const dot =
+          `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;` +
+          `background:${e.color};margin-right:6px;vertical-align:middle"></span>`;
+        const nm = e.name ? `${e.name} ` : "";
+        const val = Number(e.value ?? 0).toLocaleString("ko-KR");
+        return `<div>${dot}${nm}<strong>${val}</strong></div>`;
+      })
+      .join("");
+    tip.innerHTML =
+      `<div style="font-weight:600;margin-bottom:3px">${col.label}</div>${rows}`;
+    // 캔버스가 부모(tipHost) 안에서 갖는 위치를 더해 상대 좌표로 배치
+    const left = canvas.offsetLeft + col.x;
+    const top = canvas.offsetTop + col.minY - 10;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+    tip.style.opacity = "1";
+  }
+
+  function handleMove(event) {
+    if (!geom || geom.columns.length === 0) {
+      hideTip();
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const mx = event.clientX - rect.left;
+    const my = event.clientY - rect.top;
+    // 플롯 세로 영역 밖이면 숨김
+    if (my < geom.top - 12 || my > geom.bottom + 12) {
+      hideTip();
+      return;
+    }
+    // x축으로 가장 가까운 컬럼(날짜)에 스냅
+    let nearest = geom.columns[0];
+    let best = Infinity;
+    for (const col of geom.columns) {
+      const d = Math.abs(col.x - mx);
+      if (d < best) { best = d; nearest = col; }
+    }
+    if (best > geom.snap) { hideTip(); return; }
+    showTipAt(nearest);
+  }
+
+  canvas.addEventListener("mousemove", handleMove);
+  canvas.addEventListener("mouseleave", hideTip);
+
   function redraw() {
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -93,6 +163,29 @@ export function createLineChart(canvas, initial = { labels: [], series: [] }) {
       });
     }
 
+    // hover 툴팁용 지오메트리 캐시 구축 (컬럼=날짜별로 각 시리즈 값·좌표 저장)
+    const seriesPts = data.series.map((s) => points(s.values));
+    const colSpacing = labels.length > 1 ? plotW / (labels.length - 1) : plotW;
+    geom = {
+      top: padding.top,
+      bottom: height - padding.bottom,
+      snap: Math.max(16, colSpacing / 2),
+      columns: labels.map((label, i) => {
+        const ys = seriesPts.map((pts) => pts[i]?.y).filter((y) => typeof y === "number");
+        return {
+          label,
+          x: seriesPts[0]?.[i]?.x
+            ?? (labels.length === 1 ? padding.left + plotW / 2 : padding.left + colSpacing * i),
+          minY: ys.length ? Math.min(...ys) : padding.top,
+          entries: data.series.map((s) => ({
+            name: s.name,
+            color: s.color,
+            value: s.values[i],
+          })),
+        };
+      }),
+    };
+
     data.series.forEach((s) => {
       const pts = points(s.values);
       if (pts.length === 0) return;
@@ -152,6 +245,9 @@ export function createLineChart(canvas, initial = { labels: [], series: [] }) {
     redraw,
     destroy() {
       observer.disconnect();
+      canvas.removeEventListener("mousemove", handleMove);
+      canvas.removeEventListener("mouseleave", hideTip);
+      tip.remove();
     },
   };
 }

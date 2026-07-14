@@ -31,16 +31,19 @@ export function AnalyticsOverviewChart({ items }: AnalyticsOverviewChartProps) {
       labels: items.map((item) => item.date.slice(5)), // MM-DD 형식
       series: [
         {
+          name: "신규 가입",
           values: items.map((item) => item.newUsers),
           color: primary,
           fill: "rgba(37,99,235,0.18)",
         },
         {
+          name: "신규 게시글",
           values: items.map((item) => item.newPosts),
           color: accent,
           fill: "rgba(6,182,212,0.13)",
         },
         {
+          name: "다운로드",
           values: items.map((item) => item.downloads),
           color: success,
           fill: "rgba(22,163,74,0.10)",

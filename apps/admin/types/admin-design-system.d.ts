@@ -30,6 +30,8 @@ declare module "@ai-jakdang/admin-design-system/js/chart.js" {
     values: number[];
     color: string;
     fill?: string;
+    /** hover 툴팁에 표시할 시리즈 이름(예: "신규 게시글"). 없으면 값만 표시. */
+    name?: string;
   }
   export interface ChartData {
     labels: string[];
