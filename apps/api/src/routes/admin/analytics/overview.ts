@@ -44,15 +44,12 @@ function dateRange(start: Date, end: Date): Date[] {
 export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Promise<void> {
   app.get("/admin/analytics/overview", {
     schema: {
-      description: "기간별 접속 통계 개요(신규 가입, 신규 게시글, 다운로드). staff 이상 접근 가능.",
+      // 이 API는 fastify-type-provider-zod 검증기를 쓴다. 순수 JSON Schema를
+      // querystring 에 넣으면 Zod 검증기가 이를 Zod 스키마로 취급해 500(FST_ERR_VALIDATION,
+      // "reading 'run'")으로 죽는다. 형제 analytics 라우트처럼 querystring 스키마를 두지 않고
+      // 핸들러에서 request.query 를 직접 파싱한다.
+      description: "기간별 접속 통계 개요(신규 가입, 신규 게시글, 다운로드). staff 이상 접근 가능. ?from=YYYY-MM-DD&to=YYYY-MM-DD",
       tags: ["admin-analytics"],
-      querystring: {
-        type: "object",
-        properties: {
-          from: { type: "string", description: "YYYY-MM-DD" },
-          to: { type: "string", description: "YYYY-MM-DD" },
-        },
-      },
     },
   }, async (request, reply) => {
     const query = request.query as { from?: string; to?: string };
