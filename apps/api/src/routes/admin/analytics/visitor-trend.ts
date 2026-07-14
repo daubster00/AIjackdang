@@ -65,7 +65,7 @@ export async function registerVisitorTrendRoute(app: FastifyInstance): Promise<v
     // 날짜별 visitor 수 + PV 집계
     const rows = await db
       .select({
-        date:      sql<string>`DATE(${schema.pageViews.createdAt} AT TIME ZONE 'UTC')`,
+        date:      sql<string>`TO_CHAR(${schema.pageViews.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
         visitors:  sql<number>`COUNT(DISTINCT ${schema.pageViews.visitorId})::int`,
         pageViews: sql<number>`COUNT(*)::int`,
       })
@@ -76,7 +76,7 @@ export async function registerVisitorTrendRoute(app: FastifyInstance): Promise<v
           lt(schema.pageViews.createdAt, toDateEnd),
         ),
       )
-      .groupBy(sql`DATE(${schema.pageViews.createdAt} AT TIME ZONE 'UTC')`);
+      .groupBy(sql`TO_CHAR(${schema.pageViews.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
 
     const rowMap = new Map(rows.map((r) => [r.date, r]));
     const dates  = dateRange(fromDate, toDate);

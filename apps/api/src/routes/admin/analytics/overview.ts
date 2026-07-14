@@ -83,7 +83,7 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
     // 날짜별 신규 가입자 집계 (봇 제외 설정 시 is_bot=false 조건 추가)
     const usersRows = await db
       .select({
-        date: sql<string>`DATE(${schema.users.createdAt} AT TIME ZONE 'UTC')`,
+        date: sql<string>`TO_CHAR(${schema.users.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
         count: count(),
       })
       .from(schema.users)
@@ -94,12 +94,12 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
           excludeBots ? eq(schema.users.isBot, false) : undefined,
         ),
       )
-      .groupBy(sql`DATE(${schema.users.createdAt} AT TIME ZONE 'UTC')`);
+      .groupBy(sql`TO_CHAR(${schema.users.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
 
     // 날짜별 신규 게시글 집계 (deleted 제외)
     const postsRows = await db
       .select({
-        date: sql<string>`DATE(${schema.posts.createdAt} AT TIME ZONE 'UTC')`,
+        date: sql<string>`TO_CHAR(${schema.posts.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
         count: count(),
       })
       .from(schema.posts)
@@ -110,13 +110,13 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
           ne(schema.posts.status, "deleted"),
         ),
       )
-      .groupBy(sql`DATE(${schema.posts.createdAt} AT TIME ZONE 'UTC')`);
+      .groupBy(sql`TO_CHAR(${schema.posts.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
 
     // 날짜별 다운로드 집계 (resources: 날짜별 개별 다운로드 이벤트 테이블 없으므로
     // resources.created_at 기준 download_count 합산 — 실제 운영에서는 다운로드 이력 테이블 사용 권장)
     const downloadsRows = await db
       .select({
-        date: sql<string>`DATE(${schema.resources.createdAt} AT TIME ZONE 'UTC')`,
+        date: sql<string>`TO_CHAR(${schema.resources.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
         count: sum(schema.resources.downloadCount),
       })
       .from(schema.resources)
@@ -127,7 +127,7 @@ export async function registerAnalyticsOverviewRoute(app: FastifyInstance): Prom
           ne(schema.resources.status, "deleted"),
         ),
       )
-      .groupBy(sql`DATE(${schema.resources.createdAt} AT TIME ZONE 'UTC')`);
+      .groupBy(sql`TO_CHAR(${schema.resources.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
 
     // Map으로 빠른 조회
     const usersMap = new Map(usersRows.map((r) => [r.date, Number(r.count)]));
