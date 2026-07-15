@@ -107,6 +107,23 @@ async function getBotSetting<T>(key: string): Promise<T | null> {
 }
 
 /**
+ * AI 응답 텍스트에서 JSON 객체 블록만 추출한다.
+ *
+ * Claude 등 일부 모델은 "다음 JSON만 반환"이라 지시해도 ```json 코드펜스나
+ * "다음은 JSON입니다:" 같은 서두를 붙여 반환한다. 그러면 순수 JSON.parse가
+ * 실패해 요약·검열이 폴백("(요약 실패)"·"pass")으로 빠지고, 결국 생성기가
+ * 빈 맥락으로 글과 무관한 댓글을 쓰게 된다. 첫 '{' ~ 마지막 '}' 구간만 떼어
+ * 파싱하도록 방어한다(planner·curriculum-autogen·bot-core censor와 동일 방식).
+ */
+function extractJsonBlock(text: string): string {
+  const match = text.match(/\{[\s\S]*\}/);
+  return match ? match[0] : text;
+}
+
+/** 요약이 실패했을 때 postContext.topic에 넣는 표식(빈 맥락 감지용). */
+const SUMMARY_FAILED_TOPIC = "(요약 실패)";
+
+/**
  * NormalizedPostContext JSON 문자열을 파싱한다.
  * 파싱 실패 시 기본값 반환 (fail-safe).
  */
@@ -115,7 +132,7 @@ function parseNormalizedContext(
   fallback: NormalizedPostContext,
 ): NormalizedPostContext {
   try {
-    const parsed: unknown = JSON.parse(jsonText);
+    const parsed: unknown = JSON.parse(extractJsonBlock(jsonText));
     if (typeof parsed !== "object" || parsed === null) return fallback;
 
     const obj = parsed as Record<string, unknown>;
@@ -145,7 +162,7 @@ function parseNormalizedContext(
  */
 function parseCensorResult(jsonText: string): CommentCensorResult {
   try {
-    const parsed: unknown = JSON.parse(jsonText);
+    const parsed: unknown = JSON.parse(extractJsonBlock(jsonText));
     if (typeof parsed !== "object" || parsed === null) {
       return { passed: true, verdict: "pass", reasons: [] };
     }
@@ -446,7 +463,7 @@ export async function runCommentPipeline(
     costAccumulator.totalUsd += summaryResponse.costUsd;
 
     const fallbackContext: NormalizedPostContext = {
-      topic: "(요약 실패)",
+      topic: SUMMARY_FAILED_TOPIC,
       emotionTone: "neutral",
       keyFacts: [],
       existingCommentCount: existingComments.length,
@@ -458,9 +475,9 @@ export async function runCommentPipeline(
     postContext.boardSlug = targetBoard;
   } catch (err) {
     console.error("[comment-pipeline] 요약기 callModel 실패:", (err as Error).message);
-    // fail-safe: 기본 맥락으로 계속 진행
+    // fail-safe: 빈 맥락 표식으로 계속 → 아래 가드에서 skip 처리
     postContext = {
-      topic: "(요약 실패)",
+      topic: SUMMARY_FAILED_TOPIC,
       emotionTone: "neutral",
       keyFacts: [],
       existingCommentCount: existingComments.length,
@@ -470,6 +487,24 @@ export async function runCommentPipeline(
       reason: "summarizer_failed",
       error: (err as Error).message,
     });
+  }
+
+  // 요약 맥락이 비었으면(파싱 실패·호출 실패 모두) 여기서 중단한다.
+  // 예전에는 빈 맥락 그대로 생성기로 넘어가 게시글과 무관한 임의 댓글을 써서
+  // 검열관까지 통과시켰다. 원문을 못 읽은 채로는 댓글을 만들지 않는다.
+  if (postContext.topic === SUMMARY_FAILED_TOPIC && postContext.keyFacts.length === 0) {
+    console.warn(
+      `[comment-pipeline] 요약 맥락 없음 — 무관 댓글 방지 위해 skip: postId=${targetPostId}`,
+    );
+    await db
+      .update(schema.botGenerationJobs)
+      .set({ status: "discarded", updatedAt: new Date() })
+      .where(eq(schema.botGenerationJobs.id, jobId));
+    await logActivity("skipped", jobId, {
+      reason: "empty_summary_context",
+      targetPostId,
+    });
+    return { outcome: "discarded", jobId };
   }
 
   // ── 5.6: 댓글 생성 (최대 MAX_REGEN+1회) ────────────────────────────────────
