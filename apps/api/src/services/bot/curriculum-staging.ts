@@ -122,8 +122,8 @@ function planImageSlotsByHeadings(
   const slots = chosen.map((p, i) => ({
     assetKey: `sec-${i}`,
     guidance: p.heading
-      ? `"${p.heading}" 주제를 상징하는 실사풍 이미지`
-      : "이 주제를 상징하는 실사풍 이미지",
+      ? `"${p.heading}" 섹션 내용이 실제로 벌어지는 구체적인 상황을 담은 실사풍 한 컷`
+      : "이 부분 내용이 실제로 벌어지는 구체적인 상황을 담은 실사풍 한 컷",
   }));
 
   // 뒤에서부터 마커 삽입(인덱스 밀림 방지)
