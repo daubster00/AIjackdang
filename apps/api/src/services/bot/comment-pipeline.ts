@@ -129,6 +129,20 @@ function extractJsonBlock(text: string): string {
 const SUMMARY_FAILED_TOPIC = "(요약 실패)";
 
 /**
+ * 요약기·검열관 최대 출력 토큰.
+ *
+ * 요약/검열 산출물(JSON)은 실제로 수백 토큰이면 충분하지만, 검열관·요약기에
+ * 배정되는 모델은 추론(reasoning) 계열(claude-opus-4-8·gemini-3.1-pro 등)이라
+ * 내부 추론이 출력 토큰 예산을 함께 소진한다. 예산이 작으면(기존 300·400)
+ * 추론에 다 쓰여 JSON이 빈 문자열/절단으로 나오고, 그러면 파싱 실패 →
+ * 요약은 "(요약 실패)"·검열은 "pass" 폴백으로 빠져 글과 무관한 댓글이
+ * 그대로 게시됐다. 실제 출력 토큰만큼만 과금되므로 상한을 넉넉히 둔다.
+ * (실측: opus-4-8은 300에서 빈 출력, 3000에서 정상 JSON 반환.)
+ */
+const SUMMARY_MAX_TOKENS = 4000;
+const CENSOR_MAX_TOKENS = 4000;
+
+/**
  * NormalizedPostContext JSON 문자열을 파싱한다.
  * 파싱 실패 시 기본값 반환 (fail-safe).
  */
@@ -478,7 +492,7 @@ export async function runCommentPipeline(
 다음 JSON만 반환:
 { "topic": string, "questionIntent": string | null, "emotionTone": "neutral" | "enthusiastic" | "frustrated" | "curious" | "humorous", "keyFacts": string[] }`,
     user: wrappedContent,
-    maxTokens: 300,
+    maxTokens: SUMMARY_MAX_TOKENS,
     temperature: 0.2,
   };
 
@@ -625,7 +639,7 @@ export async function runCommentPipeline(
       user: `페르소나: ${chosenPersona.nickname}, 반응종류: ${reactionType}
 게시글맥락: ${JSON.stringify(postContext)}
 댓글초안: ${draftContent}`,
-      maxTokens: 400,
+      maxTokens: CENSOR_MAX_TOKENS,
       temperature: 0.1,
     };
 
