@@ -465,13 +465,15 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── DELETE /comments/:id — soft-delete ──────────────────────────────────────
+  // ── DELETE /comments/:id — 대댓글 없으면 완전삭제 / 있으면 soft-delete ────────
   typed.delete(
     "/comments/:id",
     {
       preHandler: [requireAuthHook],
       schema: {
-        description: "댓글 soft-delete. 소유자만 가능. status=deleted + deleted_at 설정.",
+        description:
+          "댓글 삭제. 소유자만 가능. 대댓글이 하나도 없으면 행·반응까지 완전삭제(흔적 없음), " +
+          "대댓글이 달린 경우에만 스레드 구조 보존을 위해 soft-delete(자리표시).",
         tags: ["comments"],
         params: z.object({ id: z.string().uuid() }),
         response: {
@@ -505,11 +507,32 @@ export async function commentsRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
+      // 자식(대댓글) 존재 여부 — 하나라도 있으면 스레드 보존 위해 자리표시 유지
+      const childRows = await db
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(schema.comments)
+        .where(eq(schema.comments.parentId, id));
+      const hasChildren = (childRows[0]?.count ?? 0) > 0;
+
       await db.transaction(async (tx) => {
-        await tx
-          .update(schema.comments)
-          .set({ status: "deleted", deletedAt: new Date() })
-          .where(eq(schema.comments.id, id));
+        if (hasChildren) {
+          // 대댓글이 있으므로 soft-delete(자리표시 "삭제된 댓글입니다.")
+          await tx
+            .update(schema.comments)
+            .set({ status: "deleted", deletedAt: new Date() })
+            .where(eq(schema.comments.id, id));
+        } else {
+          // 대댓글이 없으므로 반응·행까지 완전삭제 — 흔적 없음
+          await tx
+            .delete(schema.reactions)
+            .where(
+              and(
+                eq(schema.reactions.targetType, "comment"),
+                eq(schema.reactions.targetId, id),
+              ),
+            );
+          await tx.delete(schema.comments).where(eq(schema.comments.id, id));
+        }
 
         try {
           await revokePoints(tx, {
