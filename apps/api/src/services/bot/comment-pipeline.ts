@@ -68,6 +68,11 @@ export interface CommentPipelineInput {
   targetBoard: string;
   /** 대댓글인 경우 부모 댓글 ID */
   parentCommentId?: string;
+  /**
+   * 특정 페르소나를 강제한다(운영자 수동 트리거용).
+   * 지정 시 랜덤 페르소나 선택과 30% 랜덤 스킵을 건너뛴다.
+   */
+  forcePersonaId?: string;
 }
 
 /** 파이프라인 실행 결과 */
@@ -212,7 +217,7 @@ function reactionDirective(reactionType: ReactionType): string {
 export async function runCommentPipeline(
   input: CommentPipelineInput,
 ): Promise<CommentPipelineResult> {
-  const { targetPostId, targetBoard, parentCommentId } = input;
+  const { targetPostId, targetBoard, parentCommentId, forcePersonaId } = input;
   const db = getDb();
 
   // ── 5.2: 킬 스위치 + 댓글 상한 확인 ────────────────────────────────────────
@@ -251,30 +256,55 @@ export async function runCommentPipeline(
 
   // ── 5.3: 랜덤 파라미터 결정 ──────────────────────────────────────────────────
 
-  // shouldSkipComment — 30% 확률로 댓글 달지 않음
-  if (shouldSkipComment()) {
+  // shouldSkipComment — 30% 확률로 댓글 달지 않음 (강제 페르소나면 건너뜀)
+  if (!forcePersonaId && shouldSkipComment()) {
     console.info("[comment-pipeline] shouldSkipComment=true — random skip");
     return { outcome: "skipped" };
   }
 
-  // 페르소나 전체 풀에서 랜덤 선택 (is_admin_persona 제외 선택적 정책)
-  const eligiblePersonas = await db
-    .select()
-    .from(schema.botPersonas)
-    .where(
-      and(
-        eq(schema.botPersonas.isActive, true),
-        eq(schema.botPersonas.isAdminPersona, false),
-      ),
-    );
+  // 페르소나 선택: forcePersonaId 지정 시 해당 봇 강제, 아니면 전체 풀에서 랜덤
+  let chosenPersona:
+    | (typeof schema.botPersonas.$inferSelect)
+    | undefined;
 
-  if (eligiblePersonas.length === 0) {
-    console.warn("[comment-pipeline] 활성 페르소나 없음 — skip");
-    return { outcome: "skipped" };
+  if (forcePersonaId) {
+    const [forced] = await db
+      .select()
+      .from(schema.botPersonas)
+      .where(
+        and(
+          eq(schema.botPersonas.id, forcePersonaId),
+          eq(schema.botPersonas.isActive, true),
+        ),
+      )
+      .limit(1);
+    if (!forced) {
+      console.warn(
+        `[comment-pipeline] 강제 페르소나 미존재/비활성: ${forcePersonaId} — skip`,
+      );
+      return { outcome: "skipped" };
+    }
+    chosenPersona = forced;
+  } else {
+    // 페르소나 전체 풀에서 랜덤 선택 (is_admin_persona 제외 선택적 정책)
+    const eligiblePersonas = await db
+      .select()
+      .from(schema.botPersonas)
+      .where(
+        and(
+          eq(schema.botPersonas.isActive, true),
+          eq(schema.botPersonas.isAdminPersona, false),
+        ),
+      );
+
+    if (eligiblePersonas.length === 0) {
+      console.warn("[comment-pipeline] 활성 페르소나 없음 — skip");
+      return { outcome: "skipped" };
+    }
+
+    chosenPersona =
+      eligiblePersonas[Math.floor(Math.random() * eligiblePersonas.length)]!;
   }
-
-  const chosenPersona =
-    eligiblePersonas[Math.floor(Math.random() * eligiblePersonas.length)]!;
 
   const reactionType: ReactionType = randomReactionType();
 
