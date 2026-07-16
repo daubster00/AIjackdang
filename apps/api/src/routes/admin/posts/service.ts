@@ -6,7 +6,7 @@
 
 import { getDb } from "@ai-jakdang/database";
 import { posts, users, tags as tagsTable, taggable, postAttachments, comments, botTopics } from "@ai-jakdang/database/schema";
-import { eq, ne, and, inArray, count, gte, lte, ilike, or, sql } from "drizzle-orm";
+import { eq, ne, and, inArray, count, gte, lte, ilike, or, sql, desc } from "drizzle-orm";
 import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { sanitizeHtml } from "../../../lib/sanitize.js";
@@ -129,7 +129,7 @@ export async function listPosts(query: AdminPostsQuery) {
     .from(posts)
     .leftJoin(users, eq(posts.userId, users.id))
     .where(where)
-    .orderBy(posts.createdAt)
+    .orderBy(desc(posts.createdAt))
     .limit(pageSize)
     .offset(offset);
 

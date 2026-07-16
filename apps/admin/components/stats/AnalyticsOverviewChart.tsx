@@ -102,7 +102,8 @@ export function AnalyticsOverviewChart({ items }: AnalyticsOverviewChartProps) {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {/* 표는 최근 날짜가 위로 오도록 역순 정렬(차트는 시간순 유지) */}
+              {[...items].reverse().map((item) => (
                 <tr key={item.date}>
                   <td>{item.date}</td>
                   <td className="num">{item.newUsers.toLocaleString("ko-KR")}</td>
