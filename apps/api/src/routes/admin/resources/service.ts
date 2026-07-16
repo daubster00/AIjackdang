@@ -14,7 +14,7 @@
 import { getDb } from "@ai-jakdang/database";
 import { resources, resourceFiles, users } from "@ai-jakdang/database/schema";
 import { comments } from "@ai-jakdang/database/schema";
-import { eq, and, count, gte, lte, ilike, or, sql } from "drizzle-orm";
+import { eq, and, count, gte, lte, ilike, or, desc, sql } from "drizzle-orm";
 import type { AdminResourcesQuery } from "@ai-jakdang/contracts/admin/resources";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { sanitizeHtml } from "../../../lib/sanitize.js";
@@ -126,7 +126,7 @@ export async function listResources(query: AdminResourcesQuery) {
     .from(resources)
     .leftJoin(users, eq(resources.userId, users.id))
     .where(where)
-    .orderBy(resources.createdAt)
+    .orderBy(desc(resources.createdAt))
     .limit(pageSize)
     .offset(offset);
 
