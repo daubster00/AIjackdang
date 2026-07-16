@@ -6,7 +6,7 @@
 
 import { getDb } from "@ai-jakdang/database";
 import { comments, users } from "@ai-jakdang/database/schema";
-import { eq, and, inArray, count, gte, lte, ilike, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq, and, inArray, count, gte, lte, ilike, isNotNull, isNull, desc, sql } from "drizzle-orm";
 import type { AdminCommentsQuery } from "@ai-jakdang/contracts/admin/comments";
 
 // ── 파생 유형 도출 ─────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ export async function listComments(query: AdminCommentsQuery) {
     .from(comments)
     .leftJoin(users, eq(comments.authorId, users.id))
     .where(where)
-    .orderBy(comments.createdAt)
+    .orderBy(desc(comments.createdAt))
     .limit(pageSize)
     .offset(offset);
 
