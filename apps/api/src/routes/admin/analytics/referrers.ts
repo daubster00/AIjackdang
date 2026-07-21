@@ -9,7 +9,7 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import { and, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 function parseDate(str: string): Date | null {
@@ -84,6 +84,7 @@ export async function registerReferrersRoute(app: FastifyInstance): Promise<void
         and(
           gte(schema.pageViews.createdAt, fromDate),
           lt(schema.pageViews.createdAt, toDateEnd),
+          eq(schema.pageViews.isBot, false), // 봇 트래픽 제외 — 사람 유입만 분류
         ),
       )
       .groupBy(schema.pageViews.referrerHost);

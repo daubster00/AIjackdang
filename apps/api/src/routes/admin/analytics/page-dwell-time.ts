@@ -34,6 +34,7 @@ export async function registerPageDwellTimeRoute(app: FastifyInstance): Promise<
         AVG(dwell_ms)::float8      AS avg_dwell_ms
       FROM page_views
       WHERE dwell_ms IS NOT NULL
+        AND is_bot = false
       GROUP BY path
       ORDER BY views DESC
       LIMIT 15

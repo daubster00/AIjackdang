@@ -11,7 +11,7 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import { and, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 /** YYYY-MM-DD → Date(UTC 00:00), 실패 시 null */
@@ -74,6 +74,7 @@ export async function registerVisitorTrendRoute(app: FastifyInstance): Promise<v
         and(
           gte(schema.pageViews.createdAt, fromDate),
           lt(schema.pageViews.createdAt, toDateEnd),
+          eq(schema.pageViews.isBot, false), // 봇 트래픽 제외 — 사람 방문만 집계
         ),
       )
       .groupBy(sql`TO_CHAR(${schema.pageViews.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);

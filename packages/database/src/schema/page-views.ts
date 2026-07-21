@@ -11,7 +11,7 @@
  * 신규 데이터는 적재 시점부터 누적되므로, 도입 직후에는 추이가 희소할 수 있다.
  */
 
-import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 export const pageViews = pgTable(
@@ -30,7 +30,15 @@ export const pageViews = pgTable(
     referrerHost: text("referrer_host"),
     /** 사이트 내부 검색 유입 키워드 (검색 결과 페이지 진입 시) */
     searchKeyword: text("search_keyword"),
-    /** 페이지 체류 시간(ms) — 페이지 이탈 시 sendBeacon 으로 갱신. 미측정은 null */
+    /** 방문 시 User-Agent 원문 (봇 판별 근거 보존 — 사후 재분류·분석용) */
+    userAgent: text("user_agent"),
+    /**
+     * 봇 여부 태그. 크롤러/스크래퍼 UA(isCrawlerUserAgent)로 판별해 적재 시점에 기록한다.
+     * 삭제하지 않고 태깅만 하므로, 접속통계 집계는 is_bot=false 조건으로 사람 트래픽만 센다.
+     * (봇 트래픽 규모를 따로 파악하고 싶을 때 이 컬럼으로 조회 가능)
+     */
+    isBot: boolean("is_bot").notNull().default(false),
+    /** 페이지 체류 시간(ms) — 페이지 이탈 시 sendBeacon 으로 같은 행을 UPDATE. 미측정은 null */
     dwellMs: integer("dwell_ms"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -39,6 +47,7 @@ export const pageViews = pgTable(
     index("page_views_visitor_id_idx").on(t.visitorId),
     index("page_views_referrer_host_idx").on(t.referrerHost),
     index("page_views_search_keyword_idx").on(t.searchKeyword),
+    index("page_views_is_bot_idx").on(t.isBot),
   ],
 );
 

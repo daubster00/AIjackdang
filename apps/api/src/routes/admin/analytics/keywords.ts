@@ -10,7 +10,7 @@
  */
 
 import { getDb, schema } from "@ai-jakdang/database";
-import { and, desc, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 
 function parseDate(str: string): Date | null {
@@ -56,6 +56,7 @@ export async function registerKeywordsRoute(app: FastifyInstance): Promise<void>
       gte(schema.pageViews.createdAt, fromDate),
       lt(schema.pageViews.createdAt, toDateEnd),
       isNotNull(schema.pageViews.searchKeyword),
+      eq(schema.pageViews.isBot, false), // 봇 트래픽 제외 — 사람 검색 유입만 집계
     );
 
     // 전체 키워드 수

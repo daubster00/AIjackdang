@@ -52,14 +52,14 @@ function extractSearchKeyword(
 /**
  * 체류시간 비콘 전송.
  * dwellMs 가 0 이하이거나 비정상(1시간 초과)이면 무시.
+ * viewId(진입 시 INSERT 한 행의 식별자)로 같은 행을 UPDATE 한다.
  */
-function sendDwellBeacon(path: string, startTime: number): void {
+function sendDwellBeacon(viewId: string, startTime: number): void {
   const dwellMs = Date.now() - startTime;
   // 0ms 이하 또는 1시간 초과는 측정 오류로 무시
   if (dwellMs <= 0 || dwellMs > 3_600_000) return;
 
-  const visitorId = getOrCreateVisitorId();
-  const payload = JSON.stringify({ path, visitorId, dwellMs });
+  const payload = JSON.stringify({ viewId, dwellMs });
 
   if (typeof navigator !== "undefined" && navigator.sendBeacon) {
     const sent = navigator.sendBeacon(
@@ -85,9 +85,9 @@ export function PageViewTracker() {
 
   // 이전 경로를 추적해 라우트 실제 변경 시에만 전송
   const prevKeyRef  = useRef<string>("");
-  // 체류시간 추적: 마지막으로 진입한 경로와 진입 시각
-  const prevPathRef  = useRef<string | null>(null);
-  const entryTimeRef = useRef<number>(0);
+  // 체류시간 추적: 마지막으로 진입한 페이지의 viewId(적재 행 식별자)와 진입 시각
+  const prevViewIdRef = useRef<string | null>(null);
+  const entryTimeRef  = useRef<number>(0);
 
   // ── 페이지뷰 + 체류시간 비콘(이전 경로 이탈) ────────────────────────────────
   useEffect(() => {
@@ -95,14 +95,15 @@ export function PageViewTracker() {
     if (prevKeyRef.current === currentKey) return;
 
     // 이전 경로의 체류시간을 전송 (SPA 이동 시)
-    if (prevPathRef.current !== null && entryTimeRef.current > 0) {
-      sendDwellBeacon(prevPathRef.current, entryTimeRef.current);
+    if (prevViewIdRef.current !== null && entryTimeRef.current > 0) {
+      sendDwellBeacon(prevViewIdRef.current, entryTimeRef.current);
     }
 
-    // 새 경로 진입 기록
-    prevKeyRef.current  = currentKey;
-    prevPathRef.current = pathname;
-    entryTimeRef.current = Date.now();
+    // 새 경로 진입 기록 — 이 진입에 대한 고유 viewId 를 생성해 dwell UPDATE 매칭에 쓴다.
+    const viewId = crypto.randomUUID();
+    prevKeyRef.current   = currentKey;
+    prevViewIdRef.current = viewId;
+    entryTimeRef.current  = Date.now();
 
     const visitorId     = getOrCreateVisitorId();
     const referrer      = document.referrer || undefined;
@@ -113,6 +114,7 @@ export function PageViewTracker() {
       referrer,
       searchKeyword,
       visitorId,
+      viewId,
     });
 
     // sendBeacon 우선 (탭 닫혀도 전송 보장), 폴백 fetch
@@ -137,8 +139,8 @@ export function PageViewTracker() {
   // ── 탭 닫힘 / 백그라운드 전환 시 현재 경로 체류시간 전송 ─────────────────────
   useEffect(() => {
     function handleExit() {
-      if (prevPathRef.current !== null && entryTimeRef.current > 0) {
-        sendDwellBeacon(prevPathRef.current, entryTimeRef.current);
+      if (prevViewIdRef.current !== null && entryTimeRef.current > 0) {
+        sendDwellBeacon(prevViewIdRef.current, entryTimeRef.current);
         // 이중 전송 방지: 진입시각 리셋
         entryTimeRef.current = 0;
       }
