@@ -54,6 +54,18 @@ export type {
   ResourceType,
   CuratedFileSource,
 } from './resource-discovery';
+/** 국내 커뮤니티 화제글 큐레이션(작당 수다방) re-export. */
+export {
+  discoverCommunityPost,
+  scrapeCommunityHotPosts,
+  COMMUNITY_SITES,
+} from './community-scrape';
+export type {
+  DiscoveredCommunityPost,
+  DiscoverCommunityPostOptions,
+  CommunityHotPost,
+  ScrapeOptions,
+} from './community-scrape';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 

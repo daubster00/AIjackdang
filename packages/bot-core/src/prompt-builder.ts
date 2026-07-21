@@ -8,6 +8,7 @@
 
 import type {
   BotPersonaForPrompt,
+  CommunityCurationContext,
   CurationContext,
   FactSummary,
   GuideChapterContext,
@@ -67,6 +68,7 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
     seriesContext,
     curation,
     resourceCuration,
+    communityCuration,
     guideChapter,
     revision,
   } = options;
@@ -82,6 +84,15 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
   if (resourceCuration) {
     return appendRevisionBlock(
       buildResourceCurationUserPrompt(resourceCuration, facts),
+      revision,
+    );
+  }
+
+  // 작당 수다방 커뮤니티 화제글 소개: 국내 커뮤니티 베스트에서 발견한 화제글을
+  // 출처 링크와 함께 캐주얼하게 소개하는 글을 쓰도록 전용 지침으로 전환한다.
+  if (communityCuration) {
+    return appendRevisionBlock(
+      buildCommunityCurationUserPrompt(communityCuration, facts),
       revision,
     );
   }
@@ -428,6 +439,57 @@ function buildResourceCurationUserPrompt(
   ].join("\n");
 
   return [`실전자료 소개 (${typeLabel})`, subjectBlock, factsBlock || null, rules, format]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/**
+ * 작당 수다방 커뮤니티 화제글 소개 유저 프롬프트.
+ *
+ * 봇이 국내 대형 커뮤니티(디시·더쿠·아카라이브 등)의 베스트 게시판에서 지금 화제인 글을
+ * 발견해 "요즘 이런 글이 화제더라"며 소개하는 캐주얼한 글을 쓰게 한다. 원문 본문을
+ * 옮기지 않고(제목 기반 소개), 출처 링크를 본문에 반드시 노출한다.
+ */
+function buildCommunityCurationUserPrompt(
+  cc: CommunityCurationContext,
+  facts: FactSummary,
+): string {
+  const subjectBlock = [
+    "<소개 대상>",
+    `출처 커뮤니티: ${cc.site}`,
+    `원문 제목: ${cc.originalTitle}`,
+    `원문 링크: ${cc.sourceUrl}`,
+    "</소개 대상>",
+  ].join("\n");
+
+  const factsBlock =
+    facts.facts.length > 0
+      ? `<참고>\n${facts.facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n</참고>`
+      : "";
+
+  const rules = [
+    "[작당 수다방 — 커뮤니티 화제글 소개 지침]",
+    `이 글은 'AI·자동화에 관심 많은 사람들이 가볍게 떠드는 수다방'에, 요즘 ${cc.site} 같은 국내 커뮤니티에서 조회수·추천이 높아 화제가 된 글을 발견해 소개하는 캐주얼한 글입니다.`,
+    "당신이 직접 겪은 일처럼 지어내지 말고, '요즘 이런 글이 화제더라'며 소개·리액션하는 톤으로 쓰세요.",
+    "",
+    "구성:",
+    "1. 도입: 요즘 어디(커뮤니티)에서 이런 글/이슈가 화제라고 자연스럽게 운을 뗍니다.",
+    "2. 무엇이 화제인지: 원문 제목이 말하는 주제를 소개하고, 왜 사람들이 반응하는지 당신 생각을 가볍게 곁들입니다.",
+    "3. 리액션: 커뮤니티 유저처럼 짧은 감상·의견을 한두 줄.",
+    `4. 출처: 본문에 원문 링크(${cc.sourceUrl})를 반드시 넣어 '원문은 여기서 볼 수 있다'고 안내합니다.`,
+    "",
+    "금지: 원문 본문을 통째로 베끼기(제목 기반 소개만 하세요), 제목에 없는 구체 사실·수치·인용을 지어내기, 이모지·기계적 상투어.",
+    "제목만 보고 확신할 수 없는 내용은 '~인 듯', '~라는 글' 처럼 완곡하게 표현하세요.",
+  ].join("\n");
+
+  const format = [
+    "마크다운 문단으로 자연스럽게 작성하세요. 소제목·목차 없이 실제 커뮤니티 잡담처럼 이어지는 줄글.",
+    "문단과 문단 사이는 빈 줄 하나로 띄웁니다.",
+    "출처 링크는 마크다운 링크나 URL 그대로 본문에 노출하세요.",
+    "글 제목은 쓰지 마세요(제목은 시스템이 붙입니다).",
+  ].join("\n");
+
+  return [`커뮤니티 화제글 소개 (${cc.site})`, subjectBlock, factsBlock || null, rules, format]
     .filter(Boolean)
     .join("\n\n");
 }

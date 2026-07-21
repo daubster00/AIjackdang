@@ -381,3 +381,53 @@ describe("buildPostUserPrompt — 실전자료 큐레이션(실물 자료 소개
     expect(prompt).not.toContain("실전자료 작성 지침");
   });
 });
+
+// ── 작당 수다방 커뮤니티 화제글 소개 프롬프트 ─────────────────────────────────────
+
+describe("buildPostUserPrompt — 커뮤니티 화제글 소개(작당 수다방)", () => {
+  it("communityCuration이 있으면 출처·원문 링크와 함께 소개하는 지침으로 전환된다", () => {
+    const prompt = buildPostUserPrompt({
+      titleSeed: "요즘 디시에서 화제인 알바썰",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+      communityCuration: {
+        site: "디시인사이드",
+        originalTitle: "알바 10번 짤려본 사람이 쓴 직장내 폐급 특징",
+        sourceUrl: "https://gall.dcinside.com/board/view/?id=dcbest&no=447146",
+      },
+    });
+    // 출처 커뮤니티·원문 링크가 지침에 포함
+    expect(prompt).toContain("디시인사이드");
+    expect(prompt).toContain(
+      "https://gall.dcinside.com/board/view/?id=dcbest&no=447146",
+    );
+    // "소개"이며 "제목 기반 소개만 / 지어내기 금지" 원칙 명시
+    expect(prompt).toContain("소개");
+    expect(prompt).toContain("지어내");
+    expect(prompt).toContain("커뮤니티 화제글 소개");
+  });
+
+  it("communityCuration이 일반 talk 보드 작성 분기보다 우선한다", () => {
+    const withCuration = buildPostUserPrompt({
+      titleSeed: "t",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+      communityCuration: {
+        site: "더쿠",
+        originalTitle: "극T만 있는나라 vs 극 F만 있는 나라",
+        sourceUrl: "https://theqoo.net/hot/4286586897",
+      },
+    });
+    expect(withCuration).toContain("커뮤니티 화제글 소개 (더쿠)");
+    // 큐레이션 없이 같은 보드면 일반 잡담 작성 경로(제목/게시판 나열)로 간다.
+    const withoutCuration = buildPostUserPrompt({
+      titleSeed: "그냥 잡담",
+      facts: emptyFacts,
+      board: "talk",
+      postKind: "chat",
+    });
+    expect(withoutCuration).not.toContain("커뮤니티 화제글 소개");
+  });
+});

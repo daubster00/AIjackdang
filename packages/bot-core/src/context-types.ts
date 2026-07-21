@@ -76,6 +76,21 @@ export interface ResourceCurationContext {
 }
 
 /**
+ * 국내 커뮤니티 화제글 큐레이션 컨텍스트.
+ * '작당 수다방'에서 봇이 국내 대형 커뮤니티(디시·더쿠·아카라이브 등)의 베스트 게시판에서
+ * 지금 화제인 글을 발견해 "요즘 이런 글이 화제더라"며 출처 링크와 함께 소개하는 글을 쓸 때 전달.
+ * 원문 본문을 옮기지 않고 제목 기반으로 소개만 한다(출처 링크가 핵심).
+ */
+export interface CommunityCurationContext {
+  /** 출처 커뮤니티 이름(예: "디시인사이드", "더쿠"). */
+  site: string;
+  /** 원문 글 제목. */
+  originalTitle: string;
+  /** 원문 링크(본문에 노출). */
+  sourceUrl: string;
+}
+
+/**
  * 고정 커리큘럼 "강의 편" 컨텍스트.
  * 관리자 페르소나가 가이드 시리즈(예: "제로부터 바이브코딩")의 정해진 챕터를 쓸 때 전달.
  * 검색 발굴 대신 커리큘럼이 주제를 정하고, 본문 정해진 자리에 이미지 마커를 넣는다.
@@ -131,6 +146,8 @@ export interface PostUserPromptOptions {
   curation?: CurationContext;
   /** 실전자료 큐레이션(실물 자료 소개)일 때 전달. 있으면 "실제 자료를 출처와 함께 소개" 지침으로 전환. */
   resourceCuration?: ResourceCurationContext;
+  /** 작당 수다방 커뮤니티 화제글 소개일 때 전달. 있으면 "국내 커뮤니티 화제글을 출처와 함께 소개" 지침으로 전환. */
+  communityCuration?: CommunityCurationContext;
   /** 고정 커리큘럼 강의 편일 때 전달. 있으면 커리큘럼 전용 지침으로 전환. */
   guideChapter?: GuideChapterContext;
   /**

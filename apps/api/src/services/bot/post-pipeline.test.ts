@@ -15,6 +15,7 @@ const {
   mockGetModelAssignment,
   mockGroundTopic,
   mockDiscoverTopic,
+  mockDiscoverCommunityPost,
   mockDecideImageStrategy,
   mockFetchBotImage,
   mockSearchWebImage,
@@ -42,6 +43,7 @@ const {
   mockGetModelAssignment: vi.fn(),
   mockGroundTopic: vi.fn(),
   mockDiscoverTopic: vi.fn(),
+  mockDiscoverCommunityPost: vi.fn(),
   mockDecideImageStrategy: vi.fn(),
   mockFetchBotImage: vi.fn(),
   mockSearchWebImage: vi.fn(),
@@ -94,6 +96,7 @@ vi.mock("@ai-jakdang/server-bot/ai", () => ({
 vi.mock("@ai-jakdang/server-bot/search", () => ({
   groundTopic: mockGroundTopic,
   discoverTopic: mockDiscoverTopic,
+  discoverCommunityPost: mockDiscoverCommunityPost,
 }));
 
 vi.mock("@ai-jakdang/server-bot/image", () => ({
@@ -103,6 +106,7 @@ vi.mock("@ai-jakdang/server-bot/image", () => ({
   uploadWebImage: mockUploadWebImage,
   prependImageToTiptapDoc: mockPrependImageToTiptapDoc,
   prependImageWithSourceToTiptapDoc: mockPrependImageWithSourceToTiptapDoc,
+  genImage: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@ai-jakdang/bot-core", () => ({
@@ -251,6 +255,8 @@ describe("runPostPipeline", () => {
     mockIsSearchDrivenTopicsEnabled.mockResolvedValue(false);
     mockGetRecentTopicTitles.mockResolvedValue([]);
     mockDiscoverTopic.mockResolvedValue(null);
+    // 커뮤니티 화제글 큐레이션 기본 OFF(발굴 실패=null → 봇 직접 작성 경로 유지)
+    mockDiscoverCommunityPost.mockResolvedValue(null);
     mockGetModelAssignment.mockResolvedValue(mockGenAssignment);
     mockCallModel.mockResolvedValue({
       text: "생성된 글 텍스트입니다.",
@@ -531,7 +537,9 @@ describe("runPostPipeline", () => {
     });
     mockSelectTopic.mockResolvedValue(null); // 주제 풀 완전 고갈 상황
 
-    const result = await runPostPipeline({ personaId: PERSONA_ID, board: BOARD });
+    // 밈 큐레이션은 ai-creation 같은 큐레이션 보드에서 동작한다.
+    // (talk 보드는 이제 유튜브/밈이 아니라 '커뮤니티 화제글 큐레이션'으로 분기하므로 여기선 쓰지 않는다.)
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: "ai-creation" });
 
     expect(result.status).toBe("published");
     expect(mockSelectTopic).not.toHaveBeenCalled(); // 풀 의존 없음
@@ -542,6 +550,50 @@ describe("runPostPipeline", () => {
       expect.anything(),
       "https://cdn.example.com/meme-uploaded.jpg",
       expect.objectContaining({ sourceUrl: meme.sourcePageUrl }),
+    );
+  });
+
+  // ── 시나리오 13: 작당 수다방 커뮤니티 화제글 큐레이션 (Step 2.8) ──────────────
+  it("작당 수다방: 커뮤니티 화제글을 발굴하면 주제 풀·발굴 없이 발행한다", async () => {
+    const personaChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([mockPersona]),
+        }),
+      }),
+    };
+    // talk 보드 curation 설정 행(enabled:true) — 명시적 off가 아니면 기본 동작.
+    const curationChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([{ curationEnabled: true, curationWeights: null }]),
+        }),
+      }),
+    };
+    mockDb.select.mockReturnValueOnce(personaChain).mockReturnValueOnce(curationChain);
+
+    // 커뮤니티 화제글 큐레이션은 검색주도 토픽 게이트를 함께 본다.
+    mockIsSearchDrivenTopicsEnabled.mockResolvedValue(true);
+    mockDiscoverCommunityPost.mockResolvedValue({
+      site: "디시인사이드",
+      originalTitle: "알바 10번 짤려본 사람이 쓴 직장내 폐급 특징",
+      sourceUrl: "https://gall.dcinside.com/board/view/?id=dcbest&no=447146",
+      titleSeed: "요즘 디시에서 화제인 직장 폐급 특징 글",
+      angle: "직장인 공감 화제글",
+      grounding: { facts: ["디시인사이드에서 화제인 글"], sourceUrls: ["https://gall.dcinside.com/board/view/?id=dcbest&no=447146"], rawSnippetCount: 1, confidence: "medium", costUsd: 0 },
+    });
+    mockSelectTopic.mockResolvedValue(null); // 주제 풀 고갈이어도 큐레이션으로 발행
+
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: "talk" });
+
+    expect(result.status).toBe("published");
+    expect(mockDiscoverCommunityPost).toHaveBeenCalled();
+    expect(mockDiscoverTopic).not.toHaveBeenCalled(); // 커뮤니티 소재 확보 시 일반 발굴 생략
+    expect(mockSelectTopic).not.toHaveBeenCalled(); // 주제 풀 의존 없음
+    expect(mockCreatePostAsBot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postInput: expect.objectContaining({ board: "talk" }),
+      }),
     );
   });
 });

@@ -31,7 +31,7 @@ import { eq, and, inArray, count } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
-import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource } from "@ai-jakdang/server-bot/search";
+import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource, discoverCommunityPost } from "@ai-jakdang/server-bot/search";
 import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType, CuratedFileSource } from "@ai-jakdang/server-bot/search";
 import {
   decideImageStrategy,
@@ -59,6 +59,7 @@ import {
 } from "@ai-jakdang/bot-core";
 import type {
   BotPersonaForPrompt,
+  CommunityCurationContext,
   CurationContext,
   FactSummary,
   ResourceCurationContext,
@@ -335,7 +336,10 @@ export async function runPostPipeline(
   //    (유튜브/밈 퍼오기의 admin 차단은 decideCurationMode에 그대로 유지된다.)
   const resourceCurationEnabled =
     isResourceBoard && (boardCurationConfig?.enabled ?? false);
-  const curationMode = isResourceBoard
+  // 작당 수다방(talk)은 유튜브/밈/AI 큐레이션이 아니라 "국내 커뮤니티 화제글 큐레이션"으로 간다.
+  // 따라서 talk 보드는 decideCurationMode(유튜브/밈/AI)를 적용하지 않는다.
+  const isTalkBoard = board === "talk";
+  const curationMode = (isResourceBoard || isTalkBoard)
     ? null
     : decideCurationMode(board, isAdminPersona, boardCurationConfig);
   let curatedVideo: CuratedVideo | null = null;
@@ -422,6 +426,55 @@ export async function runPostPipeline(
     }
   }
 
+  // ── Step 2.8: 작당 수다방 커뮤니티 화제글 큐레이션 ────────────────────────────
+  // talk 보드는 국내 대형 커뮤니티(디시·더쿠·아카라이브 등)의 베스트 게시판을 직접 훑어
+  // 지금 조회수·추천이 높은 화제글 하나를 골라, 봇이 출처 링크와 함께 소개하는 글을 쓴다.
+  // 기본 ON(관리자가 해당 보드 curation_enabled를 명시적으로 끄지 않는 한). 운영자 강제 주제
+  // (realtimeTopic)가 있으면 그 주제를 우선하므로 큐레이션을 건너뛴다.
+  // 발굴 실패(전 사이트 차단·파싱 무결과) 시 communityCuration=null → 봇 직접 작성으로 폴백.
+  let communityCuration: CommunityCurationContext | null = null;
+  let communityCurationGrounding: FactGrounding | null = null;
+  let communityCurationTitleSeed = "";
+  const communityCurationEnabled =
+    isTalkBoard &&
+    !isAdminPersona &&
+    !input.realtimeTopic &&
+    (boardCurationConfig?.enabled ?? true);
+  if (communityCurationEnabled && (await isSearchDrivenTopicsEnabled(db))) {
+    try {
+      const existingTitles = await getRecentTopicTitles(db, personaId, 20);
+      const found = await discoverCommunityPost({
+        modelAssignment: genAssignmentForGrounding,
+        callModel: (assignment, prompt) => callModel(assignment, prompt),
+        onCostAccumulated: async (costUsd) => {
+          groundingCost += costUsd;
+        },
+        existingTitles,
+      });
+      if (found) {
+        communityCuration = {
+          site: found.site,
+          originalTitle: found.originalTitle,
+          sourceUrl: found.sourceUrl,
+        };
+        communityCurationGrounding = found.grounding;
+        communityCurationTitleSeed = found.titleSeed;
+        await logActivity(db, personaId, "planned", null, {
+          reason: "community-curation",
+          site: found.site,
+          originalTitle: found.originalTitle,
+          sourceUrl: found.sourceUrl,
+        });
+      }
+    } catch (err) {
+      console.error(
+        "[post-pipeline] 커뮤니티 화제글 큐레이션 실패 (봇 직접 작성으로 폴백):",
+        (err as Error).message,
+      );
+      communityCuration = null;
+    }
+  }
+
   // ── Step 3: 검색 주도 주제 발굴 ───────────────────────────────────────────────
   // "주제를 미리 정하지 않고" 최근 소식을 먼저 검색해 신선한 글감을 만든다.
   // 발굴 대상 게시판(getDiscoveryQuery)이면 정보형·잡담·질문 톤 모두 발굴한다.
@@ -446,7 +499,7 @@ export async function runPostPipeline(
   // 발굴 결과는 버려지므로 검색·모델 비용만 아낀다.
   // 운영자가 realtimeTopic을 명시 주입한 수동 트리거는 그 주제를 강제하므로 발굴을 건너뛴다
   // (발굴이 돌면 봇이 자기 주제를 뽑아 주입 주제를 덮어써 버린다).
-  if (!input.realtimeTopic && !curatedVideo && !curatedMeme && !resourceCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
+  if (!input.realtimeTopic && !curatedVideo && !curatedMeme && !resourceCuration && !communityCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -511,6 +564,21 @@ export async function runPostPipeline(
       createdAt: new Date(),
     };
     topicResult = { topic: resourceTopic, wasRealtime: true };
+  } else if (communityCuration) {
+    // 커뮤니티 화제글 큐레이션: 발굴한 화제글이 소재이므로 시드 주제가 필요 없다(제목=발굴 제목).
+    const communityTopic: BotTopicRow = {
+      id: `curated-community-${Date.now()}`,
+      personaId,
+      board,
+      titleSeed: communityCurationTitleSeed || communityCuration.originalTitle,
+      topicKind: "realtime",
+      status: "unused",
+      usedAt: null,
+      seriesGroup: null,
+      postId: null,
+      createdAt: new Date(),
+    };
+    topicResult = { topic: communityTopic, wasRealtime: true };
   } else if (input.realtimeTopic) {
     // 운영자 강제 주제(수동 트리거): 발굴·주제풀보다 우선. 이 주제로 곧장 그라운딩·생성한다.
     const forcedTopic: BotTopicRow = {
@@ -590,7 +658,10 @@ export async function runPostPipeline(
 
   // ── Step 6: 검색·그라운딩 (발굴했으면 그 근거 재사용, 아니면 새로 검색) ──────────
   let facts: FactSummary;
-  if (resourceCuration && resourceCurationGrounding) {
+  if (communityCuration && communityCurationGrounding) {
+    // 커뮤니티 화제글 큐레이션은 발굴 단계에서 제목·출처를 근거로 확보했으므로 재검색하지 않는다.
+    facts = adaptGrounding(communityCurationGrounding);
+  } else if (resourceCuration && resourceCurationGrounding) {
     // 실전자료 큐레이션 발굴 단계에서 이미 검색·근거를 확보했으므로 재검색하지 않는다.
     facts = adaptGrounding(resourceCurationGrounding);
   } else if (discovered) {
@@ -710,6 +781,7 @@ export async function runPostPipeline(
       seriesContext,
       curation: curationContext,
       resourceCuration: resourceCuration ?? undefined,
+      communityCuration: communityCuration ?? undefined,
       revision,
     });
 
@@ -769,7 +841,9 @@ export async function runPostPipeline(
         internalPostKind === "guide" ||
         (effectiveCuration !== null && effectiveCuration !== "ai") ||
         // 실전자료 큐레이션은 "실제 자료 소개"라 심층 인사이트(비범함)를 요구하면 과도한 재생성이 발생.
-        resourceCuration !== null,
+        resourceCuration !== null ||
+        // 커뮤니티 화제글 소개도 "소재 소개"라 심층 인사이트를 요구하면 과도한 재생성이 발생.
+        communityCuration !== null,
       // 일반 파이프라인에서는 didacticTone 비차단하지 않는다.
       // 커리큘럼 강의는 curriculum-staging.ts에서 allowDidacticTone: true로 전달.
       allowDidacticTone: false,
@@ -935,6 +1009,36 @@ export async function runPostPipeline(
           console.warn(
             "[post-pipeline] 실전자료 헤더 이미지 실패 (이미지 없이 계속):",
             (rcImgErr as Error).message,
+          );
+          finalContentJson = draftJson;
+        }
+
+      } else if (communityCuration) {
+        // 모드 C-5: 작당 수다방 커뮤니티 화제글 소개 — 창의 스타일 헤더 이미지 1장.
+        // 원문(커뮤니티) 이미지를 긁어오면 저작권 위험이 크므로, 주제를 상징하는 AI 이미지만
+        // 생성해 상단에 넣는다(썸네일 용도). 실패해도 게시는 유지.
+        try {
+          const aiPrompt = `A playful, eye-catching conceptual illustration for a casual Korean online-community discussion post about "${communityCuration.originalTitle}". Vivid editorial illustration style, symbolic not literal, no text, no logos, no watermarks, no real screenshots.`;
+          const gen = await genImage({ prompt: aiPrompt, imageModel });
+          if (gen) {
+            const ext = gen.mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+            const uploaded = await uploadImage(
+              {
+                filename: `bot-community-${topicResult.topic.id}.${ext}`,
+                mimetype: gen.mimetype,
+                data: gen.data,
+              },
+              "editor-images",
+            );
+            imageCost += gen.costUsd;
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.url, {});
+          } else {
+            finalContentJson = draftJson;
+          }
+        } catch (ccImgErr) {
+          console.warn(
+            "[post-pipeline] 커뮤니티 소개 헤더 이미지 실패 (이미지 없이 계속):",
+            (ccImgErr as Error).message,
           );
           finalContentJson = draftJson;
         }
