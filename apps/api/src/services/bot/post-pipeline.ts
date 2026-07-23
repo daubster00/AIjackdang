@@ -403,6 +403,7 @@ export async function runPostPipeline(
           sourceUrl: found.sourceUrl,
           sourceLabel: found.sourceLabel,
           whyPopular: found.whyPopular || undefined,
+          readme: found.readme,
         };
         // grounding을 별도 보관해 Step 6에서 재검색 없이 재사용.
         resourceCurationGrounding = found.grounding;

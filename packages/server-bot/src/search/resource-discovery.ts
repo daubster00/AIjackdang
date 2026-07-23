@@ -66,6 +66,11 @@ export interface DiscoveredResource {
   grounding: FactGrounding;
   /** 다운로드 첨부 원본(있으면). GitHub 저장소가 아니면 null. */
   fileSource: CuratedFileSource | null;
+  /**
+   * 자료의 공식 README 원문 발췌(GitHub 저장소일 때). 봇이 실제 설치·기능을
+   * 검색 스니펫이 아니라 원문 문서를 근거로 상세히 쓰게 하는 데 쓴다. 실패 시 undefined.
+   */
+  readme?: string;
 }
 
 export interface DiscoverResourceOptions {
@@ -197,6 +202,35 @@ function deriveGithubFileSource(sourceUrl: string): CuratedFileSource | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * GitHub 저장소의 README.md 원문을 받아 노이즈를 정리해 반환한다.
+ * 기본 브랜치를 모르므로 main → master 순으로 시도. 실패 시 undefined.
+ * 뱃지/이미지/HTML 태그/과도한 빈 줄을 제거하고 최대 3500자로 자른다.
+ */
+async function fetchRepoReadme(owner: string, repo: string): Promise<string | undefined> {
+  for (const branch of ['main', 'master']) {
+    try {
+      const res = await fetch(
+        `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/README.md`,
+      );
+      if (!res.ok) continue;
+      let text = await res.text();
+      text = text
+        .replace(/<!--[\s\S]*?-->/g, '') // HTML 주석
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // 이미지·뱃지
+        .replace(/<[^>]+>/g, '') // 남은 HTML 태그
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      if (!text) return undefined;
+      if (text.length > 3500) text = `${text.slice(0, 3500)}\n...(이하 생략)`;
+      return text;
+    } catch {
+      // 다음 브랜치 시도
+    }
+  }
+  return undefined;
 }
 
 /** URL의 호스트를 사람이 읽는 라벨로(예: github.com → GitHub, 나머지는 호스트 그대로). */
@@ -368,6 +402,12 @@ ${listing}
     costUsd: searchCost + modelCost,
   };
 
+  // GitHub 저장소면 README 원문을 받아 근거를 강화한다(설치·기능을 지어내지 않게).
+  const fileSource = deriveGithubFileSource(parsed.sourceUrl);
+  const readme = fileSource
+    ? await fetchRepoReadme(fileSource.owner, fileSource.repo)
+    : undefined;
+
   return {
     name: parsed.name,
     titleSeed: parsed.titleSeed || `요즘 많이 쓰는 ${typeLabel}: ${parsed.name}`,
@@ -375,6 +415,7 @@ ${listing}
     sourceLabel: parsed.sourceLabel || hostLabel(parsed.sourceUrl),
     whyPopular: parsed.whyPopular,
     grounding,
-    fileSource: deriveGithubFileSource(parsed.sourceUrl),
+    fileSource,
+    readme,
   };
 }

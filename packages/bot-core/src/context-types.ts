@@ -73,6 +73,11 @@ export interface ResourceCurationContext {
   sourceLabel: string;
   /** 이 자료가 왜 널리 쓰이는지 한 줄(있으면). */
   whyPopular?: string;
+  /**
+   * 자료의 공식 README/문서 원문 발췌(있으면). GitHub 저장소일 때 discovery가 채운다.
+   * 이걸 근거로 봇이 실제 설치 명령·기능을 상세히 쓰게 한다(검색 스니펫만으로는 얕아지므로).
+   */
+  readme?: string;
 }
 
 /**
