@@ -55,6 +55,15 @@ export interface DiscoveredCommunityPost {
   titleSeed: string;
   /** 이 글이 왜 소개할 만한지 한 줄(내부 로깅용). */
   angle: string;
+  /**
+   * 원문 대표 이미지·움짤 URL(있으면). 국내 커뮤니티 베스트글은 대부분 이미지/움짤이
+   * 위트의 핵심이라, 원문 페이지에서 대표 미디어를 뽑아 그대로 옮긴다(썸네일 겸 본문).
+   */
+  imageUrl?: string;
+  /** 대표 미디어가 움짤(gif)인지. */
+  imageIsGif?: boolean;
+  /** 원문 본문 발췌(og:description 등, 소개글 맥락 보강용). */
+  excerpt?: string;
   /** 글 작성에 넘길 사실 근거(제목·출처 기반, 재검색 불필요). */
   grounding: FactGrounding;
 }
@@ -128,6 +137,108 @@ function safeCodePoint(cp: number): string {
 /** 앵커 내부 HTML → 사람이 읽는 제목 텍스트(태그 제거 + 엔티티 디코드 + 공백 정리). */
 function cleanTitle(inner: string): string {
   return decodeEntities(stripTags(inner)).replace(/\s+/g, ' ').trim();
+}
+
+// ── 원문 대표 미디어(이미지·움짤) + 발췌 추출 ──────────────────────────────────────
+// 국내 커뮤니티 베스트글은 대부분 움짤/짤방 등 이미지가 위트의 핵심이다. 그래서
+// "제목만" 소개하는 대신, 모델이 고른 원문 페이지를 한 번 더 열어 대표 미디어를
+// 뽑아 그대로 옮긴다(다운로드·재호스팅은 파이프라인 담당). 정적 이미지는 og:image가
+// 사이트 공통으로 "대표 이미지"라 가장 안정적이고, 움짤은 본문 gif를 우선한다.
+
+/** 아이콘·로고·이모티콘·기본이미지·사이트 UI처럼 콘텐츠가 아닌 장식 미디어를 걸러내는 패턴. */
+const MEDIA_JUNK_RE =
+  /(emoticon|emoji|icon|sprite|logo|banner|profile|avatar|button|blank|loading|spinner|1x1|pixel|no_?imag|noimage|default_?(thumb|profile|image)|watermark|\/common\/|\/member\/|\/level\/|headtitle|\/skin\/|\/design\/)/i;
+
+/** 상대 URL을 절대 URL로. data URI·파싱 실패는 null. */
+function absolutize(src: string, baseUrl: string): string | null {
+  try {
+    const s = src.replace(/&amp;/g, '&').trim();
+    if (!s || s.startsWith('data:')) return null;
+    return new URL(s, baseUrl).href;
+  } catch {
+    return null;
+  }
+}
+
+/** <meta property|name="og:image" content="..."> 류를 속성 순서 무관하게 추출. */
+function matchMeta(html: string, prop: string): string | null {
+  const p = prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:property|name)=["']${p}["'][^>]+content=["']([^"']+)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${p}["']`, 'i'),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m?.[1]) return m[1];
+  }
+  return null;
+}
+
+/**
+ * 실제 업로드된 콘텐츠 이미지가 놓이는 경로 패턴(사용자 업로드·첨부·게시물 CDN).
+ * 구형 커뮤니티는 레벨뱃지·모바일아이콘 등 UI에도 gif를 써서, gif라고 무조건 콘텐츠가
+ * 아니다. 그래서 gif는 "콘텐츠 경로"에 있을 때만 대표 미디어로 채택한다.
+ */
+const MEDIA_CONTENT_RE =
+  /(\/data\/|\/upload|\/files?\/|attach|\/ori\/|cached_img|\/photo|namu\.la|dcimg|viewimage)/i;
+
+/** 본문 내 움짤(gif) 후보를 찾는다 — 콘텐츠 경로의 gif만(UI 아이콘 gif 배제). */
+function pickContentGif(html: string, baseUrl: string): string | null {
+  const attrRe =
+    /<(?:img|source)\b[^>]*?\b(?:src|data-src|data-original|data-lazy-src|data-image-src)=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = attrRe.exec(html)) !== null) {
+    const abs = absolutize(m[1]!, baseUrl);
+    if (!abs) continue;
+    if (MEDIA_JUNK_RE.test(abs)) continue;
+    if (!/\.(gif|gifv)(\?|#|$)/i.test(abs)) continue;
+    if (!MEDIA_CONTENT_RE.test(abs)) continue; // UI 아이콘 gif 배제
+    return abs;
+  }
+  return null;
+}
+
+export interface PostMedia {
+  /** 대표 이미지/움짤 절대 URL(없으면 null). */
+  imageUrl: string | null;
+  /** gif(움짤) 여부. */
+  isGif: boolean;
+  /** 본문 발췌(og:description 기반, 없으면 null). */
+  excerpt: string | null;
+}
+
+/**
+ * 모델이 고른 원문 글 페이지를 열어 대표 미디어(움짤 우선 → og:image)와 발췌를 뽑는다.
+ * 저작권상 원문 텍스트를 통째로 긁지 않고, 대표 미디어 1개 + 짧은 발췌만 취한다.
+ * 실패(차단·미디어 없음)해도 null 필드로 안전 복귀 — 이미지 없으면 텍스트 소개로 진행.
+ */
+export async function fetchPostMedia(url: string): Promise<PostMedia> {
+  const html = await fetchHtml(url, 8000);
+  if (!html) return { imageUrl: null, isGif: false, excerpt: null };
+
+  // 콘텐츠 경로의 움짤이 있으면 우선(애니메이션이 위트의 핵심).
+  // 없으면 og:image(사이트 공통 "대표 이미지"라 가장 안정적).
+  const gif = pickContentGif(html, url);
+  let imageUrl: string | null = null;
+  let isGif = false;
+  if (gif) {
+    imageUrl = gif;
+    isGif = true;
+  } else {
+    const og = matchMeta(html, 'og:image');
+    const ogAbs = og ? absolutize(og, url) : null;
+    if (ogAbs && !MEDIA_JUNK_RE.test(ogAbs)) {
+      imageUrl = ogAbs;
+      isGif = /\.(gif|gifv)(\?|#|$)/i.test(ogAbs);
+    }
+  }
+
+  const ogDesc = matchMeta(html, 'og:description');
+  const excerpt = ogDesc
+    ? decodeEntities(ogDesc).replace(/\s+/g, ' ').trim().slice(0, 220) || null
+    : null;
+
+  return { imageUrl, isGif, excerpt };
 }
 
 /** 공지·이벤트·운영 안내처럼 화제글이 아닌 행을 걸러낸다(사이트 상단 고정 공지 포함). */
@@ -506,8 +617,26 @@ ${listing}
     return null;
   }
 
+  // 고른 원문을 한 번 더 열어 대표 미디어(움짤/이미지) + 발췌를 확보한다.
+  // 실패해도(차단·미디어 없음) 텍스트 소개로 진행하므로 발굴 자체는 성공으로 본다.
+  let media: PostMedia = { imageUrl: null, isGif: false, excerpt: null };
+  try {
+    media = await fetchPostMedia(chosen.url);
+  } catch {
+    media = { imageUrl: null, isGif: false, excerpt: null };
+  }
+  console.log(
+    `[community-scrape] 선택="${chosen.title.slice(0, 40)}" 미디어=${
+      media.imageUrl ? (media.isGif ? 'gif' : 'image') : '없음'
+    }`,
+  );
+
   const facts = [
     `${chosen.site}에서 지금 화제인 글: "${chosen.title}"`,
+    ...(media.excerpt ? [`원문 발췌: ${media.excerpt}`] : []),
+    ...(media.imageUrl
+      ? [`원문에 ${media.isGif ? '움짤(gif)' : '이미지'}이(가) 함께 있음(본문 상단에 그대로 옮겨짐)`]
+      : []),
     `원문 링크: ${chosen.url}`,
   ];
 
@@ -526,6 +655,9 @@ ${listing}
     sourceUrl: chosen.url,
     titleSeed: parsed.titleSeed,
     angle: parsed.angle,
+    imageUrl: media.imageUrl ?? undefined,
+    imageIsGif: media.isGif,
+    excerpt: media.excerpt ?? undefined,
     grounding,
   };
 }

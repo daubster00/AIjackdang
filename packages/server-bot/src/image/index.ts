@@ -170,6 +170,77 @@ export async function uploadWebImage(
   }
 }
 
+/** 실제 브라우저처럼 보이는 User-Agent(핫링크 차단 CDN 대응). */
+const EXTERNAL_BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/** 파일 매직 바이트로 이미지 MIME을 추정한다(Content-Type이 octet-stream인 커뮤니티 CDN 대응). */
+function sniffImageMime(b: Buffer): string | null {
+  if (b.length < 12) return null;
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
+  if (
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+    b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+  )
+    return "image/webp";
+  return null;
+}
+
+/** uploadExternalImage 입력. */
+export interface UploadExternalImageParams {
+  /** 다운로드할 외부 이미지·움짤 URL. */
+  url: string;
+  /** 핫링크 차단 우회용 Referer(대개 원문 글 URL). */
+  referer?: string;
+  /** 업로드 함수(apps/api uploadImage 주입). */
+  uploadFn: UploadImageFn;
+  /** 이 크기 미만이면 플레이스홀더/아이콘으로 보고 버린다(기본 5000바이트). */
+  minBytes?: number;
+}
+
+/**
+ * 외부(커뮤니티 원문) 이미지·움짤을 Referer 헤더와 함께 다운로드해 재호스팅한다.
+ *
+ * 한국 커뮤니티 CDN(namu.la·instiz·dcinside 등)은 원문 도메인 Referer가 없으면
+ * 핫링크를 차단(403)하거나 "차단 안내" 플레이스홀더를 준다. 원문 URL을 Referer로
+ * 넣어 실제 이미지를 받는다. Content-Type이 octet-stream이어도 매직바이트로 MIME을
+ * 판별하고, 너무 작으면(플레이스홀더) 버린다. gif는 그대로 보존한다.
+ *
+ * 실패(차단·미디어 없음·과소) 시 null — 이미지 없이 텍스트 소개로 진행한다.
+ */
+export async function uploadExternalImage(
+  params: UploadExternalImageParams,
+): Promise<string | null> {
+  const { url, referer, uploadFn, minBytes = 5000 } = params;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": EXTERNAL_BROWSER_UA,
+        Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+        ...(referer ? { Referer: referer } : {}),
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    if (data.length < minBytes) return null; // 플레이스홀더/아이콘 차단
+
+    const headerMime = (res.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
+    const mimetype =
+      sniffImageMime(data) ?? (headerMime.startsWith("image/") ? headerMime : "image/jpeg");
+    const ext = mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+    const { url: uploaded } = await uploadFn(
+      { filename: `bot-community.${ext}`, mimetype, data },
+      "editor-images",
+    );
+    return uploaded;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 봇 이미지를 조달·업로드하고 URL을 반환한다.
  *

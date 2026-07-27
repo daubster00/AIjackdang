@@ -43,6 +43,7 @@ import {
   insertInlineImagesByMarker,
   genImage,
   planImagesForPost,
+  uploadExternalImage,
 } from "@ai-jakdang/server-bot/image";
 import type {
   PostKind,
@@ -436,12 +437,18 @@ export async function runPostPipeline(
   let communityCuration: CommunityCurationContext | null = null;
   let communityCurationGrounding: FactGrounding | null = null;
   let communityCurationTitleSeed = "";
+  // 원문 대표 이미지·움짤 URL(발굴 시 확보). 게시 단계에서 Referer와 함께 재호스팅한다.
+  let communityMediaUrl: string | null = null;
+  // 작당 수다방(talk)은 봇 무관하게 "국내 커뮤니티 화제글 퍼오기" 전용이다.
+  // 관리자 페르소나·운영자 강제 주제만 예외이며, 개별 보드 curation 토글과 무관하게
+  // 항상 커뮤니티 큐레이션을 시도한다(사용자 정책: talk = 커뮤니티 퍼오기로 통일).
   const communityCurationEnabled =
-    isTalkBoard &&
-    !isAdminPersona &&
-    !input.realtimeTopic &&
-    (boardCurationConfig?.enabled ?? true);
+    isTalkBoard && !isAdminPersona && !input.realtimeTopic;
+  // 실제로 커뮤니티 큐레이션을 시도했는지(검색 주도 ON일 때만). 시도했는데 빈손이면
+  // talk는 밈·잡담으로 폴백하지 않고 스킵한다. 시도조차 안 했으면(검색주도 OFF) 스킵하지 않는다.
+  let communityCurationAttempted = false;
   if (communityCurationEnabled && (await isSearchDrivenTopicsEnabled(db))) {
+    communityCurationAttempted = true;
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       const found = await discoverCommunityPost({
@@ -453,10 +460,14 @@ export async function runPostPipeline(
         existingTitles,
       });
       if (found) {
+        communityMediaUrl = found.imageUrl ?? null;
         communityCuration = {
           site: found.site,
           originalTitle: found.originalTitle,
           sourceUrl: found.sourceUrl,
+          hasMedia: Boolean(found.imageUrl),
+          mediaIsGif: found.imageIsGif,
+          excerpt: found.excerpt,
         };
         communityCurationGrounding = found.grounding;
         communityCurationTitleSeed = found.titleSeed;
@@ -465,6 +476,7 @@ export async function runPostPipeline(
           site: found.site,
           originalTitle: found.originalTitle,
           sourceUrl: found.sourceUrl,
+          hasMedia: Boolean(found.imageUrl),
         });
       }
     } catch (err) {
@@ -474,6 +486,15 @@ export async function runPostPipeline(
       );
       communityCuration = null;
     }
+  }
+
+  // talk 보드는 커뮤니티 화제글 큐레이션 전용이다. 발굴이 빈손이어도 밈·잡담 발굴로
+  // 폴백하지 않고 이번 회차를 건너뛴다(엉뚱한 글·랜덤 밈 방지 — 사용자 정책).
+  if (communityCurationAttempted && !communityCuration) {
+    await logActivity(db, personaId, "skipped", null, {
+      reason: "community-curation-empty",
+    });
+    return { status: "skipped", reason: "community-curation-empty" };
   }
 
   // ── Step 3: 검색 주도 주제 발굴 ───────────────────────────────────────────────
@@ -1015,33 +1036,30 @@ export async function runPostPipeline(
         }
 
       } else if (communityCuration) {
-        // 모드 C-5: 작당 수다방 커뮤니티 화제글 소개 — 창의 스타일 헤더 이미지 1장.
-        // 원문(커뮤니티) 이미지를 긁어오면 저작권 위험이 크므로, 주제를 상징하는 AI 이미지만
-        // 생성해 상단에 넣는다(썸네일 용도). 실패해도 게시는 유지.
-        try {
-          const aiPrompt = `A playful, eye-catching conceptual illustration for a casual Korean online-community discussion post about "${communityCuration.originalTitle}". Vivid editorial illustration style, symbolic not literal, no text, no logos, no watermarks, no real screenshots.`;
-          const gen = await genImage({ prompt: aiPrompt, imageModel });
-          if (gen) {
-            const ext = gen.mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
-            const uploaded = await uploadImage(
-              {
-                filename: `bot-community-${topicResult.topic.id}.${ext}`,
-                mimetype: gen.mimetype,
-                data: gen.data,
-              },
-              "editor-images",
+        // 모드 C-5: 작당 수다방 커뮤니티 화제글 퍼오기 — 원문 대표 이미지·움짤을 그대로 옮긴다.
+        // 국내 베스트글은 이미지/움짤이 위트의 핵심이라, AI로 표지를 지어내지 않고 원문 미디어를
+        // 재호스팅해 본문 상단에 넣는다(출처=커뮤니티+원문 링크). 원문 CDN은 핫링크 차단이 많아
+        // 원문 URL을 Referer로 넣어 받는다. 미디어가 없거나 다운로드 실패면 텍스트 소개만 유지.
+        finalContentJson = draftJson;
+        if (communityMediaUrl) {
+          try {
+            const rehosted = await uploadExternalImage({
+              url: communityMediaUrl,
+              referer: communityCuration.sourceUrl,
+              uploadFn: uploadImage,
+            });
+            if (rehosted) {
+              finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, rehosted, {
+                sourceLabel: communityCuration.site,
+                sourceUrl: communityCuration.sourceUrl,
+              });
+            }
+          } catch (ccImgErr) {
+            console.warn(
+              "[post-pipeline] 커뮤니티 원문 미디어 재호스팅 실패 (텍스트만 게시):",
+              (ccImgErr as Error).message,
             );
-            imageCost += gen.costUsd;
-            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.url, {});
-          } else {
-            finalContentJson = draftJson;
           }
-        } catch (ccImgErr) {
-          console.warn(
-            "[post-pipeline] 커뮤니티 소개 헤더 이미지 실패 (이미지 없이 계속):",
-            (ccImgErr as Error).message,
-          );
-          finalContentJson = draftJson;
         }
 
       } else if (imageStrategy === "meme") {

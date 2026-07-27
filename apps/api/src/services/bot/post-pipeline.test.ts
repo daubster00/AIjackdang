@@ -22,6 +22,7 @@ const {
   mockUploadWebImage,
   mockPrependImageToTiptapDoc,
   mockPrependImageWithSourceToTiptapDoc,
+  mockUploadExternalImage,
   mockGuardBotContentWithMasking,
   mockCreatePostAsBot,
   mockCreateQuestionAsBot,
@@ -50,6 +51,7 @@ const {
   mockUploadWebImage: vi.fn(),
   mockPrependImageToTiptapDoc: vi.fn(),
   mockPrependImageWithSourceToTiptapDoc: vi.fn(),
+  mockUploadExternalImage: vi.fn(),
   mockGuardBotContentWithMasking: vi.fn(),
   mockCreatePostAsBot: vi.fn(),
   mockCreateQuestionAsBot: vi.fn(),
@@ -106,6 +108,7 @@ vi.mock("@ai-jakdang/server-bot/image", () => ({
   uploadWebImage: mockUploadWebImage,
   prependImageToTiptapDoc: mockPrependImageToTiptapDoc,
   prependImageWithSourceToTiptapDoc: mockPrependImageWithSourceToTiptapDoc,
+  uploadExternalImage: mockUploadExternalImage,
   genImage: vi.fn().mockResolvedValue(null),
 }));
 
@@ -280,6 +283,11 @@ describe("runPostPipeline", () => {
     mockPrependImageToTiptapDoc.mockImplementation(
       (doc: Record<string, unknown>) => doc,
     );
+    mockPrependImageWithSourceToTiptapDoc.mockImplementation(
+      (doc: Record<string, unknown>) => doc,
+    );
+    // 커뮤니티 원문 미디어 재호스팅 기본값(성공 → S3 URL)
+    mockUploadExternalImage.mockResolvedValue("https://cdn.example.com/community.jpg");
     mockGuardBotContentWithMasking.mockResolvedValue({ ok: true, title: "mock title" });
     mockRunSelfCensor.mockResolvedValue(passAllCensorResult);
     mockCreatePostAsBot.mockResolvedValue({ status: "published", refId: POST_ID });
@@ -595,5 +603,84 @@ describe("runPostPipeline", () => {
         postInput: expect.objectContaining({ board: "talk" }),
       }),
     );
+  });
+
+  // ── 시나리오 13b: 원문 대표 이미지/움짤을 그대로 옮긴다(AI 표지 생성 안 함) ──────
+  it("작당 수다방: 원문에 이미지가 있으면 Referer와 함께 재호스팅해 상단에 삽입한다", async () => {
+    const personaChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockPersona]) }),
+      }),
+    };
+    const curationChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([{ curationEnabled: true, curationWeights: null }]),
+        }),
+      }),
+    };
+    mockDb.select.mockReturnValueOnce(personaChain).mockReturnValueOnce(curationChain);
+
+    mockIsSearchDrivenTopicsEnabled.mockResolvedValue(true);
+    const sourceUrl = "https://bbs.ruliweb.com/best/board/300143/read/76082253";
+    mockDiscoverCommunityPost.mockResolvedValue({
+      site: "루리웹",
+      originalTitle: "쌀 40kg 변기에 버려서 오수관 막힘.jpg",
+      sourceUrl,
+      titleSeed: "변기에 쌀 40kg 버린 대참사 ㅋㅋ",
+      angle: "어이없는 사건 화제글",
+      imageUrl: "https://i2.ruliweb.com/ori/26/07/27/abc.webp",
+      imageIsGif: false,
+      excerpt: "쌀이 물에 불어서 배관이 다 막혔다는 글",
+      grounding: { facts: ["루리웹 화제글"], sourceUrls: [sourceUrl], rawSnippetCount: 1, confidence: "medium", costUsd: 0 },
+    });
+    mockSelectTopic.mockResolvedValue(null);
+
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: "talk" });
+
+    expect(result.status).toBe("published");
+    // 원문 이미지를 원문 URL Referer와 함께 재호스팅한다(AI genImage 아님).
+    expect(mockUploadExternalImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://i2.ruliweb.com/ori/26/07/27/abc.webp",
+        referer: sourceUrl,
+      }),
+    );
+    // 재호스팅 URL을 출처(커뮤니티명+원문링크)와 함께 상단에 삽입한다.
+    expect(mockPrependImageWithSourceToTiptapDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      "https://cdn.example.com/community.jpg",
+      expect.objectContaining({ sourceLabel: "루리웹", sourceUrl }),
+    );
+  });
+
+  // ── 시나리오 13c: 커뮤니티 화제글을 못 구하면 밈·잡담으로 폴백하지 않고 스킵 ──────
+  it("작당 수다방: 커뮤니티 화제글 발굴 실패 시 폴백 없이 skipped", async () => {
+    const personaChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockPersona]) }),
+      }),
+    };
+    const curationChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([{ curationEnabled: true, curationWeights: null }]),
+        }),
+      }),
+    };
+    mockDb.select.mockReturnValueOnce(personaChain).mockReturnValueOnce(curationChain);
+
+    mockIsSearchDrivenTopicsEnabled.mockResolvedValue(true);
+    mockDiscoverCommunityPost.mockResolvedValue(null); // 전 사이트 차단·무결과
+
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: "talk" });
+
+    expect(result.status).toBe("skipped");
+    expect(result.reason).toBe("community-curation-empty");
+    // 폴백 경로(일반 발굴·주제 풀·글 생성)로 새지 않는다.
+    expect(mockDiscoverTopic).not.toHaveBeenCalled();
+    expect(mockSelectTopic).not.toHaveBeenCalled();
+    expect(mockCallModel).not.toHaveBeenCalled();
+    expect(mockCreatePostAsBot).not.toHaveBeenCalled();
   });
 });

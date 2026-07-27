@@ -83,8 +83,9 @@ export interface ResourceCurationContext {
 /**
  * 국내 커뮤니티 화제글 큐레이션 컨텍스트.
  * '작당 수다방'에서 봇이 국내 대형 커뮤니티(디시·더쿠·아카라이브 등)의 베스트 게시판에서
- * 지금 화제인 글을 발견해 "요즘 이런 글이 화제더라"며 출처 링크와 함께 소개하는 글을 쓸 때 전달.
- * 원문 본문을 옮기지 않고 제목 기반으로 소개만 한다(출처 링크가 핵심).
+ * 지금 화제인 글을 발견해 소개하는 글을 쓸 때 전달.
+ * 국내 베스트글은 대부분 이미지/움짤이 위트의 핵심이라, 원문 대표 미디어를 그대로 옮기고
+ * (mediaUrl) 원문 맥락(excerpt)을 살려 아주 살짝만 다듬어 소개한다. 출처 링크가 핵심.
  */
 export interface CommunityCurationContext {
   /** 출처 커뮤니티 이름(예: "디시인사이드", "더쿠"). */
@@ -93,6 +94,12 @@ export interface CommunityCurationContext {
   originalTitle: string;
   /** 원문 링크(본문에 노출). */
   sourceUrl: string;
+  /** 원문 대표 이미지·움짤이 본문 상단에 첨부됐는지(프롬프트가 "짤 소개" 톤으로 전환). */
+  hasMedia?: boolean;
+  /** 대표 미디어가 움짤(gif)인지. */
+  mediaIsGif?: boolean;
+  /** 원문 본문 발췌(맥락 보강). */
+  excerpt?: string;
 }
 
 /**
