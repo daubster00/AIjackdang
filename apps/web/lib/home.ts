@@ -99,7 +99,7 @@ export async function fetchMonetizationPosts(): Promise<PopularPostItem[]> {
 export async function fetchPopularResources(): Promise<ResourceItem[]> {
   try {
     const res = await fetch(
-      `${API_BASE}/api/v1/resources/popular?limit=4`,
+      `${API_BASE}/api/v1/resources/popular?limit=6`,
       fetchOpts,
     );
     if (!res.ok) return [];
