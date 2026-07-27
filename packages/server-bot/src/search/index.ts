@@ -58,6 +58,7 @@ export type {
 export {
   discoverCommunityPost,
   scrapeCommunityHotPosts,
+  fetchKoreaTrends,
   COMMUNITY_SITES,
 } from './community-scrape';
 export type {

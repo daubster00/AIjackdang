@@ -245,6 +245,26 @@ export async function fetchPostMedia(url: string): Promise<PostMedia> {
 const NOTICE_RE =
   /(공지|필독|운영\s*규정|이용\s*규칙|이용\s*안내|갤러리\s*이용|점검\s*안내|규정\s*안내|이벤트\s*당첨|당첨자\s*발표|서버\s*점검|비밀번호\s*변경|보안\s*강화|매우\s*?중요)/;
 
+// ── 실시간 트렌드(지금 한국에서 뜨는 검색어) ───────────────────────────────────────
+// "요즘 유행하는 것"을 잡기 위한 보조 신호. 커뮤니티 베스트 게시판이 이미 "지금 화제"를
+// 담고 있지만, Google 트렌드 한국 실시간 검색어를 모델에 참고로 주면 후보 중 지금 진짜
+// 바이럴한 것을 더 잘 고르게 된다. 실패 시 빈 배열(트렌드 없이 진행).
+
+/** Google 트렌드 한국(geo=KR) 실시간 급상승 검색어 상위 N개를 가져온다. 실패 시 []. */
+export async function fetchKoreaTrends(limit = 15): Promise<string[]> {
+  const html = await fetchHtml('https://trends.google.com/trending/rss?geo=KR', 7000);
+  if (!html) return [];
+  const out: string[] = [];
+  // <item><title>키워드</title> — 채널 상단 <title>(Daily Search Trends 등)은 제외.
+  const re = /<item>[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < limit) {
+    const kw = decodeEntities(m[1]!).replace(/\s+/g, ' ').trim();
+    if (kw && kw.length <= 30 && !/search trends/i.test(kw)) out.push(kw);
+  }
+  return out;
+}
+
 // ── 사이트별 파서 ────────────────────────────────────────────────────────────────
 // 각 파서는 목록 HTML → {title, url}[]를 "노출 순서(=인기순)" 그대로 반환한다.
 // 파싱 실패·구조 변경 시 빈 배열을 반환해도 되도록(그 사이트만 조용히 스킵) 설계했다.
@@ -530,11 +550,11 @@ export async function discoverCommunityPost(
   const { modelAssignment, callModel, onCostAccumulated, existingTitles, seedIndex } =
     options;
 
-  const posts = await scrapeCommunityHotPosts({
-    perSite: 6,
-    sitesPerRun: 5,
-    seedIndex: seedIndex ?? 0,
-  });
+  // 후보 수집 + 지금 한국에서 뜨는 검색어(트렌드) 병렬 취득.
+  const [posts, trends] = await Promise.all([
+    scrapeCommunityHotPosts({ perSite: 6, sitesPerRun: 5, seedIndex: seedIndex ?? 0 }),
+    fetchKoreaTrends(15).catch(() => [] as string[]),
+  ]);
   if (posts.length === 0) {
     console.log('[community-scrape] 후보 글 0건 — 발굴 실패');
     return null;
@@ -554,12 +574,19 @@ export async function discoverCommunityPost(
           .join('\n')}`
       : '';
 
+  // 지금 한국에서 뜨는 검색어(트렌드) — "요즘 유행하는 것"을 우선하도록 참고로 제공.
+  const trendBlock =
+    trends.length > 0
+      ? `\n\n[지금 한국에서 뜨는 검색어(참고)]\n${trends.join(', ')}\n위 트렌드와 맞물리는 후보가 있으면 우선 고려하세요(단, 억지로 끼워맞추지 말 것 — 수다방에 안 맞으면 무시).`
+      : '';
+
   const system = `당신은 한국의 AI·자동화·바이브코딩 커뮤니티 '작당 수다방'의 콘텐츠 큐레이터입니다.
 아래는 국내 대형 커뮤니티들의 '베스트/실시간/랭킹' 게시판에서 지금 조회수·추천이 높아 화제가 된 글 목록입니다.
-이 중에서 우리 커뮤니티(AI에 관심 많은 사람들이 가볍게 떠드는 수다방) 독자가 재미있어하거나 이야깃거리로 삼을 만한 글 하나를 고르세요.
+이 중에서 우리 커뮤니티(AI에 관심 많은 사람들이 가볍게 떠드는 수다방) 독자가 재미있어하거나 이야깃거리로 삼을 만한 "지금 가장 유행하는/화제인" 글 하나를 고르세요.
 규칙:
 1. 반드시 아래 목록에 실제로 있는 글만 고르세요(번호로 지정). 목록에 없는 걸 지어내지 마세요.
 2. AI·기술 주제가 아니어도 됩니다. 사람들이 반응할 만한 재미있는/화제성 있는 일반 글도 좋습니다.
+2-1. "지금 유행하는 것" 우선: 여러 커뮤니티([사이트]로 표시)에 비슷한 소재가 겹쳐 보이면 그건 진짜 바이럴이니 우선하세요. 아래 트렌드 검색어와 맞물리는 것도 좋습니다.
 3. 단, 지나치게 자극적·혐오·정치 편향·선정적인 글은 피하세요. 편하게 떠들 만한 소재를 고르세요.
 4. titleSeed = 커뮤니티에 올릴 "제목". 실제 사람이 짤 올릴 때처럼 쓰세요:
    - 원문 제목을 그대로 복사하지 말 것.
@@ -571,7 +598,7 @@ export async function discoverCommunityPost(
 
   const user = `<untrusted_content>
 ${listing}
-</untrusted_content>${avoidBlock}
+</untrusted_content>${trendBlock}${avoidBlock}
 
 다음 형식의 JSON만 출력하세요:
 {
