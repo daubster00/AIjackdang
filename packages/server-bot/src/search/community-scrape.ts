@@ -513,24 +513,48 @@ interface CommunityModelOutput {
   angle: string;
 }
 
-function parseCommunityOutput(text: string): CommunityModelOutput | null {
-  try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    const parsed = JSON.parse(match[0]) as Record<string, unknown>;
-    const pick =
-      typeof parsed.pick === 'number'
-        ? parsed.pick
-        : typeof parsed.pick === 'string'
-          ? Number(parsed.pick)
-          : NaN;
-    const titleSeed = typeof parsed.titleSeed === 'string' ? parsed.titleSeed.trim() : '';
-    if (!Number.isFinite(pick) || !titleSeed) return null;
-    const angle = typeof parsed.angle === 'string' ? parsed.angle.trim() : '';
-    return { pick, titleSeed, angle };
-  } catch {
-    return null;
+/** 코드펜스를 벗기고 JSON 객체 후보들을 뽑는다(가장 마지막 균형 객체 우선 — 앞의 설명문 배제). */
+function extractJsonCandidates(text: string): string[] {
+  const cleaned = text.replace(/```(?:json)?/gi, ' ');
+  const out: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        out.push(cleaned.slice(start, i + 1));
+        start = -1;
+      }
+    }
   }
+  // 마지막(대개 실제 답) 후보부터 시도하도록 역순.
+  return out.reverse();
+}
+
+function parseCommunityOutput(text: string): CommunityModelOutput | null {
+  for (const candidate of extractJsonCandidates(text)) {
+    try {
+      const parsed = JSON.parse(candidate) as Record<string, unknown>;
+      const pick =
+        typeof parsed.pick === 'number'
+          ? parsed.pick
+          : typeof parsed.pick === 'string'
+            ? Number(parsed.pick)
+            : NaN;
+      const titleSeed = typeof parsed.titleSeed === 'string' ? parsed.titleSeed.trim() : '';
+      if (!Number.isFinite(pick) || !titleSeed) continue;
+      const angle = typeof parsed.angle === 'string' ? parsed.angle.trim() : '';
+      return { pick, titleSeed, angle };
+    } catch {
+      // 다음 후보 시도
+    }
+  }
+  return null;
 }
 
 /**
@@ -609,11 +633,13 @@ ${listing}
 
   let parsed: CommunityModelOutput | null = null;
   let modelCost = 0;
-  const MAX_TRY = 2;
+  const MAX_TRY = 3;
   for (let attempt = 1; attempt <= MAX_TRY && !parsed; attempt++) {
     let modelText: string;
     try {
-      const response = await callModel(modelAssignment, { system, user });
+      // maxTokens 여유 확보 — 추론형 모델(GPT-5/opus)이 추론 토큰으로 예산을 삼켜
+      // JSON이 절단/빈출력 되면 파싱 실패 후 스킵된다. 넉넉히 줘서 짤린 JSON을 막는다.
+      const response = await callModel(modelAssignment, { system, user, maxTokens: 2000 });
       modelText = response.text;
       modelCost += response.costUsd;
     } catch (err) {

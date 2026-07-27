@@ -104,7 +104,7 @@ export interface FactGrounding {
  */
 export type CallModelFn = (
   assignment: BotModelAssignment,
-  prompt: { system: string; user: string },
+  prompt: { system: string; user: string; maxTokens?: number },
 ) => Promise<{
   text: string;
   usage: { inputTokens: number; outputTokens: number };
