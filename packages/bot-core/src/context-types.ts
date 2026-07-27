@@ -103,6 +103,27 @@ export interface CommunityCurationContext {
 }
 
 /**
+ * AI 창작마당 쇼케이스 컨텍스트.
+ * '멋진 AI 이미지/영상을 자랑·소개'하는 글을 쓸 때 전달. 밈·잡담이 아니라 "이 결과물 어때?"
+ * 느낌의 짧은 자랑글. 이미지는 이미 상단에 첨부돼 있고, 봇은 그 이미지를 보지 못하므로
+ * 내용을 구체적으로 설명하지 않는다(제목이 궁금증·감탄을 담당, 본문은 최소).
+ */
+export interface AiShowcaseContext {
+  /** curated=해외(Civitai 등)에서 퍼온 것, generated=봇이 직접 생성한 것. */
+  kind: "curated" | "generated";
+  /** 출처 라벨(예: "Civitai"). curated일 때. */
+  sourceLabel?: string;
+  /** 출처 원문 링크. curated일 때. */
+  sourceUrl?: string;
+  /** 생성 모델명(예: "Krea 2", "Flux"). 있으면 곁들일 수 있음. */
+  model?: string;
+  /** 작성자(curated). */
+  author?: string;
+  /** 봇이 직접 생성했다면 사용한 프롬프트(공유용, generated). */
+  promptUsed?: string;
+}
+
+/**
  * 고정 커리큘럼 "강의 편" 컨텍스트.
  * 관리자 페르소나가 가이드 시리즈(예: "제로부터 바이브코딩")의 정해진 챕터를 쓸 때 전달.
  * 검색 발굴 대신 커리큘럼이 주제를 정하고, 본문 정해진 자리에 이미지 마커를 넣는다.
@@ -160,6 +181,8 @@ export interface PostUserPromptOptions {
   resourceCuration?: ResourceCurationContext;
   /** 작당 수다방 커뮤니티 화제글 소개일 때 전달. 있으면 "국내 커뮤니티 화제글을 출처와 함께 소개" 지침으로 전환. */
   communityCuration?: CommunityCurationContext;
+  /** AI 창작마당 쇼케이스(멋진 AI 결과물 자랑)일 때 전달. 있으면 "짧은 자랑글" 지침으로 전환. */
+  aiShowcase?: AiShowcaseContext;
   /** 고정 커리큘럼 강의 편일 때 전달. 있으면 커리큘럼 전용 지침으로 전환. */
   guideChapter?: GuideChapterContext;
   /**

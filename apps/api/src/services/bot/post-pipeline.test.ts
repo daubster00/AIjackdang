@@ -16,6 +16,7 @@ const {
   mockGroundTopic,
   mockDiscoverTopic,
   mockDiscoverCommunityPost,
+  mockDiscoverAiShowcase,
   mockDecideImageStrategy,
   mockFetchBotImage,
   mockSearchWebImage,
@@ -23,6 +24,7 @@ const {
   mockPrependImageToTiptapDoc,
   mockPrependImageWithSourceToTiptapDoc,
   mockUploadExternalImage,
+  mockGenImage,
   mockGuardBotContentWithMasking,
   mockCreatePostAsBot,
   mockCreateQuestionAsBot,
@@ -45,6 +47,7 @@ const {
   mockGroundTopic: vi.fn(),
   mockDiscoverTopic: vi.fn(),
   mockDiscoverCommunityPost: vi.fn(),
+  mockDiscoverAiShowcase: vi.fn(),
   mockDecideImageStrategy: vi.fn(),
   mockFetchBotImage: vi.fn(),
   mockSearchWebImage: vi.fn(),
@@ -52,6 +55,7 @@ const {
   mockPrependImageToTiptapDoc: vi.fn(),
   mockPrependImageWithSourceToTiptapDoc: vi.fn(),
   mockUploadExternalImage: vi.fn(),
+  mockGenImage: vi.fn(),
   mockGuardBotContentWithMasking: vi.fn(),
   mockCreatePostAsBot: vi.fn(),
   mockCreateQuestionAsBot: vi.fn(),
@@ -99,6 +103,8 @@ vi.mock("@ai-jakdang/server-bot/search", () => ({
   groundTopic: mockGroundTopic,
   discoverTopic: mockDiscoverTopic,
   discoverCommunityPost: mockDiscoverCommunityPost,
+  discoverAiShowcase: mockDiscoverAiShowcase,
+  pickShowcaseTitle: (i: number) => `쇼케이스제목-${i % 3}`,
 }));
 
 vi.mock("@ai-jakdang/server-bot/image", () => ({
@@ -109,7 +115,10 @@ vi.mock("@ai-jakdang/server-bot/image", () => ({
   prependImageToTiptapDoc: mockPrependImageToTiptapDoc,
   prependImageWithSourceToTiptapDoc: mockPrependImageWithSourceToTiptapDoc,
   uploadExternalImage: mockUploadExternalImage,
-  genImage: vi.fn().mockResolvedValue(null),
+  genImage: mockGenImage,
+  planImagesForPost: vi.fn().mockResolvedValue({ items: [], bodyWithMarkers: "", plannerCostUsd: 0 }),
+  prependYoutubeToTiptapDoc: vi.fn((doc: Record<string, unknown>) => doc),
+  insertInlineImagesByMarker: vi.fn((_body: unknown) => ({ doc: {} })),
 }));
 
 vi.mock("@ai-jakdang/bot-core", () => ({
@@ -260,6 +269,8 @@ describe("runPostPipeline", () => {
     mockDiscoverTopic.mockResolvedValue(null);
     // 커뮤니티 화제글 큐레이션 기본 OFF(발굴 실패=null → 봇 직접 작성 경로 유지)
     mockDiscoverCommunityPost.mockResolvedValue(null);
+    // AI 창작마당 쇼케이스(Civitai) 기본 OFF(null → 직접 생성 폴백)
+    mockDiscoverAiShowcase.mockResolvedValue(null);
     mockGetModelAssignment.mockResolvedValue(mockGenAssignment);
     mockCallModel.mockResolvedValue({
       text: "생성된 글 텍스트입니다.",
@@ -288,6 +299,8 @@ describe("runPostPipeline", () => {
     );
     // 커뮤니티 원문 미디어 재호스팅 기본값(성공 → S3 URL)
     mockUploadExternalImage.mockResolvedValue("https://cdn.example.com/community.jpg");
+    // AI 이미지 생성 기본값(없음 → 이미지 없이 계속)
+    mockGenImage.mockResolvedValue(null);
     mockGuardBotContentWithMasking.mockResolvedValue({ ok: true, title: "mock title" });
     mockRunSelfCensor.mockResolvedValue(passAllCensorResult);
     mockCreatePostAsBot.mockResolvedValue({ status: "published", refId: POST_ID });
@@ -508,10 +521,10 @@ describe("runPostPipeline", () => {
     expect(mockMarkTopicUsed).not.toHaveBeenCalled();
   });
 
-  // ── 시나리오 12: 밈 큐레이션 미디어 우선 (Step 2.6) ────────────────────────
+  // ── 시나리오 12: AI 창작마당 쇼케이스 — Civitai 퍼오기 (Step 2.6b) ────────────
 
-  it("밈 큐레이션(미디어 우선): 밈을 먼저 찾으면 주제 풀 없이 발행 + 찾아둔 밈 첨부", async () => {
-    // 1번째 select=페르소나, 2번째 select=게시판 큐레이션 설정(밈 100%로 고정해 랜덤 제거)
+  it("AI 창작마당: Civitai 인기 AI 이미지를 Referer와 함께 재호스팅해 자랑글로 발행", async () => {
+    // 1번째 select=페르소나, 2번째 select=게시판 큐레이션 설정(civitai 100%로 고정)
     const personaChain = {
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
@@ -523,7 +536,7 @@ describe("runPostPipeline", () => {
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue([
-            { curationEnabled: true, curationWeights: { youtube: 0, meme: 100, ai: 0 } },
+            { curationEnabled: true, curationWeights: { youtube: 0, civitai: 100, ai: 0 } },
           ]),
         }),
       }),
@@ -532,33 +545,67 @@ describe("runPostPipeline", () => {
       .mockReturnValueOnce(personaChain)
       .mockReturnValueOnce(curationChain);
 
-    const meme = {
-      url: "https://img.example.com/meme.jpg",
-      sourcePageUrl: "https://community.example.com/post/1",
-      sourceLabel: "community.example.com",
-      alt: "AI가 만든 웃긴 밈",
-    };
-    mockSearchWebImage.mockResolvedValue(meme);
-    mockUploadWebImage.mockResolvedValue({
-      imageUrl: "https://cdn.example.com/meme-uploaded.jpg",
-      source: { label: meme.sourceLabel, url: meme.sourcePageUrl },
+    mockDiscoverAiShowcase.mockResolvedValue({
+      imageUrl: "https://image.civitai.com/abc/def.png",
+      sourceUrl: "https://civitai.com/images/12345",
+      sourceLabel: "Civitai",
+      model: "Krea 2",
+      author: "someartist",
+      reactions: 1500,
+      titleSeed: "이걸 AI가 그렸다고?",
+      grounding: { facts: ["Civitai 인기 AI 이미지"], sourceUrls: ["https://civitai.com/images/12345"], rawSnippetCount: 10, confidence: "medium", costUsd: 0 },
     });
-    mockSelectTopic.mockResolvedValue(null); // 주제 풀 완전 고갈 상황
+    mockUploadExternalImage.mockResolvedValue("https://cdn.example.com/showcase.png");
+    mockSelectTopic.mockResolvedValue(null); // 주제 풀 의존 없음
 
-    // 밈 큐레이션은 ai-creation 같은 큐레이션 보드에서 동작한다.
-    // (talk 보드는 이제 유튜브/밈이 아니라 '커뮤니티 화제글 큐레이션'으로 분기하므로 여기선 쓰지 않는다.)
     const result = await runPostPipeline({ personaId: PERSONA_ID, board: "ai-creation" });
 
     expect(result.status).toBe("published");
-    expect(mockSelectTopic).not.toHaveBeenCalled(); // 풀 의존 없음
     expect(mockDiscoverTopic).not.toHaveBeenCalled(); // 소재 확보 시 발굴 생략
-    expect(mockUploadWebImage).toHaveBeenCalledWith(meme, expect.anything());
-    expect(mockFetchBotImage).not.toHaveBeenCalled(); // 게시 시점 재검색 없음
+    expect(mockSelectTopic).not.toHaveBeenCalled();
+    // Civitai 이미지를 civitai.com Referer로 재호스팅한다.
+    expect(mockUploadExternalImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://image.civitai.com/abc/def.png",
+        referer: "https://civitai.com/",
+      }),
+    );
+    // 재호스팅 URL을 출처(Civitai·모델)와 함께 상단 삽입.
     expect(mockPrependImageWithSourceToTiptapDoc).toHaveBeenCalledWith(
       expect.anything(),
-      "https://cdn.example.com/meme-uploaded.jpg",
-      expect.objectContaining({ sourceUrl: meme.sourcePageUrl }),
+      "https://cdn.example.com/showcase.png",
+      expect.objectContaining({ sourceUrl: "https://civitai.com/images/12345" }),
     );
+  });
+
+  // ── 시나리오 12b: AI 창작마당 — Civitai 실패 시 직접 생성 자랑으로 폴백 ──────────
+  it("AI 창작마당: Civitai 실패 시 직접 AI 이미지를 생성해 자랑글로 발행", async () => {
+    const personaChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockPersona]) }),
+      }),
+    };
+    const curationChain = {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([
+            { curationEnabled: true, curationWeights: { youtube: 0, civitai: 100, ai: 0 } },
+          ]),
+        }),
+      }),
+    };
+    mockDb.select.mockReturnValueOnce(personaChain).mockReturnValueOnce(curationChain);
+
+    mockDiscoverAiShowcase.mockResolvedValue(null); // Civitai 무결과 → 직접 생성 폴백
+    mockGenImage.mockResolvedValue({ data: Buffer.from("img"), mimetype: "image/png", costUsd: 0.03 });
+    mockSelectTopic.mockResolvedValue(null);
+
+    const result = await runPostPipeline({ personaId: PERSONA_ID, board: "ai-creation" });
+
+    expect(result.status).toBe("published");
+    expect(mockDiscoverTopic).not.toHaveBeenCalled();
+    expect(mockGenImage).toHaveBeenCalled(); // 직접 생성
+    expect(mockUploadExternalImage).not.toHaveBeenCalled(); // 퍼오기 아님
   });
 
   // ── 시나리오 13: 작당 수다방 커뮤니티 화제글 큐레이션 (Step 2.8) ──────────────

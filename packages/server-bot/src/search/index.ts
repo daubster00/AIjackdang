@@ -65,7 +65,11 @@ export type {
   DiscoverCommunityPostOptions,
   CommunityHotPost,
   ScrapeOptions,
+  PostMedia,
 } from './community-scrape';
+/** 해외 AI 창작 쇼케이스 큐레이션(AI 창작마당) re-export. */
+export { discoverAiShowcase, pickShowcaseTitle } from './ai-showcase';
+export type { DiscoveredAiShowcase, DiscoverAiShowcaseOptions } from './ai-showcase';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 

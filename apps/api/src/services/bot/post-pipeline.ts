@@ -31,13 +31,11 @@ import { eq, and, inArray, count } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
-import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource, discoverCommunityPost } from "@ai-jakdang/server-bot/search";
-import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType, CuratedFileSource } from "@ai-jakdang/server-bot/search";
+import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource, discoverCommunityPost, discoverAiShowcase, pickShowcaseTitle } from "@ai-jakdang/server-bot/search";
+import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType, CuratedFileSource, DiscoveredAiShowcase } from "@ai-jakdang/server-bot/search";
 import {
   decideImageStrategy,
   fetchBotImage,
-  searchWebImage,
-  uploadWebImage,
   prependYoutubeToTiptapDoc,
   prependImageWithSourceToTiptapDoc,
   insertInlineImagesByMarker,
@@ -51,7 +49,6 @@ import type {
   ImageStrategyOptions,
   GuideAssetManifest,
   PostImagePlan,
-  WebImage,
 } from "@ai-jakdang/server-bot/image";
 import {
   buildPersonaSystemPrompt,
@@ -59,6 +56,7 @@ import {
   extractTextFromTiptap,
 } from "@ai-jakdang/bot-core";
 import type {
+  AiShowcaseContext,
   BotPersonaForPrompt,
   CommunityCurationContext,
   CurationContext,
@@ -71,7 +69,7 @@ import type {
 import {
   decideCurationMode,
   curationVideoQuery,
-  curationMemeQuery,
+  curationCreativePrompt,
   checkCurationCopyrightRisk,
   type CurationMode,
   type BoardCurationConfig,
@@ -354,28 +352,44 @@ export async function runPostPipeline(
       });
     }
   }
-  // 유튜브 영상을 못 구하면 밈 퍼오기로 폴백(빈손 skip 방지).
-  const effectiveCuration: CurationMode | null =
-    curationMode === "youtube" && !curatedVideo ? "meme" : curationMode;
+  // 유튜브 영상을 못 구하면 이미지 쇼케이스(Civitai)로 폴백(빈손 skip 방지·밈 폐지).
+  let effectiveCuration: CurationMode | null =
+    curationMode === "youtube" && !curatedVideo ? "civitai" : curationMode;
 
-  // ── Step 2.6: 밈 미디어 우선 — 밈 이미지를 먼저 찾고, 찾은 밈 자체를 글감으로 쓴다 ──
-  // 유튜브 모드(영상=글감)와 같은 구조. 주제 풀·발굴 없이도 밈 소개글이 성립하므로
-  // 발굴 제외 게시판(ai-creation 등)에서 주제 풀이 비어도 no-topic으로 죽지 않는다.
-  // 유료 스톡 출처는 소재로 쓰지 않는다(저작권 위험 후보는 폐기 → 기존 폴백 사다리로 진행).
-  let curatedMeme: WebImage | null = null;
-  if (effectiveCuration === "meme") {
-    curatedMeme = await searchWebImage(curationMemeQuery(persona.nickname));
-    if (curatedMeme && checkCurationCopyrightRisk(curatedMeme.sourcePageUrl)) {
-      curatedMeme = null;
-    }
-    if (curatedMeme) {
+  // ── Step 2.6: (폐지) 밈 미디어 우선 ─────────────────────────────────────────
+  // AI 창작마당은 "멋진 AI 결과물 자랑"이므로 랜덤 웹 밈 모드를 폐지했다.
+  // effectiveCuration은 더 이상 "meme"이 되지 않는다(Civitai 퍼오기·직접 생성으로 대체).
+
+  // ── Step 2.6b: AI 창작마당 쇼케이스 — 해외 AI 창작물(Civitai) 퍼오기 or 직접 생성 ──
+  // 멋진 AI 이미지를 "자랑"하는 소재를 확보한다. civitai=해외 인기 AI 이미지 퍼오기,
+  // 실패하면 ai=봇이 고품질 프롬프트로 직접 생성. 둘 다 이미지가 주인공인 짧은 자랑글.
+  let curatedShowcase: DiscoveredAiShowcase | null = null;
+  let showcaseGenPrompt: string | null = null;
+  let showcaseTitleSeed = "";
+  if (effectiveCuration === "civitai") {
+    curatedShowcase = await discoverAiShowcase({ seedIndex: Math.floor(Math.random() * 1000) });
+    if (curatedShowcase) {
+      showcaseTitleSeed = curatedShowcase.titleSeed;
       await logActivity(db, personaId, "planned", null, {
-        reason: "curation-meme",
-        memeTitle: curatedMeme.alt,
-        sourceUrl: curatedMeme.sourcePageUrl,
+        reason: "curation-civitai",
+        sourceUrl: curatedShowcase.sourceUrl,
+        model: curatedShowcase.model,
       });
+    } else {
+      // Civitai 실패 → 직접 생성 자랑으로 폴백.
+      effectiveCuration = "ai";
     }
   }
+  if (effectiveCuration === "ai" && curationMode !== null) {
+    // AI 창작마당 직접 생성 자랑: 고품질 창작 프롬프트로 이미지 1장 생성 → 짧은 자랑글.
+    showcaseGenPrompt = curationCreativePrompt();
+    showcaseTitleSeed = pickShowcaseTitle(Math.floor(Math.random() * 1000));
+    await logActivity(db, personaId, "planned", null, {
+      reason: "curation-generate",
+    });
+  }
+  // AI 창작마당 쇼케이스 여부(civitai 퍼오기 or 직접 생성) — 여러 분기에서 재사용.
+  const isAiShowcase = curatedShowcase !== null || showcaseGenPrompt !== null;
 
   // ── Step 2.7: 실전자료 큐레이션 — 실물 자료 검색·소개 ────────────────────────
   // 자료 보드에서 퍼오기(실물 자료 큐레이션)를 켜면, 봇이 자료를 창작하는 대신
@@ -521,7 +535,7 @@ export async function runPostPipeline(
   // 발굴 결과는 버려지므로 검색·모델 비용만 아낀다.
   // 운영자가 realtimeTopic을 명시 주입한 수동 트리거는 그 주제를 강제하므로 발굴을 건너뛴다
   // (발굴이 돌면 봇이 자기 주제를 뽑아 주입 주제를 덮어써 버린다).
-  if (!input.realtimeTopic && !curatedVideo && !curatedMeme && !resourceCuration && !communityCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
+  if (!input.realtimeTopic && !curatedVideo && !isAiShowcase && !resourceCuration && !communityCuration && wantsDiscovery && (await isSearchDrivenTopicsEnabled(db))) {
     try {
       const existingTitles = await getRecentTopicTitles(db, personaId, 20);
       discovered = await discoverTopic(discoveryQuery, board, {
@@ -556,13 +570,13 @@ export async function runPostPipeline(
       createdAt: new Date(),
     };
     topicResult = { topic: videoTopic, wasRealtime: true };
-  } else if (curatedMeme) {
-    // 밈 큐레이션(미디어 우선): 찾은 밈 자체가 소재이므로 시드 주제가 필요 없다(제목=검색 결과 제목).
-    const memeTopic: BotTopicRow = {
-      id: `curated-meme-${Date.now()}`,
+  } else if (isAiShowcase) {
+    // AI 창작마당 쇼케이스: 이미지가 소재이므로 시드 주제 대신 궁금증형 제목을 쓴다.
+    const showcaseTopic: BotTopicRow = {
+      id: `curated-showcase-${Date.now()}`,
       personaId,
       board,
-      titleSeed: curatedMeme.alt ?? "요즘 화제인 AI 밈",
+      titleSeed: showcaseTitleSeed || "요즘 AI 근황 ㄷㄷ",
       topicKind: "realtime",
       status: "unused",
       usedAt: null,
@@ -570,7 +584,7 @@ export async function runPostPipeline(
       postId: null,
       createdAt: new Date(),
     };
-    topicResult = { topic: memeTopic, wasRealtime: true };
+    topicResult = { topic: showcaseTopic, wasRealtime: true };
   } else if (resourceCuration) {
     // 실전자료 큐레이션: 발굴한 실제 자료가 소재이므로 시드 주제가 필요 없다(제목=발굴 제목).
     const resourceTopic: BotTopicRow = {
@@ -680,7 +694,13 @@ export async function runPostPipeline(
 
   // ── Step 6: 검색·그라운딩 (발굴했으면 그 근거 재사용, 아니면 새로 검색) ──────────
   let facts: FactSummary;
-  if (communityCuration && communityCurationGrounding) {
+  if (curatedShowcase) {
+    // AI 창작마당 쇼케이스(퍼오기): 이미지가 주인공이고 봇은 이미지를 못 보므로 재검색하지 않는다.
+    facts = adaptGrounding(curatedShowcase.grounding);
+  } else if (showcaseGenPrompt) {
+    // AI 창작마당 직접 생성 자랑: 근거가 필요 없다(짧은 자랑글).
+    facts = { facts: [], sourceUrls: [], confidence: "low" };
+  } else if (communityCuration && communityCurationGrounding) {
     // 커뮤니티 화제글 큐레이션은 발굴 단계에서 제목·출처를 근거로 확보했으므로 재검색하지 않는다.
     facts = adaptGrounding(communityCurationGrounding);
   } else if (resourceCuration && resourceCurationGrounding) {
@@ -729,13 +749,13 @@ export async function runPostPipeline(
   );
   let imageStrategy: ImageStrategy = isAdminPersona ? "ai" : baseStrategy;
 
-  // 큐레이션 모드 오버라이드: youtube=영상이 미디어라 이미지 없음 / meme=웹 밈 퍼오기 / ai=봇 직접 생성
+  // 큐레이션 모드 오버라이드. AI 창작마당 쇼케이스(civitai 퍼오기·ai 직접생성)는 아래
+  // 이미지 처리 단계의 전용 분기가 이미지 1장을 넣으므로, 여기서 일반 플래너 경로로 새지
+  // 않도록 imageStrategy를 "none"으로 둔다(youtube도 영상이 미디어라 이미지 없음).
   if (effectiveCuration === "youtube") {
     imageStrategy = "none";
-  } else if (effectiveCuration === "meme") {
-    imageStrategy = "web";
-  } else if (effectiveCuration === "ai") {
-    imageStrategy = "ai";
+  } else if (effectiveCuration === "civitai" || effectiveCuration === "ai") {
+    imageStrategy = "none";
   }
 
   // 실전자료 큐레이션: 봇이 자료 내용을 이미지로 "지어내면" 안 되지만, 썸네일용으로
@@ -744,7 +764,7 @@ export async function runPostPipeline(
   // → 일반 플래너(다중 도식)로는 가지 않도록 imageStrategy 는 여기서 건드리지 않고
   //    이미지 처리 단계에서 resourceCuration 을 먼저 가로챈다.
 
-  // 큐레이션 소개글 컨텍스트(프롬프트에 전달). ai 모드·비큐레이션은 undefined.
+  // 큐레이션 소개글 컨텍스트(프롬프트에 전달). 유튜브만 이 컨텍스트를 쓴다.
   const curationContext: CurationContext | undefined =
     effectiveCuration === "youtube"
       ? {
@@ -752,13 +772,20 @@ export async function runPostPipeline(
           title: curatedVideo?.title,
           channel: curatedVideo?.channel ?? undefined,
         }
-      : effectiveCuration === "meme"
-        ? {
-            kind: "meme",
-            title: curatedMeme?.alt ?? undefined,
-            channel: curatedMeme?.sourceLabel ?? undefined,
-          }
-        : undefined;
+      : undefined;
+
+  // AI 창작마당 쇼케이스 컨텍스트(프롬프트에 전달) — "짧은 자랑글" 지침으로 전환.
+  const aiShowcaseContext: AiShowcaseContext | undefined = curatedShowcase
+    ? {
+        kind: "curated",
+        sourceLabel: curatedShowcase.sourceLabel,
+        sourceUrl: curatedShowcase.sourceUrl,
+        model: curatedShowcase.model ?? undefined,
+        author: curatedShowcase.author ?? undefined,
+      }
+    : showcaseGenPrompt
+      ? { kind: "generated", promptUsed: showcaseGenPrompt }
+      : undefined;
 
   // ── Step 7: 관리자 연재 컨텍스트 조회 ────────────────────────────────────────
   let seriesContext: SeriesContext | undefined;
@@ -804,6 +831,7 @@ export async function runPostPipeline(
       curation: curationContext,
       resourceCuration: resourceCuration ?? undefined,
       communityCuration: communityCuration ?? undefined,
+      aiShowcase: aiShowcaseContext,
       revision,
     });
 
@@ -862,6 +890,8 @@ export async function runPostPipeline(
       allowObvious:
         internalPostKind === "guide" ||
         (effectiveCuration !== null && effectiveCuration !== "ai") ||
+        // AI 창작마당 쇼케이스(퍼오기·직접생성)는 "짧은 자랑글"이라 심층 인사이트 면제.
+        isAiShowcase ||
         // 실전자료 큐레이션은 "실제 자료 소개"라 심층 인사이트(비범함)를 요구하면 과도한 재생성이 발생.
         resourceCuration !== null ||
         // 커뮤니티 화제글 소개도 "소재 소개"라 심층 인사이트를 요구하면 과도한 재생성이 발생.
@@ -913,72 +943,57 @@ export async function runPostPipeline(
           sourceUrl: curatedVideo.pageUrl,
         });
 
-      } else if (effectiveCuration === "meme" && curatedMeme) {
-        // 모드 C-2a: 밈 퍼오기(미디어 우선) — Step 2.6에서 찾아 둔 밈을 그대로 첨부.
-        // 출처는 검색 시점에 저작권 위험 검증을 통과했으므로 보류 없이 게시한다.
-        const uploaded = await uploadWebImage(curatedMeme, uploadImage);
-        if (uploaded) {
-          finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.imageUrl, {
-            sourceLabel: uploaded.source.label,
-            sourceUrl: uploaded.source.url,
+      } else if (curatedShowcase) {
+        // 모드 C-6: AI 창작마당 쇼케이스(퍼오기) — Civitai 인기 AI 이미지를 그대로 옮긴다.
+        // Civitai CDN은 Referer가 필요하므로 civitai.com을 Referer로 넣어 재호스팅한다.
+        // 출처=Civitai(+모델) + 원문 링크. 다운로드 실패면 텍스트만 게시.
+        finalContentJson = draftJson;
+        try {
+          const rehosted = await uploadExternalImage({
+            url: curatedShowcase.imageUrl,
+            referer: "https://civitai.com/",
+            uploadFn: uploadImage,
           });
-        } else {
-          // 다운로드·업로드 실패 → 이미지 없이 계속(게시 차단 금지)
-          finalContentJson = draftJson;
+          if (rehosted) {
+            const label = curatedShowcase.model
+              ? `${curatedShowcase.sourceLabel} · ${curatedShowcase.model}`
+              : curatedShowcase.sourceLabel;
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, rehosted, {
+              sourceLabel: label,
+              sourceUrl: curatedShowcase.sourceUrl,
+            });
+          }
+        } catch (scErr) {
+          console.warn(
+            "[post-pipeline] Civitai 쇼케이스 이미지 재호스팅 실패 (텍스트만 게시):",
+            (scErr as Error).message,
+          );
         }
 
-      } else if (effectiveCuration === "meme") {
-        // 모드 C-2b: 밈 퍼오기(레거시) — 미디어 우선 검색이 빈손이라 발굴/주제 풀로 주제를
-        // 확보한 경우. 게시 직전에 웹 이미지를 재검색 + 저작권 위험 판정.
+      } else if (showcaseGenPrompt) {
+        // 모드 C-7: AI 창작마당 쇼케이스(직접 생성) — 고품질 창작 프롬프트로 이미지 1장 생성.
+        // 출처 없음(우리가 만든 것). 생성 실패면 텍스트만 게시.
+        finalContentJson = draftJson;
         try {
-          const memeQuery = curationMemeQuery(persona.nickname);
-          const memeImgResult = await fetchBotImage({
-            persona: personaContext,
-            board,
-            postKind: imagePostKind,
-            keyword: memeQuery,
-            webQuery: memeQuery,
-            strategyOptions: { preferWeb: true },
-            uploadFn: uploadImage,
-            imageModel,
-          });
-
-          const sourceUrl = memeImgResult.source?.url;
-          if (memeImgResult.imageUrl && sourceUrl && checkCurationCopyrightRisk(sourceUrl)) {
-            // 저작권 위험 → 보류 큐 적재 + 파이프라인 중단
-            await db.insert(schema.botHoldQueue).values({
-              jobId,
-              reason: "copyright_risk",
-              decided: false,
-            });
-            await db
-              .update(schema.botGenerationJobs)
-              .set({ status: "held", updatedAt: new Date() })
-              .where(eq(schema.botGenerationJobs.id, jobId));
-            await logActivity(db, personaId, "held", jobId, {
-              reason: "copyright_risk",
-              sourceUrl,
-            });
-            pipelineResult = { status: "held", jobId };
-            break;
-          } else if (memeImgResult.imageUrl) {
-            // 저작권 안전 → 이미지 + 출처 캡션 삽입
-            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, memeImgResult.imageUrl, {
-              sourceLabel: memeImgResult.source?.label ?? undefined,
-              sourceUrl: memeImgResult.source?.url ?? undefined,
-            });
-            imageCost += 0; // 웹 이미지는 AI 비용 없음
-          } else {
-            // 이미지 없음 → 원본 본문 사용(게시 차단 금지)
-            finalContentJson = draftJson;
+          const gen = await genImage({ prompt: showcaseGenPrompt, imageModel });
+          if (gen) {
+            const ext = gen.mimetype.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+            const uploaded = await uploadImage(
+              {
+                filename: `bot-showcase-${topicResult.topic.id}.${ext}`,
+                mimetype: gen.mimetype,
+                data: gen.data,
+              },
+              "editor-images",
+            );
+            imageCost += gen.costUsd;
+            finalContentJson = prependImageWithSourceToTiptapDoc(draftJson, uploaded.url, {});
           }
-        } catch (memeErr) {
-          // 밈 이미지 실패 → 이미지 없이 계속(게시 차단 금지)
+        } catch (genErr) {
           console.warn(
-            "[post-pipeline] 밈 이미지 조달 실패 (이미지 없이 계속):",
-            (memeErr as Error).message,
+            "[post-pipeline] 쇼케이스 직접 생성 이미지 실패 (텍스트만 게시):",
+            (genErr as Error).message,
           );
-          finalContentJson = draftJson;
         }
 
       } else if (resourceCuration) {

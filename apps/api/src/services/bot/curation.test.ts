@@ -42,29 +42,32 @@ describe("decideCurationMode", () => {
     }
   });
 
-  it("curationConfig.enabled=true이면 youtube/meme/ai 중 하나 반환 (ai-creation)", () => {
+  it("curationConfig.enabled=true이면 youtube/civitai/ai 중 하나 반환하며 meme는 절대 안 나온다", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 300; i++) {
       const mode = decideCurationMode("ai-creation", false, { enabled: true });
       expect(mode).not.toBeNull();
-      expect(["youtube", "meme", "ai"]).toContain(mode);
+      expect(["youtube", "civitai", "ai"]).toContain(mode);
       if (mode) seen.add(mode);
     }
-    // 퍼오기 위주 기본 가중치라 youtube·meme는 충분히 자주 나와야 한다
-    expect(seen.has("youtube")).toBe(true);
-    expect(seen.has("meme")).toBe(true);
+    // AI 창작마당은 civitai 퍼오기·직접 생성 위주. meme는 폐지되어 절대 안 나온다.
+    expect(seen.has("civitai")).toBe(true);
+    expect(seen.has("meme")).toBe(false);
   });
 
-  it("curationConfig.enabled=true이면 youtube/meme/ai 중 하나 반환 (talk — 범위 확장)", () => {
+  it("구 설정에 meme 가중치만 있어도 civitai로 흡수된다(meme 미노출)", () => {
     const seen = new Set<string>();
-    for (let i = 0; i < 300; i++) {
-      const mode = decideCurationMode("talk", false, { enabled: true });
-      expect(mode).not.toBeNull();
-      expect(["youtube", "meme", "ai"]).toContain(mode);
+    for (let i = 0; i < 200; i++) {
+      // 옛날 저장값: youtube 0, meme 100 → 이제 meme는 civitai로 이관돼야 한다.
+      const mode = decideCurationMode("ai-creation", false, {
+        enabled: true,
+        weights: { youtube: 0, meme: 100, ai: 0 },
+      });
       if (mode) seen.add(mode);
     }
-    expect(seen.has("youtube")).toBe(true);
-    expect(seen.has("meme")).toBe(true);
+    expect(seen.size).toBe(1);
+    expect(seen.has("civitai")).toBe(true);
+    expect(seen.has("meme")).toBe(false);
   });
 
   it("커스텀 weights가 반영된다", () => {
@@ -73,7 +76,7 @@ describe("decideCurationMode", () => {
     for (let i = 0; i < 30; i++) {
       const mode = decideCurationMode("talk", false, {
         enabled: true,
-        weights: { youtube: 100, meme: 0, ai: 0 },
+        weights: { youtube: 100, civitai: 0, ai: 0 },
       });
       if (mode) seen.add(mode);
     }

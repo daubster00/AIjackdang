@@ -14,8 +14,13 @@
  * [Source: _bmad-output/implementation-artifacts/13-8-curation-media-first-scope-expansion.md]
  */
 
-/** 큐레이션 모드. */
-export type CurationMode = "youtube" | "meme" | "ai";
+/** 큐레이션 모드.
+ *  - youtube : 유튜브 AI 영상 임베드 + 소개
+ *  - civitai : 해외 AI 창작(Civitai) 인기 이미지 퍼오기 + 소개(자랑)
+ *  - ai      : 봇이 직접 고품질 AI 이미지 생성(자랑)
+ *  - meme    : (폐지) 랜덤 웹 밈 — 저품질이라 AI 창작마당에서 제거. 하위호환 위해 타입만 유지.
+ */
+export type CurationMode = "youtube" | "meme" | "ai" | "civitai";
 
 /**
  * 게시판별 퍼오기 설정 — bot_persona_boards.curation_enabled/curation_weights에서 읽어서 주입.
@@ -31,13 +36,15 @@ export interface BoardCurationConfig {
 }
 
 /**
- * 퍼오기 위주 기본 가중치 (합 100). 유튜브·밈 퍼오기가 대부분, 봇 직접 생성은 가끔.
+ * AI 창작마당 큐레이션 기본 가중치 (합 100). "멋진 AI 결과물 자랑" 성격에 맞춰
+ * 해외 AI 창작(Civitai) 퍼오기·직접 생성·유튜브 영상으로 구성. 밈은 폐지(항상 0).
  * curationWeights가 없거나 불완전할 때 폴백으로 사용한다.
  */
 const CURATION_WEIGHTS: Record<CurationMode, number> = {
-  youtube: 45,
-  meme: 40,
-  ai: 15,
+  youtube: 25,
+  meme: 0,
+  civitai: 45,
+  ai: 30,
 };
 
 /**
@@ -62,17 +69,25 @@ export function decideCurationMode(
   // 설정이 없거나 비활성이면 퍼오기 미적용
   if (!curationConfig || !curationConfig.enabled) return null;
 
-  // 가중치 폴백: weights가 없거나 불완전하면 기본값 사용
-  const w: Record<CurationMode, number> = {
+  // 가중치 폴백: weights가 없거나 불완전하면 기본값 사용.
+  // ⚠️ meme 모드는 폐지(랜덤 저품질 밈 제거) — 저장된 설정에 meme가 있어도 항상 0으로 무시하고
+  //    civitai(해외 AI 창작 퍼오기)로 흡수한다.
+  const w = {
     youtube: curationConfig.weights?.youtube ?? CURATION_WEIGHTS.youtube,
-    meme: curationConfig.weights?.meme ?? CURATION_WEIGHTS.meme,
+    civitai:
+      curationConfig.weights?.civitai ??
+      // 구 설정이 meme 가중치만 갖고 있으면 그 비중을 civitai로 이관.
+      (curationConfig.weights?.meme != null
+        ? curationConfig.weights.meme
+        : CURATION_WEIGHTS.civitai),
     ai: curationConfig.weights?.ai ?? CURATION_WEIGHTS.ai,
   };
 
-  const total = w.youtube + w.meme + w.ai;
+  const total = w.youtube + w.civitai + w.ai;
+  if (total <= 0) return "civitai";
   let roll = Math.random() * total;
   if ((roll -= w.youtube) < 0) return "youtube";
-  if ((roll -= w.meme) < 0) return "meme";
+  if ((roll -= w.civitai) < 0) return "civitai";
   return "ai";
 }
 
@@ -101,6 +116,26 @@ const MEME_QUERIES_MEME_PERSONA = [
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+/**
+ * AI 창작마당 '직접 생성(자랑)' 모드용 고품질 창작 이미지 프롬프트 풀(영어, 전부 SFW).
+ * 밈·도식이 아니라 "보고 감탄할 멋진 결과물"을 뽑기 위한 예술 지향 프롬프트.
+ */
+const SHOWCASE_CREATIVE_PROMPTS = [
+  "A breathtaking hyper-detailed digital painting of a floating city among glowing clouds at golden hour, cinematic lighting, epic scale, artstation trending, no text",
+  "A serene bioluminescent forest at night with a crystal-clear river, magical particles in the air, ultra-detailed, volumetric light, fantasy concept art, no text",
+  "A majestic cyberpunk street market in the rain, neon reflections, dense atmosphere, cinematic wide shot, highly detailed, moody color grading, no text",
+  "A colossal ancient dragon curled around a snowy mountain peak under the aurora, dramatic scale, painterly, concept art masterpiece, no text",
+  "An astronaut standing before a vast alien waterfall of stars, surreal cosmic scenery, dreamlike, ultra high detail, cinematic, no text",
+  "A cozy miniature cottage inside a glass terrarium, tiny glowing windows, macro photography style, whimsical, ultra detailed, soft light, no text",
+  "A phoenix made of liquid gold rising over a dark ocean, dynamic motion, dramatic contrast, hyper-detailed fantasy illustration, no text",
+  "A futuristic solarpunk city with lush vertical gardens and flying trams, bright optimistic mood, clean detailed illustration, no text",
+];
+
+/** 직접 생성 쇼케이스용 창작 프롬프트 1개 선택. */
+export function curationCreativePrompt(): string {
+  return pickRandom(SHOWCASE_CREATIVE_PROMPTS);
 }
 
 /** 유튜브 영상 검색어 선택(페르소나 무관 — AI 영상 지향). */

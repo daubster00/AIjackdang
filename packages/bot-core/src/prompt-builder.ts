@@ -7,6 +7,7 @@
  */
 
 import type {
+  AiShowcaseContext,
   BotPersonaForPrompt,
   CommunityCurationContext,
   CurationContext,
@@ -69,6 +70,7 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
     curation,
     resourceCuration,
     communityCuration,
+    aiShowcase,
     guideChapter,
     revision,
   } = options;
@@ -95,6 +97,11 @@ export function buildPostUserPrompt(options: PostUserPromptOptions): string {
       buildCommunityCurationUserPrompt(communityCuration, facts),
       revision,
     );
+  }
+
+  // AI 창작마당 쇼케이스: 멋진 AI 이미지를 자랑·소개하는 짧은 글. 이미지는 상단에 첨부됨.
+  if (aiShowcase) {
+    return appendRevisionBlock(buildAiShowcaseUserPrompt(aiShowcase), revision);
   }
 
   // 큐레이션(퍼오기) 소개글: 미디어는 파이프라인이 본문 위에 자동 첨부하므로,
@@ -491,17 +498,17 @@ function buildCommunityCurationUserPrompt(
   const rules = cc.hasMedia
     ? [
         "[작당 수다방 — 커뮤니티 화제글(짤) 퍼오기 지침]",
-        `이 글은 'AI·자동화에 관심 많은 사람들이 가볍게 떠드는 수다방'에, 요즘 ${cc.site} 같은 국내 커뮤니티에서 화제가 된 글을 짤(이미지/움짤)과 함께 퍼와서 공유하는 캐주얼한 글입니다.`,
-        "맨 위 이미지가 이 글의 주인공입니다. 실제 사람이 커뮤니티에서 짤 하나 주워와 '이거 봤어? ㅋㅋ' 하고 올리는 딱 그 느낌으로 쓰세요.",
+        `맨 위 이미지(짤)가 이 글의 주인공입니다. 실제 사람이 커뮤니티에 짤 하나 툭 올리는 딱 그 느낌으로 쓰세요.`,
+        "⚠️ 가장 중요: 실제 사람은 짤 밑에 긴 설명을 달지 않습니다. 이미지가 알아서 말하게 두세요.",
         "",
-        "핵심 원칙:",
-        "1. 원문 제목·발췌가 전달하는 위트와 맥락을 그대로 살리세요. 내용을 새로 지어내거나 엉뚱하게 비틀지 마세요.",
-        "2. 표현만 우리 수다방 말투로 아주 살짝 다듬으세요(원문을 통째로 베끼지도, 완전히 다른 얘기로 바꾸지도 말 것).",
-        "3. 이미지에 담긴 상황을 짧게 짚어주고, 커뮤니티 유저처럼 리액션(감상·웃음 포인트)을 한두 줄 곁들이세요.",
-        `4. 본문에 원문 링크(${cc.sourceUrl})를 반드시 넣어 '원문은 여기'라고 안내하세요.`,
+        "본문 분량(엄수):",
+        "- 기본은 '본문 없음' 또는 '딱 한 줄'입니다. 이미지 내용을 구구절절 설명하지 마세요.",
+        "- 한 줄을 쓴다면: 짧은 리액션('이거 실화냐 ㅋㅋ', '와 이건 좀'), 혹은 툭 던지는 한마디 정도.",
+        "- 페르소나가 유독 수다스러운 캐릭터일 때만 두세 줄까지 허용(그래도 짧게).",
+        "- 절대 3문장 넘게 설명조로 늘여쓰지 마세요. 위트는 '제목'이 담당하고, 본문은 비워두는 게 정답입니다.",
         "",
-        "분량: 짧게. 짤 밑에 3~5문장이면 충분합니다. 길게 늘여 설명하지 마세요.",
-        "금지: 원문에 없는 구체 사실·수치·인용 지어내기, 이미지와 무관한 얘기로 새기, 이모지 남발·기계적 상투어, 'AI'를 억지로 엮기.",
+        `출처: 본문 맨 끝에 원문 링크(${cc.sourceUrl}) 한 줄만 담백하게 넣으세요('원문' 또는 링크만).`,
+        "금지: 짤 내용 줄줄이 설명, 원문에 없는 사실 지어내기, 이모지 남발, 기계적 상투어, 'AI'를 억지로 엮기, 뻔한 도입부('요즘 화제인 글 소개할게요' 류).",
       ].join("\n")
     : [
         "[작당 수다방 — 커뮤니티 화제글 소개 지침]",
@@ -528,6 +535,54 @@ function buildCommunityCurationUserPrompt(
   return [`커뮤니티 화제글 소개 (${cc.site})`, subjectBlock, factsBlock || null, rules, format]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/**
+ * AI 창작마당 쇼케이스 유저 프롬프트.
+ *
+ * '멋진 AI 이미지를 자랑·소개'하는 짧은 글. 이미지는 이미 상단에 첨부돼 있고 봇은 그 이미지를
+ * 직접 보지 못하므로, 내용을 설명하려 들지 말고 짧게 던진다. 위트·궁금증은 '제목'이 담당하고
+ * 본문은 최소로 둔다(실제 사람이 멋진 짤 올릴 때처럼).
+ */
+function buildAiShowcaseUserPrompt(sc: AiShowcaseContext): string {
+  const isCurated = sc.kind === "curated";
+  const subjectBlock = [
+    "<자랑 대상>",
+    isCurated
+      ? `해외 AI 창작 커뮤니티(${sc.sourceLabel ?? "출처"})에서 지금 반응이 터진 AI 생성 이미지.`
+      : "봇이 방금 직접 뽑은 AI 생성 이미지.",
+    sc.model ? `생성 모델: ${sc.model}` : null,
+    sc.author ? `작성자: ${sc.author}` : null,
+    sc.promptUsed ? `사용한 프롬프트: ${sc.promptUsed}` : null,
+    sc.sourceUrl ? `원문 링크: ${sc.sourceUrl}` : null,
+    "</자랑 대상>",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const rules = [
+    "[AI 창작마당 — 멋진 AI 결과물 자랑 지침]",
+    "여긴 잘 만든 AI 이미지/영상을 '이거 봐봐, 어때?' 하고 자랑·공유하는 곳입니다(밈·잡담 아님).",
+    "맨 위 이미지가 주인공입니다. 당신은 그 이미지를 직접 볼 수 없으니, 내용을 구체적으로 묘사하려 하지 마세요.",
+    "",
+    "본문 분량(엄수):",
+    "- 기본은 '본문 없음' 또는 '딱 한 줄'. 감탄·자랑 한마디면 충분('이 퀄 실화냐', '요즘 AI 미쳤다').",
+    "- 페르소나가 수다스러운 캐릭터일 때만 두 줄까지. 절대 설명조로 늘여쓰지 마세요.",
+    isCurated
+      ? `- 퍼온 것이므로, 본문 끝에 출처(${sc.sourceLabel ?? "출처"}${sc.model ? `, ${sc.model}` : ""}) + 원문 링크를 담백하게 한 줄 넣으세요.`
+      : sc.promptUsed
+        ? "- 직접 생성한 것이므로, 원하면 사용한 프롬프트를 한 줄 공유해도 좋습니다(자랑 겸)."
+        : "- 직접 뽑은 결과물을 가볍게 자랑하세요.",
+    "",
+    "금지: 이미지 내용 지어내서 묘사하기(못 보니까), 장황한 설명, 이모지 남발, 기계적 상투어, 뻔한 도입부.",
+  ].join("\n");
+
+  const format = [
+    "마크다운 문단. 소제목·목차 없이 짧게.",
+    "글 제목은 쓰지 마세요(제목은 시스템이 붙입니다).",
+  ].join("\n");
+
+  return ["AI 창작물 자랑", subjectBlock, rules, format].join("\n\n");
 }
 
 /**
