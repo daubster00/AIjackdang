@@ -43,15 +43,20 @@ function isYoutubeUrl(raw: string): boolean {
 }
 
 /**
- * Brave 동영상 검색으로 유튜브 영상 1건을 고른다.
+ * Brave 동영상 검색으로 유튜브 후보들을 반환한다(랜덤 픽 없이 전부).
+ *
+ * discoverAiCreativeVideo가 LLM 선택을 위해 여러 후보를 필요로 하므로,
+ * 랜덤 1개가 아니라 유튜브 링크 후보 배열을 그대로 넘긴다.
  * @param query - 검색어(영어 권장, 예: "AI generated short film").
- * @returns CuratedVideo | null (키 미설정·유튜브 결과 없음·오류 시 null).
+ * @param limit - 최대 후보 수(기본 8).
+ * @returns CuratedVideo[] (키 미설정·유튜브 결과 없음·오류 시 빈 배열).
  */
-export async function searchYoutubeVideo(
+export async function searchYoutubeVideoCandidates(
   query: string,
-): Promise<CuratedVideo | null> {
-  if (!env.BRAVE_SEARCH_API_KEY) return null;
-  if (!query || !query.trim()) return null;
+  limit = 8,
+): Promise<CuratedVideo[]> {
+  if (!env.BRAVE_SEARCH_API_KEY) return [];
+  if (!query || !query.trim()) return [];
 
   const params = new URLSearchParams({
     q: query,
@@ -79,7 +84,7 @@ export async function searchYoutubeVideo(
     );
     if (!response.ok) {
       console.error(`[search/brave-video] HTTP ${response.status}: ${response.statusText}`);
-      return null;
+      return [];
     }
 
     const data = (await response.json()) as {
@@ -92,19 +97,18 @@ export async function searchYoutubeVideo(
     };
 
     // 유튜브 링크만 후보로.
-    const candidates = (data.results ?? []).filter(
-      (it) => typeof it.url === 'string' && isYoutubeUrl(it.url),
-    );
-    if (candidates.length === 0) return null;
-
-    const chosen = pickRandom(candidates);
-    const url = chosen.url!;
-    return {
-      url,
-      title: chosen.title?.trim() || 'AI 영상',
-      channel: chosen.video?.creator ?? chosen.video?.publisher ?? null,
-      pageUrl: url,
-    };
+    return (data.results ?? [])
+      .filter((it) => typeof it.url === 'string' && isYoutubeUrl(it.url))
+      .slice(0, limit)
+      .map((it) => {
+        const url = it.url!;
+        return {
+          url,
+          title: it.title?.trim() || 'AI 영상',
+          channel: it.video?.creator ?? it.video?.publisher ?? null,
+          pageUrl: url,
+        } satisfies CuratedVideo;
+      });
   } catch (err) {
     const errName = (err as { name?: string }).name;
     if (errName === 'AbortError') {
@@ -112,8 +116,21 @@ export async function searchYoutubeVideo(
     } else {
       console.error('[search/brave-video] 검색 실패:', err);
     }
-    return null;
+    return [];
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+/**
+ * Brave 동영상 검색으로 유튜브 영상 1건을 고른다(하위호환 — 랜덤 픽).
+ * @param query - 검색어(영어 권장, 예: "AI generated short film").
+ * @returns CuratedVideo | null (키 미설정·유튜브 결과 없음·오류 시 null).
+ */
+export async function searchYoutubeVideo(
+  query: string,
+): Promise<CuratedVideo | null> {
+  const candidates = await searchYoutubeVideoCandidates(query, 10);
+  if (candidates.length === 0) return null;
+  return pickRandom(candidates);
 }

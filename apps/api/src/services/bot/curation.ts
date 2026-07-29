@@ -91,15 +91,9 @@ export function decideCurationMode(
   return "ai";
 }
 
-/** 유튜브 AI 영상 검색어 풀(영어). */
-const VIDEO_QUERIES = [
-  "AI generated short film",
-  "AI music video Suno Udio",
-  "AI animation short film Sora",
-  "AI generated movie trailer",
-  "Runway Sora AI video showcase",
-  "AI art animation viral",
-];
+// 유튜브 AI 영상 검색어는 고정 풀(박제)을 폐지했다. 이제 감상용 AI 창작 영상은
+// server-bot/search/ai-video.ts의 discoverAiCreativeVideo가 LLM으로 검색어를 생성하고
+// 후보 중 감상용 창작물을 선택한다(비교·리뷰·종료 서비스 영상 배제).
 
 /** AI 밈/이미지 검색어 풀(밈 특화 캐릭터는 더 밈 지향). */
 const MEME_QUERIES_DEFAULT = [
@@ -136,11 +130,6 @@ const SHOWCASE_CREATIVE_PROMPTS = [
 /** 직접 생성 쇼케이스용 창작 프롬프트 1개 선택. */
 export function curationCreativePrompt(): string {
   return pickRandom(SHOWCASE_CREATIVE_PROMPTS);
-}
-
-/** 유튜브 영상 검색어 선택(페르소나 무관 — AI 영상 지향). */
-export function curationVideoQuery(): string {
-  return pickRandom(VIDEO_QUERIES);
 }
 
 /** AI 밈/이미지 검색어 선택(밈 특화 캐릭터 '냉장고털이'는 밈 지향 풀). */

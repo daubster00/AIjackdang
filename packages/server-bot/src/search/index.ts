@@ -44,8 +44,14 @@ export type {
   DiscoverTopicOptions,
 } from './discovery';
 /** 유튜브 영상 큐레이션(퍼오기) re-export. */
-export { searchYoutubeVideo } from './brave-video';
+export { searchYoutubeVideo, searchYoutubeVideoCandidates } from './brave-video';
 export type { CuratedVideo } from './brave-video';
+/** AI 창작 영상 큐레이션(감상용 AI 영상 — LLM 검색어 생성+선택) re-export. */
+export { discoverAiCreativeVideo, isRejectedVideoTitle } from './ai-video';
+export type {
+  DiscoveredAiCreativeVideo,
+  DiscoverAiCreativeVideoOptions,
+} from './ai-video';
 /** 실전자료 큐레이션(실물 자료 검색·소개) re-export. */
 export { discoverResource } from './resource-discovery';
 export type {

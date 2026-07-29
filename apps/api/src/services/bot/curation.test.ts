@@ -7,7 +7,6 @@
 import { describe, it, expect } from "vitest";
 import {
   decideCurationMode,
-  curationVideoQuery,
   curationMemeQuery,
   checkCurationCopyrightRisk,
 } from "./curation.js";
@@ -86,10 +85,6 @@ describe("decideCurationMode", () => {
 });
 
 describe("curation 검색어", () => {
-  it("영상 검색어는 비어있지 않은 문자열", () => {
-    expect(curationVideoQuery().length).toBeGreaterThan(0);
-  });
-
   it("밈 검색어는 페르소나별 풀에서 선택되며 비어있지 않다", () => {
     expect(curationMemeQuery("냉장고털이").length).toBeGreaterThan(0);
     expect(curationMemeQuery("기타닉네임").length).toBeGreaterThan(0);

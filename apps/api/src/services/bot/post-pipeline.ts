@@ -31,7 +31,7 @@ import { eq, and, inArray, count } from "drizzle-orm";
 import { getDb, schema } from "@ai-jakdang/database";
 import type { Database } from "@ai-jakdang/database";
 import { callModel, getModelAssignment } from "@ai-jakdang/server-bot/ai";
-import { groundTopic, discoverTopic, searchYoutubeVideo, discoverResource, discoverCommunityPost, discoverAiShowcase, pickShowcaseTitle } from "@ai-jakdang/server-bot/search";
+import { groundTopic, discoverTopic, discoverAiCreativeVideo, discoverResource, discoverCommunityPost, discoverAiShowcase, pickShowcaseTitle } from "@ai-jakdang/server-bot/search";
 import type { FactGrounding, DiscoveredTopic, CuratedVideo, ResourceType, CuratedFileSource, DiscoveredAiShowcase } from "@ai-jakdang/server-bot/search";
 import {
   decideImageStrategy,
@@ -68,7 +68,6 @@ import type {
 } from "@ai-jakdang/bot-core";
 import {
   decideCurationMode,
-  curationVideoQuery,
   curationCreativePrompt,
   checkCurationCopyrightRisk,
   type CurationMode,
@@ -342,9 +341,22 @@ export async function runPostPipeline(
     ? null
     : decideCurationMode(board, isAdminPersona, boardCurationConfig);
   let curatedVideo: CuratedVideo | null = null;
+  // 유튜브 모드 제목 씨앗 — LLM이 만든 위트 제목(원제목 복붙 방지). 미확보 시 원제목 폴백.
+  let curatedVideoTitleSeed: string | null = null;
   if (curationMode === "youtube") {
-    curatedVideo = await searchYoutubeVideo(curationVideoQuery());
-    if (curatedVideo) {
+    // 고정 검색어 풀(박제) 대신, LLM이 검색어 생성 + 감상용 창작물 선택을 수행.
+    // 비교·리뷰·튜토리얼·종료 서비스(예: 소라) 영상은 거부하고, 못 고르면 null → civitai 폴백.
+    const creativeVideo = await discoverAiCreativeVideo({
+      modelAssignment: genAssignmentForGrounding,
+      callModel: (assignment, prompt) => callModel(assignment, prompt),
+      onCostAccumulated: async (costUsd) => {
+        groundingCost += costUsd;
+      },
+      existingTitles: await getRecentTopicTitles(db, personaId, 20),
+    });
+    if (creativeVideo) {
+      curatedVideo = creativeVideo.video;
+      curatedVideoTitleSeed = creativeVideo.titleSeed;
       await logActivity(db, personaId, "planned", null, {
         reason: "curation-youtube",
         videoUrl: curatedVideo.url,
@@ -556,12 +568,12 @@ export async function runPostPipeline(
   // ── Step 4: 주제 확정 (큐레이션 영상/밈 → 발굴 → 고정 시드 → 실시간 폴백) ────────
   let topicResult: { topic: BotTopicRow; wasRealtime: boolean };
   if (curatedVideo) {
-    // 유튜브 큐레이션: 영상 자체가 소재이므로 시드 주제가 필요 없다(제목=영상 제목).
+    // 유튜브 큐레이션: 영상 자체가 소재. 제목은 LLM이 만든 위트 제목(원제목 복붙 방지) 우선.
     const videoTopic: BotTopicRow = {
       id: `curated-${Date.now()}`,
       personaId,
       board,
-      titleSeed: curatedVideo.title,
+      titleSeed: curatedVideoTitleSeed ?? curatedVideo.title,
       topicKind: "realtime",
       status: "unused",
       usedAt: null,

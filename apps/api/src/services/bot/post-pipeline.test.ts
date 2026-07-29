@@ -17,6 +17,7 @@ const {
   mockDiscoverTopic,
   mockDiscoverCommunityPost,
   mockDiscoverAiShowcase,
+  mockDiscoverAiCreativeVideo,
   mockDecideImageStrategy,
   mockFetchBotImage,
   mockSearchWebImage,
@@ -48,6 +49,7 @@ const {
   mockDiscoverTopic: vi.fn(),
   mockDiscoverCommunityPost: vi.fn(),
   mockDiscoverAiShowcase: vi.fn(),
+  mockDiscoverAiCreativeVideo: vi.fn(),
   mockDecideImageStrategy: vi.fn(),
   mockFetchBotImage: vi.fn(),
   mockSearchWebImage: vi.fn(),
@@ -104,6 +106,7 @@ vi.mock("@ai-jakdang/server-bot/search", () => ({
   discoverTopic: mockDiscoverTopic,
   discoverCommunityPost: mockDiscoverCommunityPost,
   discoverAiShowcase: mockDiscoverAiShowcase,
+  discoverAiCreativeVideo: mockDiscoverAiCreativeVideo,
   pickShowcaseTitle: (i: number) => `쇼케이스제목-${i % 3}`,
 }));
 
@@ -271,6 +274,8 @@ describe("runPostPipeline", () => {
     mockDiscoverCommunityPost.mockResolvedValue(null);
     // AI 창작마당 쇼케이스(Civitai) 기본 OFF(null → 직접 생성 폴백)
     mockDiscoverAiShowcase.mockResolvedValue(null);
+    // AI 창작 영상 큐레이션(유튜브) 기본 OFF(null → civitai 폴백)
+    mockDiscoverAiCreativeVideo.mockResolvedValue(null);
     mockGetModelAssignment.mockResolvedValue(mockGenAssignment);
     mockCallModel.mockResolvedValue({
       text: "생성된 글 텍스트입니다.",
