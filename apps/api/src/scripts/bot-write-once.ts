@@ -25,7 +25,7 @@ const BOARD_BY_NICKNAME: Record<string, string> = {
   AI작당지기: "automation-guide",
   dubu_2: "automation-cases",
   latte2x: "automation-cases",
-  rainy03: "ai-products",
+  rainy03: "ai-creation",
   semo_k: "vibe-coding-tips",
   wolse99: "monetization-tips",
 };

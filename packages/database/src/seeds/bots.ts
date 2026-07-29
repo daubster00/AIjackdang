@@ -105,7 +105,7 @@ const PERSONAS: PersonaSeed[] = [
     intentionalFlaws: "이모지를 다소 많이 쓴다. 기술적 디테일은 얕고 감으로 설명하는 편이다.",
     infoRatio: 20,
     isAdminPersona: false,
-    boards: ["ai-creation", "ai-products", "talk"],
+    boards: ["ai-creation", "talk"],
     rhythm: {
       postsPerWeek: 3,
       commentsPerWeek: 8,

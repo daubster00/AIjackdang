@@ -105,6 +105,15 @@ export function toKSTDateKey(date: Date): string {
 }
 
 /**
+ * 봇이 글을 쓰면 안 되는 게시판 슬러그 집합.
+ * "ai-products"(내가 만든 AI 제품)는 사람이 직접 만든 결과물을 자랑하는 공간이라
+ * 봇 자동 작성 대상에서 완전히 제외한다.
+ * bot_persona_boards에 과거 시드/관리자 할당으로 행이 남아 있어도
+ * 스케줄러가 이 집합에 든 게시판은 무시하므로, 데이터 상태와 무관하게 절대 쓰지 않는다.
+ */
+const BOT_EXCLUDED_BOARDS = new Set<string>(["ai-products"]);
+
+/**
  * 가중치 기반 게시판 선택 (seed 기반, 결정론적).
  * boards가 비어있으면 "lounge"로 폴백.
  */
@@ -297,6 +306,8 @@ export async function dailyPlanProcessor(
   // personaId → boards 맵
   const boardsByPersona = new Map<string, Array<{ board: string; weight: number }>>();
   for (const b of allBoards) {
+    // 봇 금지 게시판(예: ai-products)은 할당 행이 남아 있어도 건너뛴다.
+    if (BOT_EXCLUDED_BOARDS.has(b.board)) continue;
     const list = boardsByPersona.get(b.personaId) ?? [];
     list.push({ board: b.board, weight: b.weight });
     boardsByPersona.set(b.personaId, list);

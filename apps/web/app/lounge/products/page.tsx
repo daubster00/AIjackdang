@@ -42,7 +42,7 @@ const sortOptions = [
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://localhost:4003";
 
 async function fetchProductsList(sp: Record<string, string>) {
-  const params = new URLSearchParams({ board: "products", pageSize: "20" });
+  const params = new URLSearchParams({ board: "ai-products", pageSize: "20" });
   if (sp.sort) params.set("sort", sp.sort);
   if (sp.page) params.set("page", sp.page);
   if (sp.q) params.set("q", sp.q);
