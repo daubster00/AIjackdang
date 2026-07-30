@@ -27,6 +27,7 @@ import { earnPoints, revokePoints, getTodayCount } from "../gamification/points.
 import { extractExternalUrls } from "../../../lib/extract-urls.js";
 import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
 import { getOgFetchQueue, OG_FETCH_JOB_NAME } from "../../../lib/queues.js";
+import { invalidateHomeCaches } from "../../../lib/cache.js";
 
 /** byte 크기를 사람이 읽기 쉬운 문자열로 변환한다. 예: 2516582 → "2.4 MB" */
 function formatFileSize(bytes: number): string {
@@ -522,6 +523,10 @@ export async function createPost({
       }
     }
     // ── [8.6] END ─────────────────────────────────────────────────────────────
+    // 홈 인기글·라운지 캐시 무효화 (published 게시글만) — 새 글이 홈에 바로 반영되게 함
+    if (result.status === "published") {
+      await invalidateHomeCaches();
+    }
     return result;
   });
 }
@@ -828,6 +833,8 @@ export async function updatePost({
       }
     }
     // ── [8.6] END ─────────────────────────────────────────────────────────────
+    // 홈 인기글·라운지 캐시 무효화 (수정으로 제목·썸네일·게시판·상태가 바뀔 수 있음)
+    await invalidateHomeCaches();
     return result;
   });
 }
@@ -884,6 +891,9 @@ export async function deletePost({
       console.error("[points] 게시글 회수 실패 (무시):", (err as Error).message);
     }
   });
+
+  // 홈 인기글·라운지 캐시 무효화 — 삭제된 글이 홈에 즉시 사라지게 함
+  await invalidateHomeCaches();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import type { AdminPostsQuery } from "@ai-jakdang/contracts";
 import { tiptapJsonToHtml } from "../../../lib/tiptap-renderer.js";
 import { sanitizeHtml } from "../../../lib/sanitize.js";
 import { extractFirstImageUrl } from "../../../lib/extract-first-image.js";
+import { invalidateHomeCaches } from "../../../lib/cache.js";
 
 /**
  * 게시글 본문(content_json)을 렌더 가능한 HTML 로 변환한다.
@@ -495,6 +496,8 @@ export async function hidePost(id: string) {
     .where(eq(posts.id, id))
     .returning({ id: posts.id, status: posts.status, updatedAt: posts.updatedAt });
 
+  await invalidateHomeCaches();
+
   return {
     id: updated.id,
     status: updated.status,
@@ -519,6 +522,8 @@ export async function restorePost(id: string) {
     .where(eq(posts.id, id))
     .returning({ id: posts.id, status: posts.status, updatedAt: posts.updatedAt });
 
+  await invalidateHomeCaches();
+
   return {
     id: updated.id,
     status: updated.status,
@@ -542,6 +547,8 @@ export async function deletePost(id: string) {
     .set({ status: "deleted", deletedAt: now, updatedAt: now })
     .where(eq(posts.id, id))
     .returning({ id: posts.id, status: posts.status, updatedAt: posts.updatedAt });
+
+  await invalidateHomeCaches();
 
   return {
     id: updated.id,
@@ -599,6 +606,7 @@ export async function purgePost(id: string) {
   await db.delete(botTopics).where(eq(botTopics.postId, id));
 
   await db.delete(posts).where(eq(posts.id, id));
+  await invalidateHomeCaches();
   return { id, purged: true };
 }
 
@@ -623,6 +631,8 @@ export async function bulkPostAction(
       .set({ status: "deleted", deletedAt: now, updatedAt: now })
       .where(inArray(posts.id, ids));
   }
+
+  await invalidateHomeCaches();
 
   return { affected: ids.length, action };
 }

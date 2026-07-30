@@ -54,6 +54,38 @@ export function buildPopularKey(category: string, period: "7d" | "30d"): string 
   return `main:popular:${category}:${period}`;
 }
 
+/**
+ * 홈 페이지 인기글·라운지 캐시를 전부 무효화한다.
+ *
+ * 게시글이 작성·삭제·상태변경될 때 호출한다. 인기글 캐시는 카테고리 기준 키라서
+ * 어떤 게시판이 바뀌었는지와 무관하게 홈 관련 키(전 카테고리×기간 + 라운지)를 통째로
+ * 지운다(키 수가 적어 비용이 낮고, 이후 최초 요청 시 DB에서 최신값으로 재생성됨).
+ *
+ * ⚠️ 이게 없으면 인기글 Redis TTL(3600s=1h)이 만료될 때까지 삭제된 글이 홈에 남는다.
+ */
+export async function invalidateHomeCaches(): Promise<void> {
+  const redis = getApiRedis();
+  // 홈 실전 인기글 탭이 쓰는 카테고리 + 'all'
+  const categories = [
+    "all",
+    "vibe-coding",
+    "ai-automation",
+    "ai-monetization",
+    "ai-creation",
+    "lounge",
+  ];
+  const periods: ("7d" | "30d")[] = ["7d", "30d"];
+  const keys: string[] = [MAIN_LOUNGE_LATEST];
+  for (const c of categories) {
+    for (const p of periods) keys.push(buildPopularKey(c, p));
+  }
+  try {
+    await redis.del(...keys);
+  } catch (e) {
+    logger.warn({ err: e }, "홈 캐시 무효화 실패 — 무시");
+  }
+}
+
 // ── withCache 래퍼 (AR-17, Story 8.9) ────────────────────────────────────────
 
 /**

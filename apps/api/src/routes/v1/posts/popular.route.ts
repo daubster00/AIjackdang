@@ -83,22 +83,24 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
       // board 필터 — 쉼표 구분 다중 보드 파싱
       const boardList = board ? board.split(",").map((b) => b.trim()).filter(Boolean) : [];
 
-      // WHERE 조건 구성
-      const conditions = [
+      // WHERE 조건 구성 — 날짜(기간) 조건은 폴백을 위해 분리해서 관리한다.
+      // baseConditions: status/deleted + board/category 필터 (기간 무관, 항상 적용)
+      // dateCondition : 최근 N일 필터 (1차 조회에만 적용, 결과 0건이면 제거하고 재조회)
+      const baseConditions = [
         eq(schema.posts.status, "published"),
         isNull(schema.posts.deletedAt),
-        sql`${schema.posts.createdAt} >= ${since.toISOString()}`,
       ];
+      const dateCondition = sql`${schema.posts.createdAt} >= ${since.toISOString()}`;
 
       if (boardList.length > 0) {
-        conditions.push(inArray(schema.posts.board, boardList));
+        baseConditions.push(inArray(schema.posts.board, boardList));
       } else if (category) {
         // category → board 슬러그 목록 매핑 (posts.category는 DB에서 채워지지 않으므로 board IN 필터로 대체)
         const categoryBoards = Object.entries(BOARDS)
           .filter(([, meta]) => meta.category === category)
           .map(([slug]) => slug);
         if (categoryBoards.length > 0) {
-          conditions.push(inArray(schema.posts.board, categoryBoards));
+          baseConditions.push(inArray(schema.posts.board, categoryBoards));
         } else {
           // 매칭 board가 없으면 빈 결과 반환
           return reply.code(200).send({ items: [] });
@@ -136,35 +138,46 @@ export async function registerPopularPostsRoute(app: FastifyInstance): Promise<v
         if (settingVal && typeof settingVal === "string") popularMetric = settingVal;
       }
 
-      const rows = await db
-        .select({
-          id: schema.posts.id,
-          title: schema.posts.title,
-          description: schema.posts.summary,
-          category: schema.posts.category,
-          board: schema.posts.board,
-          slug: schema.posts.slug,
-          viewCount: schema.posts.viewCount,
-          thumbnailUrl: schema.posts.thumbnailUrl,
-          createdAt: schema.posts.createdAt,
-          likeCount: sql<number>`(${likeCountSq})`,
-          commentCount: sql<number>`(${commentCountSq})`,
-        })
-        .from(schema.posts)
-        .where(and(...conditions))
-        .orderBy(
-          (() => {
-            if (sort === "latest") return desc(schema.posts.createdAt);
-            switch (popularMetric) {
-              case "views":    return desc(schema.posts.viewCount);
-              case "likes":    return desc(sql`(${likeCountSq})`);
-              case "comments": return desc(sql`(${commentCountSq})`);
-              case "recent":   return desc(schema.posts.createdAt);
-              default:         return desc(sql`${schema.posts.viewCount} + (${likeCountSq})`);
-            }
-          })(),
-        )
-        .limit(limit);
+      // 정렬 표현식 — 1차/폴백 조회에 공통 적용
+      const orderByExpr = (() => {
+        if (sort === "latest") return desc(schema.posts.createdAt);
+        switch (popularMetric) {
+          case "views":    return desc(schema.posts.viewCount);
+          case "likes":    return desc(sql`(${likeCountSq})`);
+          case "comments": return desc(sql`(${commentCountSq})`);
+          case "recent":   return desc(schema.posts.createdAt);
+          default:         return desc(sql`${schema.posts.viewCount} + (${likeCountSq})`);
+        }
+      })();
+
+      const runQuery = (conds: typeof baseConditions) =>
+        db
+          .select({
+            id: schema.posts.id,
+            title: schema.posts.title,
+            description: schema.posts.summary,
+            category: schema.posts.category,
+            board: schema.posts.board,
+            slug: schema.posts.slug,
+            viewCount: schema.posts.viewCount,
+            thumbnailUrl: schema.posts.thumbnailUrl,
+            createdAt: schema.posts.createdAt,
+            likeCount: sql<number>`(${likeCountSq})`,
+            commentCount: sql<number>`(${commentCountSq})`,
+          })
+          .from(schema.posts)
+          .where(and(...conds))
+          .orderBy(orderByExpr)
+          .limit(limit);
+
+      // 1차: 최근 N일 필터 적용
+      let rows = await runQuery([...baseConditions, dateCondition]);
+
+      // 폴백: 최근 기간에 글이 하나도 없으면 기간 제한을 풀고 전체기간 인기글로 채운다.
+      // (예: 수익화 탭이 7일 내 글이 없어 빈칸이던 문제 해소)
+      if (rows.length === 0) {
+        rows = await runQuery(baseConditions);
+      }
 
       // 태그 배치 조회 (N+1 방지)
       const postIds = rows.map((r) => r.id);
